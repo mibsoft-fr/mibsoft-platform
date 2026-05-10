@@ -19,12 +19,12 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f0fdf4;color:#1
 .card{background:linear-gradient(145deg,#fff,#f9fffe);border-radius:24px;border:1px solid rgba(255,255,255,.9);
   box-shadow:20px 20px 60px rgba(16,185,129,.1),0 8px 25px rgba(16,185,129,.07),inset 0 1px 0 rgba(255,255,255,.8);}
 /* PIN */
-.pin-wrap{display:flex;gap:12px;justify-content:center;margin-bottom:8px;}
-.pin-d{width:56px;height:68px;border-radius:14px;
+.pin-wrap{display:flex;gap:10px;justify-content:center;margin-bottom:8px;}
+.pin-d{width:44px;height:56px;border-radius:13px;
   background:linear-gradient(145deg,#dcfce7,#f0fdf4);
   border:2px solid rgba(16,185,129,.15);
   display:flex;align-items:center;justify-content:center;
-  font-family:'Syne',sans-serif;font-size:2rem;font-weight:900;color:#111827;
+  font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:900;color:#111827;
   box-shadow:inset 3px 3px 7px rgba(16,185,129,.1),inset -2px -2px 5px rgba(255,255,255,.9);transition:all .2s;}
 .pin-d.active{border-color:rgba(16,185,129,.5);box-shadow:inset 3px 3px 7px rgba(16,185,129,.1),inset -2px -2px 5px rgba(255,255,255,.9),0 0 0 3px rgba(16,185,129,.12);}
 .pin-d.filled{color:#059669;border-color:rgba(16,185,129,.3);}
@@ -65,7 +65,7 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f0fdf4;color:#1
   <div class="card w-full p-7" style="max-width:380px;">
     <div style="text-align:center;margin-bottom:16px;">
       <div style="font-size:.95rem;font-weight:800;color:#111827;">Votre code PIN</div>
-      <div style="font-size:.78rem;color:#6b7280;margin-top:4px;">Entrez votre PIN à 4 chiffres</div>
+      <div style="font-size:.78rem;color:#6b7280;margin-top:4px;">Entrez votre PIN à 6 chiffres</div>
     </div>
 
     <!-- Affichage PIN -->
@@ -74,6 +74,8 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f0fdf4;color:#1
       <div class="pin-d" id="pd-1">—</div>
       <div class="pin-d" id="pd-2">—</div>
       <div class="pin-d" id="pd-3">—</div>
+      <div class="pin-d" id="pd-4">—</div>
+      <div class="pin-d" id="pd-5">—</div>
     </div>
     <p style="font-size:.7rem;color:#9ca3af;text-align:center;margin-bottom:20px;">PIN fourni par votre formateur ou centre de formation</p>
 
@@ -112,11 +114,11 @@ window.addEventListener('DOMContentLoaded', () => {
   window.preCenterId = p.get('center') || null;
 });
 
-function kp(d) { if (pin.length >= 4) return; pin.push(d); updatePin(); }
+function kp(d) { if (pin.length >= 6) return; pin.push(d); updatePin(); }
 function kd() { if (!pin.length) return; pin.pop(); updatePin(); }
 
 function updatePin() {
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 6; i++) {
     const el = document.getElementById('pd-' + i);
     if (pin[i] !== undefined) {
       el.textContent = '●'; el.classList.add('filled'); el.classList.remove('active');
@@ -124,19 +126,19 @@ function updatePin() {
       el.textContent = '—'; el.classList.remove('filled', 'active');
     }
   }
-  if (pin.length < 4) document.getElementById('pd-' + pin.length)?.classList.add('active');
-  document.getElementById('key-ok').disabled = pin.length !== 4;
+  if (pin.length < 6) document.getElementById('pd-' + pin.length)?.classList.add('active');
+  document.getElementById('key-ok').disabled = pin.length !== 6;
 }
 
 // Clavier physique
 document.addEventListener('keydown', e => {
   if (e.key >= '0' && e.key <= '9') kp(e.key);
   else if (e.key === 'Backspace') kd();
-  else if (e.key === 'Enter' && pin.length === 4) verifyPin();
+  else if (e.key === 'Enter' && pin.length === 6) verifyPin();
 });
 
 async function verifyPin() {
-  if (pin.length !== 4) return;
+  if (pin.length !== 6) return;
   const errEl = document.getElementById('pin-err');
   errEl.classList.add('hidden');
   document.getElementById('pin-loading').classList.remove('hidden');
