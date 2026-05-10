@@ -167,13 +167,8 @@ async function doLogin() {
   };
   sessionStorage.setItem("patrol_session", JSON.stringify(patrolSession));
 
-  // Redirection selon qualification
   var base = window.location.href.replace(/patrol-login\.html.*/, "");
-  if (agent.qualification === "SSIAP 1") {
-    window.location.href = base + "patrol-rondier.html";
-  } else {
-    window.location.href = base + "patrol-agent.html";
-  }
+  window.location.href = base + "patrol-rondier.html";
 }
 
 function accesRondier() {
