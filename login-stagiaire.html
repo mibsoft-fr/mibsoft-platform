@@ -157,23 +157,27 @@ async function verifyPin() {
       p_role: 'stagiaire',
       p_pin: pinStr,
     });
+    console.log('[login] rpc resolve →', { rpcErr, rows });
     if (rpcErr) throw new Error('Erreur de connexion au serveur.');
 
     const row = Array.isArray(rows) ? rows[0] : rows;
     if (row?.locked) throw new Error('Compte temporairement verrouillé. Réessayez dans 5 minutes.');
     if (!row?.email) {
+      console.warn('[login] aucun email retourné pour ce PIN');
       await supabase.rpc('login_pin_fail', { p_center_id: centerId, p_role: 'stagiaire', p_pin: pinStr });
       throw new Error('PIN invalide ou compte désactivé.');
     }
 
     // 2) Authentification Supabase (PIN = mot de passe)
-    const { error: authErr } = await supabase.auth.signInWithPassword({
+    console.log('[login] signInWithPassword →', row.email);
+    const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
       email: row.email,
       password: pinStr,
     });
+    console.log('[login] auth result →', { authErr, hasUser: !!authData?.user });
     if (authErr) {
       await supabase.rpc('login_pin_fail', { p_center_id: centerId, p_role: 'stagiaire', p_pin: pinStr });
-      throw new Error('PIN invalide ou compte désactivé.');
+      throw new Error('Auth: ' + authErr.message);
     }
 
     // 3) Reset compteur d'échecs
