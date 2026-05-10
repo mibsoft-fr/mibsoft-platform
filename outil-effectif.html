@@ -136,30 +136,30 @@ let SESSION_USER = null;
 let CENTER = null;
 
 window.addEventListener('DOMContentLoaded', async function(){
-  // Détecter formateur ou stagiaire
-  let raw = localStorage.getItem('mib_formateur_session') || localStorage.getItem('mib_stagiaire');
+  // Détecter formateur ou stagiaire (clés réelles : mib_formateur, mib_stagiaire)
   let role = null;
   let parsed = null;
-  if (raw) {
-    try { parsed = JSON.parse(raw); } catch(e) {}
-  }
-  if (parsed) {
-    if (parsed.formateurId || parsed.formateur_id || parsed.role==='formateur' || parsed.type==='formateur') {
+  try {
+    const f = JSON.parse(localStorage.getItem('mib_formateur') || 'null');
+    if (f && f.formateur_id) {
       role = 'formateur';
       SESSION_USER = {
-        id: parsed.formateurId || parsed.formateur_id || parsed.id,
-        nom: (parsed.prenom?parsed.prenom+' ':'') + (parsed.nom||''),
-        center_id: parsed.centerId || parsed.center_id || parsed.centreId
+        id: f.formateur_id,
+        nom: f.formateur_nom || '',
+        center_id: f.center_id
       };
-    } else if (parsed.stagiaire_id) {
-      role = 'stagiaire';
-      SESSION_USER = {
-        id: parsed.stagiaire_id,
-        nom: (parsed.stagiaire_prenom?parsed.stagiaire_prenom+' ':'') + (parsed.stagiaire_nom||''),
-        center_id: parsed.center_id
-      };
+    } else {
+      const s = JSON.parse(localStorage.getItem('mib_stagiaire') || 'null');
+      if (s && s.stagiaire_id) {
+        role = 'stagiaire';
+        SESSION_USER = {
+          id: s.stagiaire_id,
+          nom: (s.stagiaire_prenom?s.stagiaire_prenom+' ':'') + (s.stagiaire_nom||''),
+          center_id: s.center_id
+        };
+      }
     }
-  }
+  } catch(e) {}
   if (!SESSION_USER || !SESSION_USER.center_id) {
     window.location.href = 'index.html';
     return;
