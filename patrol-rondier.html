@@ -150,7 +150,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f8fafc;color:#1e293b
 var sb = window.supabase;
 var PATROL_SESSION = null;
 var CENTER = null;
-var DB = { agents:[], materiels:[], prisesPoste:[], rondes:[], evenements:[], mainCourante:[], consignes:[] };
+var DATA = { agents:[], materiels:[], prisesPoste:[], rondes:[], evenements:[], mainCourante:[], consignes:[] };
 var html5QrScanner = null;
 var currentRondeId = null;
 var currentPointId = null;
@@ -186,12 +186,12 @@ async function chargerDonnees() {
   else q = q.is("session_id", null);
   var {data} = await q.maybeSingle();
   if (data) {
-    if (data.agents)        DB.agents       = data.agents;
-    if (data.materiels)     DB.materiels    = data.materiels;
-    if (data.prises_poste)  DB.prisesPoste  = data.prises_poste;
-    if (data.rondes)        DB.rondes       = data.rondes;
-    if (data.consignes)     DB.consignes    = data.consignes;
-    if (data.main_courante) DB.mainCourante = data.main_courante;
+    if (data.agents)        DATA.agents       = data.agents;
+    if (data.materiels)     DATA.materiels    = data.materiels;
+    if (data.prises_poste)  DATA.prisesPoste  = data.prises_poste;
+    if (data.rondes)        DATA.rondes       = data.rondes;
+    if (data.consignes)     DATA.consignes    = data.consignes;
+    if (data.main_courante) DATA.mainCourante = data.main_courante;
   }
 }
 
@@ -199,13 +199,13 @@ async function sauvegarder() {
   var payload = {
     center_id: PATROL_SESSION.centerId,
     session_id: PATROL_SESSION.sessionId || null,
-    agents: DB.agents,
-    materiels: DB.materiels,
-    prises_poste: DB.prisesPoste,
-    rondes: DB.rondes,
-    evenements: DB.evenements,
-    main_courante: DB.mainCourante.slice(0,500),
-    consignes: DB.consignes,
+    agents: DATA.agents,
+    materiels: DATA.materiels,
+    prises_poste: DATA.prisesPoste,
+    rondes: DATA.rondes,
+    evenements: DATA.evenements,
+    main_courante: DATA.mainCourante.slice(0,500),
+    consignes: DATA.consignes,
     updated_at: new Date().toISOString()
   };
   await sb.from("patrol_data").upsert(payload, {onConflict:"center_id,session_id"});
@@ -240,10 +240,10 @@ function renderCurrentPage() {
 // ═══ RONDES ═══
 function renderRondes() {
   var el = document.getElementById("page-rondes");
-  var mesRondes = DB.rondes.filter(function(r){ return String(r.agentId)===String(PATROL_SESSION.agentId) && !r.heureFin; });
+  var mesRondes = DATA.rondes.filter(function(r){ return String(r.agentId)===String(PATROL_SESSION.agentId) && !r.heureFin; });
   var stats = {
-    total: DB.rondes.filter(function(r){ return String(r.agentId)===String(PATROL_SESSION.agentId); }).length,
-    terminees: DB.rondes.filter(function(r){ return String(r.agentId)===String(PATROL_SESSION.agentId) && r.heureFin; }).length
+    total: DATA.rondes.filter(function(r){ return String(r.agentId)===String(PATROL_SESSION.agentId); }).length,
+    terminees: DATA.rondes.filter(function(r){ return String(r.agentId)===String(PATROL_SESSION.agentId) && r.heureFin; }).length
   };
 
   if (mesRondes.length > 0) {
@@ -294,7 +294,7 @@ async function syncRondier() {
 
 function nouvelleRonde() {
   // Verifier prise de poste
-  var enPoste = DB.prisesPoste.find(function(p){ return String(p.agentId)===String(PATROL_SESSION.agentId) && !p.finPoste; });
+  var enPoste = DATA.prisesPoste.find(function(p){ return String(p.agentId)===String(PATROL_SESSION.agentId) && !p.finPoste; });
   if (!enPoste) {
     showInfo("Prise de poste requise", "Effectuez votre prise de poste au PC Securite avant de commencer une ronde.");
     return;
@@ -303,9 +303,9 @@ function nouvelleRonde() {
   // Creer une ronde avec les zones de l'etablissement (si disponibles)
   var points = [];
   var config = window._patrolConfig || {batiments:[]};
-  if (DB.materiels && DB.materiels.length) {
+  if (DATA.materiels && DATA.materiels.length) {
     // Ronde par materiels
-    DB.materiels.forEach(function(m){
+    DATA.materiels.forEach(function(m){
       points.push({ id:genId(), nom:m.nom, materielId:m.id, localisation:m.localisation, qrCode:m.codeQR||"MAT-"+m.id, valide:false, heureValidation:null, statut:null });
     });
   }
@@ -316,7 +316,7 @@ function nouvelleRonde() {
   }
 
   var ronde = { id:genId(), type:"Ronde de securite", nom:"Ronde "+(new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})), zone:"Etablissement", agentId:PATROL_SESSION.agentId, heureDebut:new Date().toISOString(), heureFin:null, pointsControle:points, anomalies:[] };
-  DB.rondes.push(ronde);
+  DATA.rondes.push(ronde);
   addMC("Depart Ronde", ronde.nom+" - "+points.length+" points", PATROL_SESSION.agentId);
   sauvegarder().then(function(){ toast("Ronde demarree ! "+points.length+" points","ok"); renderRondes(); });
 }
@@ -362,7 +362,7 @@ function validerQRManuel() {
 }
 
 function traiterQR(rondeId, code) {
-  var r = DB.rondes.find(function(x){ return x.id===rondeId; });
+  var r = DATA.rondes.find(function(x){ return x.id===rondeId; });
   if (!r) return;
   var codeNorm = code.trim().toUpperCase();
   var point = (r.pointsControle||[]).find(function(p){ return (p.qrCode||"").toUpperCase()===codeNorm; });
@@ -375,7 +375,7 @@ function traiterQR(rondeId, code) {
 }
 
 async function validerPoint(statut) {
-  var r = DB.rondes.find(function(x){ return x.id===currentRondeId; });
+  var r = DATA.rondes.find(function(x){ return x.id===currentRondeId; });
   if (!r) return;
   var point = (r.pointsControle||[]).find(function(p){ return p.id===currentPointId; });
   if (!point) return;
@@ -405,7 +405,7 @@ async function saveAnomalie(horsService) {
   var desc = document.getElementById("ano-desc").value.trim();
   var loc  = document.getElementById("ano-loc").value.trim();
   if (!desc) { toast("Description requise","err"); return; }
-  var r = DB.rondes.find(function(x){ return x.id===currentRondeId; });
+  var r = DATA.rondes.find(function(x){ return x.id===currentRondeId; });
   if (!r) { closeModal(); return; }
   if (!r.anomalies) r.anomalies=[];
 
@@ -415,7 +415,7 @@ async function saveAnomalie(horsService) {
     if (point) { point.valide=true; point.heureValidation=new Date().toISOString(); point.statut=horsService?"HS":"Anomalie"; }
     r.anomalies.push({ id:genId(), pointId:currentPointId, pointNom:point?point.nom:"", description:desc, horsService:horsService, date:new Date().toISOString(), agentId:PATROL_SESSION.agentId });
     if (horsService && point && point.materielId) {
-      var mat = DB.materiels.find(function(m){ return m.id===point.materielId; });
+      var mat = DATA.materiels.find(function(m){ return m.id===point.materielId; });
       if (mat) { mat.statut="Hors Service"; mat.observation=desc; }
     }
   } else {
@@ -427,7 +427,7 @@ async function saveAnomalie(horsService) {
 }
 
 function voirPointsRonde(rondeId) {
-  var r = DB.rondes.find(function(x){ return x.id===rondeId; });
+  var r = DATA.rondes.find(function(x){ return x.id===rondeId; });
   if (!r) return;
   var valides = (r.pointsControle||[]).filter(function(p){ return p.valide; });
   var nonValides = (r.pointsControle||[]).filter(function(p){ return !p.valide; });
@@ -442,7 +442,7 @@ function voirPointsRonde(rondeId) {
 function ouvrirValidationPoint(rondeId, pointId) {
   closeModal();
   currentRondeId=rondeId; currentPointId=pointId;
-  var r = DB.rondes.find(function(x){ return x.id===rondeId; });
+  var r = DATA.rondes.find(function(x){ return x.id===rondeId; });
   var point = r?(r.pointsControle||[]).find(function(p){ return p.id===pointId; }):null;
   if (!point) return;
   document.getElementById("val-point-info").innerHTML = "<div style=\"font-weight:700;font-size:.9rem;color:#1e293b;\">"+esc(point.nom)+"</div><div style=\"font-size:.75rem;color:#64748b;margin-top:3px;\">"+esc(point.localisation||"")+"</div>";
@@ -450,7 +450,7 @@ function ouvrirValidationPoint(rondeId, pointId) {
 }
 
 function terminerRonde(rondeId) {
-  var r = DB.rondes.find(function(x){ return x.id===rondeId; });
+  var r = DATA.rondes.find(function(x){ return x.id===rondeId; });
   if (!r) return;
   var pts = (r.pointsControle||[]).filter(function(p){ return p.valide; }).length;
   var tot = (r.pointsControle||[]).length;
@@ -464,8 +464,8 @@ function terminerRonde(rondeId) {
 // ═══ MATERIELS ═══
 function renderMateriels() {
   var el = document.getElementById("page-materiels");
-  var stats = { ok:DB.materiels.filter(function(m){ return m.statut==="Operationnel"; }).length, hs:DB.materiels.filter(function(m){ return m.statut==="Hors Service"; }).length };
-  if (!DB.materiels.length) {
+  var stats = { ok:DATA.materiels.filter(function(m){ return m.statut==="Operationnel"; }).length, hs:DATA.materiels.filter(function(m){ return m.statut==="Hors Service"; }).length };
+  if (!DATA.materiels.length) {
     el.innerHTML = "<div style=\"text-align:center;padding:60px 20px;color:#94a3b8;\"><div style=\"font-size:2rem;margin-bottom:10px;\">🧯</div><div>Aucun materiel configure</div></div>";
     return;
   }
@@ -474,7 +474,7 @@ function renderMateriels() {
     + "<div class=\"card\" style=\"text-align:center;\"><div style=\"font-size:1.4rem;font-weight:800;color:#16a34a;\">"+stats.ok+"</div><div style=\"font-size:.72rem;color:#94a3b8;\">Operationnels</div></div>"
     + "<div class=\"card\" style=\"text-align:center;\"><div style=\"font-size:1.4rem;font-weight:800;color:#dc2626;\">"+stats.hs+"</div><div style=\"font-size:.72rem;color:#94a3b8;\">Hors Service</div></div>"
     + "</div>"
-    + DB.materiels.map(function(m){
+    + DATA.materiels.map(function(m){
         var sc = m.statut==="Operationnel"?"b-green":m.statut==="A verifier"?"b-orange":"b-red";
         return "<div class=\"card\" style=\"display:flex;align-items:center;gap:12px;\">"
           + "<div style=\"width:38px;height:38px;background:#f8fafc;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1rem;\">🧯</div>"
@@ -487,7 +487,7 @@ function renderMateriels() {
 // ═══ CONSIGNES ═══
 function renderConsignes() {
   var el = document.getElementById("page-consignes");
-  var actives = DB.consignes.filter(function(c){ return c.active; });
+  var actives = DATA.consignes.filter(function(c){ return c.active; });
   if (!actives.length) {
     el.innerHTML = "<div style=\"text-align:center;padding:60px 20px;color:#94a3b8;\"><div style=\"font-size:2rem;margin-bottom:10px;\">📋</div><div>Aucune consigne active</div></div>";
     return;
@@ -508,7 +508,7 @@ function renderConsignes() {
 function genId() { return Date.now()+Math.floor(Math.random()*1000); }
 function esc(s) { return (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function addMC(type, desc, agentId) {
-  DB.mainCourante.unshift({ id:genId(), date:new Date().toISOString(), type:type, description:desc, agent:PATROL_SESSION.prenom+" "+PATROL_SESSION.nom, agentId:agentId });
+  DATA.mainCourante.unshift({ id:genId(), date:new Date().toISOString(), type:type, description:desc, agent:PATROL_SESSION.prenom+" "+PATROL_SESSION.nom, agentId:agentId });
 }
 function toast(msg, cls) {
   var t=document.getElementById("toast"); t.textContent=msg; t.className="toast show"+(cls?" "+cls:"");
