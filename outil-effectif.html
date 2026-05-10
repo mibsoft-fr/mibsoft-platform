@@ -109,6 +109,7 @@
           <select id="type-erp" class="big" onchange="renderType()">
             <option value="">— Choisir un type —</option>
             <optgroup label="Types courants (1er groupe)">
+              <option value="J">J — Structures PA / PH (EHPAD, FAM, MAS, IME)</option>
               <option value="L">L — Salles de réunions, conférences, spectacles, polyvalentes</option>
               <option value="M">M — Magasins de vente, centres commerciaux</option>
               <option value="N">N — Restaurants, débits de boissons</option>
@@ -124,7 +125,6 @@
               <option value="Y">Y — Musées</option>
             </optgroup>
             <optgroup label="Types spécifiques">
-              <option value="J">J — Structures PA / PH (EHPAD, FAM, MAS, IME)</option>
               <option value="GA">GA — Gares accessibles au public</option>
               <option value="OA">OA — Hôtels-restaurants d'altitude</option>
               <option value="EF">EF — Établissements flottants</option>
@@ -752,7 +752,7 @@ const TYPES = {
     zones: [
       { id:"J_resident", lbl:"Résidents (capacité maximale d'hébergement)", unit:"personnes", calc:n=>n, ratioTxt:"1 personne / résident" },
       { id:"J_perso", lbl:"Personnel en travail effectif (maximal)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration chef d'établissement" },
-      { id:"J_visit", lbl:"Visiteurs (forfait)", unit:"résidents", calc:n=>Math.ceil(n/3), ratioTxt:"1 visiteur / 3 résidents" }
+      { id:"J_visit", lbl:"Visiteurs (forfait, auto-calculé)", unit:"résidents", calc:n=>Math.ceil(n/3), ratioTxt:"1 visiteur / 3 résidents", autoFrom:"J_resident" }
     ],
     notes: [
       "<strong>Locaux à sommeil par destination</strong> : alarme type 1, transfert horizontal, espaces d'attente sécurisés (ZSAS).",
@@ -1029,9 +1029,10 @@ function renderZones(){
   let html = '<div class="section-title">Zones de calcul</div>';
   html += '<div style="font-size:12px;color:#888;margin-bottom:10px;font-style:italic;">Saisir uniquement les zones applicables. Laisser à 0 sinon. Le total se calcule en temps réel.</div>';
   zones.forEach(z => {
+    const ro = z.autoFrom ? ' readonly style="background:#eef2ff;color:#64748b;cursor:not-allowed;"' : '';
     html += '<div class="zone-row">';
     html += '<div class="zlbl">' + z.lbl + '<small>' + z.ratioTxt + '</small></div>';
-    html += '<input type="number" id="' + z.id + '" class="zinp" min="0" step="any" value="0" oninput="recompute()">';
+    html += '<input type="number" id="' + z.id + '" class="zinp" min="0" step="any" value="0" oninput="recompute()"' + ro + '>';
     html += '<span class="zunit">' + z.unit + '</span>';
     html += '<span class="zres" id="res_' + z.id + '">0</span>';
     html += '</div>';
@@ -1051,6 +1052,14 @@ function recompute(){
   if (!currentType) return;
   const def = TYPES[currentType];
   const zones = def.modes ? def.modes[currentMode].zones : def.zones;
+  // Propager les valeurs des zones auto-calculées (autoFrom)
+  zones.forEach(z => {
+    if (z.autoFrom) {
+      const src = parseFloat(document.getElementById(z.autoFrom).value) || 0;
+      const el = document.getElementById(z.id);
+      if (el) el.value = src;
+    }
+  });
   let total = 0;
   const detail = [];
   zones.forEach(z => {
