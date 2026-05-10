@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIB — Effectif admissible ERP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="supabase.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Syne:wght@700;800;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'Inter',sans-serif;background:#f8fafc;color:#0f172a;}
+.bg-wrap{position:fixed;inset:0;z-index:0;
+  background:radial-gradient(ellipse 70% 50% at 10% 0%,rgba(99,102,241,.08) 0%,transparent 60%),
+  radial-gradient(ellipse 50% 40% at 90% 100%,rgba(139,92,246,.06) 0%,transparent 60%),
+  linear-gradient(160deg,#f8fafc 0%,#eef2ff 100%);}
+.topbar{background:rgba(255,255,255,.95);backdrop-filter:blur(12px);border-bottom:1px solid #e2e8f0;padding:14px 20px;
+  display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 8px 24px rgba(15,23,42,.04);padding:22px;}
+.lbl{font-size:.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px;}
+.inp,.sel{width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:11px;font-size:.92rem;font-family:inherit;outline:none;background:#fff;transition:all .15s;}
+.inp:focus,.sel:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.1);}
+.btn{padding:12px 22px;border-radius:12px;border:none;font-weight:700;font-size:.88rem;cursor:pointer;transition:all .2s;font-family:inherit;display:inline-flex;align-items:center;gap:8px;}
+.btn-primary{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 4px 14px rgba(99,102,241,.3);}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(99,102,241,.4);}
+.btn-ghost{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;}
+.btn-ghost:hover{background:#e2e8f0;}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+@media (max-width:640px){.row{grid-template-columns:1fr;}}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.7rem;font-weight:700;}
+.tag-blue{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}
+.tag-green{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;}
+.tag-orange{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;}
+.tag-red{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;}
+.help{font-size:.72rem;color:#64748b;margin-top:4px;line-height:1.5;}
+.result-box{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-radius:18px;padding:24px;margin-top:18px;box-shadow:0 8px 28px rgba(99,102,241,.35);}
+.result-val{font-family:'Syne',sans-serif;font-size:3rem;font-weight:900;line-height:1;}
+.detail-line{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:.86rem;}
+.detail-line:last-child{border-bottom:none;font-weight:700;}
+.cat-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;font-size:.78rem;font-weight:700;}
+.cat-1{background:#fee2e2;color:#991b1b;}
+.cat-2{background:#fed7aa;color:#9a3412;}
+.cat-3{background:#fef3c7;color:#92400e;}
+.cat-4{background:#dbeafe;color:#1e40af;}
+.cat-5{background:#dcfce7;color:#166534;}
+.hidden{display:none!important;}
+.loader{text-align:center;padding:60px 20px;color:#64748b;}
+.spin{width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;animation:sp .6s linear infinite;display:inline-block;vertical-align:middle;}
+@keyframes sp{to{transform:rotate(360deg)}}
+.alert{padding:14px 18px;border-radius:12px;font-size:.85rem;margin-bottom:18px;}
+.alert-warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;}
+.alert-err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;}
+.note{background:#f8fafc;border-left:3px solid #6366f1;padding:12px 14px;border-radius:8px;margin-top:14px;font-size:.78rem;color:#475569;line-height:1.6;}
+.note strong{color:#1e293b;}
+</style>
+</head>
+<body>
+
+<div class="bg-wrap"></div>
+
+<div class="topbar relative z-10">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button onclick="goBack()" class="btn btn-ghost" style="padding:8px 14px;font-size:.78rem;">← Retour</button>
+    <div>
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;">📐 Effectif admissible</div>
+      <div style="font-size:.7rem;color:#64748b;">Outil de calcul ERP</div>
+    </div>
+  </div>
+  <div id="top-user" style="font-size:.78rem;color:#64748b;">—</div>
+</div>
+
+<div class="relative z-10" style="max-width:780px;margin:0 auto;padding:24px 18px 60px;">
+
+  <div id="loading" class="loader">
+    <span class="spin"></span>
+    <p style="margin-top:12px;">Chargement…</p>
+  </div>
+
+  <div id="disabled" class="hidden">
+    <div class="alert alert-warn">
+      ⚠️ L'outil <strong>Effectif admissible</strong> n'est pas activé sur votre centre.
+      Contactez l'administrateur MIB Prévention.
+    </div>
+  </div>
+
+  <div id="content" class="hidden">
+
+    <div class="card" style="margin-bottom:16px;">
+      <div style="margin-bottom:18px;">
+        <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.15rem;margin-bottom:4px;">Calcul de l'effectif théorique</div>
+        <div style="font-size:.78rem;color:#64748b;">Selon l'arrêté du 25 juin 1980 modifié — Règlement de sécurité ERP</div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label class="lbl">Type d'établissement</label>
+          <select id="type-erp" class="sel" onchange="renderForm()">
+            <option value="">— Choisir un type —</option>
+            <option value="L">L — Salles de réunions, conférences, spectacles</option>
+            <option value="M">M — Magasins de vente, centres commerciaux</option>
+            <option value="N">N — Restaurants, débits de boissons</option>
+            <option value="R">R — Établissements d'enseignement</option>
+            <option value="W">W — Administrations, banques, bureaux</option>
+            <option value="X">X — Établissements sportifs couverts</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl">Nom de l'établissement (optionnel)</label>
+          <input type="text" id="nom-etab" class="inp" placeholder="Ex: Salle polyvalente du Capitole">
+        </div>
+      </div>
+
+      <div id="form-zone"></div>
+
+      <div id="actions" class="hidden" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;">
+        <button class="btn btn-primary" onclick="calculer()">Calculer l'effectif →</button>
+        <button class="btn btn-ghost" onclick="resetForm()">Réinitialiser</button>
+      </div>
+    </div>
+
+    <div id="result" class="hidden"></div>
+
+    <div class="note" id="reglement-note">
+      <strong>Référence réglementaire</strong> — Arrêté du 25 juin 1980 portant approbation des dispositions générales du règlement de sécurité contre les risques d'incendie et de panique dans les ERP.
+      Les ratios appliqués correspondent aux articles spécifiques de chaque type (L3, M2, N2, R2, W1, X2).
+      Ce calcul donne un effectif théorique : la conception architecturale (sièges fixes, configurations spéciales) peut imposer un effectif différent.
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+let SESSION_USER = null;
+let CENTER = null;
+
+window.addEventListener('DOMContentLoaded', async function(){
+  // Détecter formateur ou stagiaire
+  let raw = localStorage.getItem('mib_formateur_session') || localStorage.getItem('mib_stagiaire');
+  let role = null;
+  let parsed = null;
+  if (raw) {
+    try { parsed = JSON.parse(raw); } catch(e) {}
+  }
+  if (parsed) {
+    if (parsed.formateurId || parsed.formateur_id || parsed.role==='formateur' || parsed.type==='formateur') {
+      role = 'formateur';
+      SESSION_USER = {
+        id: parsed.formateurId || parsed.formateur_id || parsed.id,
+        nom: (parsed.prenom?parsed.prenom+' ':'') + (parsed.nom||''),
+        center_id: parsed.centerId || parsed.center_id || parsed.centreId
+      };
+    } else if (parsed.stagiaire_id) {
+      role = 'stagiaire';
+      SESSION_USER = {
+        id: parsed.stagiaire_id,
+        nom: (parsed.stagiaire_prenom?parsed.stagiaire_prenom+' ':'') + (parsed.stagiaire_nom||''),
+        center_id: parsed.center_id
+      };
+    }
+  }
+  if (!SESSION_USER || !SESSION_USER.center_id) {
+    window.location.href = 'index.html';
+    return;
+  }
+  SESSION_USER.role = role;
+  document.getElementById('top-user').textContent = SESSION_USER.nom + ' · ' + (role==='formateur'?'Formateur':'Stagiaire');
+
+  // Vérifier l'activation de l'outil sur le centre
+  const { data, error } = await supabase.from('centers').select('id,nom,outil_effectif').eq('id', SESSION_USER.center_id).maybeSingle();
+  document.getElementById('loading').classList.add('hidden');
+  if (error || !data) {
+    document.getElementById('disabled').classList.remove('hidden');
+    return;
+  }
+  CENTER = data;
+  if (!CENTER.outil_effectif) {
+    document.getElementById('disabled').classList.remove('hidden');
+    return;
+  }
+  document.getElementById('content').classList.remove('hidden');
+});
+
+function goBack(){
+  if (SESSION_USER && SESSION_USER.role === 'formateur') window.location.href = 'formateur.html';
+  else if (SESSION_USER && SESSION_USER.role === 'stagiaire') window.location.href = 'stagiaire.html';
+  else window.history.back();
+}
+
+// Définition des types ERP
+// Source : arrêté du 25 juin 1980 modifié, articles spécifiques par type
+const TYPES = {
+  L: {
+    nom: "Salles de réunions, conférences, spectacles",
+    article: "L3",
+    modes: [
+      { id:"sieges-fixes", lbl:"Salle avec sièges fixes (cinéma, théâtre)", inputs:[{id:"nb",lbl:"Nombre de sièges fixes",unit:"sièges"}], compute:i=>({eff:i.nb,detail:[["Sièges fixes",i.nb+" sièges","1 pers / siège"]]}) },
+      { id:"banquettes", lbl:"Salle avec sièges sur banquettes", inputs:[{id:"ml",lbl:"Longueur cumulée des banquettes",unit:"m linéaire"}], compute:i=>({eff:Math.round(i.ml/0.5),detail:[["Banquettes",i.ml+" ml","1 pers / 0,5 m linéaire"]]}) },
+      { id:"sieges-mobiles-tables", lbl:"Sièges mobiles + tables (réunion assise)", inputs:[{id:"surf",lbl:"Surface réservée au public",unit:"m²"}], compute:i=>({eff:Math.round(i.surf*1),detail:[["Surface publique",i.surf+" m²","1 pers / m²"]]}) },
+      { id:"debout", lbl:"Public debout (sans sièges)", inputs:[{id:"surf",lbl:"Surface réservée au public",unit:"m²"}], compute:i=>({eff:Math.round(i.surf*3),detail:[["Surface publique",i.surf+" m²","3 pers / m²"]]}) },
+      { id:"polyvalente", lbl:"Salle polyvalente (configuration mixte)", inputs:[{id:"surf",lbl:"Surface réservée au public",unit:"m²"}], compute:i=>({eff:Math.round(i.surf*2),detail:[["Surface publique",i.surf+" m²","2 pers / m² (forfait polyvalent)"]]}) }
+    ]
+  },
+  M: {
+    nom: "Magasins de vente, centres commerciaux",
+    article: "M2",
+    modes: [
+      { id:"par-niveau", lbl:"Par niveau (calcul détaillé)", inputs:[
+        {id:"rdc",lbl:"Surface RDC accessible au public",unit:"m²",default:0},
+        {id:"e1",lbl:"Surface 1er étage",unit:"m²",default:0},
+        {id:"sup",lbl:"Surface étages supérieurs et sous-sol",unit:"m²",default:0}
+      ], compute:i=>{
+        const rdc=Math.round(i.rdc*2), e1=Math.round(i.e1*1), sup=Math.round(i.sup*0.5);
+        return {eff:rdc+e1+sup, detail:[
+          ["RDC",i.rdc+" m²","2 pers / m² → "+rdc],
+          ["1er étage",i.e1+" m²","1 pers / m² → "+e1],
+          ["Étages sup. et sous-sol",i.sup+" m²","1 pers / 2 m² → "+sup]
+        ]};
+      }}
+    ]
+  },
+  N: {
+    nom: "Restaurants, débits de boissons",
+    article: "N2",
+    modes: [
+      { id:"assis", lbl:"Salle de restauration assise (avec tables)", inputs:[{id:"surf",lbl:"Surface zone consommation",unit:"m²"}], compute:i=>({eff:Math.round(i.surf*1),detail:[["Zone consommation",i.surf+" m²","1 pers / m²"]]}) },
+      { id:"debout", lbl:"Bar / café (debout, type cafétéria)", inputs:[{id:"surf",lbl:"Surface zone consommation",unit:"m²"}], compute:i=>({eff:Math.round(i.surf*2),detail:[["Zone consommation",i.surf+" m²","2 pers / m²"]]}) }
+    ]
+  },
+  R: {
+    nom: "Établissements d'enseignement",
+    article: "R2",
+    modes: [
+      { id:"primaire-secondaire", lbl:"Salle de classe (primaire/secondaire)", inputs:[{id:"surf",lbl:"Surface totale des salles",unit:"m²"}], compute:i=>({eff:Math.round(i.surf*1),detail:[["Salles de classe",i.surf+" m²","1 pers / m²"]]}) },
+      { id:"maternelle", lbl:"Salle (maternelle)", inputs:[{id:"surf",lbl:"Surface totale des salles",unit:"m²"}], compute:i=>({eff:Math.round(i.surf*1),detail:[["Maternelle",i.surf+" m²","1 pers / m²"]]}) },
+      { id:"atelier", lbl:"Atelier / labo / TP", inputs:[{id:"surf",lbl:"Surface des ateliers",unit:"m²"}], compute:i=>({eff:Math.round(i.surf/3),detail:[["Ateliers",i.surf+" m²","1 pers / 3 m²"]]}) },
+      { id:"internat", lbl:"Internat (dortoirs)", inputs:[{id:"lits",lbl:"Nombre de lits",unit:"lits"}], compute:i=>({eff:i.lits,detail:[["Lits internat",i.lits,"1 pers / lit"]]}) }
+    ]
+  },
+  W: {
+    nom: "Administrations, banques, bureaux",
+    article: "W1",
+    modes: [
+      { id:"bureaux", lbl:"Bureaux ouverts au public", inputs:[{id:"surf",lbl:"Surface accessible au public",unit:"m²"}], compute:i=>({eff:Math.ceil(i.surf/10),detail:[["Surface bureaux",i.surf+" m²","1 pers / 10 m²"]]}) }
+    ]
+  },
+  X: {
+    nom: "Établissements sportifs couverts",
+    article: "X2",
+    modes: [
+      { id:"salle-sport", lbl:"Salle de sport (zone activité)", inputs:[{id:"surf",lbl:"Surface zone d'activité sportive",unit:"m²"},{id:"spect",lbl:"Spectateurs (places)",unit:"places",default:0}], compute:i=>{
+        const sport=Math.round(i.surf/4);
+        return {eff:sport+i.spect, detail:[
+          ["Zone activité",i.surf+" m²","1 pers / 4 m² → "+sport],
+          ["Spectateurs",i.spect,"1 pers / place → "+i.spect]
+        ]};
+      }},
+      { id:"piscine", lbl:"Piscine (bassin + spectateurs)", inputs:[{id:"bassin",lbl:"Surface bassin et plages",unit:"m²"},{id:"spect",lbl:"Surface gradins/spectateurs",unit:"m²",default:0}], compute:i=>{
+        const b=Math.round(i.bassin*1), s=Math.round(i.spect*1);
+        return {eff:b+s, detail:[
+          ["Bassin et plages",i.bassin+" m²","1 pers / m² → "+b],
+          ["Gradins",i.spect+" m²","1 pers / m² → "+s]
+        ]};
+      }},
+      { id:"patinoire", lbl:"Patinoire (piste)", inputs:[{id:"surf",lbl:"Surface de la piste",unit:"m²"}], compute:i=>({eff:Math.round(i.surf*1.5),detail:[["Piste",i.surf+" m²","3 pers / 2 m²"]]}) }
+    ]
+  }
+};
+
+function renderForm(){
+  const t = document.getElementById('type-erp').value;
+  const zone = document.getElementById('form-zone');
+  const actions = document.getElementById('actions');
+  document.getElementById('result').classList.add('hidden');
+  if (!t) { zone.innerHTML=''; actions.classList.add('hidden'); return; }
+  const def = TYPES[t];
+  let html = '<div style="margin-top:18px;"><label class="lbl">Mode d\'occupation / sous-type</label><select id="type-mode" class="sel" onchange="renderInputs()">';
+  html += '<option value="">— Choisir le mode —</option>';
+  def.modes.forEach((m,idx)=>{
+    html += '<option value="'+idx+'">'+m.lbl+'</option>';
+  });
+  html += '</select><div class="help">Type '+t+' — '+def.nom+' (article '+def.article+')</div></div>';
+  html += '<div id="inputs-zone" style="margin-top:14px;"></div>';
+  zone.innerHTML = html;
+  actions.classList.add('hidden');
+}
+
+function renderInputs(){
+  const t = document.getElementById('type-erp').value;
+  const idx = document.getElementById('type-mode').value;
+  const zone = document.getElementById('inputs-zone');
+  const actions = document.getElementById('actions');
+  document.getElementById('result').classList.add('hidden');
+  if (!t || idx==='') { zone.innerHTML=''; actions.classList.add('hidden'); return; }
+  const mode = TYPES[t].modes[idx];
+  let html = '<div class="row">';
+  mode.inputs.forEach(i=>{
+    const def = i.default!==undefined ? i.default : '';
+    html += '<div><label class="lbl">'+i.lbl+'</label><input type="number" id="inp-'+i.id+'" class="inp" min="0" step="any" value="'+def+'" placeholder="0"><div class="help">'+i.unit+'</div></div>';
+  });
+  html += '</div>';
+  zone.innerHTML = html;
+  actions.classList.remove('hidden');
+}
+
+function categorie(eff){
+  if (eff > 1500) return {n:1, lbl:"1ère catégorie", cls:"cat-1"};
+  if (eff > 700)  return {n:2, lbl:"2e catégorie",  cls:"cat-2"};
+  if (eff > 300)  return {n:3, lbl:"3e catégorie",  cls:"cat-3"};
+  if (eff > 0)    return {n:4, lbl:"4e catégorie",  cls:"cat-4"};
+  return {n:5, lbl:"—", cls:"cat-5"};
+}
+
+function calculer(){
+  const t = document.getElementById('type-erp').value;
+  const idx = document.getElementById('type-mode').value;
+  if (!t || idx==='') return;
+  const mode = TYPES[t].modes[idx];
+  const inputs = {};
+  let invalid = false;
+  mode.inputs.forEach(i=>{
+    const v = parseFloat(document.getElementById('inp-'+i.id).value);
+    if (isNaN(v) || v < 0) { invalid = true; }
+    inputs[i.id] = isNaN(v) ? 0 : v;
+  });
+  if (invalid) { alert("Vérifiez les valeurs saisies"); return; }
+  const r = mode.compute(inputs);
+  const cat = categorie(r.eff);
+  const nom = (document.getElementById('nom-etab').value||'').trim();
+  let html = '<div class="result-box">';
+  html += '<div style="font-size:.75rem;opacity:.85;text-transform:uppercase;letter-spacing:.1em;font-weight:700;">Effectif théorique</div>';
+  html += '<div class="result-val" style="margin-top:6px;">'+r.eff.toLocaleString('fr-FR')+'</div>';
+  html += '<div style="margin-top:8px;font-size:.95rem;opacity:.95;">personnes · <span class="cat-badge '+cat.cls+'" style="margin-left:6px;color:#1e293b;">'+cat.lbl+'</span></div>';
+  if (nom) html += '<div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.2);font-size:.82rem;opacity:.9;">📍 '+escapeHtml(nom)+'</div>';
+  html += '</div>';
+
+  html += '<div class="card" style="margin-top:14px;">';
+  html += '<div style="font-weight:700;font-size:.92rem;margin-bottom:10px;">Détail du calcul</div>';
+  html += '<div>';
+  r.detail.forEach(line=>{
+    html += '<div class="detail-line"><span style="color:#475569;">'+escapeHtml(line[0])+'</span><span style="color:#0f172a;text-align:right;">'+escapeHtml(String(line[1]))+' <span style="color:#94a3b8;">· '+escapeHtml(line[2])+'</span></span></div>';
+  });
+  html += '<div class="detail-line"><span>Total effectif</span><span>'+r.eff+' personnes</span></div>';
+  html += '</div></div>';
+
+  // Mémo réglementaire selon catégorie
+  let memo = '';
+  if (cat.n === 1) memo = "ERP de 1<sup>ère</sup> catégorie : > 1500 personnes. Personnel SSIAP minimum important, équipements de sécurité renforcés (SSI, RIA, désenfumage mécanique fréquent).";
+  else if (cat.n === 2) memo = "ERP de 2<sup>e</sup> catégorie : 701 à 1500 personnes.";
+  else if (cat.n === 3) memo = "ERP de 3<sup>e</sup> catégorie : 301 à 700 personnes.";
+  else if (cat.n === 4) memo = "ERP de 4<sup>e</sup> catégorie : 300 personnes ou moins (hors seuils 5e cat.).";
+  if (memo) html += '<div class="note" style="margin-top:12px;"><strong>Catégorie '+cat.n+'</strong> — '+memo+' Note : la 5<sup>e</sup> catégorie dépend de seuils spécifiques au type d\'établissement (à vérifier au cas par cas).</div>';
+
+  document.getElementById('result').innerHTML = html;
+  document.getElementById('result').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'}), 100);
+}
+
+function resetForm(){
+  document.getElementById('type-erp').value = '';
+  document.getElementById('nom-etab').value = '';
+  document.getElementById('form-zone').innerHTML = '';
+  document.getElementById('actions').classList.add('hidden');
+  document.getElementById('result').classList.add('hidden');
+}
+
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+</script>
+
+</body>
+</html>

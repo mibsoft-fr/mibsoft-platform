@@ -358,6 +358,18 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); colo
       <div class="nav-item" id="nav-profil" onclick="showPage('profil')">
         <span class="nav-icon">👤</span> Mon profil
       </div>
+      <div id="nav-outils-section" style="display:none;margin-top:14px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);">
+        <div style="font-size:.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;padding:0 14px 6px;">Outils ERP</div>
+        <a id="nav-outil-effectif" href="outil-effectif.html" class="nav-item" style="text-decoration:none;color:inherit;display:none;">
+          <span class="nav-icon">📐</span> Effectif admissible
+        </a>
+        <a id="nav-outil-degagements" href="outil-degagements.html" class="nav-item" style="text-decoration:none;color:inherit;display:none;">
+          <span class="nav-icon">🚪</span> Dégagements
+        </a>
+        <a id="nav-outil-desenfumage" href="outil-desenfumage.html" class="nav-item" style="text-decoration:none;color:inherit;display:none;">
+          <span class="nav-icon">💨</span> Désenfumage
+        </a>
+      </div>
     </nav>
     <div class="sb-footer">
       <button class="btn-logout" onclick="logout()">🚪 Déconnexion</button>
@@ -664,6 +676,18 @@ async function dbq(table, opts = {}) {
 async function loadAll() {
   const cid = FSESSION.centerId || FSESSION.center_id;
   const fid = FSESSION.formateurId;
+
+  // Charger flags outils ERP du centre et afficher la section sidebar si au moins un est actif
+  if (cid) {
+    const { data: c } = await window.supabase.from('centers').select('outil_effectif,outil_degagements,outil_desenfumage').eq('id', cid).maybeSingle();
+    if (c) {
+      const any = c.outil_effectif || c.outil_degagements || c.outil_desenfumage;
+      if (any) document.getElementById('nav-outils-section').style.display = '';
+      if (c.outil_effectif)    document.getElementById('nav-outil-effectif').style.display = '';
+      if (c.outil_degagements) document.getElementById('nav-outil-degagements').style.display = '';
+      if (c.outil_desenfumage) document.getElementById('nav-outil-desenfumage').style.display = '';
+    }
+  }
 
   // 1. Sessions du formateur
   let sessReq = window.supabase.from('sessions_formation').select('*').order('created_at', {ascending: false});
