@@ -207,37 +207,53 @@ async function verifyPin() {
   document.getElementById('pin-loading').classList.remove('hidden');
   document.getElementById('key-ok').disabled = true;
 
+  const pinStr = pin.join('');
+  const centerId = window.preCentreId || null;
+
   try {
-    pinHash = await UTILS.hash(pin.join(''));
+    try { await supabase.auth.signOut(); } catch (_) {}
 
-    // Rechercher tous les formateurs avec ce PIN (tous centres confondus)
-    let query = supabase.from('formateurs')
+    // 1) Résoudre PIN -> email via RPC SECURITY DEFINER
+    const { data: rows, error: rpcErr } = await supabase.rpc('login_pin_resolve', {
+      p_center_id: centerId,
+      p_role: 'formateur',
+      p_pin: pinStr,
+    });
+    if (rpcErr) throw new Error('Erreur de connexion au serveur.');
+
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    if (row?.locked) throw new Error('Compte temporairement verrouillé. Réessayez dans 5 minutes.');
+    if (!row?.email) {
+      await supabase.rpc('login_pin_fail', { p_center_id: centerId, p_role: 'formateur', p_pin: pinStr });
+      throw new Error('PIN incorrect ou compte désactivé.');
+    }
+
+    // 2) Authentification Supabase (PIN = mot de passe)
+    const { error: authErr } = await supabase.auth.signInWithPassword({
+      email: row.email,
+      password: pinStr,
+    });
+    if (authErr) {
+      await supabase.rpc('login_pin_fail', { p_center_id: centerId, p_role: 'formateur', p_pin: pinStr });
+      throw new Error('PIN incorrect ou compte désactivé.');
+    }
+
+    try { await supabase.rpc('login_pin_success_reset'); } catch (_) {}
+
+    // 3) Récupérer formateur + centre (RLS authenticated -> filtré par centre du JWT)
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: formateur, error: selErr } = await supabase
+      .from('formateurs')
       .select('*, centers(id, nom, plan, module_auto_entrainement, module_quiz_salle, module_challenge_cup, module_ssi_supervise, module_ssi_autoformation)')
-      .eq('pin_hash', pinHash)
-      .eq('actif', true);
+      .eq('auth_user_id', user.id)
+      .single();
+    if (selErr || !formateur) throw new Error('Profil formateur introuvable.');
 
-    // Si QR code avec center_id → filtrer sur ce centre uniquement
-    if (window.preCentreId) {
-      query = query.eq('center_id', window.preCentreId);
-    }
-
-    const { data, error } = await query;
-
-    if (error || !data || !data.length) throw new Error('notfound');
-
-    foundFormateurs = data;
     document.getElementById('pin-loading').classList.add('hidden');
-
-    if (data.length === 1) {
-      // Un seul résultat → connexion directe
-      doLogin(data[0]);
-    } else {
-      // Plusieurs centres → afficher le choix
-      showCentreStep(data);
-    }
+    doLogin(formateur);
   } catch(e) {
     document.getElementById('pin-loading').classList.add('hidden');
-    errEl.textContent = '❌ PIN incorrect ou compte désactivé.';
+    errEl.textContent = '❌ ' + (e.message || 'PIN incorrect ou compte désactivé.');
     errEl.classList.remove('hidden');
     pin = []; updatePin();
     document.getElementById('key-ok').disabled = true;
