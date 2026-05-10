@@ -106,7 +106,8 @@ window.addEventListener("DOMContentLoaded", async function() {
     var cr = await sb.from("centers").select("nom").eq("id", CENTER_ID).single();
     if (cr.data) document.getElementById("subtitle").textContent = cr.data.nom;
 
-    var fr = await sb.from("formateurs").select("id,nom,prenom,pin_hash,pin_clair").eq("center_id", CENTER_ID).eq("actif", true).order("nom");
+    // Via RPC SECURITY DEFINER (anon-compatible) pour permettre le drop de anon_all sur formateurs
+    var fr = await sb.rpc("get_patrol_agents_from_formateurs", { p_center_id: CENTER_ID });
     var formateurs = fr.data || [];
 
     var sel = document.getElementById("sel-formateur");

@@ -375,7 +375,7 @@ window.addEventListener("DOMContentLoaded", async function() {
   // CAS 1 : autologin depuis formateur.html
   if (autologin === "1" && centerId && fid) {
     try {
-      var cr = await sb.from("centers").select("*").eq("id", centerId).single();
+      var cr = await sb.from("centers").select("id,nom,logo_url,module_patrol").eq("id", centerId).single();
       CENTER = cr.data;
       PATROL_SESSION = { centerId:centerId, sessionId:sessionId||null, agentId:fid, nom:decodeURIComponent(fnom), prenom:decodeURIComponent(fprenom), qualification:"SSIAP 3", type:"formateur" };
       sessionStorage.setItem("patrol_session", JSON.stringify(PATROL_SESSION));
@@ -400,7 +400,7 @@ window.addEventListener("DOMContentLoaded", async function() {
   }
 
   try {
-    var cr2 = await sb.from("centers").select("*").eq("id", PATROL_SESSION.centerId).single();
+    var cr2 = await sb.from("centers").select("id,nom,logo_url,module_patrol").eq("id", PATROL_SESSION.centerId).single();
     CENTER = cr2.data;
     await chargerDonnees();
     initUI();

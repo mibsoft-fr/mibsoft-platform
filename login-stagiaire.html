@@ -144,27 +144,54 @@ async function verifyPin() {
   document.getElementById('pin-loading').classList.remove('hidden');
   document.getElementById('key-ok').disabled = true;
 
+  const pinStr = pin.join('');
+  const centerId = window.preCenterId || null;
+
   try {
-    const pinStr = pin.join('');
-    const pinHash = await UTILS.hash(pinStr);
+    // S'assurer qu'aucune session précédente ne pollue le sign-in
+    try { await supabase.auth.signOut(); } catch (_) {}
 
-    // Chercher le stagiaire par hash — avec ou sans filtre centre
-    let query = supabase.from('stagiaires')
-      .select('id, nom, prenom, niveau, center_id, centers(nom, plan)')
-      .eq('pin_hash', pinHash)
-      .eq('actif', true);
+    // 1) Résoudre le PIN -> email synthétique via RPC SECURITY DEFINER
+    const { data: rows, error: rpcErr } = await supabase.rpc('login_pin_resolve', {
+      p_center_id: centerId,
+      p_role: 'stagiaire',
+      p_pin: pinStr,
+    });
+    console.log('[login] rpc resolve →', { rpcErr, rows });
+    if (rpcErr) throw new Error('Erreur de connexion au serveur.');
 
-    if (window.preCenterId) {
-      query = query.eq('center_id', window.preCenterId);
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    if (row?.locked) throw new Error('Compte temporairement verrouillé. Réessayez dans 5 minutes.');
+    if (!row?.email) {
+      console.warn('[login] aucun email retourné pour ce PIN');
+      await supabase.rpc('login_pin_fail', { p_center_id: centerId, p_role: 'stagiaire', p_pin: pinStr });
+      throw new Error('PIN invalide ou compte désactivé.');
     }
 
-    const { data, error } = await query;
+    // 2) Authentification Supabase (PIN = mot de passe)
+    console.log('[login] signInWithPassword →', row.email);
+    const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
+      email: row.email,
+      password: pinStr,
+    });
+    console.log('[login] auth result →', { authErr, hasUser: !!authData?.user });
+    if (authErr) {
+      await supabase.rpc('login_pin_fail', { p_center_id: centerId, p_role: 'stagiaire', p_pin: pinStr });
+      throw new Error('Auth: ' + authErr.message);
+    }
 
-    if (error || !data || !data.length) throw new Error('PIN invalide ou compte désactivé.');
+    // 3) Reset compteur d'échecs (best-effort)
+    try { await supabase.rpc('login_pin_success_reset'); } catch (_) {}
 
-    const stag = data[0];
+    // 4) Récupérer infos stagiaire (RLS authenticated -> filtré par centre du JWT)
+    const { data: stag, error: selErr } = await supabase
+      .from('stagiaires')
+      .select('id, nom, prenom, niveau, center_id, centers(nom, plan)')
+      .eq('auth_user_id', (await supabase.auth.getUser()).data.user.id)
+      .single();
+    if (selErr || !stag) throw new Error('Profil stagiaire introuvable.');
 
-    // Sauvegarder session
+    // 5) Sauvegarder session locale (compat pages applicatives)
     SESSION.save('stagiaire', {
       stagiaire_id: stag.id,
       stagiaire_nom: stag.prenom + ' ' + stag.nom,
