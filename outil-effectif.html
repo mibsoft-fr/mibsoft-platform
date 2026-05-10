@@ -196,6 +196,7 @@ const TYPES = {
       "a": {
         lbl: "L a — Auditions, conférences, réunions, paris, multimédias",
         desc: "Cumul sièges + bancs + debout + promenoirs. Seuil 5e cat : 100 SS / 200 total.",
+        seuil5_total: 200,
         zones: [
           { id:"La_sieges", lbl:"Sièges (numérotés ou individuels)", unit:"sièges", calc:n=>n, ratioTxt:"1 personne / siège" },
           { id:"La_bancs", lbl:"Bancs (places non numérotées)", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 personne / 0,50 m linéaire" },
@@ -206,6 +207,7 @@ const TYPES = {
       "b": {
         lbl: "L b — Salles d'associations, salles de quartier",
         desc: "Mêmes règles que L a. Seuil 5e cat : 100 SS / 200 total.",
+        seuil5_total: 200,
         zones: [
           { id:"Lb_sieges", lbl:"Sièges (numérotés ou individuels)", unit:"sièges", calc:n=>n, ratioTxt:"1 personne / siège" },
           { id:"Lb_bancs", lbl:"Bancs (places non numérotées)", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 personne / 0,50 m linéaire" },
@@ -216,6 +218,7 @@ const TYPES = {
       "c": {
         lbl: "L c — Salles de projections, salles de spectacles (cirques non forains)",
         desc: "Calcul principalement par sièges fixes. Seuil 5e cat : 20 SS / 50 total (très bas).",
+        seuil5_total: 50,
         zones: [
           { id:"Lc_sieges", lbl:"Sièges fixes (places numérotées)", unit:"sièges", calc:n=>n, ratioTxt:"1 personne / siège" },
           { id:"Lc_bancs", lbl:"Bancs sans places numérotées", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 personne / 0,50 m linéaire" },
@@ -225,6 +228,7 @@ const TYPES = {
       "d": {
         lbl: "L d — Cabarets",
         desc: "4 personnes / 3 m² avec déduction des estrades et installations fixes (hors tables et sièges). Seuil 5e cat : 20 SS / 50 total.",
+        seuil5_total: 50,
         zones: [
           { id:"Ld_surf", lbl:"Surface salle (déduction estrade musiciens et installations fixes hors tables/sièges)", unit:"m²", calc:s=>Math.round(s*4/3), ratioTxt:"4 personnes / 3 m² (≈ 1,33 pers / m²)" }
         ]
@@ -232,6 +236,7 @@ const TYPES = {
       "e": {
         lbl: "L e — Salle polyvalente à dominante sportive (≥ 1 200 m² ou H < 6,50 m)",
         desc: "Déclaration MOA prioritaire avec plancher 1 pers / m². En configuration spectacle, application des règles a/b. Seuil 5e cat : 100 SS / 200 total.",
+        seuil5_total: 200,
         zones: [
           { id:"Le_decl", lbl:"⭐ Effectif déclaré par le maître d'ouvrage (prioritaire)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration officielle" },
           { id:"Le_surf", lbl:"Surface totale (à défaut de déclaration, plancher minimum)", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m² (minimum)" },
@@ -244,6 +249,7 @@ const TYPES = {
       "f": {
         lbl: "L f — Autres salles polyvalentes (non sportives)",
         desc: "Mêmes règles que L e (déclaration MOA + plancher 1 p/m², ou règles a/b en spectacle). Seuil 5e cat : 100 SS / 200 total.",
+        seuil5_total: 200,
         zones: [
           { id:"Lf_decl", lbl:"⭐ Effectif déclaré par le maître d'ouvrage (prioritaire)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration officielle" },
           { id:"Lf_surf", lbl:"Surface totale (à défaut de déclaration, plancher minimum)", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m² (minimum)" },
@@ -313,6 +319,7 @@ const TYPES = {
       "<strong>Faible densité</strong> : doit s'appliquer sans ambiguïté à l'activité (un salon de coiffure, par exemple, n'entre PAS dans cette catégorie)."
     ],
     seuil5: "100 sous-sol / 100 étage / 200 total.",
+    seuil5_total: 200,
     perso: true
   },
 
@@ -334,6 +341,7 @@ const TYPES = {
       "Personnel non inclus."
     ],
     seuil5: "100 sous-sol / 200 étage / 200 total.",
+    seuil5_total: 200,
     perso: false
   },
 
@@ -355,6 +363,7 @@ const TYPES = {
       "Personnel non inclus."
     ],
     seuil5: "100 au total ET moins de 100 en étage. Dispositions renforcées au-dessus du 1er étage (locaux à sommeil).",
+    seuil5_total: 100,
     perso: false
   },
 
@@ -376,6 +385,7 @@ const TYPES = {
       "Personnel non inclus."
     ],
     seuil5: "20 en sous-sol / 100 au total (seuil bas comme L spectacles).",
+    seuil5_total: 100,
     perso: false
   },
 
@@ -400,6 +410,7 @@ const TYPES = {
       "<strong>Maternelles</strong> : interdiction d'implantation au-dessus du 1er étage (R 8)."
     ],
     seuil5: "100 sous-sol / 100 étage / 200 RDC. Internats (locaux à sommeil) : 30 au-dessus du RDC (très restrictif).",
+    seuil5_total: 200,
     perso: false
   },
 
@@ -419,6 +430,7 @@ const TYPES = {
       "Personnel non inclus."
     ],
     seuil5: "100 sous-sol / 100 étage / 200 total.",
+    seuil5_total: 200,
     perso: false
   },
 
@@ -438,6 +450,7 @@ const TYPES = {
       "Grandes manifestations internationales : étude particulière commission de sécurité."
     ],
     seuil5: "100 sous-sol / 100 étage / 200 total.",
+    seuil5_total: 200,
     perso: false
   },
 
@@ -461,6 +474,7 @@ const TYPES = {
       "Salles d'attente importantes : éventuellement type W applicable."
     ],
     seuil5: "Peu d'établissements U en 5e cat. (locaux à sommeil → seuils renforcés).",
+    seuil5_total: 100,
     perso: true
   },
 
@@ -482,6 +496,7 @@ const TYPES = {
       "Personnel non inclus."
     ],
     seuil5: "100 sous-sol / 200 étage / 300 total (seuil élevé spécifique V).",
+    seuil5_total: 300,
     perso: false
   },
 
@@ -501,6 +516,7 @@ const TYPES = {
       "Personnel non inclus dans l'effectif public."
     ],
     seuil5: "100 sous-sol / 100 étage / 200 total.",
+    seuil5_total: 200,
     perso: false
   },
 
@@ -528,6 +544,7 @@ const TYPES = {
       "Piscines : dispositif de comptage obligatoire dès dépassement de l'effectif fixé."
     ],
     seuil5: "100 sous-sol / 100 étage / 200 total.",
+    seuil5_total: 200,
     perso: false
   },
 
@@ -547,6 +564,7 @@ const TYPES = {
       "Personnel non inclus."
     ],
     seuil5: "100 sous-sol / 100 étage / 200 total.",
+    seuil5_total: 200,
     perso: false
   }
 };
@@ -677,10 +695,21 @@ function renderResult(total, detail){
 
 function categorie(eff){
   if (eff <= 0) return {lbl:"—"};
+  // Récupérer le seuil 5e cat spécifique au type / sous-type
+  let seuil5 = 200; // défaut sécurisé
+  if (currentType) {
+    const def = TYPES[currentType];
+    if (def.modes && currentMode && def.modes[currentMode].seuil5_total !== undefined) {
+      seuil5 = def.modes[currentMode].seuil5_total;
+    } else if (def.seuil5_total !== undefined) {
+      seuil5 = def.seuil5_total;
+    }
+  }
+  if (eff <= seuil5) return {lbl:"5e catégorie (sous le seuil de "+seuil5+" pers. au total)"};
   if (eff > 1500) return {lbl:"1ère catégorie (> 1 500 pers.)"};
   if (eff > 700)  return {lbl:"2e catégorie (701 à 1 500 pers.)"};
   if (eff > 300)  return {lbl:"3e catégorie (301 à 700 pers.)"};
-  return {lbl:"4e catégorie (≤ 300 pers., hors seuils 5e cat.)"};
+  return {lbl:"4e catégorie (au-dessus du seuil 5e cat., ≤ 300 pers.)"};
 }
 
 function resetZones(){
