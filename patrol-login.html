@@ -79,7 +79,7 @@ window.addEventListener("DOMContentLoaded", async function() {
   document.getElementById("subtitle").textContent = "Chargement...";
 
   try {
-    var cr = await window.supabase.from("centers").select("*").eq("id", centerId).single();
+    var cr = await window.supabase.from("centers").select("id,nom,logo_url,module_patrol").eq("id", centerId).single();
     if (!cr.data) { showErr("Centre introuvable."); return; }
     CENTER = cr.data;
     document.getElementById("subtitle").textContent = CENTER.nom || "Connexion";

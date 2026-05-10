@@ -217,9 +217,13 @@ switchTab('login');
 window.addEventListener('DOMContentLoaded',()=>{
   // Session effacée à chaque chargement — login obligatoire
   SESSION.clear('centre');
-  const p=new URLSearchParams(window.location.search);
-  const token=p.get('reset');
-  if(token){resetToken=token;switchTab('token');}
+});
+
+// Détecter le retour depuis un email de récupération Supabase
+supabase.auth.onAuthStateChange((event)=>{
+  if(event==='PASSWORD_RECOVERY'){
+    switchTab('token');
+  }
 });
 
 // ── CONNEXION NORMALE ──
@@ -261,42 +265,47 @@ async function doFirst(){
   errEl.classList.add('hidden');okEl.classList.add('hidden');
 
   if(!firstStepDone){
-    // Étape 1 : Vérifier email + clé
+    // Étape 1 : Vérifier qu'on a bien email + clé (la vraie vérif a lieu côté Edge Function)
     if(!email||!key){showErr(errEl,'❌ Remplissez tous les champs.');return;}
-    setLoad('btn-first',true,'btn-first-label');
-    try{
-      const{data,error}=await supabase.from('centers').select('*').eq('email',email).eq('license_key',key).eq('license_status','active').single();
-      if(error||!data)throw new Error('nf');
-      if(data.license_expires_at&&new Date(data.license_expires_at)<new Date())throw new Error('exp');
-      if(data.password_set)throw new Error('already');
-      centerDataCache=data;
-      firstStepDone=true;
-      document.getElementById('f-step2').classList.remove('hidden');
-      document.getElementById('f-key').disabled=true;
-      document.getElementById('f-email').disabled=true;
-      document.getElementById('btn-first-label').textContent='Créer mon mot de passe →';
-      setLoad('btn-first',false,'btn-first-label');
-    }catch(e){
-      const msgs={nf:'❌ Email ou clé de licence incorrects.',exp:'❌ Licence expirée.',already:'⚠️ Un mot de passe existe déjà — utilisez la connexion normale.'};
-      showErr(errEl,msgs[e.message]||'❌ Erreur.');
-      setLoad('btn-first',false,'btn-first-label');
-    }
+    centerDataCache={email,license_key:key};
+    firstStepDone=true;
+    document.getElementById('f-step2').classList.remove('hidden');
+    document.getElementById('f-key').disabled=true;
+    document.getElementById('f-email').disabled=true;
+    document.getElementById('btn-first-label').textContent='Créer mon mot de passe →';
   }else{
-    // Étape 2 : Créer le mot de passe
+    // Étape 2 : Créer le mot de passe via Edge Function (vérifie email+clé+licence côté serveur)
     const pwd=document.getElementById('f-pwd').value;
     const pwd2=document.getElementById('f-pwd2').value;
     if(pwd.length<8){showErr(errEl,'❌ Le mot de passe doit faire au moins 8 caractères.');return;}
     if(pwd!==pwd2){showErr(errEl,'❌ Les mots de passe ne correspondent pas.');return;}
     setLoad('btn-first',true,'btn-first-label');
     try{
-      const hash=await UTILS.hash(pwd);
-      const{error}=await supabase.from('centers').update({password_hash:hash,password_set:true}).eq('id',centerDataCache.id);
-      if(error)throw error;
-      okEl.textContent='✅ Mot de passe créé ! Connexion en cours...';okEl.classList.remove('hidden');
-      SESSION.save('centre',{center_id:centerDataCache.id,center_nom:centerDataCache.nom,plan:centerDataCache.plan,role:'centre'});
-      setTimeout(()=>window.location.href='center.html',1500);
+      const url = SUPABASE_URL + '/functions/v1/centre-signup';
+      const res = await fetch(url,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY},
+        body: JSON.stringify({email:centerDataCache.email, license_key:centerDataCache.license_key, password:pwd})
+      });
+      const json = await res.json();
+      if(!res.ok || json.error){
+        const msgs={
+          not_found:'❌ Email ou clé de licence incorrects.',
+          inactive:'❌ Licence inactive. Contactez MIB Prévention.',
+          expired:'❌ Licence expirée. Contactez MIB Prévention.',
+          already:'⚠️ Un mot de passe existe déjà — utilisez la connexion normale.',
+          weak:'❌ Mot de passe trop court (min 8 caractères).'
+        };
+        throw new Error(msgs[json.error] || ('❌ '+(json.message||'Erreur inconnue')));
+      }
+      // Connexion automatique
+      const {error:signErr} = await supabase.auth.signInWithPassword({email:centerDataCache.email, password:pwd});
+      if(signErr) throw new Error('❌ Compte créé mais connexion échouée. Réessayez via l\'onglet Connexion.');
+      okEl.textContent='✅ Mot de passe créé ! Redirection...';okEl.classList.remove('hidden');
+      SESSION.save('centre',{center_id:json.center_id,center_nom:json.center_nom,role:'centre'});
+      setTimeout(()=>window.location.href='center.html',1200);
     }catch(e){
-      showErr(errEl,'❌ Erreur lors de la création : '+e.message);
+      showErr(errEl, e.message || '❌ Erreur.');
       setLoad('btn-first',false,'btn-first-label');
     }
   }
@@ -311,40 +320,21 @@ async function doReset(){
   if(!email){ showErr(errEl,'❌ Entrez votre email.'); return; }
   setLoad('btn-reset', true);
   try{
-    const { data } = await supabase.from('centers').select('id,nom').eq('email',email).single();
-    if(!data) throw new Error('nf');
-
-    // Générer un token unique
-    const token = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 24*60*60*1000).toISOString(); // 24h
-
-    await supabase.from('password_reset_requests').insert({
-      center_id: data.id, email, status: 'pending',
-      token, expires_at: expiresAt
-    });
-
-    // Construire le lien de reset
-    const base = window.location.origin + window.location.pathname;
-    const resetUrl = `${base}?reset=${token}`;
-
-    // Afficher le lien directement (pas d'email configuré)
-    okEl.innerHTML = `✅ Lien de réinitialisation généré :<br><br>
-      <a href="${resetUrl}" style="color:#1d4ed8;word-break:break-all;font-size:.78rem;">${resetUrl}</a><br><br>
-      <button onclick="navigator.clipboard.writeText('${resetUrl}').then(()=>alert('Copié !'))"
-        style="background:#1d4ed8;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700;margin-top:6px;">
-        📋 Copier le lien
-      </button><br><br>
-      <small style="color:#6b7280;">Ouvrez ce lien dans votre navigateur pour choisir un nouveau mot de passe. Valable 24h.</small>`;
+    const redirectTo = window.location.origin + window.location.pathname;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    if(error) throw error;
+    okEl.innerHTML = `✅ Si un compte existe pour <strong>${email}</strong>, un email de réinitialisation vient de partir.<br><br>
+      <small style="color:#6b7280;">Cliquez sur le lien dans l'email pour choisir votre nouveau mot de passe. Vérifiez les spams si besoin.</small>`;
     okEl.classList.remove('hidden');
     document.getElementById('btn-reset').disabled = true;
   }catch(e){
-    showErr(errEl, e.message==='nf' ? '❌ Email introuvable.' : '❌ Erreur lors de la demande.');
+    showErr(errEl, '❌ Erreur lors de la demande. Réessayez dans quelques minutes.');
     setLoad('btn-reset', false);
     document.getElementById('btn-reset').textContent = 'Demander un reset →';
   }
 }
 
-// ── RESET AVEC TOKEN ──
+// ── RESET AVEC TOKEN (session de récupération Supabase) ──
 async function doTokenReset(){
   const pwd=document.getElementById('t-pwd').value;
   const pwd2=document.getElementById('t-pwd2').value;
@@ -355,16 +345,11 @@ async function doTokenReset(){
   if(pwd!==pwd2){showErr(errEl,'❌ Les mots de passe ne correspondent pas.');return;}
   setLoad('btn-token',true);
   try{
-    // Vérifier le token
-    const{data:req}=await supabase.from('password_reset_requests')
-      .select('*').eq('token',resetToken).eq('status','pending')
-      .gt('expires_at',new Date().toISOString()).single();
-    if(!req)throw new Error('invalid');
-    const hash=await UTILS.hash(pwd);
-    await supabase.from('centers').update({password_hash:hash}).eq('id',req.center_id);
-    await supabase.from('password_reset_requests').update({status:'done'}).eq('id',req.id);
-    okEl.textContent='✅ Mot de passe réinitialisé ! Redirection...';okEl.classList.remove('hidden');
-    setTimeout(()=>switchTab('login'),2000);
+    const { error } = await supabase.auth.updateUser({ password: pwd });
+    if(error) throw error;
+    await supabase.auth.signOut();
+    okEl.textContent='✅ Mot de passe réinitialisé ! Connectez-vous.';okEl.classList.remove('hidden');
+    setTimeout(()=>{ window.location.href = window.location.pathname; },2000);
   }catch(e){
     showErr(errEl,'❌ Lien invalide ou expiré. Faites une nouvelle demande.');
     setLoad('btn-token',false,'Enregistrer →');
