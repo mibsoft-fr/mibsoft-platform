@@ -108,19 +108,31 @@
           <label class="field-label">Type d'établissement</label>
           <select id="type-erp" class="big" onchange="renderType()">
             <option value="">— Choisir un type —</option>
-            <option value="L">L — Salles de réunions, conférences, spectacles, polyvalentes</option>
-            <option value="M">M — Magasins de vente, centres commerciaux</option>
-            <option value="N">N — Restaurants, débits de boissons</option>
-            <option value="O">O — Hôtels et pensions de famille</option>
-            <option value="P">P — Salles de danse, salles de jeux</option>
-            <option value="R">R — Établissements d'enseignement, crèches, internats</option>
-            <option value="S">S — Bibliothèques, centres de documentation</option>
-            <option value="T">T — Salles d'expositions</option>
-            <option value="U">U — Établissements de soins</option>
-            <option value="V">V — Établissements de culte</option>
-            <option value="W">W — Administrations, banques, bureaux</option>
-            <option value="X">X — Établissements sportifs couverts</option>
-            <option value="Y">Y — Musées</option>
+            <optgroup label="Types courants (1er groupe)">
+              <option value="L">L — Salles de réunions, conférences, spectacles, polyvalentes</option>
+              <option value="M">M — Magasins de vente, centres commerciaux</option>
+              <option value="N">N — Restaurants, débits de boissons</option>
+              <option value="O">O — Hôtels et pensions de famille</option>
+              <option value="P">P — Salles de danse, salles de jeux</option>
+              <option value="R">R — Établissements d'enseignement, crèches, internats</option>
+              <option value="S">S — Bibliothèques, centres de documentation</option>
+              <option value="T">T — Salles d'expositions</option>
+              <option value="U">U — Établissements de soins</option>
+              <option value="V">V — Établissements de culte</option>
+              <option value="W">W — Administrations, banques, bureaux</option>
+              <option value="X">X — Établissements sportifs couverts</option>
+              <option value="Y">Y — Musées</option>
+            </optgroup>
+            <optgroup label="Types spécifiques">
+              <option value="J">J — Structures PA / PH (EHPAD, FAM, MAS, IME)</option>
+              <option value="GA">GA — Gares accessibles au public</option>
+              <option value="OA">OA — Hôtels-restaurants d'altitude</option>
+              <option value="EF">EF — Établissements flottants</option>
+              <option value="REF">REF — Refuges de montagne</option>
+              <option value="PA">PA — Établissements de plein air</option>
+              <option value="CTS">CTS — Chapiteaux, tentes, structures itinérantes</option>
+              <option value="PS">PS — Parcs de stationnement couverts</option>
+            </optgroup>
           </select>
         </div>
         <div>
@@ -390,27 +402,89 @@ const TYPES = {
   },
 
   R: {
-    nom: "Établissements d'enseignement, crèches, internats",
-    article: "R 2",
+    nom: "Établissements d'enseignement, crèches, internats, vacances, loisirs",
+    article: "R 1 § 1 + R 2",
     modif: "version consolidée",
-    url: "https://www.legifrance.gouv.fr/codes/section_lc/JORFTEXT000000290033/LEGISCTA000020334983/",
-    intro: "Effectif prioritairement déclaré par le chef d'établissement. Si vous avez un effectif déclaré, saisissez-le dans la zone dédiée — les autres zones servent uniquement de fallback ou pour les locaux non couverts par la déclaration.",
-    zones: [
-      { id:"R_decl", lbl:"⭐ Effectif déclaré par le chef d'établissement (prioritaire)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration officielle (à défaut, utiliser les zones ci-dessous)" },
-      { id:"R_classe", lbl:"Salles d'enseignement primaire / secondaire (à défaut de déclaration)", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m²" },
-      { id:"R_mat", lbl:"Salles maternelle (à défaut de déclaration)", unit:"m²", calc:s=>Math.round(s/2), ratioTxt:"1 personne / 2 m²" },
-      { id:"R_atelier", lbl:"Ateliers, laboratoires, TP", unit:"m²", calc:s=>Math.round(s/3), ratioTxt:"1 personne / 3 m²" },
-      { id:"R_dortoir", lbl:"Dortoirs (lits)", unit:"lits", calc:n=>n, ratioTxt:"1 personne / lit" },
-      { id:"R_resto", lbl:"Salle de restauration (assise, voir N 2)", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m²" }
-    ],
+    url: "https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000025001038",
+    intro: "Le type R est subdivisé en 7 sous-types (a-g). Effectif prioritairement déclaré par le chef d'établissement ; les ratios par défaut s'appliquent à défaut de déclaration.",
+    modes: {
+      "a": {
+        lbl: "R a — Crèches, garderies, halte-garderies, jardins d'enfants",
+        desc: "Effectif théorique = enfants accueillis + encadrement (déclaration ou 1 enfant / 2 m² salle de jeux). Seuil 5e cat : maternelle interdite en sous-sol, étage 20, RDC 100.",
+        seuil5_total: 100,
+        zones: [
+          { id:"Ra_decl", lbl:"⭐ Effectif déclaré (capacité d'accueil agréée)", unit:"enfants", calc:n=>n, ratioTxt:"déclaration officielle" },
+          { id:"Ra_def", lbl:"Surface salle de jeux (à défaut de déclaration)", unit:"m²", calc:s=>Math.round(s/2), ratioTxt:"1 enfant / 2 m²" }
+        ]
+      },
+      "b": {
+        lbl: "R b — Écoles maternelles, primaires, collèges, lycées (1er et 2nd degré)",
+        desc: "Effectif déclaré prioritaire. Salles de classe : 1 pers / m². Seuil 5e cat : 100 SS / 100 étage / 200 total. Maternelle : interdite > 1er étage (R 8).",
+        seuil5_total: 200,
+        zones: [
+          { id:"Rb_decl", lbl:"⭐ Effectif déclaré par le chef d'établissement (prioritaire)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration officielle" },
+          { id:"Rb_classe", lbl:"Salles de classe (à défaut)", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m²" },
+          { id:"Rb_speciale", lbl:"Salles spécialisées (musique, arts plastiques, études)", unit:"m²", calc:s=>Math.round(s/2), ratioTxt:"1 personne / 2 m²" },
+          { id:"Rb_resto", lbl:"Salle de restauration scolaire", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m²" },
+          { id:"Rb_polyv", lbl:"Salles polyvalentes / réunions", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m²" }
+        ]
+      },
+      "c": {
+        lbl: "R c — Établissements d'enseignement supérieur (universités, IUT)",
+        desc: "Amphithéâtres et salles sur déclaration. Salles spécialisées : 1 pers / 2 m². Seuil 5e cat : 100 SS / 100 étage / 200 total.",
+        seuil5_total: 200,
+        zones: [
+          { id:"Rc_decl", lbl:"⭐ Effectif déclaré (amphis, salles)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration officielle" },
+          { id:"Rc_def", lbl:"Salles de cours / études (à défaut)", unit:"m²", calc:s=>Math.round(s/2), ratioTxt:"1 personne / 2 m²" },
+          { id:"Rc_labo", lbl:"Laboratoires / TP / salles informatiques", unit:"m²", calc:s=>Math.round(s/2), ratioTxt:"1 personne / 2 m²" }
+        ]
+      },
+      "d": {
+        lbl: "R d — Enseignement technique (lycées techniques, ateliers)",
+        desc: "Ateliers / labos / TP : 1 pers / 3 m². Seuil 5e cat : 100 SS / 100 étage / 200 total.",
+        seuil5_total: 200,
+        zones: [
+          { id:"Rd_decl", lbl:"⭐ Effectif déclaré", unit:"personnes", calc:n=>n, ratioTxt:"déclaration officielle" },
+          { id:"Rd_classe", lbl:"Salles de cours classiques", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m²" },
+          { id:"Rd_atelier", lbl:"Ateliers / TP / labos", unit:"m²", calc:s=>Math.round(s/3), ratioTxt:"1 personne / 3 m²" }
+        ]
+      },
+      "e": {
+        lbl: "R e — Centres de vacances (avec hébergement)",
+        desc: "Effectif basé sur capacité d'hébergement. Locaux à sommeil : exigences renforcées (alarme type 1). Seuil 5e cat : 30 personnes pour les locaux à sommeil.",
+        seuil5_total: 30,
+        zones: [
+          { id:"Re_decl", lbl:"⭐ Effectif déclaré (capacité agréée)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration officielle" },
+          { id:"Re_lits", lbl:"Lits installés (dortoirs/chambres)", unit:"lits", calc:n=>n, ratioTxt:"1 personne / lit" },
+          { id:"Re_resto", lbl:"Salle de restauration", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m²" }
+        ]
+      },
+      "f": {
+        lbl: "R f — Centres de loisirs sans hébergement (CLSH)",
+        desc: "Pas de couchage. Effectif = enfants + animateurs. Seuil 5e cat : 100 SS / 100 étage / 200 total.",
+        seuil5_total: 200,
+        zones: [
+          { id:"Rf_decl", lbl:"⭐ Effectif déclaré (capacité agréée)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration officielle" },
+          { id:"Rf_def", lbl:"Surface accessible aux enfants (à défaut)", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m²" }
+        ]
+      },
+      "g": {
+        lbl: "R g — Internats des établissements d'enseignement",
+        desc: "Locaux à sommeil. Seuil 5e cat : 30 personnes (très restrictif).",
+        seuil5_total: 30,
+        zones: [
+          { id:"Rg_decl", lbl:"⭐ Effectif déclaré (capacité internat)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration officielle" },
+          { id:"Rg_lits", lbl:"Lits installés", unit:"lits", calc:n=>n, ratioTxt:"1 personne / lit" }
+        ]
+      }
+    },
     notes: [
       "<strong>Effectif prioritairement déclaré</strong> par le chef d'établissement / maître d'ouvrage. Les ratios par défaut ne s'appliquent qu'en l'absence de déclaration.",
-      "<strong>Maternelle restauration</strong> : règle particulière de \"2 services à la place\" (places assises = ½ rationnaires).",
-      "<strong>Personnel</strong> (enseignants, ATSEM, surveillants) non inclus dans l'effectif public.",
-      "<strong>Maternelles</strong> : interdiction d'implantation au-dessus du 1er étage (R 8)."
+      "<strong>Personnel</strong> (enseignants, ATSEM, animateurs) non inclus dans l'effectif public.",
+      "<strong>Maternelles</strong> : interdiction d'implantation au-dessus du 1er étage (R 8).",
+      "<strong>Locaux à sommeil</strong> (R e, R g) : exigences renforcées — alarme type 1, désenfumage circulations, espaces d'attente sécurisés."
     ],
-    seuil5: "100 sous-sol / 100 étage / 200 RDC. Internats (locaux à sommeil) : 30 au-dessus du RDC (très restrictif).",
-    seuil5_total: 200,
+    seuil5: "Sous-types a, b, c, d, f : 100 SS / 100 étage / 200 total. Sous-types e, g (locaux à sommeil) : 30 pers.",
     perso: false
   },
 
@@ -455,26 +529,61 @@ const TYPES = {
   },
 
   U: {
-    nom: "Établissements de soins / sanitaires",
-    article: "U 2",
+    nom: "Établissements de soins (sanitaires)",
+    article: "U 1 § 1 + U 2",
     modif: "version consolidée",
-    url: "https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000024803464/",
-    intro: "Établissements avec hospitalisation : somme malades + personnel + visiteurs. Personnel inclus (spécificité U).",
-    zones: [
-      { id:"U_lits", lbl:"Nombre de lits d'hospitalisation", unit:"lits", calc:n=>n, ratioTxt:"1 personne / lit (malades)" },
-      { id:"U_visit", lbl:"Visiteurs (1 par lit)", unit:"lits", calc:n=>n, ratioTxt:"1 visiteur / lit" },
-      { id:"U_perso", lbl:"Personnel soignant et non soignant (1 pour 3 lits)", unit:"lits", calc:n=>Math.ceil(n/3), ratioTxt:"1 personne / 3 lits" },
-      { id:"U_ambu_decl", lbl:"⭐ Ambulatoire / consultations externes — effectif déclaré", unit:"personnes", calc:n=>n, ratioTxt:"déclaration exploitant" },
-      { id:"U_ambu_def", lbl:"Salles de consultation externes (à défaut)", unit:"salles", calc:n=>n*8, ratioTxt:"8 personnes / salle (défaut)" }
-    ],
+    url: "https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000024803456",
+    intro: "3 sous-types (a-c). Personnel inclus dans l'effectif U (spécificité). Seuil 5e cat U : 100 personnes simultanées OU 20 lits d'hospitalisation.",
+    modes: {
+      "a": {
+        lbl: "U a — Hospitalisation MCO (médecine, chirurgie, obstétrique)",
+        desc: "Soins de courte durée. Effectif = lits + visiteurs + personnel.",
+        seuil5_total: 100,
+        zones: [
+          { id:"Ua_lits", lbl:"Nombre de lits d'hospitalisation", unit:"lits", calc:n=>n, ratioTxt:"1 personne / lit (malades)" },
+          { id:"Ua_visit", lbl:"Visiteurs (forfait : 1 par lit)", unit:"lits", calc:n=>n, ratioTxt:"1 visiteur / lit" },
+          { id:"Ua_perso", lbl:"Personnel maximal en simultané (déclaration)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration chef d'établissement" }
+        ]
+      },
+      "b": {
+        lbl: "U b — Soins psychiatrie, suite, réadaptation (SSR)",
+        desc: "Idem MCO sur le calcul. Locaux à sommeil par destination.",
+        seuil5_total: 100,
+        zones: [
+          { id:"Ub_lits", lbl:"Nombre de lits", unit:"lits", calc:n=>n, ratioTxt:"1 personne / lit" },
+          { id:"Ub_visit", lbl:"Visiteurs (1 par lit)", unit:"lits", calc:n=>n, ratioTxt:"1 visiteur / lit" },
+          { id:"Ub_perso", lbl:"Personnel maximal en simultané", unit:"personnes", calc:n=>n, ratioTxt:"déclaration" }
+        ]
+      },
+      "c": {
+        lbl: "U c — Soins de longue durée (USLD, surveillance médicale constante)",
+        desc: "Personnes sans autonomie de vie nécessitant surveillance médicale constante. Règle assouplie possible : 1 pers / 2 lits dans certains cas (à vérifier).",
+        seuil5_total: 100,
+        zones: [
+          { id:"Uc_lits", lbl:"Nombre de lits", unit:"lits", calc:n=>n, ratioTxt:"1 personne / lit" },
+          { id:"Uc_visit", lbl:"Visiteurs (1 par lit)", unit:"lits", calc:n=>n, ratioTxt:"1 visiteur / lit" },
+          { id:"Uc_perso", lbl:"Personnel maximal en simultané", unit:"personnes", calc:n=>n, ratioTxt:"déclaration" }
+        ]
+      },
+      "ambu": {
+        lbl: "U — Ambulatoire / hôpital de jour / consultations externes",
+        desc: "Pas de lits hospitalisation. Calcul par poste / consultation. Pour ambulatoire : 1 pers / poste + 1 accompagnant / poste.",
+        seuil5_total: 100,
+        zones: [
+          { id:"Uam_decl", lbl:"⭐ Effectif déclaré (places + accompagnants)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration exploitant" },
+          { id:"Uam_postes", lbl:"Postes / lits de jour (à défaut)", unit:"postes", calc:n=>n*2, ratioTxt:"1 patient + 1 accompagnant / poste" },
+          { id:"Uam_consult", lbl:"Salles de consultation externe", unit:"salles", calc:n=>n*8, ratioTxt:"8 personnes / salle (défaut)" },
+          { id:"Uam_perso", lbl:"Personnel maximal en simultané", unit:"personnes", calc:n=>n, ratioTxt:"déclaration" }
+        ]
+      }
+    },
     notes: [
       "<strong>Personnel inclus</strong> dans l'effectif U (spécificité, comme M).",
-      "Établissements de très longue durée : règle 1 personne / 2 lits (à vérifier au cas par cas).",
-      "<strong>EHPAD</strong> : relèvent du type J (et non U).",
-      "Salles d'attente importantes : éventuellement type W applicable."
+      "<strong>Distinction U / J</strong> : surveillance médicale constante → U ; perte d'autonomie liée à l'âge sans surveillance médicale constante → J (EHPAD).",
+      "Salles d'attente importantes : éventuellement type W applicable en complément.",
+      "Locaux à sommeil U : alarme type 1, transfert horizontal, espaces d'attente sécurisés."
     ],
-    seuil5: "Peu d'établissements U en 5e cat. (locaux à sommeil → seuils renforcés).",
-    seuil5_total: 100,
+    seuil5: "100 pers. simultanées OU 20 lits d'hospitalisation.",
     perso: true
   },
 
@@ -522,29 +631,95 @@ const TYPES = {
 
   X: {
     nom: "Établissements sportifs couverts",
-    article: "X 2",
+    article: "X 1 § 1 + X 2",
     modif: "version consolidée",
     url: "https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000025134524",
-    intro: "Somme effectif pratiquants (zone d'activité) + effectif spectateurs (tribunes).",
-    zones: [
-      { id:"X_sport", lbl:"Aire d'activité sportive (gymnase, salle de sport)", unit:"m²", calc:s=>Math.round(s/4), ratioTxt:"1 personne / 4 m²" },
-      { id:"X_polyv", lbl:"Salle polyvalente à dominante sport (cas 1/2 m²)", unit:"m²", calc:s=>Math.round(s/2), ratioTxt:"1 personne / 2 m²" },
-      { id:"X_patin", lbl:"Patinoire — surface de glace", unit:"m²", calc:s=>Math.round(s/5), ratioTxt:"1 personne / 5 m²" },
-      { id:"X_piscine", lbl:"Piscine couverte — plan d'eau", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m² de plan d'eau" },
-      { id:"X_plage", lbl:"Plages de piscine (zone hors eau)", unit:"m²", calc:s=>Math.round(s/3), ratioTxt:"1 personne / 3 m²" },
-      { id:"X_sp_sieges", lbl:"Tribunes — sièges fixes / strapontins", unit:"sièges", calc:n=>n, ratioTxt:"1 personne / siège" },
-      { id:"X_sp_bancs", lbl:"Tribunes — bancs / gradins continus", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 personne / 0,50 m linéaire" },
-      { id:"X_sp_debout", lbl:"Promenoirs spectateurs (debout)", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 personnes / m linéaire" }
-    ],
+    intro: "7 sous-types (a-g). Pour la plupart, deux options de calcul existent ; on retient le résultat le plus défavorable.",
+    modes: {
+      "a": {
+        lbl: "X a — Salles omnisports",
+        desc: "1 pers / 4 m² aire OU 1 pers / 8 m² + spectateurs (retenir le plus grand). Tennis : 25 pers / court.",
+        seuil5_total: 200,
+        zones: [
+          { id:"Xa_aire", lbl:"Option 1 — Aire sportive (calcul seul)", unit:"m²", calc:s=>Math.round(s/4), ratioTxt:"1 personne / 4 m² aire" },
+          { id:"Xa_aire2", lbl:"Option 2 — Aire sportive (avec spectateurs comptés à part)", unit:"m²", calc:s=>Math.round(s/8), ratioTxt:"1 personne / 8 m² aire" },
+          { id:"Xa_tennis", lbl:"Tennis (par court)", unit:"courts", calc:n=>n*25, ratioTxt:"25 personnes / court" },
+          { id:"Xa_sieges", lbl:"Spectateurs — sièges fixes", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"Xa_bancs", lbl:"Spectateurs — bancs / gradins", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" },
+          { id:"Xa_debout", lbl:"Spectateurs — promenoirs debout", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 / ml" }
+        ]
+      },
+      "b": {
+        lbl: "X b — Salles d'éducation physique et sportive (EPS)",
+        desc: "Idem omnisports.",
+        seuil5_total: 200,
+        zones: [
+          { id:"Xb_aire", lbl:"Aire d'EPS", unit:"m²", calc:s=>Math.round(s/4), ratioTxt:"1 personne / 4 m²" },
+          { id:"Xb_sieges", lbl:"Spectateurs sièges", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"Xb_bancs", lbl:"Spectateurs bancs", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" }
+        ]
+      },
+      "c": {
+        lbl: "X c — Salles spécialisées (boxe, arts martiaux, musculation, danse sportive)",
+        desc: "Salles de remise en forme et sports spécialisés.",
+        seuil5_total: 200,
+        zones: [
+          { id:"Xc_aire", lbl:"Aire d'activité", unit:"m²", calc:s=>Math.round(s/4), ratioTxt:"1 personne / 4 m²" },
+          { id:"Xc_sieges", lbl:"Spectateurs sièges", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" }
+        ]
+      },
+      "d": {
+        lbl: "X d — Patinoires",
+        desc: "2 pers / 3 m² de glace OU 1 pers / 10 m² + spectateurs.",
+        seuil5_total: 200,
+        zones: [
+          { id:"Xd_glace1", lbl:"Option 1 — Surface de glace (seule)", unit:"m²", calc:s=>Math.round(s*2/3), ratioTxt:"2 personnes / 3 m² (≈0,67 / m²)" },
+          { id:"Xd_glace2", lbl:"Option 2 — Surface de glace (avec spectateurs à part)", unit:"m²", calc:s=>Math.round(s/10), ratioTxt:"1 personne / 10 m²" },
+          { id:"Xd_sieges", lbl:"Spectateurs sièges", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"Xd_bancs", lbl:"Spectateurs bancs", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" }
+        ]
+      },
+      "e": {
+        lbl: "X e — Manèges (équitation)",
+        desc: "Calcul par déclaration ou aire.",
+        seuil5_total: 200,
+        zones: [
+          { id:"Xe_decl", lbl:"⭐ Effectif déclaré (cavaliers + accompagnants)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration" },
+          { id:"Xe_aire", lbl:"Aire de manège (à défaut)", unit:"m²", calc:s=>Math.round(s/4), ratioTxt:"1 personne / 4 m²" },
+          { id:"Xe_sieges", lbl:"Spectateurs sièges", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" }
+        ]
+      },
+      "f": {
+        lbl: "X f — Piscines couvertes / transformables / mixtes",
+        desc: "1 pers / m² de plan d'eau OU 1 pers / 5 m² + spectateurs (retenir le plus grand). Pataugeoires et bassins de plongeon exclus du calcul plan d'eau.",
+        seuil5_total: 200,
+        zones: [
+          { id:"Xf_eau1", lbl:"Option 1 — Plan d'eau (calcul seul)", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m² de plan d'eau" },
+          { id:"Xf_eau2", lbl:"Option 2 — Plan d'eau (avec spectateurs à part)", unit:"m²", calc:s=>Math.round(s/5), ratioTxt:"1 personne / 5 m²" },
+          { id:"Xf_plage", lbl:"Plages de piscine (zone hors eau)", unit:"m²", calc:s=>Math.round(s/3), ratioTxt:"1 personne / 3 m²" },
+          { id:"Xf_sieges", lbl:"Spectateurs sièges", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"Xf_bancs", lbl:"Spectateurs bancs / gradins", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" }
+        ]
+      },
+      "g": {
+        lbl: "X g — Salle polyvalente à dominante sportive (< 1 200 m² ET H ≥ 6,50 m)",
+        desc: "Au-delà de 1 200 m² OU H < 6,50 m → bascule en type L (e ou f).",
+        seuil5_total: 200,
+        zones: [
+          { id:"Xg_aire", lbl:"Aire d'activité", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m²" },
+          { id:"Xg_sieges", lbl:"Spectateurs sièges", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"Xg_bancs", lbl:"Spectateurs bancs", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" }
+        ]
+      }
+    },
     notes: [
-      "<strong>Bassin en plein air</strong> rattaché à un établissement couvert : 1 personne / 5 m² de plan d'eau (ratio différent du bassin couvert).",
-      "<strong>Salle polyvalente sportive</strong> &gt; 1 200 m² ou H &lt; 6,50 m : peut basculer en type L (vérifier L 1).",
+      "<strong>Méthode \"le plus défavorable\"</strong> : pour les sous-types a, d, f, deux options de calcul coexistent. La pratique retient le résultat le plus grand. Saisir les deux options et comparer.",
+      "<strong>Salle polyvalente sportive</strong> ≥ 1 200 m² ou H < 6,50 m : passe en type L (e ou f), pas en X g.",
+      "<strong>Piscines</strong> : dispositif de comptage obligatoire dès dépassement de l'effectif fixé. Bassins de plongeon et pataugeoires hors calcul plan d'eau.",
       "Vestiaires non accessibles au public spectateur : non comptés en zone spectateurs.",
-      "Personnel (maîtres-nageurs, professeurs) non inclus.",
-      "Piscines : dispositif de comptage obligatoire dès dépassement de l'effectif fixé."
+      "Personnel (maîtres-nageurs, professeurs, encadrants) non inclus."
     ],
     seuil5: "100 sous-sol / 100 étage / 200 total.",
-    seuil5_total: 200,
     perso: false
   },
 
@@ -566,6 +741,233 @@ const TYPES = {
     seuil5: "100 sous-sol / 100 étage / 200 total.",
     seuil5_total: 200,
     perso: false
+  },
+
+  J: {
+    nom: "Structures d'accueil pour personnes âgées et personnes handicapées",
+    article: "J 1 + J 2",
+    modif: "version consolidée",
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/JORFTEXT000000290033/LEGISCTA000020342227/",
+    intro: "EHPAD, EHPA, résidences autonomie, FAM, MAS, IME, foyers PA/PH. Effectif = résidents + personnel + 1 visiteur / 3 résidents. Distinction U/J : surveillance médicale constante → U.",
+    zones: [
+      { id:"J_resident", lbl:"Résidents (capacité maximale d'hébergement)", unit:"personnes", calc:n=>n, ratioTxt:"1 personne / résident" },
+      { id:"J_perso", lbl:"Personnel en travail effectif (maximal)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration chef d'établissement" },
+      { id:"J_visit", lbl:"Visiteurs (forfait)", unit:"résidents", calc:n=>Math.ceil(n/3), ratioTxt:"1 visiteur / 3 résidents" }
+    ],
+    notes: [
+      "<strong>Locaux à sommeil par destination</strong> : alarme type 1, transfert horizontal, espaces d'attente sécurisés (ZSAS).",
+      "Seuils d'assujettissement : ≥ 25 personnes (PA) ou ≥ 20 personnes (PH).",
+      "<strong>Distinction J / U</strong> : si surveillance médicale constante (USLD) → U. Sinon → J.",
+      "Résidences seniors purement locatives sans accompagnement → habitation (pas ERP J)."
+    ],
+    seuil5: "≥ 25 personnes (PA) / ≥ 20 personnes (PH).",
+    seuil5_total: 25,
+    perso: true
+  },
+
+  GA: {
+    nom: "Gares accessibles au public",
+    article: "GA 1 + GA 2",
+    modif: "version consolidée",
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/JORFTEXT000000290033/LEGISCTA000026016405/",
+    intro: "Gares ferroviaires (et stations métro/tramway). Distinction aérienne / souterraine / mixte. Pas de seuil 5e cat (classement direct selon effectif).",
+    modes: {
+      "aerien": {
+        lbl: "Gare aérienne (à l'air libre)",
+        desc: "Quais non comptés.",
+        seuil5_total: 0,
+        zones: [
+          { id:"GAa_surf", lbl:"Surface mise à disposition du public (hors quais, hors aménagements fixes)", unit:"m²", calc:s=>Math.round(s/2), ratioTxt:"1 personne / 2 m²" },
+          { id:"GAa_perso", lbl:"Personnel sans dégagements indépendants", unit:"personnes", calc:n=>n, ratioTxt:"compté tel quel (1er groupe)" }
+        ]
+      },
+      "souterrain": {
+        lbl: "Gare souterraine (≥ moitié faces non à l'air libre)",
+        desc: "Effectif déterminé par le pétitionnaire, incluant voyageurs des rames à quai au moment de l'évacuation.",
+        seuil5_total: 0,
+        zones: [
+          { id:"GAs_decl", lbl:"⭐ Effectif déclaré (avec voyageurs des rames à quai)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration pétitionnaire (justifiée)" }
+        ]
+      },
+      "mixte": {
+        lbl: "Gare mixte (aérienne + souterraine)",
+        desc: "Cumul partie aérienne + partie souterraine transitant par la partie aérienne.",
+        seuil5_total: 0,
+        zones: [
+          { id:"GAm_aer", lbl:"Surface partie aérienne (hors quais)", unit:"m²", calc:s=>Math.round(s/2), ratioTxt:"1 personne / 2 m²" },
+          { id:"GAm_sout", lbl:"⭐ Effectif partie souterraine déclaré", unit:"personnes", calc:n=>n, ratioTxt:"déclaration" }
+        ]
+      }
+    },
+    notes: [
+      "Pour les gares de 1er groupe : ajouter le personnel sans dégagements indépendants.",
+      "Activités annexes (commerces, restauration) : appliquer aussi les types correspondants (M, N, etc.) en cumul.",
+      "Pas de seuil PE pour GA — toute gare assujettie."
+    ],
+    seuil5: "Pas de 5e cat. (classement direct catégories 1 à 4).",
+    perso: true
+  },
+
+  OA: {
+    nom: "Hôtels-restaurants d'altitude",
+    article: "OA 1 + OA 2",
+    modif: "version consolidée",
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/JORFTEXT000000290033/LEGISCTA000020370856/",
+    intro: "Hôtels-restaurants isolés en montagne, inaccessibles aux secours une partie de l'année, capacité ≥ 20 clients.",
+    zones: [
+      { id:"OA_simples", lbl:"Chambres simples (1 personne)", unit:"chambres", calc:n=>n, ratioTxt:"1 personne / chambre" },
+      { id:"OA_doubles", lbl:"Chambres doubles", unit:"chambres", calc:n=>n*2, ratioTxt:"2 personnes / chambre" },
+      { id:"OA_triples", lbl:"Chambres triples / familiales", unit:"chambres", calc:n=>n*3, ratioTxt:"3 personnes / chambre" },
+      { id:"OA_lits_sup", lbl:"Lits supplémentaires", unit:"lits", calc:n=>n, ratioTxt:"1 personne / lit" },
+      { id:"OA_resto", lbl:"Salle restaurant — places assises (cumul N 2)", unit:"places", calc:n=>n, ratioTxt:"déclaration places (plafond 1/2 m²)" }
+    ],
+    notes: [
+      "Si non exploité aux périodes accessibles uniquement → relève de O ou des PE selon effectif.",
+      "Hors période d'isolement, les règles particulières OA cessent.",
+      "<strong>Isolement</strong> : exigences renforcées sur cloisonnement, sources autonomes (groupe électrogène), équipes de sécurité, stockage hydrocarbures, désenfumage adapté."
+    ],
+    seuil5: "≥ 20 clients (assujettissement OA).",
+    seuil5_total: 20,
+    perso: false
+  },
+
+  EF: {
+    nom: "Établissements flottants",
+    article: "EF 1 + EF 2 (arrêté du 9 janvier 1990)",
+    modif: "version consolidée",
+    url: "https://www.legifrance.gouv.fr/affichTexte.do?cidTexte=JORFTEXT000000707448",
+    intro: "Bateaux stationnaires sur eaux intérieures recevant du public (péniches-restaurants, bateaux-discothèques, musées flottants). Effectif fixé conjointement par la commission de surveillance et la commission de sécurité.",
+    zones: [
+      { id:"EF_decl", lbl:"⭐ Effectif fixé par les commissions (le plus petit des deux)", unit:"personnes", calc:n=>n, ratioTxt:"décision conjointe commissions" },
+      { id:"EF_resto", lbl:"Zones restauration assise (cumul N 2)", unit:"places", calc:n=>n, ratioTxt:"places déclarées" },
+      { id:"EF_debout", lbl:"Zones debout (cumul N 2 / L)", unit:"m²", calc:s=>Math.round(s*2), ratioTxt:"2 personnes / m²" }
+    ],
+    notes: [
+      "Assujettissement dès une capacité &gt; 12 personnes.",
+      "L'effectif retenu est le PLUS PETIT des deux fixés par la commission de surveillance (sur dossier technique constructeur) et la commission de sécurité.",
+      "Activités spécifiques (restaurant, spectacle) : ajouter les calculs N, L, etc."
+    ],
+    seuil5: "&gt; 12 personnes pour assujettissement.",
+    seuil5_total: 12,
+    perso: false
+  },
+
+  REF: {
+    nom: "Refuges de montagne",
+    article: "REF 1 + REF 2",
+    modif: "version consolidée",
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/JORFTEXT000000290033/LEGISCTA000020370855/",
+    intro: "Refuges de montagne, gardés ou non, isolés des secours au moins une partie de l'année.",
+    zones: [
+      { id:"REF_decl", lbl:"⭐ Capacité de couchage déclarée (été inclus)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration aménageur / exploitant" },
+      { id:"REF_perso", lbl:"Personnel (gardien, équipe)", unit:"personnes", calc:n=>n, ratioTxt:"compté tel quel" }
+    ],
+    notes: [
+      "Tenir compte du couchage estival (matelas supplémentaires possibles).",
+      "Seuils : 1er ensemble = 30 pers. RDC seul ou 20/niveau. 2nd ensemble = 40 pers. RDC seul ou 20/niveau.",
+      "<strong>Isolement</strong> : dégagements simplifiés, alarme adaptée, pas de désenfumage mécanique exigé."
+    ],
+    seuil5: "1er ensemble : 30 RDC / 20 par niveau. 2nd ensemble : 40 RDC / 20 par niveau.",
+    seuil5_total: 30,
+    perso: true
+  },
+
+  PA: {
+    nom: "Établissements de plein air",
+    article: "PA 1 + PA 2",
+    modif: "version consolidée",
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/JORFTEXT000000290033/LEGISCTA000020370852/",
+    intro: "Stades, terrains de sport découverts, parcs de loisirs, hippodromes, parcs zoologiques. Assujettissement &gt; 300 personnes.",
+    zones: [
+      { id:"PA_aire", lbl:"Aire de pratique sportive", unit:"m²", calc:s=>Math.round(s/10), ratioTxt:"1 personne / 10 m²" },
+      { id:"PA_tennis", lbl:"Tennis (par court)", unit:"courts", calc:n=>n*25, ratioTxt:"25 personnes / court" },
+      { id:"PA_sieges", lbl:"Spectateurs — sièges individuels", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+      { id:"PA_bancs", lbl:"Spectateurs — bancs / gradins", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" },
+      { id:"PA_debout_m2", lbl:"Spectateurs — zones debout (m²)", unit:"m²", calc:s=>Math.round(s*3), ratioTxt:"3 / m²" },
+      { id:"PA_debout_ml", lbl:"Spectateurs — promenoirs debout (ml)", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 / ml" }
+    ],
+    notes: [
+      "Assujettissement dès &gt; 300 personnes (en dessous : 5e cat. avec PE applicables).",
+      "Parcs d'attractions : effectif basé sur capacité des attractions + zones de circulation/spectacle (déclaration).",
+      "Catégories : 1ère &gt; 1500, 2e 701-1500, 3e 301-700."
+    ],
+    seuil5: "≤ 300 personnes (5e cat.).",
+    seuil5_total: 300,
+    perso: false
+  },
+
+  CTS: {
+    nom: "Chapiteaux, tentes et structures itinérantes",
+    article: "CTS 1 + CTS 2",
+    modif: "version consolidée",
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/JORFTEXT000000290033/LEGISCTA000020370853/",
+    intro: "Établissements à enveloppe textile/souple, mobiles ou itinérants : cirques, spectacles, bals, banquets, sport. Assujettissement ≥ 50 personnes.",
+    modes: {
+      "cirque": {
+        lbl: "Cirque / spectacle assis",
+        desc: "1 personne par siège.",
+        seuil5_total: 50,
+        zones: [
+          { id:"CTSc_sieges", lbl:"Sièges installés", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"CTSc_bancs", lbl:"Bancs", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" }
+        ]
+      },
+      "bal": {
+        lbl: "Bal / dancing",
+        desc: "4 pers / 3 m² de surface.",
+        seuil5_total: 50,
+        zones: [
+          { id:"CTSb_surf", lbl:"Surface utilisable", unit:"m²", calc:s=>Math.round(s*4/3), ratioTxt:"4 personnes / 3 m²" }
+        ]
+      },
+      "banquet": {
+        lbl: "Banquet assis",
+        desc: "1 personne / m².",
+        seuil5_total: 50,
+        zones: [
+          { id:"CTSn_surf", lbl:"Surface salle banquet", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m²" }
+        ]
+      },
+      "expo": {
+        lbl: "Foire-exposition itinérante",
+        desc: "1 personne / m².",
+        seuil5_total: 50,
+        zones: [
+          { id:"CTSe_surf", lbl:"Surface accessible au public", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m²" }
+        ]
+      }
+    },
+    notes: [
+      "Effectif &lt; 50 : seul l'article CTS 37 s'applique (2 sorties ≥ 0,80 m, enveloppe M2, DDR 30 mA).",
+      "Effectif 19 &lt; ... &lt; 50 : pas une 5e cat. classique.",
+      "<strong>Particularités CTS</strong> : sols stables, ancrages selon vent, registre de sécurité avec contrôles techniques bisannuels, surveillance météo (alerte vent &gt; 100 km/h), extincteurs spécifiques."
+    ],
+    seuil5: "Pas de 5e cat. classique. &lt; 50 = CTS 37 uniquement. ≥ 50 = catégories 1-4.",
+    seuil5_total: 50,
+    perso: false
+  },
+
+  PS: {
+    nom: "Parcs de stationnement couverts",
+    article: "PS 1 + PS 2",
+    modif: "version consolidée",
+    url: "https://www.legifrance.gouv.fr/codes/section_lc/JORFTEXT000000290033/LEGISCTA000020370857/",
+    intro: "Parcs &gt; 10 véhicules à moteur (PTAC ≤ 3,5 t). Pour les PS classiques : pas de calcul d'effectif public, classement par nombre de places.",
+    zones: [
+      { id:"PS_voitures", lbl:"Places voitures (sur emplacements marqués au sol)", unit:"places", calc:n=>n, ratioTxt:"comptées tel quel (classement par capacité)" },
+      { id:"PS_motos", lbl:"Places motos (5 motos = 1 voiture)", unit:"places motos", calc:n=>Math.ceil(n/5), ratioTxt:"5 motos = 1 voiture" },
+      { id:"PS_bus", lbl:"⚠ Emplacements transport en commun (bus / car)", unit:"emplacements", calc:n=>n*50, ratioTxt:"50 personnes / emplacement (PS 40-43)" },
+      { id:"PS_perso", lbl:"Personnel d'exploitation (cabines péage, etc.)", unit:"personnes", calc:n=>n, ratioTxt:"compté tel quel" }
+    ],
+    notes: [
+      "Exclusions : parcs liés exclusivement à un bâtiment d'habitation OU à un bâtiment du Code du travail.",
+      "Distinction : parcs largement ventilés (≥ 50 % d'une face à l'air libre), parcs couverts simples, parcs accessibles aux véhicules de transport en commun (PS 40-43).",
+      "Places en terrasse (à l'air libre) comptées dans la capacité.",
+      "<strong>Affichage de la valeur \"places voitures\"</strong> = capacité du parc (pour le classement) ; les autres entrées calculent l'effectif équivalent en personnes le cas échéant."
+    ],
+    seuil5: "&gt; 10 véhicules pour assujettissement (pas de seuil PE classique).",
+    seuil5_total: 10,
+    perso: true
   }
 };
 
