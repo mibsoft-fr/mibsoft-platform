@@ -326,7 +326,8 @@ async function doReset(){
     okEl.innerHTML = `✅ Si un compte existe pour <strong>${email}</strong>, un email de réinitialisation vient de partir.<br><br>
       <small style="color:#6b7280;">Cliquez sur le lien dans l'email pour choisir votre nouveau mot de passe. Vérifiez les spams si besoin.</small>`;
     okEl.classList.remove('hidden');
-    document.getElementById('btn-reset').disabled = true;
+    const btn=document.getElementById('btn-reset');
+    btn.disabled=true; btn.innerHTML='✉️ Email envoyé';
   }catch(e){
     showErr(errEl, '❌ Erreur lors de la demande. Réessayez dans quelques minutes.');
     setLoad('btn-reset', false);
