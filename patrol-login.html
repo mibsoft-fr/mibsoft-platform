@@ -92,9 +92,9 @@ window.addEventListener("DOMContentLoaded", async function() {
 
     DB_AGENTS = (pr.data && pr.data.agents) ? pr.data.agents.filter(function(a){return a.actif;}) : [];
 
-    // Si pas d'agents encore → initialiser depuis formateurs du centre
+    // Si pas d'agents encore → initialiser depuis formateurs du centre (via RPC pour rester anon-compatible)
     if (!DB_AGENTS.length) {
-      var fr = await window.supabase.from("formateurs").select("id,nom,prenom,pin_hash,pin_clair,email,telephone").eq("center_id", centerId).eq("actif", true);
+      var fr = await window.supabase.rpc("get_patrol_agents_from_formateurs", { p_center_id: centerId });
       DB_AGENTS = (fr.data||[]).map(function(f){
         return { id:f.id, nom:f.nom, prenom:f.prenom, qualification:"SSIAP 2", actif:true, type:"formateur", entreprise:CENTER.nom||"", pinHash:f.pin_hash||null, pinClair:f.pin_clair||null };
       });
