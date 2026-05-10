@@ -187,64 +187,132 @@ function goBack(){
 const TYPES = {
 
   L: {
-    nom: "Salles de réunions, conférences, spectacles, polyvalentes",
-    article: "L 3",
+    nom: "Salles d'auditions, conférences, réunions, spectacles, polyvalentes",
+    article: "L 1 § 1 + L 3",
     modif: "version arrêté du 7 février 2022",
-    url: "https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000024766600",
-    intro: "Effectif obtenu en cumulant les zones suivantes selon la configuration réelle. Déduire l'estrade des musiciens et les aménagements fixes autres que tables et sièges.",
-    zones: [
-      { id:"L_sieges", lbl:"Sièges numérotés (fauteuils fixes, strapontins, banquettes numérotées)", unit:"sièges", calc:n=>n, ratioTxt:"1 personne par siège" },
-      { id:"L_bancs", lbl:"Bancs sans numérotation", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 personne par 0,50 m linéaire" },
-      { id:"L_debout", lbl:"Zone d'assistance debout (sans sièges)", unit:"m²", calc:s=>Math.round(s*3), ratioTxt:"3 personnes / m²" },
-      { id:"L_promenoir", lbl:"Promenoirs et files d'attente", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 personnes par m linéaire" },
-      { id:"L_tables", lbl:"Réunion configuration tables (assise + tables)", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m²" },
-      { id:"L_polyv", lbl:"Salle polyvalente / salle des fêtes (config non précisée)", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m² (ratio par défaut)" }
-    ],
+    url: "https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000045143482",
+    intro: "Le type L est subdivisé en 6 sous-types (article L 1 § 1) avec des règles de calcul d'effectif différentes (article L 3). Sélectionnez d'abord le sous-type, puis renseignez les zones applicables.",
+    modes: {
+      "a": {
+        lbl: "L a — Auditions, conférences, réunions, paris, multimédias",
+        desc: "Cumul sièges + bancs + debout + promenoirs. Seuil 5e cat : 100 SS / 200 total.",
+        zones: [
+          { id:"La_sieges", lbl:"Sièges (numérotés ou individuels)", unit:"sièges", calc:n=>n, ratioTxt:"1 personne / siège" },
+          { id:"La_bancs", lbl:"Bancs (places non numérotées)", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 personne / 0,50 m linéaire" },
+          { id:"La_debout", lbl:"Public debout (sans sièges)", unit:"m²", calc:s=>Math.round(s*3), ratioTxt:"3 personnes / m²" },
+          { id:"La_promen", lbl:"Promenoirs / files d'attente", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 personnes / m linéaire" }
+        ]
+      },
+      "b": {
+        lbl: "L b — Salles d'associations, salles de quartier",
+        desc: "Mêmes règles que L a. Seuil 5e cat : 100 SS / 200 total.",
+        zones: [
+          { id:"Lb_sieges", lbl:"Sièges (numérotés ou individuels)", unit:"sièges", calc:n=>n, ratioTxt:"1 personne / siège" },
+          { id:"Lb_bancs", lbl:"Bancs (places non numérotées)", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 personne / 0,50 m linéaire" },
+          { id:"Lb_debout", lbl:"Public debout (sans sièges)", unit:"m²", calc:s=>Math.round(s*3), ratioTxt:"3 personnes / m²" },
+          { id:"Lb_promen", lbl:"Promenoirs / files d'attente", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 personnes / m linéaire" }
+        ]
+      },
+      "c": {
+        lbl: "L c — Salles de projections, salles de spectacles (cirques non forains)",
+        desc: "Calcul principalement par sièges fixes. Seuil 5e cat : 20 SS / 50 total (très bas).",
+        zones: [
+          { id:"Lc_sieges", lbl:"Sièges fixes (places numérotées)", unit:"sièges", calc:n=>n, ratioTxt:"1 personne / siège" },
+          { id:"Lc_bancs", lbl:"Bancs sans places numérotées", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 personne / 0,50 m linéaire" },
+          { id:"Lc_promen", lbl:"Promenoirs (debout)", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 personnes / m linéaire" }
+        ]
+      },
+      "d": {
+        lbl: "L d — Cabarets",
+        desc: "4 personnes / 3 m² avec déduction des estrades et installations fixes (hors tables et sièges). Seuil 5e cat : 20 SS / 50 total.",
+        zones: [
+          { id:"Ld_surf", lbl:"Surface salle (déduction estrade musiciens et installations fixes hors tables/sièges)", unit:"m²", calc:s=>Math.round(s*4/3), ratioTxt:"4 personnes / 3 m² (≈ 1,33 pers / m²)" }
+        ]
+      },
+      "e": {
+        lbl: "L e — Salle polyvalente à dominante sportive (≥ 1 200 m² ou H < 6,50 m)",
+        desc: "Déclaration MOA prioritaire avec plancher 1 pers / m². En configuration spectacle, application des règles a/b. Seuil 5e cat : 100 SS / 200 total.",
+        zones: [
+          { id:"Le_decl", lbl:"⭐ Effectif déclaré par le maître d'ouvrage (prioritaire)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration officielle" },
+          { id:"Le_surf", lbl:"Surface totale (à défaut de déclaration, plancher minimum)", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m² (minimum)" },
+          { id:"Le_sieges", lbl:"Config spectacle — sièges", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"Le_bancs", lbl:"Config spectacle — bancs", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" },
+          { id:"Le_debout", lbl:"Config spectacle — debout", unit:"m²", calc:s=>Math.round(s*3), ratioTxt:"3 / m²" },
+          { id:"Le_promen", lbl:"Config spectacle — promenoirs", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 / ml" }
+        ]
+      },
+      "f": {
+        lbl: "L f — Autres salles polyvalentes (non sportives)",
+        desc: "Mêmes règles que L e (déclaration MOA + plancher 1 p/m², ou règles a/b en spectacle). Seuil 5e cat : 100 SS / 200 total.",
+        zones: [
+          { id:"Lf_decl", lbl:"⭐ Effectif déclaré par le maître d'ouvrage (prioritaire)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration officielle" },
+          { id:"Lf_surf", lbl:"Surface totale (à défaut de déclaration, plancher minimum)", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m² (minimum)" },
+          { id:"Lf_sieges", lbl:"Config spectacle — sièges", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"Lf_bancs", lbl:"Config spectacle — bancs", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" },
+          { id:"Lf_debout", lbl:"Config spectacle — debout", unit:"m²", calc:s=>Math.round(s*3), ratioTxt:"3 / m²" },
+          { id:"Lf_promen", lbl:"Config spectacle — promenoirs", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 / ml" }
+        ]
+      }
+    },
     notes: [
-      "<strong>Salles à projection / spectacles à sièges fixes</strong> : compter siège par siège.",
-      "<strong>Salle polyvalente à dominante sportive</strong> &gt; 1 200 m² ou hauteur sous plafond &lt; 6,50 m : peut basculer en type X.",
+      "<strong>Sous-types c et d</strong> (projections, spectacles, cabarets) : seuil 5e catégorie très bas (20 SS / 50 total).",
+      "<strong>Promenoirs</strong> = surfaces propres à recevoir des personnes assistant debout à une manifestation, à l'exclusion des circulations et dégagements.",
+      "<strong>Sous-type e</strong> : si la salle est < 1 200 m² ET H ≥ 6,50 m, elle peut relever du type X (établissement sportif).",
+      "<strong>Sous-type d (cabaret)</strong> : déduire les estrades des musiciens et les aménagements fixes autres que tables et sièges.",
       "<strong>Artistes / techniciens</strong> de l'espace scénique : non comptés dans l'effectif public mais pris en compte pour les dégagements (L 72–L 75)."
     ],
-    seuil5: "Salles de spectacles, projections, cabarets : seuil très bas (20 en sous-sol, 50 au total). Autres salles L : 100 sous-sol / 100 étage / 200 total.",
+    seuil5: "Sous-types a, b, e, f : 100 sous-sol / 200 total. Sous-types c, d : 20 sous-sol / 50 total.",
     perso: false
   },
 
   M: {
     nom: "Magasins de vente, centres commerciaux",
-    article: "M 2",
-    modif: "arrêté du 15 novembre 2017",
+    article: "M 1 + M 2 § 1",
+    modif: "version arrêté du 15 novembre 2017",
     url: "https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000036117441",
-    intro: "Deux méthodes possibles : la méthode \"simplifiée\" introduite en 2017 (recommandée), ou la méthode historique par niveau.",
+    intro: "L'article M 2 § 1 distingue 4 régimes de calcul selon la nature du local. Choisissez le régime adapté. Pour un centre commercial : faire un calcul mail + un calcul par boutique et cumuler.",
     modes: {
-      simplifiee: {
-        lbl: "Méthode simplifiée (post-2017)",
-        desc: "Recommandée. SAP = surface accessible au public (100 % si vente ≤ 300 m², 85 % au-delà).",
+      "classique": {
+        lbl: "Magasin de vente classique (par niveau)",
+        desc: "Règle générale, ratios par niveau. Surface accessible au public uniquement (hors réserves).",
         zones: [
-          { id:"M_sap", lbl:"Surface accessible au public (SAP)", unit:"m²", calc:s=>Math.round(s/3), ratioTxt:"1 personne / 3 m²" },
-          { id:"M_hsap", lbl:"Surface non accessible au public (réserves, sanitaires, bureaux internes)", unit:"m²", calc:s=>Math.round(s/100), ratioTxt:"1 personne / 100 m²" },
-          { id:"M_perso", lbl:"Personnel déclaré (inclus dans l'effectif M)", unit:"personnes", calc:n=>n, ratioTxt:"compté tel quel" }
+          { id:"Mc_ss", lbl:"Sous-sol", unit:"m²", calc:s=>Math.round(s/3), ratioTxt:"1 personne / 3 m²" },
+          { id:"Mc_rdc", lbl:"Rez-de-chaussée", unit:"m²", calc:s=>Math.round(s/3), ratioTxt:"1 personne / 3 m²" },
+          { id:"Mc_e1", lbl:"1er étage", unit:"m²", calc:s=>Math.round(s/3), ratioTxt:"1 personne / 3 m²" },
+          { id:"Mc_e2", lbl:"2e étage", unit:"m²", calc:s=>Math.round(s/6), ratioTxt:"1 personne / 6 m²" },
+          { id:"Mc_esup", lbl:"3e étage et au-dessus", unit:"m²", calc:s=>Math.round(s/15), ratioTxt:"1 personne / 15 m²" }
         ]
       },
-      niveau: {
-        lbl: "Méthode historique par niveau",
-        desc: "Ratios par niveau. Plus restrictive en pratique pour certaines configurations.",
+      "mail": {
+        lbl: "Mail de centre commercial",
+        desc: "Passage piétonnier desservant les boutiques. À cumuler avec l'effectif des boutiques.",
         zones: [
-          { id:"M_ss", lbl:"Sous-sol (surface accessible)", unit:"m²", calc:s=>Math.round(s/3), ratioTxt:"1 personne / 3 m²" },
-          { id:"M_rdc", lbl:"Rez-de-chaussée (surface accessible)", unit:"m²", calc:s=>Math.round(s/2), ratioTxt:"1 personne / 2 m²" },
-          { id:"M_e1", lbl:"1er étage (surface accessible)", unit:"m²", calc:s=>Math.round(s/2), ratioTxt:"1 personne / 2 m²" },
-          { id:"M_e2", lbl:"2e étage", unit:"m²", calc:s=>Math.round(s/3), ratioTxt:"1 personne / 3 m²" },
-          { id:"M_esup", lbl:"3e étage et au-dessus", unit:"m²", calc:s=>Math.round(s/5), ratioTxt:"1 personne / 5 m²" },
-          { id:"M_mail", lbl:"Mail de centre commercial", unit:"m²", calc:s=>Math.round(s/5), ratioTxt:"1 personne / 5 m²" },
-          { id:"M_perso2", lbl:"Personnel déclaré (inclus en M)", unit:"personnes", calc:n=>n, ratioTxt:"compté tel quel" }
+          { id:"Mm_surf", lbl:"Surface de mail accessible au public", unit:"m²", calc:s=>Math.round(s/5), ratioTxt:"1 personne / 5 m²" }
+        ]
+      },
+      "boutique": {
+        lbl: "Boutique < 300 m² (en centre commercial)",
+        desc: "Règle simplifiée post-2017 : boutique de moins de 300 m² située à l'intérieur d'un centre commercial.",
+        zones: [
+          { id:"Mb_surf", lbl:"Surface accessible au public", unit:"m²", calc:s=>Math.round(s/6), ratioTxt:"1 personne / 6 m²" }
+        ]
+      },
+      "faible": {
+        lbl: "Magasin à faible densité (mobilier, jardin, matériaux, automobile…)",
+        desc: "Activités à fréquentation faible : vente de mobilier, articles de jardin, matériaux de construction, gros électroménager, équipements lourds, automobiles, etc. Tous niveaux confondus.",
+        zones: [
+          { id:"Mf_surf", lbl:"Surface de vente accessible au public (tous niveaux)", unit:"m²", calc:s=>Math.round(s/9), ratioTxt:"1 personne / 9 m²" }
         ]
       }
     },
     notes: [
-      "<strong>Personnel inclus</strong> dans l'effectif M (spécificité — contrairement aux types O, R, S, U, V, W).",
-      "<strong>Vente surélevée / mezzanine de vente</strong> : à comptabiliser comme l'étage correspondant.",
-      "<strong>Mails de centres commerciaux</strong> : 1 pers / 5 m² à cumuler avec les boutiques."
+      "<strong>Centre commercial</strong> = somme des effectifs : régime mail + chaque boutique (régime boutique &lt;300 m² si applicable, sinon classique).",
+      "<strong>Personnel</strong> inclus dans l'effectif M (à ajouter manuellement si nécessaire ; spécificité M).",
+      "<strong>Vente surélevée / mezzanine</strong> : à comptabiliser comme l'étage correspondant.",
+      "<strong>Surfaces à exclure</strong> : réserves, locaux du personnel, locaux techniques, sanitaires, surfaces non accessibles au public.",
+      "<strong>Faible densité</strong> : doit s'appliquer sans ambiguïté à l'activité (un salon de coiffure, par exemple, n'entre PAS dans cette catégorie)."
     ],
-    seuil5: "100 sous-sol / 100 étage / 200 total (public uniquement, hors personnel).",
+    seuil5: "100 sous-sol / 100 étage / 200 total.",
     perso: true
   },
 
