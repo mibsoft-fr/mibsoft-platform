@@ -149,7 +149,7 @@ async function verifyPin() {
 
   try {
     // S'assurer qu'aucune session précédente ne pollue le sign-in
-    await supabase.auth.signOut().catch(() => {});
+    try { await supabase.auth.signOut(); } catch (_) {}
 
     // 1) Résoudre le PIN -> email synthétique via RPC SECURITY DEFINER
     const { data: rows, error: rpcErr } = await supabase.rpc('login_pin_resolve', {
@@ -180,8 +180,8 @@ async function verifyPin() {
       throw new Error('Auth: ' + authErr.message);
     }
 
-    // 3) Reset compteur d'échecs
-    await supabase.rpc('login_pin_success_reset').catch(() => {});
+    // 3) Reset compteur d'échecs (best-effort)
+    try { await supabase.rpc('login_pin_success_reset'); } catch (_) {}
 
     // 4) Récupérer infos stagiaire (RLS authenticated -> filtré par centre du JWT)
     const { data: stag, error: selErr } = await supabase
