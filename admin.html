@@ -205,6 +205,18 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
       <div class="nav-item" onclick="showTab('licences')" id="nav-licences">
         <span class="nav-icon">🔑</span> Licences
       </div>
+      <div class="nav-item" onclick="showTab('comptabilite')" id="nav-comptabilite">
+        <span class="nav-icon">💰</span> Comptabilité
+      </div>
+      <div class="nav-item" onclick="showTab('avis')" id="nav-avis">
+        <span class="nav-icon">💬</span> Avis & Retours
+      </div>
+      <div class="nav-item" onclick="showTab('activite')" id="nav-activite">
+        <span class="nav-icon">📡</span> Activité
+      </div>
+      <div class="nav-item" onclick="showTab('logs')" id="nav-logs">
+        <span class="nav-icon">🪵</span> Logs
+      </div>
       <div class="nav-item" onclick="showTab('contenus')" id="nav-contenus">
         <span class="nav-icon">🎬</span> Contenus
       </div>
@@ -376,6 +388,122 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
               <th>Centre</th><th>Type</th><th>Plan</th><th>Cycle</th><th>Statut</th><th>Expire le</th><th>Clé</th><th>Actions</th>
             </tr></thead>
             <tbody id="body-licences"><tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px;">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── COMPTABILITÉ ── -->
+    <div id="tab-comptabilite" class="hidden">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="logo-t" style="font-size:1.5rem;">Comptabilité</h1>
+          <p style="font-size:.82rem;color:var(--text2);margin-top:2px;">Suivi des échéances et rappels J-60</p>
+        </div>
+        <button onclick="loadComptabilite()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
+      </div>
+
+      <div class="grid grid-cols-4 gap-4 mb-6" id="cpt-kpis"></div>
+
+      <div class="card p-5 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 style="font-weight:800;font-size:1rem;">⚠️ Centres à renouveler (J-60)</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead><tr><th>Centre</th><th>Plan</th><th>Cycle</th><th>Expire le</th><th>Jours restants</th><th>Statut</th><th>Actions</th></tr></thead>
+            <tbody id="body-cpt-renouveler"><tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 style="font-weight:800;font-size:1rem;">🔴 Centres expirés</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead><tr><th>Centre</th><th>Plan</th><th>Expiré depuis</th><th>Statut</th><th>Actions</th></tr></thead>
+            <tbody id="body-cpt-expires"><tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">—</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AVIS & RETOURS ── -->
+    <div id="tab-avis" class="hidden">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="logo-t" style="font-size:1.5rem;">Avis & Retours</h1>
+          <p style="font-size:.82rem;color:var(--text2);margin-top:2px;">Messages des formateurs et stagiaires</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="avis-filter-statut" class="inp" style="width:auto;padding:8px 12px;" onchange="loadAvis()">
+            <option value="">Tous statuts</option>
+            <option value="nouveau">Nouveaux</option>
+            <option value="traite">Traités</option>
+          </select>
+          <button onclick="loadAvis()" class="btn btn-blue btn-sm">🔄</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-4 mb-6" id="avis-kpis"></div>
+
+      <div class="card p-5">
+        <div id="avis-list"><p style="text-align:center;color:var(--text3);padding:20px;">Chargement…</p></div>
+      </div>
+    </div>
+
+    <!-- ── ACTIVITÉ PAR CENTRE ── -->
+    <div id="tab-activite" class="hidden">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="logo-t" style="font-size:1.5rem;">Activité par centre</h1>
+          <p style="font-size:.82rem;color:var(--text2);margin-top:2px;">Connexions récentes et utilisation des outils</p>
+        </div>
+        <button onclick="loadActivite()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
+      </div>
+
+      <div class="card p-5">
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead><tr><th>Centre</th><th>Dernière connexion</th><th>Logs 7j</th><th>Erreurs 7j</th><th>Outil le + utilisé</th><th>Statut</th></tr></thead>
+            <tbody id="body-activite"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LOGS ── -->
+    <div id="tab-logs" class="hidden">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="logo-t" style="font-size:1.5rem;">Logs applicatifs</h1>
+          <p style="font-size:.82rem;color:var(--text2);margin-top:2px;">Erreurs et événements remontés par les pages</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="logs-filter-level" class="inp" style="width:auto;padding:8px 12px;" onchange="loadLogs()">
+            <option value="">Tous niveaux</option>
+            <option value="error">Erreurs</option>
+            <option value="warn">Warnings</option>
+            <option value="info">Infos</option>
+            <option value="debug">Debug</option>
+          </select>
+          <select id="logs-filter-source" class="inp" style="width:auto;padding:8px 12px;" onchange="loadLogs()">
+            <option value="">Toutes sources</option>
+          </select>
+          <button onclick="loadLogs()" class="btn btn-blue btn-sm">🔄</button>
+          <button onclick="purgeLogs()" class="btn btn-red btn-sm" title="Supprimer les logs > 30 jours">🗑 Purger</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-4 mb-6" id="logs-kpis"></div>
+
+      <div class="card p-5">
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead><tr><th style="width:140px;">Date</th><th style="width:70px;">Niv.</th><th>Source</th><th>Centre</th><th>Rôle</th><th>Message</th></tr></thead>
+            <tbody id="body-logs"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -745,14 +873,20 @@ function showApp(){
 // ============================================================
 // NAVIGATION
 // ============================================================
-const TABS=['dashboard','centres','licences','contenus','stats'];
+const TABS=['dashboard','centres','licences','comptabilite','avis','activite','logs','contenus','stats'];
 function showTab(t){
   TABS.forEach(id=>{
-    document.getElementById(`tab-${id}`).classList.toggle('hidden',id!==t);
-    document.getElementById(`nav-${id}`).classList.toggle('on',id===t);
+    const el = document.getElementById(`tab-${id}`);
+    if (el) el.classList.toggle('hidden',id!==t);
+    const nav = document.getElementById(`nav-${id}`);
+    if (nav) nav.classList.toggle('on',id===t);
   });
   if(t==='centres')loadCentres();
   if(t==='licences'){loadLicences();loadCentresSelect();}
+  if(t==='comptabilite')loadComptabilite();
+  if(t==='avis')loadAvis();
+  if(t==='activite')loadActivite();
+  if(t==='logs')loadLogs();
   if(t==='contenus')loadContenus();
   if(t==='stats')loadStats();
 }
@@ -1214,6 +1348,210 @@ function updateLimits(){
 function openModal(id){document.getElementById(id).classList.remove('hidden');}
 function closeModal(id){document.getElementById(id).classList.add('hidden');}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.add('hidden');}));
+
+// ════════════════════════════════════════════════════════════
+// COMPTABILITÉ — Vue licence_status_view
+// ════════════════════════════════════════════════════════════
+async function loadComptabilite(){
+  const { data, error } = await supabase.from('licence_status_view').select('*').order('days_remaining', { ascending: true, nullsFirst: false });
+  if (error) { console.error(error); return; }
+  const all = data || [];
+  const a_renouveler = all.filter(c => c.expiration_bucket === 'a_renouveler');
+  const expires = all.filter(c => c.expiration_bucket === 'expire');
+  const ok = all.filter(c => c.expiration_bucket === 'ok');
+  const illimite = all.filter(c => c.expiration_bucket === 'illimite');
+
+  document.getElementById('cpt-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-icon">⚠️</div><div class="kpi-val" style="color:var(--orange);">${a_renouveler.length}</div><div class="kpi-lbl">À renouveler (J-60)</div></div>
+    <div class="kpi"><div class="kpi-icon">🔴</div><div class="kpi-val" style="color:var(--red);">${expires.length}</div><div class="kpi-lbl">Expirés</div></div>
+    <div class="kpi"><div class="kpi-icon">✅</div><div class="kpi-val" style="color:var(--green);">${ok.length}</div><div class="kpi-lbl">En cours</div></div>
+    <div class="kpi"><div class="kpi-icon">♾</div><div class="kpi-val" style="color:var(--blue);">${illimite.length}</div><div class="kpi-lbl">Illimité</div></div>
+  `;
+
+  document.getElementById('body-cpt-renouveler').innerHTML = a_renouveler.length === 0
+    ? '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px;">Aucun centre à renouveler dans les 60 prochains jours ✨</td></tr>'
+    : a_renouveler.map(c => {
+        const d = c.days_remaining;
+        const urgency = d <= 15 ? 'color:var(--red);font-weight:800;' : d <= 30 ? 'color:var(--orange);font-weight:700;' : 'color:#a16207;';
+        return `<tr>
+          <td><strong>${esc(c.nom)}</strong><div style="font-size:.7rem;color:var(--text3);">${esc(c.email)}</div></td>
+          <td><span class="badge-plan bp-${c.plan}">${esc(c.plan)}</span></td>
+          <td style="font-size:.78rem;">${c.billing_cycle === 'mensuel' ? '📅 Mensuel' : '📆 Annuel'}</td>
+          <td style="font-size:.78rem;">${UTILS.dateStr(c.license_expires_at)}</td>
+          <td style="${urgency}">${d} j</td>
+          <td>${statusBadge(c.license_status)}</td>
+          <td><button onclick="extendLicence('${c.id}')" class="btn btn-blue btn-sm">📅 Prolonger</button></td>
+        </tr>`;
+      }).join('');
+
+  document.getElementById('body-cpt-expires').innerHTML = expires.length === 0
+    ? '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">Aucun centre expiré ✨</td></tr>'
+    : expires.map(c => `<tr>
+        <td><strong>${esc(c.nom)}</strong><div style="font-size:.7rem;color:var(--text3);">${esc(c.email)}</div></td>
+        <td><span class="badge-plan bp-${c.plan}">${esc(c.plan)}</span></td>
+        <td style="font-size:.78rem;color:var(--red);">${Math.abs(c.days_remaining)} j</td>
+        <td>${statusBadge(c.license_status)}</td>
+        <td><button onclick="extendLicence('${c.id}')" class="btn btn-blue btn-sm">📅 Prolonger</button></td>
+      </tr>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// AVIS & RETOURS
+// ════════════════════════════════════════════════════════════
+async function loadAvis(){
+  const filter = document.getElementById('avis-filter-statut').value;
+  let q = supabase.from('avis_retours').select('*, centers(nom)').order('created_at', { ascending: false }).limit(200);
+  if (filter) q = q.eq('statut', filter);
+  const { data, error } = await q;
+  if (error) { console.error(error); return; }
+  const all = data || [];
+
+  // KPIs
+  const { data: kpis } = await supabase.from('avis_retours').select('statut, note');
+  const tot = kpis?.length || 0;
+  const nouveaux = (kpis||[]).filter(a => a.statut === 'nouveau').length;
+  const notes = (kpis||[]).filter(a => a.note).map(a => a.note);
+  const moyenne = notes.length ? (notes.reduce((s,n)=>s+n,0)/notes.length).toFixed(1) : '—';
+  document.getElementById('avis-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-icon">💬</div><div class="kpi-val">${tot}</div><div class="kpi-lbl">Total</div></div>
+    <div class="kpi"><div class="kpi-icon">🆕</div><div class="kpi-val" style="color:var(--orange);">${nouveaux}</div><div class="kpi-lbl">Non traités</div></div>
+    <div class="kpi"><div class="kpi-icon">⭐</div><div class="kpi-val" style="color:var(--green);">${moyenne}</div><div class="kpi-lbl">Note moyenne</div></div>
+    <div class="kpi"><div class="kpi-icon">✅</div><div class="kpi-val" style="color:var(--blue);">${tot - nouveaux}</div><div class="kpi-lbl">Traités</div></div>
+  `;
+
+  const list = document.getElementById('avis-list');
+  if (!all.length) { list.innerHTML = '<p style="text-align:center;color:var(--text3);padding:20px;">Aucun avis</p>'; return; }
+  list.innerHTML = all.map(a => {
+    const stars = a.note ? '⭐'.repeat(a.note) + '☆'.repeat(5-a.note) : '';
+    const isNouv = a.statut === 'nouveau';
+    return `<div style="border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;${isNouv?'background:#fffbeb;border-color:#fde68a;':''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div>
+          <strong>${esc(a.auteur_nom||'(anonyme)')}</strong>
+          <span style="font-size:.7rem;color:var(--text3);">${esc(a.auteur_type||'')}</span>
+          ${a.centers?.nom?`<span style="font-size:.72rem;margin-left:6px;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:6px;">${esc(a.centers.nom)}</span>`:''}
+        </div>
+        <div style="font-size:.7rem;color:var(--text3);">${UTILS.dateStr(a.created_at)}</div>
+      </div>
+      ${stars ? `<div style="font-size:.85rem;margin-bottom:6px;color:#d97706;">${stars}</div>` : ''}
+      <div style="font-size:.85rem;color:var(--text);margin-bottom:6px;"><strong>${esc(a.type||'message')}</strong> · ${esc(a.message||'')}</div>
+      ${a.reponse ? `<div style="font-size:.78rem;background:#f0fdf4;border-left:3px solid var(--green);padding:6px 10px;margin-top:6px;color:#065f46;">💬 ${esc(a.reponse)}</div>` : ''}
+      <div style="margin-top:8px;display:flex;gap:6px;">
+        ${isNouv
+          ? `<button onclick="markAvisTraite('${a.id}')" class="btn btn-green btn-sm">✅ Marquer traité</button>`
+          : `<button onclick="markAvisNouveau('${a.id}')" class="btn btn-gray btn-sm">↩ Marquer nouveau</button>`}
+        <button onclick="repondreAvis('${a.id}')" class="btn btn-blue btn-sm">💬 Répondre</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function markAvisTraite(id){
+  await supabase.from('avis_retours').update({ statut: 'traite' }).eq('id', id);
+  loadAvis();
+}
+async function markAvisNouveau(id){
+  await supabase.from('avis_retours').update({ statut: 'nouveau' }).eq('id', id);
+  loadAvis();
+}
+async function repondreAvis(id){
+  const r = prompt('Réponse à transmettre :');
+  if (r === null) return;
+  await supabase.from('avis_retours').update({ reponse: r, statut: 'traite' }).eq('id', id);
+  loadAvis();
+}
+
+// ════════════════════════════════════════════════════════════
+// ACTIVITÉ PAR CENTRE
+// ════════════════════════════════════════════════════════════
+async function loadActivite(){
+  const since = new Date(Date.now() - 7*24*3600*1000).toISOString();
+  const [{ data: centres }, { data: logs }] = await Promise.all([
+    supabase.from('centers').select('id, nom, license_status').order('nom'),
+    supabase.from('app_logs').select('center_id, level, source, ts').gte('ts', since).limit(5000)
+  ]);
+  const byCenter = {};
+  (logs||[]).forEach(l => {
+    if (!l.center_id) return;
+    if (!byCenter[l.center_id]) byCenter[l.center_id] = { count:0, errors:0, last:null, sources:{} };
+    byCenter[l.center_id].count++;
+    if (l.level === 'error') byCenter[l.center_id].errors++;
+    if (!byCenter[l.center_id].last || l.ts > byCenter[l.center_id].last) byCenter[l.center_id].last = l.ts;
+    byCenter[l.center_id].sources[l.source] = (byCenter[l.center_id].sources[l.source]||0) + 1;
+  });
+
+  document.getElementById('body-activite').innerHTML = (centres||[]).map(c => {
+    const stats = byCenter[c.id] || { count:0, errors:0, last:null, sources:{} };
+    const topSource = Object.entries(stats.sources).sort((a,b)=>b[1]-a[1])[0];
+    const lastStr = stats.last ? UTILS.dateStr(stats.last) : '—';
+    const inactif = !stats.last || (Date.now() - new Date(stats.last).getTime()) > 14*24*3600*1000;
+    return `<tr>
+      <td><strong>${esc(c.nom)}</strong></td>
+      <td style="font-size:.8rem;">${lastStr}</td>
+      <td style="text-align:center;">${stats.count}</td>
+      <td style="text-align:center;color:${stats.errors>0?'var(--red)':'var(--text3)'};font-weight:${stats.errors>0?'700':'400'};">${stats.errors}</td>
+      <td style="font-size:.8rem;">${topSource ? esc(topSource[0])+' ('+topSource[1]+')' : '—'}</td>
+      <td>${inactif ? '<span style="color:var(--orange);font-size:.78rem;">⚠ Inactif 14j+</span>' : '<span style="color:var(--green);font-size:.78rem;">✓ Actif</span>'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">—</td></tr>';
+}
+
+// ════════════════════════════════════════════════════════════
+// LOGS
+// ════════════════════════════════════════════════════════════
+async function loadLogs(){
+  const level = document.getElementById('logs-filter-level').value;
+  const source = document.getElementById('logs-filter-source').value;
+  let q = supabase.from('app_logs').select('*, centers(nom)').order('ts', { ascending: false }).limit(300);
+  if (level) q = q.eq('level', level);
+  if (source) q = q.eq('source', source);
+  const { data, error } = await q;
+  if (error) { console.error(error); return; }
+  const all = data || [];
+
+  // KPIs
+  const since24 = new Date(Date.now() - 24*3600*1000).toISOString();
+  const { data: r24 } = await supabase.from('app_logs').select('level').gte('ts', since24);
+  const tot = r24?.length || 0;
+  const err = (r24||[]).filter(l => l.level === 'error').length;
+  const warn = (r24||[]).filter(l => l.level === 'warn').length;
+  document.getElementById('logs-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-icon">📊</div><div class="kpi-val">${tot}</div><div class="kpi-lbl">Logs 24h</div></div>
+    <div class="kpi"><div class="kpi-icon">🔴</div><div class="kpi-val" style="color:var(--red);">${err}</div><div class="kpi-lbl">Erreurs 24h</div></div>
+    <div class="kpi"><div class="kpi-icon">⚠️</div><div class="kpi-val" style="color:var(--orange);">${warn}</div><div class="kpi-lbl">Warnings 24h</div></div>
+    <div class="kpi"><div class="kpi-icon">📥</div><div class="kpi-val">${all.length}</div><div class="kpi-lbl">Affichés</div></div>
+  `;
+
+  // Source filter dropdown — rempli dynamiquement à partir des sources trouvées
+  const sourcesSet = new Set(all.map(l => l.source).filter(Boolean));
+  const sel = document.getElementById('logs-filter-source');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Toutes sources</option>' + Array.from(sourcesSet).sort().map(s=>`<option value="${esc(s)}"${s===current?' selected':''}>${esc(s)}</option>`).join('');
+
+  document.getElementById('body-logs').innerHTML = all.length === 0
+    ? '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">Aucun log</td></tr>'
+    : all.map(l => {
+        const lvlClass = { error:'background:#fee2e2;color:#991b1b;', warn:'background:#fef3c7;color:#92400e;', info:'background:#eff6ff;color:#1d4ed8;', debug:'background:#f3f4f6;color:#6b7280;' }[l.level] || '';
+        const ctxStr = l.context ? JSON.stringify(l.context).slice(0, 200) : '';
+        return `<tr>
+          <td style="font-size:.72rem;font-family:monospace;">${new Date(l.ts).toLocaleString('fr-FR')}</td>
+          <td><span style="${lvlClass};padding:2px 8px;border-radius:5px;font-size:.7rem;font-weight:700;text-transform:uppercase;">${l.level}</span></td>
+          <td style="font-size:.78rem;"><strong>${esc(l.source||'')}</strong></td>
+          <td style="font-size:.78rem;">${esc(l.centers?.nom||'—')}</td>
+          <td style="font-size:.72rem;color:var(--text2);">${esc(l.user_role||'')}</td>
+          <td style="font-size:.78rem;">${esc(l.message)}${ctxStr?`<details style="margin-top:4px;cursor:pointer;"><summary style="color:var(--text3);font-size:.7rem;">contexte</summary><pre style="font-size:.7rem;background:#f8fafc;padding:6px;border-radius:5px;margin-top:4px;white-space:pre-wrap;word-break:break-word;">${esc(ctxStr)}</pre></details>`:''}</td>
+        </tr>`;
+      }).join('');
+}
+
+async function purgeLogs(){
+  if (!confirm('Supprimer tous les logs antérieurs à 30 jours ?')) return;
+  const cutoff = new Date(Date.now() - 30*24*3600*1000).toISOString();
+  const { error } = await supabase.from('app_logs').delete().lt('ts', cutoff);
+  if (error) { alert('Erreur : ' + error.message); return; }
+  alert('✅ Logs anciens purgés.');
+  loadLogs();
+}
 
 // ============================================================
 // INIT
