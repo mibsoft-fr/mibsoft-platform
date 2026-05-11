@@ -286,5 +286,53 @@ const MODULES = {
   SSI_AUTOFORMATION:'ssi_autoformation'
 };
 
+// ============================================================
+// MIBLog — Helper de log applicatif (insère dans app_logs)
+// ============================================================
+const MIBLog = {
+  _src: (typeof window !== 'undefined' && window.location ? (window.location.pathname.split('/').pop() || 'index').replace('.html','') : 'unknown'),
+  _ctx: () => {
+    const ctx = {};
+    try {
+      const f = JSON.parse(localStorage.getItem('mib_formateur') || 'null');
+      const s = JSON.parse(localStorage.getItem('mib_stagiaire') || 'null');
+      const c = JSON.parse(localStorage.getItem('mib_centre')    || 'null');
+      if (f && f.formateur_id) { ctx.user_role = 'formateur'; ctx.center_id = f.center_id; }
+      else if (s && s.stagiaire_id) { ctx.user_role = 'stagiaire'; ctx.center_id = s.center_id; }
+      else if (c && c.center_id) { ctx.user_role = 'centre'; ctx.center_id = c.center_id; }
+    } catch(_) {}
+    return ctx;
+  },
+  _post: async (level, message, context) => {
+    try {
+      const baseCtx = MIBLog._ctx();
+      let user_id = null;
+      try { const { data } = await supabase.auth.getUser(); user_id = data?.user?.id || null; } catch(_) {}
+      await supabase.from('app_logs').insert({
+        level, source: MIBLog._src, message: String(message).slice(0, 1000),
+        center_id: baseCtx.center_id || null,
+        user_role: baseCtx.user_role || null,
+        user_id,
+        context: context ? JSON.parse(JSON.stringify(context)) : null,
+        user_agent: navigator.userAgent.slice(0, 250)
+      });
+    } catch(_) { /* fail silently — pas de boucle d'erreurs */ }
+  },
+  info:  (msg, ctx) => MIBLog._post('info',  msg, ctx),
+  warn:  (msg, ctx) => MIBLog._post('warn',  msg, ctx),
+  error: (msg, ctx) => MIBLog._post('error', msg, ctx),
+  debug: (msg, ctx) => MIBLog._post('debug', msg, ctx)
+};
+
+// Capture automatique des erreurs JS non gérées (toutes pages qui chargent supabase.js)
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (e) => {
+    MIBLog.error(e.message || 'window.error', { filename: e.filename, lineno: e.lineno, colno: e.colno, stack: e.error?.stack?.slice(0, 500) });
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    MIBLog.error('unhandledrejection: ' + (e.reason?.message || e.reason || 'unknown'), { stack: e.reason?.stack?.slice(0, 500) });
+  });
+}
+
 console.log('✅ MIB Prévention Platform — Supabase initialisé');
 console.log(`📡 Projet : ${SUPABASE_URL}`);

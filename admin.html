@@ -137,6 +137,14 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
   color:var(--blue);box-shadow:inset 3px 3px 8px rgba(100,116,139,.18),inset -2px -2px 5px rgba(255,255,255,.9);}
 
 .sep{height:1px;background:linear-gradient(90deg,transparent,rgba(0,0,0,.07),transparent);margin:18px 0;}
+
+/* TOGGLES MODULES/OUTILS */
+.tg-row{display:flex;flex-wrap:wrap;gap:3px;}
+.tg{display:inline-block;padding:3px 7px;border-radius:999px;font-size:.65rem;font-weight:600;cursor:pointer;user-select:none;transition:all .12s;border:1px solid;}
+.tg-on{background:#dcfce7;color:#065f46;border-color:#86efac;}
+.tg-off{background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb;}
+.tg:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(0,0,0,.08);}
+
 .hidden{display:none!important;}
 </style>
 </head>
@@ -155,6 +163,11 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
     </div>
     <div class="space-y-4">
       <div>
+        <label class="lbl">Email du super-admin</label>
+        <input type="email" id="login-email" class="inp" placeholder="michel.b32@outlook.fr"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div>
         <label class="lbl">Mot de passe</label>
         <div style="position:relative;">
           <input type="password" id="login-pwd" class="inp" placeholder="••••••••••••"
@@ -165,7 +178,7 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
       <div id="login-err" class="alert-err hidden"></div>
       <button class="btn-login" onclick="doLogin()">Accéder au panneau →</button>
     </div>
-    <p style="margin-top:20px;font-size:.7rem;color:var(--text3);text-align:center;">URL confidentielle — ne pas partager</p>
+    <p style="margin-top:20px;font-size:.7rem;color:var(--text3);text-align:center;">Accès réservé aux super-administrateurs MIB Prévention</p>
   </div>
 </div>
 
@@ -191,6 +204,18 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
       </div>
       <div class="nav-item" onclick="showTab('licences')" id="nav-licences">
         <span class="nav-icon">🔑</span> Licences
+      </div>
+      <div class="nav-item" onclick="showTab('comptabilite')" id="nav-comptabilite">
+        <span class="nav-icon">💰</span> Comptabilité
+      </div>
+      <div class="nav-item" onclick="showTab('avis')" id="nav-avis">
+        <span class="nav-icon">💬</span> Avis & Retours
+      </div>
+      <div class="nav-item" onclick="showTab('activite')" id="nav-activite">
+        <span class="nav-icon">📡</span> Activité
+      </div>
+      <div class="nav-item" onclick="showTab('logs')" id="nav-logs">
+        <span class="nav-icon">🪵</span> Logs
       </div>
       <div class="nav-item" onclick="showTab('contenus')" id="nav-contenus">
         <span class="nav-icon">🎬</span> Contenus
@@ -264,7 +289,7 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
     <div id="tab-centres" class="hidden">
       <div class="flex items-center justify-between mb-6">
         <h1 class="logo-t" style="font-size:1.5rem;">Centres de formation</h1>
-        <button onclick="openModal('modal-new-centre')" class="btn btn-green">+ Nouveau centre</button>
+        <button onclick="openCreateCentreModal()" class="btn btn-green">+ Nouveau centre</button>
       </div>
 
       <!-- Filtres -->
@@ -292,9 +317,9 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
         <div class="overflow-x-auto">
           <table class="tbl" id="tbl-centres">
             <thead><tr>
-              <th>Centre</th><th>Email</th><th>Plan</th><th>Statut</th><th>Expire</th><th>Formateurs</th><th>Actions</th>
+              <th>Centre</th><th>Email</th><th>Plan</th><th>Statut</th><th>Expire</th><th>Modules</th><th>Outils ERP</th><th>Quotas</th><th>Actions</th>
             </tr></thead>
-            <tbody id="body-centres"><tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px;">Chargement...</td></tr></tbody>
+            <tbody id="body-centres"><tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px;">Chargement...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -363,6 +388,122 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
               <th>Centre</th><th>Type</th><th>Plan</th><th>Cycle</th><th>Statut</th><th>Expire le</th><th>Clé</th><th>Actions</th>
             </tr></thead>
             <tbody id="body-licences"><tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px;">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── COMPTABILITÉ ── -->
+    <div id="tab-comptabilite" class="hidden">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="logo-t" style="font-size:1.5rem;">Comptabilité</h1>
+          <p style="font-size:.82rem;color:var(--text2);margin-top:2px;">Suivi des échéances et rappels J-60</p>
+        </div>
+        <button onclick="loadComptabilite()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
+      </div>
+
+      <div class="grid grid-cols-4 gap-4 mb-6" id="cpt-kpis"></div>
+
+      <div class="card p-5 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 style="font-weight:800;font-size:1rem;">⚠️ Centres à renouveler (J-60)</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead><tr><th>Centre</th><th>Plan</th><th>Cycle</th><th>Expire le</th><th>Jours restants</th><th>Statut</th><th>Actions</th></tr></thead>
+            <tbody id="body-cpt-renouveler"><tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 style="font-weight:800;font-size:1rem;">🔴 Centres expirés</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead><tr><th>Centre</th><th>Plan</th><th>Expiré depuis</th><th>Statut</th><th>Actions</th></tr></thead>
+            <tbody id="body-cpt-expires"><tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">—</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AVIS & RETOURS ── -->
+    <div id="tab-avis" class="hidden">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="logo-t" style="font-size:1.5rem;">Avis & Retours</h1>
+          <p style="font-size:.82rem;color:var(--text2);margin-top:2px;">Messages des formateurs et stagiaires</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="avis-filter-statut" class="inp" style="width:auto;padding:8px 12px;" onchange="loadAvis()">
+            <option value="">Tous statuts</option>
+            <option value="nouveau">Nouveaux</option>
+            <option value="traite">Traités</option>
+          </select>
+          <button onclick="loadAvis()" class="btn btn-blue btn-sm">🔄</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-4 mb-6" id="avis-kpis"></div>
+
+      <div class="card p-5">
+        <div id="avis-list"><p style="text-align:center;color:var(--text3);padding:20px;">Chargement…</p></div>
+      </div>
+    </div>
+
+    <!-- ── ACTIVITÉ PAR CENTRE ── -->
+    <div id="tab-activite" class="hidden">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="logo-t" style="font-size:1.5rem;">Activité par centre</h1>
+          <p style="font-size:.82rem;color:var(--text2);margin-top:2px;">Connexions récentes et utilisation des outils</p>
+        </div>
+        <button onclick="loadActivite()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
+      </div>
+
+      <div class="card p-5">
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead><tr><th>Centre</th><th>Dernière connexion</th><th>Logs 7j</th><th>Erreurs 7j</th><th>Outil le + utilisé</th><th>Statut</th></tr></thead>
+            <tbody id="body-activite"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LOGS ── -->
+    <div id="tab-logs" class="hidden">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="logo-t" style="font-size:1.5rem;">Logs applicatifs</h1>
+          <p style="font-size:.82rem;color:var(--text2);margin-top:2px;">Erreurs et événements remontés par les pages</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="logs-filter-level" class="inp" style="width:auto;padding:8px 12px;" onchange="loadLogs()">
+            <option value="">Tous niveaux</option>
+            <option value="error">Erreurs</option>
+            <option value="warn">Warnings</option>
+            <option value="info">Infos</option>
+            <option value="debug">Debug</option>
+          </select>
+          <select id="logs-filter-source" class="inp" style="width:auto;padding:8px 12px;" onchange="loadLogs()">
+            <option value="">Toutes sources</option>
+          </select>
+          <button onclick="loadLogs()" class="btn btn-blue btn-sm">🔄</button>
+          <button onclick="purgeLogs()" class="btn btn-red btn-sm" title="Supprimer les logs > 30 jours">🗑 Purger</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-4 mb-6" id="logs-kpis"></div>
+
+      <div class="card p-5">
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead><tr><th style="width:140px;">Date</th><th style="width:70px;">Niv.</th><th>Source</th><th>Centre</th><th>Rôle</th><th>Message</th></tr></thead>
+            <tbody id="body-logs"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -604,27 +745,124 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
   </div>
 </div>
 
+<!-- Modal Création centre -->
+<div id="modal-create-centre" class="modal-bg hidden">
+  <div class="modal-box" style="max-width:600px;">
+    <div class="flex justify-between items-center mb-5">
+      <h3 style="font-size:1.1rem;font-weight:800;">🏢 Créer un nouveau centre</h3>
+      <button onclick="closeModal('modal-create-centre')" style="width:32px;height:32px;border-radius:50%;background:#f3f4f6;border:none;cursor:pointer;font-size:1rem;">✕</button>
+    </div>
+    <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Création immédiate avec mot de passe fonctionnel. La clé de licence peut être générée.</p>
+    <div id="cc-alert"></div>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="lbl">Nom du centre *</label><input id="cc-nom" type="text" class="inp" placeholder="MSA SERVICES…"></div>
+      <div><label class="lbl">Email *</label><input id="cc-email" type="email" class="inp" placeholder="contact@centre.fr"></div>
+      <div><label class="lbl">Mot de passe * (≥8)</label><input id="cc-pwd" type="text" class="inp" placeholder="à transmettre"></div>
+      <div>
+        <label class="lbl">Clé licence *</label>
+        <div style="display:flex;gap:6px;">
+          <input id="cc-key" type="text" class="inp" placeholder="XXXX-XXXX-XXXX-XXXX" style="flex:1;text-transform:uppercase;letter-spacing:.06em;">
+          <button onclick="ccGenerateKey()" class="btn btn-gray btn-sm">🎲</button>
+        </div>
+      </div>
+      <div>
+        <label class="lbl">Plan</label>
+        <select id="cc-plan" class="inp" onchange="applyPlanDefaults()">
+          <option value="demo">Démo (1 form. / 5 stag. / 30 jours)</option>
+          <option value="starter">Starter (3 / 30)</option>
+          <option value="pro">Pro (10 / 100)</option>
+          <option value="expert">Expert (20 / 200)</option>
+          <option value="entreprise">Entreprise (illimité)</option>
+        </select>
+      </div>
+      <div>
+        <label class="lbl">Cycle de facturation</label>
+        <select id="cc-cycle" class="inp" onchange="applyPlanDefaults()">
+          <option value="annuel">Annuel (12 mois)</option>
+          <option value="mensuel">Mensuel (1 mois)</option>
+        </select>
+      </div>
+      <div>
+        <label class="lbl">Type licence</label>
+        <select id="cc-type" class="inp">
+          <option value="centre">Centre</option>
+          <option value="independant">Indépendant</option>
+          <option value="essai">Essai</option>
+        </select>
+      </div>
+      <div><label class="lbl">Date expiration (auto-calculée)</label><input id="cc-exp" type="date" class="inp"></div>
+      <div>
+        <label class="lbl">Statut initial</label>
+        <select id="cc-status" class="inp">
+          <option value="active">Active</option>
+          <option value="suspended">Suspendue</option>
+        </select>
+      </div>
+      <div><label class="lbl">Max formateurs</label><input id="cc-fmt" type="number" class="inp" value="5" min="0"></div>
+      <div><label class="lbl">Max stagiaires</label><input id="cc-stg" type="number" class="inp" value="50" min="0"></div>
+      <div style="grid-column:1/-1;"><label class="lbl">Adresse</label><input id="cc-adr" type="text" class="inp"></div>
+      <div><label class="lbl">Ville</label><input id="cc-ville" type="text" class="inp"></div>
+      <div><label class="lbl">Code postal</label><input id="cc-cp" type="text" class="inp"></div>
+      <div style="grid-column:1/-1;"><label class="lbl">Téléphone</label><input id="cc-tel" type="text" class="inp"></div>
+    </div>
+    <div class="flex gap-3 mt-5">
+      <button onclick="closeModal('modal-create-centre')" class="btn btn-gray flex-1">Annuler</button>
+      <button onclick="submitCreateCentre()" class="btn btn-green flex-1" id="btn-cc">Créer →</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // AUTH
 // ============================================================
-const ADMIN_HASH='12797f6fe53c637ad9032fd2512c15580d40d018cec1e8a1acbae0caa6f04130'; // SHA-256('MIB2026admin')
-async function hashLocal(text){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
-
 let allCentres=[];
 
+// Vérifie la session Supabase au chargement
+window.addEventListener('DOMContentLoaded', async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session && isSuperAdminFromToken(session.access_token)) {
+    showApp();
+  }
+});
+
+function isSuperAdminFromToken(token){
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.is_super_admin === true;
+  } catch(e) { return false; }
+}
+
 async function doLogin(){
-  const pwd=document.getElementById('login-pwd').value;
-  const err=document.getElementById('login-err');
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const pwd = document.getElementById('login-pwd').value;
+  const err = document.getElementById('login-err');
   err.classList.add('hidden');
-  if(!pwd)return;
-  const h=await hashLocal(pwd);
-  if(h!==ADMIN_HASH){err.textContent='❌ Mot de passe incorrect.';err.classList.remove('hidden');return;}
-  SESSION.save('admin',{role:'admin'});
+  if (!email || !pwd) { err.textContent='❌ Remplissez email et mot de passe.'; err.classList.remove('hidden'); return; }
+  try { await supabase.auth.signOut(); } catch(_){}
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pwd });
+  if (error) {
+    err.textContent = '❌ Email ou mot de passe incorrect.';
+    err.classList.remove('hidden');
+    return;
+  }
+  if (!isSuperAdminFromToken(data.session.access_token)) {
+    err.textContent = '❌ Ce compte n\'est pas super-administrateur.';
+    err.classList.remove('hidden');
+    await supabase.auth.signOut();
+    return;
+  }
   showApp();
 }
+
 function togglePwd(){const i=document.getElementById('login-pwd');i.type=i.type==='password'?'text':'password';}
-function logout(){SESSION.clear('admin');document.getElementById('page-app').classList.add('hidden');document.getElementById('page-login').classList.remove('hidden');}
+async function logout(){
+  await supabase.auth.signOut();
+  document.getElementById('page-app').classList.add('hidden');
+  document.getElementById('page-login').classList.remove('hidden');
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pwd').value = '';
+}
 
 function showApp(){
   document.getElementById('page-login').classList.add('hidden');
@@ -635,14 +873,20 @@ function showApp(){
 // ============================================================
 // NAVIGATION
 // ============================================================
-const TABS=['dashboard','centres','licences','contenus','stats'];
+const TABS=['dashboard','centres','licences','comptabilite','avis','activite','logs','contenus','stats'];
 function showTab(t){
   TABS.forEach(id=>{
-    document.getElementById(`tab-${id}`).classList.toggle('hidden',id!==t);
-    document.getElementById(`nav-${id}`).classList.toggle('on',id===t);
+    const el = document.getElementById(`tab-${id}`);
+    if (el) el.classList.toggle('hidden',id!==t);
+    const nav = document.getElementById(`nav-${id}`);
+    if (nav) nav.classList.toggle('on',id===t);
   });
   if(t==='centres')loadCentres();
   if(t==='licences'){loadLicences();loadCentresSelect();}
+  if(t==='comptabilite')loadComptabilite();
+  if(t==='avis')loadAvis();
+  if(t==='activite')loadActivite();
+  if(t==='logs')loadLogs();
   if(t==='contenus')loadContenus();
   if(t==='stats')loadStats();
 }
@@ -688,23 +932,198 @@ async function loadCentres(){
   }catch(e){console.error(e);}
 }
 
+const ADMIN_MODULES = [
+  { key:'module_auto_entrainement', short:'Auto' },
+  { key:'module_ssi_autoformation', short:'SSI' },
+  { key:'module_ssi_supervise',     short:'SSIs' },
+  { key:'module_patrol',            short:'Patrol' },
+  { key:'module_quiz_salle',        short:'Quiz' },
+  { key:'module_challenge_cup',     short:'Cup' }
+];
+const ADMIN_OUTILS = [
+  { key:'outil_effectif',    short:'Effectif' },
+  { key:'outil_degagements', short:'Déga.' },
+  { key:'outil_desenfumage', short:'Désenf.' }
+];
+
+function flagToggle(centreId, key, value, label){
+  const on = !!value;
+  const cls = on ? 'tg-on' : 'tg-off';
+  return `<span class="tg ${cls}" onclick="toggleFlagAdmin('${centreId}','${key}',${!on})">${label}</span>`;
+}
+
 function renderCentres(data){
   const tbody=document.getElementById('body-centres');
-  if(!data.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px;">Aucun centre</td></tr>';return;}
-  tbody.innerHTML=data.map(c=>`<tr>
-    <td><strong>${c.nom}</strong></td>
-    <td style="font-size:.8rem;color:var(--text2);">${c.email}</td>
-    <td><span class="badge-plan bp-${c.plan}">${c.plan}</span></td>
-    <td>${statusBadge(c.license_status)}</td>
-    <td style="font-size:.8rem;">${c.license_expires_at?UTILS.dateStr(c.license_expires_at):'—'}</td>
-    <td style="font-size:.82rem;text-align:center;">${c.max_formateurs??'—'}</td>
-    <td>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button onclick="toggleStatus('${c.id}','${c.license_status}')" class="btn btn-sm ${c.license_status==='active'?'btn-orange':'btn-green'}">${c.license_status==='active'?'⏸ Suspendre':'▶ Réactiver'}</button>
-        <button onclick="extendLicence('${c.id}')" class="btn btn-blue btn-sm">📅 Prolonger</button>
-      </div>
-    </td>
-  </tr>`).join('');
+  if(!data.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px;">Aucun centre</td></tr>';return;}
+  tbody.innerHTML=data.map(c=>{
+    const modules = ADMIN_MODULES.map(m => flagToggle(c.id, m.key, c[m.key], m.short)).join('');
+    const outils  = ADMIN_OUTILS.map(o => flagToggle(c.id, o.key, c[o.key], o.short)).join('');
+    return `<tr data-cid="${c.id}">
+      <td><strong>${esc(c.nom)}</strong>${c.ville?`<div style="font-size:.7rem;color:var(--text3);">${esc(c.ville)}</div>`:''}</td>
+      <td style="font-size:.78rem;color:var(--text2);">${esc(c.email)}<div style="font-family:monospace;font-size:.7rem;color:var(--text3);margin-top:2px;">${esc(c.license_key||'')}</div></td>
+      <td><span class="badge-plan bp-${c.plan}">${esc(c.plan)}</span></td>
+      <td>${statusBadge(c.license_status)}</td>
+      <td style="font-size:.78rem;">${c.license_expires_at?UTILS.dateStr(c.license_expires_at):'—'}</td>
+      <td><div class="tg-row">${modules}</div></td>
+      <td><div class="tg-row">${outils}</div></td>
+      <td style="font-size:.75rem;text-align:center;">F:${c.max_formateurs??'—'}<br>S:${c.max_stagiaires??'—'}</td>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button onclick="toggleStatus('${c.id}','${c.license_status}')" class="btn btn-sm ${c.license_status==='active'?'btn-orange':'btn-green'}">${c.license_status==='active'?'⏸':'▶'}</button>
+          <button onclick="extendLicence('${c.id}')" class="btn btn-blue btn-sm">📅</button>
+          <button onclick="deleteCentreAdmin('${c.id}','${esc(c.nom||'').replace(/'/g,"\\'")}')" class="btn btn-red btn-sm">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function toggleFlagAdmin(centreId, field, newValue){
+  const { error } = await supabase.from('centers').update({ [field]: newValue }).eq('id', centreId);
+  if (error) { alert('Erreur : '+error.message); return; }
+  const c = allCentres.find(x => x.id === centreId);
+  if (c) { c[field] = newValue; renderCentres(allCentres); }
+}
+
+async function deleteCentreAdmin(centreId, nom){
+  if (!confirm(`Supprimer définitivement le centre « ${nom} » ?\n\nCette opération est irréversible (auth.users sera orphelin).`)) return;
+  const { error } = await supabase.from('centers').delete().eq('id', centreId);
+  if (error) { alert('Erreur : '+error.message); return; }
+  await loadCentres();
+}
+
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ════════════════════════════════════════════════════════════
+// CRÉATION DE CENTRE (via Edge Function admin-create-centre)
+// ════════════════════════════════════════════════════════════
+// Définitions des plans (alignées avec l'onglet Licences)
+const PLAN_DEFS = {
+  demo:       { lbl:'Démo',       max_formateurs:1,  max_stagiaires:5,   duree_mois:1,  cycle_fixed:'annuel' },
+  starter:    { lbl:'Starter',    max_formateurs:3,  max_stagiaires:30,  duree_mois:12, cycle_fixed:null },
+  pro:        { lbl:'Pro',        max_formateurs:10, max_stagiaires:100, duree_mois:12, cycle_fixed:null },
+  expert:     { lbl:'Expert',     max_formateurs:20, max_stagiaires:200, duree_mois:12, cycle_fixed:null },
+  entreprise: { lbl:'Entreprise', max_formateurs:0,  max_stagiaires:0,   duree_mois:12, cycle_fixed:null } // 0 = illimité
+};
+
+function addMonths(date, n){
+  const d = new Date(date.getTime());
+  d.setMonth(d.getMonth() + n);
+  return d;
+}
+function toDateInput(d){
+  const m = (d.getMonth()+1).toString().padStart(2,'0');
+  const day = d.getDate().toString().padStart(2,'0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function applyPlanDefaults(){
+  const plan = document.getElementById('cc-plan').value;
+  const def = PLAN_DEFS[plan];
+  if (!def) return;
+
+  // Quotas
+  document.getElementById('cc-fmt').value = def.max_formateurs;
+  document.getElementById('cc-stg').value = def.max_stagiaires;
+
+  // Démo : cycle forcé annuel, durée = 30j (~1 mois)
+  if (plan === 'demo') {
+    document.getElementById('cc-cycle').value = 'annuel';
+    document.getElementById('cc-cycle').disabled = true;
+    document.getElementById('cc-type').value = 'essai';
+  } else {
+    document.getElementById('cc-cycle').disabled = false;
+    if (document.getElementById('cc-type').value === 'essai') {
+      document.getElementById('cc-type').value = 'centre';
+    }
+  }
+
+  // Date d'expiration auto : aujourd'hui + (cycle annuel ? 12 : 1) mois, sauf démo = 30 jours
+  const today = new Date();
+  let exp;
+  if (plan === 'demo') {
+    exp = new Date(today.getTime() + 30*24*3600*1000);
+  } else {
+    const cycle = document.getElementById('cc-cycle').value;
+    const mois = cycle === 'mensuel' ? 1 : 12;
+    exp = addMonths(today, mois);
+  }
+  document.getElementById('cc-exp').value = toDateInput(exp);
+}
+
+function openCreateCentreModal(){
+  // Reset form
+  ['cc-nom','cc-email','cc-pwd','cc-key','cc-adr','cc-ville','cc-cp','cc-tel'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cc-plan').value = 'starter';
+  document.getElementById('cc-cycle').value = 'annuel';
+  document.getElementById('cc-cycle').disabled = false;
+  document.getElementById('cc-type').value = 'centre';
+  document.getElementById('cc-status').value = 'active';
+  document.getElementById('cc-alert').innerHTML = '';
+  applyPlanDefaults(); // remplit quotas + date expiration auto
+  openModal('modal-create-centre');
+}
+
+function ccGenerateKey(){
+  const seg = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+  document.getElementById('cc-key').value = `${seg()}-${seg()}-${seg()}-${seg()}`;
+}
+
+async function submitCreateCentre(){
+  const alertEl = document.getElementById('cc-alert');
+  const btn = document.getElementById('btn-cc');
+  alertEl.innerHTML = '';
+  const payload = {
+    nom: document.getElementById('cc-nom').value.trim(),
+    email: document.getElementById('cc-email').value.trim().toLowerCase(),
+    password: document.getElementById('cc-pwd').value,
+    license_key: document.getElementById('cc-key').value.trim().toUpperCase(),
+    plan: document.getElementById('cc-plan').value,
+    license_type: document.getElementById('cc-type').value,
+    billing_cycle: document.getElementById('cc-cycle').value,
+    license_expires_at: document.getElementById('cc-exp').value || null,
+    license_status: document.getElementById('cc-status').value,
+    max_formateurs: parseInt(document.getElementById('cc-fmt').value) || 0,
+    max_stagiaires: parseInt(document.getElementById('cc-stg').value) || 0,
+    adresse: document.getElementById('cc-adr').value.trim() || null,
+    ville: document.getElementById('cc-ville').value.trim() || null,
+    code_postal: document.getElementById('cc-cp').value.trim() || null,
+    telephone: document.getElementById('cc-tel').value.trim() || null
+  };
+  if (!payload.nom || !payload.email || !payload.password || !payload.license_key) {
+    alertEl.innerHTML = '<div class="alert-err" style="padding:10px;border-radius:8px;font-size:.8rem;">❌ Champs obligatoires manquants.</div>';
+    return;
+  }
+  if (payload.password.length < 8) {
+    alertEl.innerHTML = '<div class="alert-err" style="padding:10px;border-radius:8px;font-size:.8rem;">❌ Mot de passe trop court (≥ 8 caractères).</div>';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Création…';
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const url = `${supabase.supabaseUrl}/functions/v1/admin-create-centre`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+        'apikey': supabase.supabaseKey
+      },
+      body: JSON.stringify(payload)
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert-err" style="padding:10px;border-radius:8px;font-size:.8rem;">❌ ${esc(body.error||'Erreur')}${body.detail?' · '+esc(body.detail):''}</div>`;
+      return;
+    }
+    alertEl.innerHTML = `<div style="padding:10px;border-radius:8px;background:#f0fdf4;color:#065f46;font-size:.8rem;border:1px solid #86efac;">✅ Centre créé — mot de passe à transmettre.</div>`;
+    await loadCentres();
+    setTimeout(() => closeModal('modal-create-centre'), 1500);
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert-err" style="padding:10px;border-radius:8px;font-size:.8rem;">❌ Erreur réseau : ${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Créer →';
+  }
 }
 
 function filterCentres(){
@@ -929,6 +1348,210 @@ function updateLimits(){
 function openModal(id){document.getElementById(id).classList.remove('hidden');}
 function closeModal(id){document.getElementById(id).classList.add('hidden');}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.add('hidden');}));
+
+// ════════════════════════════════════════════════════════════
+// COMPTABILITÉ — Vue licence_status_view
+// ════════════════════════════════════════════════════════════
+async function loadComptabilite(){
+  const { data, error } = await supabase.from('licence_status_view').select('*').order('days_remaining', { ascending: true, nullsFirst: false });
+  if (error) { console.error(error); return; }
+  const all = data || [];
+  const a_renouveler = all.filter(c => c.expiration_bucket === 'a_renouveler');
+  const expires = all.filter(c => c.expiration_bucket === 'expire');
+  const ok = all.filter(c => c.expiration_bucket === 'ok');
+  const illimite = all.filter(c => c.expiration_bucket === 'illimite');
+
+  document.getElementById('cpt-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-icon">⚠️</div><div class="kpi-val" style="color:var(--orange);">${a_renouveler.length}</div><div class="kpi-lbl">À renouveler (J-60)</div></div>
+    <div class="kpi"><div class="kpi-icon">🔴</div><div class="kpi-val" style="color:var(--red);">${expires.length}</div><div class="kpi-lbl">Expirés</div></div>
+    <div class="kpi"><div class="kpi-icon">✅</div><div class="kpi-val" style="color:var(--green);">${ok.length}</div><div class="kpi-lbl">En cours</div></div>
+    <div class="kpi"><div class="kpi-icon">♾</div><div class="kpi-val" style="color:var(--blue);">${illimite.length}</div><div class="kpi-lbl">Illimité</div></div>
+  `;
+
+  document.getElementById('body-cpt-renouveler').innerHTML = a_renouveler.length === 0
+    ? '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px;">Aucun centre à renouveler dans les 60 prochains jours ✨</td></tr>'
+    : a_renouveler.map(c => {
+        const d = c.days_remaining;
+        const urgency = d <= 15 ? 'color:var(--red);font-weight:800;' : d <= 30 ? 'color:var(--orange);font-weight:700;' : 'color:#a16207;';
+        return `<tr>
+          <td><strong>${esc(c.nom)}</strong><div style="font-size:.7rem;color:var(--text3);">${esc(c.email)}</div></td>
+          <td><span class="badge-plan bp-${c.plan}">${esc(c.plan)}</span></td>
+          <td style="font-size:.78rem;">${c.billing_cycle === 'mensuel' ? '📅 Mensuel' : '📆 Annuel'}</td>
+          <td style="font-size:.78rem;">${UTILS.dateStr(c.license_expires_at)}</td>
+          <td style="${urgency}">${d} j</td>
+          <td>${statusBadge(c.license_status)}</td>
+          <td><button onclick="extendLicence('${c.id}')" class="btn btn-blue btn-sm">📅 Prolonger</button></td>
+        </tr>`;
+      }).join('');
+
+  document.getElementById('body-cpt-expires').innerHTML = expires.length === 0
+    ? '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">Aucun centre expiré ✨</td></tr>'
+    : expires.map(c => `<tr>
+        <td><strong>${esc(c.nom)}</strong><div style="font-size:.7rem;color:var(--text3);">${esc(c.email)}</div></td>
+        <td><span class="badge-plan bp-${c.plan}">${esc(c.plan)}</span></td>
+        <td style="font-size:.78rem;color:var(--red);">${Math.abs(c.days_remaining)} j</td>
+        <td>${statusBadge(c.license_status)}</td>
+        <td><button onclick="extendLicence('${c.id}')" class="btn btn-blue btn-sm">📅 Prolonger</button></td>
+      </tr>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// AVIS & RETOURS
+// ════════════════════════════════════════════════════════════
+async function loadAvis(){
+  const filter = document.getElementById('avis-filter-statut').value;
+  let q = supabase.from('avis_retours').select('*, centers(nom)').order('created_at', { ascending: false }).limit(200);
+  if (filter) q = q.eq('statut', filter);
+  const { data, error } = await q;
+  if (error) { console.error(error); return; }
+  const all = data || [];
+
+  // KPIs
+  const { data: kpis } = await supabase.from('avis_retours').select('statut, note');
+  const tot = kpis?.length || 0;
+  const nouveaux = (kpis||[]).filter(a => a.statut === 'nouveau').length;
+  const notes = (kpis||[]).filter(a => a.note).map(a => a.note);
+  const moyenne = notes.length ? (notes.reduce((s,n)=>s+n,0)/notes.length).toFixed(1) : '—';
+  document.getElementById('avis-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-icon">💬</div><div class="kpi-val">${tot}</div><div class="kpi-lbl">Total</div></div>
+    <div class="kpi"><div class="kpi-icon">🆕</div><div class="kpi-val" style="color:var(--orange);">${nouveaux}</div><div class="kpi-lbl">Non traités</div></div>
+    <div class="kpi"><div class="kpi-icon">⭐</div><div class="kpi-val" style="color:var(--green);">${moyenne}</div><div class="kpi-lbl">Note moyenne</div></div>
+    <div class="kpi"><div class="kpi-icon">✅</div><div class="kpi-val" style="color:var(--blue);">${tot - nouveaux}</div><div class="kpi-lbl">Traités</div></div>
+  `;
+
+  const list = document.getElementById('avis-list');
+  if (!all.length) { list.innerHTML = '<p style="text-align:center;color:var(--text3);padding:20px;">Aucun avis</p>'; return; }
+  list.innerHTML = all.map(a => {
+    const stars = a.note ? '⭐'.repeat(a.note) + '☆'.repeat(5-a.note) : '';
+    const isNouv = a.statut === 'nouveau';
+    return `<div style="border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;${isNouv?'background:#fffbeb;border-color:#fde68a;':''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div>
+          <strong>${esc(a.auteur_nom||'(anonyme)')}</strong>
+          <span style="font-size:.7rem;color:var(--text3);">${esc(a.auteur_type||'')}</span>
+          ${a.centers?.nom?`<span style="font-size:.72rem;margin-left:6px;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:6px;">${esc(a.centers.nom)}</span>`:''}
+        </div>
+        <div style="font-size:.7rem;color:var(--text3);">${UTILS.dateStr(a.created_at)}</div>
+      </div>
+      ${stars ? `<div style="font-size:.85rem;margin-bottom:6px;color:#d97706;">${stars}</div>` : ''}
+      <div style="font-size:.85rem;color:var(--text);margin-bottom:6px;"><strong>${esc(a.type||'message')}</strong> · ${esc(a.message||'')}</div>
+      ${a.reponse ? `<div style="font-size:.78rem;background:#f0fdf4;border-left:3px solid var(--green);padding:6px 10px;margin-top:6px;color:#065f46;">💬 ${esc(a.reponse)}</div>` : ''}
+      <div style="margin-top:8px;display:flex;gap:6px;">
+        ${isNouv
+          ? `<button onclick="markAvisTraite('${a.id}')" class="btn btn-green btn-sm">✅ Marquer traité</button>`
+          : `<button onclick="markAvisNouveau('${a.id}')" class="btn btn-gray btn-sm">↩ Marquer nouveau</button>`}
+        <button onclick="repondreAvis('${a.id}')" class="btn btn-blue btn-sm">💬 Répondre</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function markAvisTraite(id){
+  await supabase.from('avis_retours').update({ statut: 'traite' }).eq('id', id);
+  loadAvis();
+}
+async function markAvisNouveau(id){
+  await supabase.from('avis_retours').update({ statut: 'nouveau' }).eq('id', id);
+  loadAvis();
+}
+async function repondreAvis(id){
+  const r = prompt('Réponse à transmettre :');
+  if (r === null) return;
+  await supabase.from('avis_retours').update({ reponse: r, statut: 'traite' }).eq('id', id);
+  loadAvis();
+}
+
+// ════════════════════════════════════════════════════════════
+// ACTIVITÉ PAR CENTRE
+// ════════════════════════════════════════════════════════════
+async function loadActivite(){
+  const since = new Date(Date.now() - 7*24*3600*1000).toISOString();
+  const [{ data: centres }, { data: logs }] = await Promise.all([
+    supabase.from('centers').select('id, nom, license_status').order('nom'),
+    supabase.from('app_logs').select('center_id, level, source, ts').gte('ts', since).limit(5000)
+  ]);
+  const byCenter = {};
+  (logs||[]).forEach(l => {
+    if (!l.center_id) return;
+    if (!byCenter[l.center_id]) byCenter[l.center_id] = { count:0, errors:0, last:null, sources:{} };
+    byCenter[l.center_id].count++;
+    if (l.level === 'error') byCenter[l.center_id].errors++;
+    if (!byCenter[l.center_id].last || l.ts > byCenter[l.center_id].last) byCenter[l.center_id].last = l.ts;
+    byCenter[l.center_id].sources[l.source] = (byCenter[l.center_id].sources[l.source]||0) + 1;
+  });
+
+  document.getElementById('body-activite').innerHTML = (centres||[]).map(c => {
+    const stats = byCenter[c.id] || { count:0, errors:0, last:null, sources:{} };
+    const topSource = Object.entries(stats.sources).sort((a,b)=>b[1]-a[1])[0];
+    const lastStr = stats.last ? UTILS.dateStr(stats.last) : '—';
+    const inactif = !stats.last || (Date.now() - new Date(stats.last).getTime()) > 14*24*3600*1000;
+    return `<tr>
+      <td><strong>${esc(c.nom)}</strong></td>
+      <td style="font-size:.8rem;">${lastStr}</td>
+      <td style="text-align:center;">${stats.count}</td>
+      <td style="text-align:center;color:${stats.errors>0?'var(--red)':'var(--text3)'};font-weight:${stats.errors>0?'700':'400'};">${stats.errors}</td>
+      <td style="font-size:.8rem;">${topSource ? esc(topSource[0])+' ('+topSource[1]+')' : '—'}</td>
+      <td>${inactif ? '<span style="color:var(--orange);font-size:.78rem;">⚠ Inactif 14j+</span>' : '<span style="color:var(--green);font-size:.78rem;">✓ Actif</span>'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">—</td></tr>';
+}
+
+// ════════════════════════════════════════════════════════════
+// LOGS
+// ════════════════════════════════════════════════════════════
+async function loadLogs(){
+  const level = document.getElementById('logs-filter-level').value;
+  const source = document.getElementById('logs-filter-source').value;
+  let q = supabase.from('app_logs').select('*, centers(nom)').order('ts', { ascending: false }).limit(300);
+  if (level) q = q.eq('level', level);
+  if (source) q = q.eq('source', source);
+  const { data, error } = await q;
+  if (error) { console.error(error); return; }
+  const all = data || [];
+
+  // KPIs
+  const since24 = new Date(Date.now() - 24*3600*1000).toISOString();
+  const { data: r24 } = await supabase.from('app_logs').select('level').gte('ts', since24);
+  const tot = r24?.length || 0;
+  const err = (r24||[]).filter(l => l.level === 'error').length;
+  const warn = (r24||[]).filter(l => l.level === 'warn').length;
+  document.getElementById('logs-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-icon">📊</div><div class="kpi-val">${tot}</div><div class="kpi-lbl">Logs 24h</div></div>
+    <div class="kpi"><div class="kpi-icon">🔴</div><div class="kpi-val" style="color:var(--red);">${err}</div><div class="kpi-lbl">Erreurs 24h</div></div>
+    <div class="kpi"><div class="kpi-icon">⚠️</div><div class="kpi-val" style="color:var(--orange);">${warn}</div><div class="kpi-lbl">Warnings 24h</div></div>
+    <div class="kpi"><div class="kpi-icon">📥</div><div class="kpi-val">${all.length}</div><div class="kpi-lbl">Affichés</div></div>
+  `;
+
+  // Source filter dropdown — rempli dynamiquement à partir des sources trouvées
+  const sourcesSet = new Set(all.map(l => l.source).filter(Boolean));
+  const sel = document.getElementById('logs-filter-source');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Toutes sources</option>' + Array.from(sourcesSet).sort().map(s=>`<option value="${esc(s)}"${s===current?' selected':''}>${esc(s)}</option>`).join('');
+
+  document.getElementById('body-logs').innerHTML = all.length === 0
+    ? '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">Aucun log</td></tr>'
+    : all.map(l => {
+        const lvlClass = { error:'background:#fee2e2;color:#991b1b;', warn:'background:#fef3c7;color:#92400e;', info:'background:#eff6ff;color:#1d4ed8;', debug:'background:#f3f4f6;color:#6b7280;' }[l.level] || '';
+        const ctxStr = l.context ? JSON.stringify(l.context).slice(0, 200) : '';
+        return `<tr>
+          <td style="font-size:.72rem;font-family:monospace;">${new Date(l.ts).toLocaleString('fr-FR')}</td>
+          <td><span style="${lvlClass};padding:2px 8px;border-radius:5px;font-size:.7rem;font-weight:700;text-transform:uppercase;">${l.level}</span></td>
+          <td style="font-size:.78rem;"><strong>${esc(l.source||'')}</strong></td>
+          <td style="font-size:.78rem;">${esc(l.centers?.nom||'—')}</td>
+          <td style="font-size:.72rem;color:var(--text2);">${esc(l.user_role||'')}</td>
+          <td style="font-size:.78rem;">${esc(l.message)}${ctxStr?`<details style="margin-top:4px;cursor:pointer;"><summary style="color:var(--text3);font-size:.7rem;">contexte</summary><pre style="font-size:.7rem;background:#f8fafc;padding:6px;border-radius:5px;margin-top:4px;white-space:pre-wrap;word-break:break-word;">${esc(ctxStr)}</pre></details>`:''}</td>
+        </tr>`;
+      }).join('');
+}
+
+async function purgeLogs(){
+  if (!confirm('Supprimer tous les logs antérieurs à 30 jours ?')) return;
+  const cutoff = new Date(Date.now() - 30*24*3600*1000).toISOString();
+  const { error } = await supabase.from('app_logs').delete().lt('ts', cutoff);
+  if (error) { alert('Erreur : ' + error.message); return; }
+  alert('✅ Logs anciens purgés.');
+  loadLogs();
+}
 
 // ============================================================
 // INIT
