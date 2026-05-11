@@ -541,7 +541,7 @@ const TYPES = {
         seuil5_total: 100,
         zones: [
           { id:"Ua_lits", lbl:"Nombre de lits d'hospitalisation", unit:"lits", calc:n=>n, ratioTxt:"1 personne / lit (malades)" },
-          { id:"Ua_visit", lbl:"Visiteurs (forfait : 1 par lit)", unit:"lits", calc:n=>n, ratioTxt:"1 visiteur / lit" },
+          { id:"Ua_visit", lbl:"Visiteurs (auto-calculé : 1 par lit)", unit:"lits", calc:n=>n, ratioTxt:"1 visiteur / lit", autoFrom:"Ua_lits" },
           { id:"Ua_perso", lbl:"Personnel maximal en simultané (déclaration)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration chef d'établissement" }
         ]
       },
@@ -551,7 +551,7 @@ const TYPES = {
         seuil5_total: 100,
         zones: [
           { id:"Ub_lits", lbl:"Nombre de lits", unit:"lits", calc:n=>n, ratioTxt:"1 personne / lit" },
-          { id:"Ub_visit", lbl:"Visiteurs (1 par lit)", unit:"lits", calc:n=>n, ratioTxt:"1 visiteur / lit" },
+          { id:"Ub_visit", lbl:"Visiteurs (auto-calculé : 1 par lit)", unit:"lits", calc:n=>n, ratioTxt:"1 visiteur / lit", autoFrom:"Ub_lits" },
           { id:"Ub_perso", lbl:"Personnel maximal en simultané", unit:"personnes", calc:n=>n, ratioTxt:"déclaration" }
         ]
       },
@@ -561,7 +561,7 @@ const TYPES = {
         seuil5_total: 100,
         zones: [
           { id:"Uc_lits", lbl:"Nombre de lits", unit:"lits", calc:n=>n, ratioTxt:"1 personne / lit" },
-          { id:"Uc_visit", lbl:"Visiteurs (1 par lit)", unit:"lits", calc:n=>n, ratioTxt:"1 visiteur / lit" },
+          { id:"Uc_visit", lbl:"Visiteurs (auto-calculé : 1 par lit)", unit:"lits", calc:n=>n, ratioTxt:"1 visiteur / lit", autoFrom:"Uc_lits" },
           { id:"Uc_perso", lbl:"Personnel maximal en simultané", unit:"personnes", calc:n=>n, ratioTxt:"déclaration" }
         ]
       },
