@@ -217,6 +217,9 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
       <div class="nav-item" onclick="showTab('logs')" id="nav-logs">
         <span class="nav-icon">🪵</span> Logs
       </div>
+      <div class="nav-item" onclick="showTab('monitoring')" id="nav-monitoring">
+        <span class="nav-icon">🚨</span> Monitoring
+      </div>
       <div class="nav-item" onclick="showTab('contenus')" id="nav-contenus">
         <span class="nav-icon">🎬</span> Contenus
       </div>
@@ -504,6 +507,45 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
           <table class="tbl">
             <thead><tr><th style="width:140px;">Date</th><th style="width:70px;">Niv.</th><th>Source</th><th>Centre</th><th>Rôle</th><th>Message</th></tr></thead>
             <tbody id="body-logs"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MONITORING ── -->
+    <div id="tab-monitoring" class="hidden">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="logo-t" style="font-size:1.5rem;">Monitoring</h1>
+          <p style="font-size:.82rem;color:var(--text2);margin-top:2px;">Vérifications horaires automatiques · Alertes critiques par email</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="runHealthCheck()" class="btn btn-green btn-sm">▶ Lancer une vérification</button>
+          <button onclick="loadMonitoring()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
+        </div>
+      </div>
+
+      <div id="mon-email-config" class="hidden" style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:14px 18px;margin-bottom:16px;font-size:.82rem;color:#9a3412;">
+        ⚠️ <strong>Email d'alerte non configuré.</strong> Pour recevoir les alertes critiques par email, ajoutez les variables d'environnement <code>RESEND_API_KEY</code> et <code>ALERT_EMAIL</code> dans Supabase Dashboard → Edge Functions → Secrets.
+      </div>
+
+      <div class="grid grid-cols-4 gap-4 mb-6" id="mon-kpis"></div>
+
+      <div class="card p-5 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 style="font-weight:800;font-size:1rem;">🚨 Alertes ouvertes</h3>
+        </div>
+        <div id="mon-alerts-list"><p style="text-align:center;color:var(--text3);padding:20px;">Chargement…</p></div>
+      </div>
+
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 style="font-weight:800;font-size:1rem;">⏱ Dernières exécutions du cron</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="tbl">
+            <thead><tr><th>Date</th><th>Statut</th><th>Durée</th><th>Alertes créées</th><th>Détail</th></tr></thead>
+            <tbody id="mon-runs-body"><tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -873,7 +915,7 @@ function showApp(){
 // ============================================================
 // NAVIGATION
 // ============================================================
-const TABS=['dashboard','centres','licences','comptabilite','avis','activite','logs','contenus','stats'];
+const TABS=['dashboard','centres','licences','comptabilite','avis','activite','logs','monitoring','contenus','stats'];
 function showTab(t){
   TABS.forEach(id=>{
     const el = document.getElementById(`tab-${id}`);
@@ -887,6 +929,7 @@ function showTab(t){
   if(t==='avis')loadAvis();
   if(t==='activite')loadActivite();
   if(t==='logs')loadLogs();
+  if(t==='monitoring')loadMonitoring();
   if(t==='contenus')loadContenus();
   if(t==='stats')loadStats();
 }
@@ -1551,6 +1594,96 @@ async function purgeLogs(){
   if (error) { alert('Erreur : ' + error.message); return; }
   alert('✅ Logs anciens purgés.');
   loadLogs();
+}
+
+// ════════════════════════════════════════════════════════════
+// MONITORING
+// ════════════════════════════════════════════════════════════
+async function loadMonitoring(){
+  // Alertes ouvertes par sévérité
+  const { data: alerts } = await supabase.from('monitoring_alerts').select('*').eq('resolved', false).order('ts', { ascending: false }).limit(100);
+  const all = alerts || [];
+  const crit = all.filter(a => a.severity === 'critical').length;
+  const err = all.filter(a => a.severity === 'error').length;
+  const warn = all.filter(a => a.severity === 'warning').length;
+  const info = all.filter(a => a.severity === 'info').length;
+
+  // Dernier run
+  const { data: lastRun } = await supabase.from('monitoring_runs').select('*').order('started_at', { ascending: false }).limit(1).maybeSingle();
+
+  // Vérifier si email config visible dans le dernier run
+  const emailCfg = lastRun?.checks?.email;
+  const noEmail = emailCfg && emailCfg.reason && (emailCfg.reason === 'no_resend_key' || emailCfg.reason === 'no_alert_email');
+  document.getElementById('mon-email-config').classList.toggle('hidden', !noEmail && (lastRun?.checks?.email?.sent !== false || !lastRun));
+
+  // KPIs
+  const statusBadge2 = (s) => ({ok:'<span style="color:var(--green);">✓ OK</span>', degraded:'<span style="color:var(--orange);">⚠ Dégradé</span>', failed:'<span style="color:var(--red);">✗ Échec</span>', running:'<span style="color:var(--text3);">⏳ En cours</span>'})[s] || s;
+  document.getElementById('mon-kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-icon">🚨</div><div class="kpi-val" style="color:var(--red);">${crit + err}</div><div class="kpi-lbl">Critiques + Erreurs</div></div>
+    <div class="kpi"><div class="kpi-icon">⚠️</div><div class="kpi-val" style="color:var(--orange);">${warn}</div><div class="kpi-lbl">Warnings</div></div>
+    <div class="kpi"><div class="kpi-icon">ℹ️</div><div class="kpi-val" style="color:var(--blue);">${info}</div><div class="kpi-lbl">Infos</div></div>
+    <div class="kpi"><div class="kpi-icon">⏱</div><div class="kpi-val" style="font-size:1.1rem;">${lastRun ? statusBadge2(lastRun.status) : '—'}</div><div class="kpi-lbl">Dernier run · ${lastRun ? UTILS.dateStr(lastRun.started_at) + ' ' + new Date(lastRun.started_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—'}</div></div>
+  `;
+
+  // Liste des alertes
+  const listEl = document.getElementById('mon-alerts-list');
+  if (!all.length) {
+    listEl.innerHTML = '<p style="text-align:center;color:var(--green);padding:20px;">✨ Aucune alerte ouverte. Tout va bien.</p>';
+  } else {
+    const sevStyle = (s) => ({
+      critical:'background:#fee2e2;border-left:5px solid #b91c1c;color:#7a0a1f;',
+      error:   'background:#fef2f2;border-left:5px solid #ef4444;color:#991b1b;',
+      warning: 'background:#fff7ed;border-left:5px solid #f59e0b;color:#9a3412;',
+      info:    'background:#eff6ff;border-left:5px solid #3b82f6;color:#1d4ed8;'
+    })[s] || '';
+    listEl.innerHTML = all.map(a => `
+      <div style="${sevStyle(a.severity)};border-radius:10px;padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
+          <div style="flex:1;">
+            <div style="font-weight:800;font-size:.92rem;">[${a.severity.toUpperCase()}] ${esc(a.title)}</div>
+            ${a.message ? `<div style="font-size:.82rem;margin-top:4px;color:#374151;">${esc(a.message)}</div>` : ''}
+            <div style="font-size:.7rem;margin-top:6px;color:#6b7280;">${esc(a.source)} · ${UTILS.dateStr(a.ts)} ${new Date(a.ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}${a.email_sent ? ' · ✉️ email envoyé' : ''}</div>
+          </div>
+          <button onclick="resolveAlert(${a.id})" class="btn btn-green btn-sm">✓ Résoudre</button>
+        </div>
+        ${a.context ? `<details style="margin-top:6px;cursor:pointer;"><summary style="font-size:.7rem;color:#6b7280;">Contexte</summary><pre style="font-size:.7rem;background:rgba(0,0,0,.04);padding:6px;border-radius:5px;margin-top:4px;white-space:pre-wrap;word-break:break-word;">${esc(JSON.stringify(a.context, null, 2))}</pre></details>` : ''}
+      </div>
+    `).join('');
+  }
+
+  // Liste des runs récents
+  const { data: runs } = await supabase.from('monitoring_runs').select('*').order('started_at', { ascending: false }).limit(20);
+  document.getElementById('mon-runs-body').innerHTML = (runs && runs.length)
+    ? runs.map(r => {
+        const dur = r.finished_at ? Math.round((new Date(r.finished_at) - new Date(r.started_at))/100)/10 + 's' : '—';
+        return `<tr>
+          <td style="font-size:.78rem;font-family:monospace;">${new Date(r.started_at).toLocaleString('fr-FR')}</td>
+          <td>${statusBadge2(r.status)}</td>
+          <td style="font-size:.78rem;">${dur}</td>
+          <td style="font-size:.78rem;text-align:center;">${r.alerts_created}</td>
+          <td><details style="cursor:pointer;"><summary style="font-size:.72rem;color:var(--text3);">checks</summary><pre style="font-size:.7rem;background:#f8fafc;padding:6px;border-radius:5px;margin-top:4px;max-height:300px;overflow:auto;white-space:pre-wrap;">${esc(JSON.stringify(r.checks, null, 2))}</pre></details></td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">Aucune exécution</td></tr>';
+}
+
+async function resolveAlert(id){
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error } = await supabase.from('monitoring_alerts').update({ resolved: true, resolved_at: new Date().toISOString(), resolved_by: user?.id || null }).eq('id', id);
+  if (error) { alert('Erreur : ' + error.message); return; }
+  loadMonitoring();
+}
+
+async function runHealthCheck(){
+  const url = `${supabase.supabaseUrl}/functions/v1/health-monitor`;
+  try {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type':'application/json', 'apikey': supabase.supabaseKey } });
+    const body = await r.json();
+    if (!r.ok) { alert('Erreur : ' + (body.error || r.status)); return; }
+    setTimeout(loadMonitoring, 500);
+  } catch (e) {
+    alert('Erreur réseau : ' + e.message);
+  }
 }
 
 // ============================================================
