@@ -639,22 +639,30 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
       </div>
       <div>
         <label class="lbl">Plan</label>
-        <select id="cc-plan" class="inp">
-          <option value="standard">Standard</option>
-          <option value="premium">Premium</option>
-          <option value="entreprise">Entreprise</option>
+        <select id="cc-plan" class="inp" onchange="applyPlanDefaults()">
+          <option value="demo">Démo (1 form. / 5 stag. / 30 jours)</option>
+          <option value="starter">Starter (3 / 30)</option>
+          <option value="pro">Pro (10 / 100)</option>
+          <option value="expert">Expert (20 / 200)</option>
+          <option value="entreprise">Entreprise (illimité)</option>
+        </select>
+      </div>
+      <div>
+        <label class="lbl">Cycle de facturation</label>
+        <select id="cc-cycle" class="inp" onchange="applyPlanDefaults()">
+          <option value="annuel">Annuel (12 mois)</option>
+          <option value="mensuel">Mensuel (1 mois)</option>
         </select>
       </div>
       <div>
         <label class="lbl">Type licence</label>
         <select id="cc-type" class="inp">
-          <option value="annuelle">Annuelle</option>
-          <option value="mensuelle">Mensuelle</option>
+          <option value="centre">Centre</option>
+          <option value="independant">Indépendant</option>
           <option value="essai">Essai</option>
-          <option value="permanente">Permanente</option>
         </select>
       </div>
-      <div><label class="lbl">Date expiration</label><input id="cc-exp" type="date" class="inp"></div>
+      <div><label class="lbl">Date expiration (auto-calculée)</label><input id="cc-exp" type="date" class="inp"></div>
       <div>
         <label class="lbl">Statut initial</label>
         <select id="cc-status" class="inp">
@@ -855,15 +863,70 @@ function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 // ════════════════════════════════════════════════════════════
 // CRÉATION DE CENTRE (via Edge Function admin-create-centre)
 // ════════════════════════════════════════════════════════════
+// Définitions des plans (alignées avec l'onglet Licences)
+const PLAN_DEFS = {
+  demo:       { lbl:'Démo',       max_formateurs:1,  max_stagiaires:5,   duree_mois:1,  cycle_fixed:'annuel' },
+  starter:    { lbl:'Starter',    max_formateurs:3,  max_stagiaires:30,  duree_mois:12, cycle_fixed:null },
+  pro:        { lbl:'Pro',        max_formateurs:10, max_stagiaires:100, duree_mois:12, cycle_fixed:null },
+  expert:     { lbl:'Expert',     max_formateurs:20, max_stagiaires:200, duree_mois:12, cycle_fixed:null },
+  entreprise: { lbl:'Entreprise', max_formateurs:0,  max_stagiaires:0,   duree_mois:12, cycle_fixed:null } // 0 = illimité
+};
+
+function addMonths(date, n){
+  const d = new Date(date.getTime());
+  d.setMonth(d.getMonth() + n);
+  return d;
+}
+function toDateInput(d){
+  const m = (d.getMonth()+1).toString().padStart(2,'0');
+  const day = d.getDate().toString().padStart(2,'0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function applyPlanDefaults(){
+  const plan = document.getElementById('cc-plan').value;
+  const def = PLAN_DEFS[plan];
+  if (!def) return;
+
+  // Quotas
+  document.getElementById('cc-fmt').value = def.max_formateurs;
+  document.getElementById('cc-stg').value = def.max_stagiaires;
+
+  // Démo : cycle forcé annuel, durée = 30j (~1 mois)
+  if (plan === 'demo') {
+    document.getElementById('cc-cycle').value = 'annuel';
+    document.getElementById('cc-cycle').disabled = true;
+    document.getElementById('cc-type').value = 'essai';
+  } else {
+    document.getElementById('cc-cycle').disabled = false;
+    if (document.getElementById('cc-type').value === 'essai') {
+      document.getElementById('cc-type').value = 'centre';
+    }
+  }
+
+  // Date d'expiration auto : aujourd'hui + (cycle annuel ? 12 : 1) mois, sauf démo = 30 jours
+  const today = new Date();
+  let exp;
+  if (plan === 'demo') {
+    exp = new Date(today.getTime() + 30*24*3600*1000);
+  } else {
+    const cycle = document.getElementById('cc-cycle').value;
+    const mois = cycle === 'mensuel' ? 1 : 12;
+    exp = addMonths(today, mois);
+  }
+  document.getElementById('cc-exp').value = toDateInput(exp);
+}
+
 function openCreateCentreModal(){
   // Reset form
-  ['cc-nom','cc-email','cc-pwd','cc-key','cc-exp','cc-adr','cc-ville','cc-cp','cc-tel'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('cc-plan').value = 'standard';
-  document.getElementById('cc-type').value = 'annuelle';
+  ['cc-nom','cc-email','cc-pwd','cc-key','cc-adr','cc-ville','cc-cp','cc-tel'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cc-plan').value = 'starter';
+  document.getElementById('cc-cycle').value = 'annuel';
+  document.getElementById('cc-cycle').disabled = false;
+  document.getElementById('cc-type').value = 'centre';
   document.getElementById('cc-status').value = 'active';
-  document.getElementById('cc-fmt').value = 5;
-  document.getElementById('cc-stg').value = 50;
   document.getElementById('cc-alert').innerHTML = '';
+  applyPlanDefaults(); // remplit quotas + date expiration auto
   openModal('modal-create-centre');
 }
 
@@ -883,6 +946,7 @@ async function submitCreateCentre(){
     license_key: document.getElementById('cc-key').value.trim().toUpperCase(),
     plan: document.getElementById('cc-plan').value,
     license_type: document.getElementById('cc-type').value,
+    billing_cycle: document.getElementById('cc-cycle').value,
     license_expires_at: document.getElementById('cc-exp').value || null,
     license_status: document.getElementById('cc-status').value,
     max_formateurs: parseInt(document.getElementById('cc-fmt').value) || 0,
