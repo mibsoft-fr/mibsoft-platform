@@ -641,31 +641,39 @@ const TYPES = {
         desc: "1 pers / 4 m² aire OU 1 pers / 8 m² + spectateurs (retenir le plus grand). Tennis : 25 pers / court.",
         seuil5_total: 200,
         zones: [
-          { id:"Xa_aire", lbl:"Option 1 — Aire sportive (calcul seul)", unit:"m²", calc:s=>Math.round(s/4), ratioTxt:"1 personne / 4 m² aire" },
+          { id:"Xa_aire", lbl:"Option 1 — Aire sportive (calcul seul, tout compris)", unit:"m²", calc:s=>Math.round(s/4), ratioTxt:"1 personne / 4 m² aire" },
           { id:"Xa_aire2", lbl:"Option 2 — Aire sportive (avec spectateurs comptés à part)", unit:"m²", calc:s=>Math.round(s/8), ratioTxt:"1 personne / 8 m² aire" },
           { id:"Xa_tennis", lbl:"Tennis (par court)", unit:"courts", calc:n=>n*25, ratioTxt:"25 personnes / court" },
-          { id:"Xa_sieges", lbl:"Spectateurs — sièges fixes", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
-          { id:"Xa_bancs", lbl:"Spectateurs — bancs / gradins", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" },
-          { id:"Xa_debout", lbl:"Spectateurs — promenoirs debout", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 / ml" }
+          { id:"Xa_sieges", lbl:"Spectateurs — sièges fixes / strapontins", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"Xa_bancs", lbl:"Spectateurs — bancs / gradins continus", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" },
+          { id:"Xa_debout_m2", lbl:"Spectateurs — zone debout (m²)", unit:"m²", calc:s=>Math.round(s*3), ratioTxt:"3 / m²" },
+          { id:"Xa_debout_ml", lbl:"Spectateurs — promenoirs debout (ml)", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 / ml" }
         ]
       },
       "b": {
         lbl: "X b — Salles d'éducation physique et sportive (EPS)",
-        desc: "Idem omnisports.",
+        desc: "1 pers / 4 m² aire OU 1 pers / 8 m² + spectateurs (retenir le plus grand).",
         seuil5_total: 200,
         zones: [
-          { id:"Xb_aire", lbl:"Aire d'EPS", unit:"m²", calc:s=>Math.round(s/4), ratioTxt:"1 personne / 4 m²" },
-          { id:"Xb_sieges", lbl:"Spectateurs sièges", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
-          { id:"Xb_bancs", lbl:"Spectateurs bancs", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" }
+          { id:"Xb_aire", lbl:"Option 1 — Aire d'EPS (calcul seul)", unit:"m²", calc:s=>Math.round(s/4), ratioTxt:"1 personne / 4 m²" },
+          { id:"Xb_aire2", lbl:"Option 2 — Aire d'EPS (avec spectateurs à part)", unit:"m²", calc:s=>Math.round(s/8), ratioTxt:"1 personne / 8 m²" },
+          { id:"Xb_sieges", lbl:"Spectateurs — sièges fixes", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"Xb_bancs", lbl:"Spectateurs — bancs / gradins", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" },
+          { id:"Xb_debout_m2", lbl:"Spectateurs — zone debout (m²)", unit:"m²", calc:s=>Math.round(s*3), ratioTxt:"3 / m²" },
+          { id:"Xb_debout_ml", lbl:"Spectateurs — promenoirs debout (ml)", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 / ml" }
         ]
       },
       "c": {
-        lbl: "X c — Salles spécialisées (boxe, arts martiaux, musculation, danse sportive)",
-        desc: "Salles de remise en forme et sports spécialisés.",
+        lbl: "X c — Salles spécialisées (boxe, arts martiaux, musculation, remise en forme, danse sportive)",
+        desc: "1 pers / 4 m² aire OU 1 pers / 8 m² + spectateurs.",
         seuil5_total: 200,
         zones: [
-          { id:"Xc_aire", lbl:"Aire d'activité", unit:"m²", calc:s=>Math.round(s/4), ratioTxt:"1 personne / 4 m²" },
-          { id:"Xc_sieges", lbl:"Spectateurs sièges", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" }
+          { id:"Xc_aire", lbl:"Option 1 — Aire d'activité (calcul seul)", unit:"m²", calc:s=>Math.round(s/4), ratioTxt:"1 personne / 4 m²" },
+          { id:"Xc_aire2", lbl:"Option 2 — Aire d'activité (avec spectateurs à part)", unit:"m²", calc:s=>Math.round(s/8), ratioTxt:"1 personne / 8 m²" },
+          { id:"Xc_sieges", lbl:"Spectateurs — sièges fixes", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"Xc_bancs", lbl:"Spectateurs — bancs / gradins", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" },
+          { id:"Xc_debout_m2", lbl:"Spectateurs — zone debout (m²)", unit:"m²", calc:s=>Math.round(s*3), ratioTxt:"3 / m²" },
+          { id:"Xc_debout_ml", lbl:"Spectateurs — promenoirs debout (ml)", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 / ml" }
         ]
       },
       "d": {
@@ -673,32 +681,38 @@ const TYPES = {
         desc: "2 pers / 3 m² de glace OU 1 pers / 10 m² + spectateurs.",
         seuil5_total: 200,
         zones: [
-          { id:"Xd_glace1", lbl:"Option 1 — Surface de glace (seule)", unit:"m²", calc:s=>Math.round(s*2/3), ratioTxt:"2 personnes / 3 m² (≈0,67 / m²)" },
+          { id:"Xd_glace1", lbl:"Option 1 — Surface de glace (calcul seul)", unit:"m²", calc:s=>Math.round(s*2/3), ratioTxt:"2 personnes / 3 m² (≈0,67 / m²)" },
           { id:"Xd_glace2", lbl:"Option 2 — Surface de glace (avec spectateurs à part)", unit:"m²", calc:s=>Math.round(s/10), ratioTxt:"1 personne / 10 m²" },
-          { id:"Xd_sieges", lbl:"Spectateurs sièges", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
-          { id:"Xd_bancs", lbl:"Spectateurs bancs", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" }
+          { id:"Xd_sieges", lbl:"Spectateurs — sièges fixes", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"Xd_bancs", lbl:"Spectateurs — bancs / gradins", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" },
+          { id:"Xd_debout_m2", lbl:"Spectateurs — zone debout (m²)", unit:"m²", calc:s=>Math.round(s*3), ratioTxt:"3 / m²" },
+          { id:"Xd_debout_ml", lbl:"Spectateurs — promenoirs debout (ml)", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 / ml" }
         ]
       },
       "e": {
         lbl: "X e — Manèges (équitation)",
-        desc: "Calcul par déclaration ou aire.",
+        desc: "Calcul par déclaration ou aire. Spectateurs (concours, exhibitions) à ajouter.",
         seuil5_total: 200,
         zones: [
           { id:"Xe_decl", lbl:"⭐ Effectif déclaré (cavaliers + accompagnants)", unit:"personnes", calc:n=>n, ratioTxt:"déclaration" },
-          { id:"Xe_aire", lbl:"Aire de manège (à défaut)", unit:"m²", calc:s=>Math.round(s/4), ratioTxt:"1 personne / 4 m²" },
-          { id:"Xe_sieges", lbl:"Spectateurs sièges", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" }
+          { id:"Xe_aire", lbl:"Aire de manège (à défaut de déclaration)", unit:"m²", calc:s=>Math.round(s/4), ratioTxt:"1 personne / 4 m²" },
+          { id:"Xe_sieges", lbl:"Spectateurs — sièges fixes", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"Xe_bancs", lbl:"Spectateurs — bancs / gradins", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" },
+          { id:"Xe_debout_ml", lbl:"Spectateurs — promenoirs debout (ml)", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 / ml" }
         ]
       },
       "f": {
         lbl: "X f — Piscines couvertes / transformables / mixtes",
-        desc: "1 pers / m² de plan d'eau OU 1 pers / 5 m² + spectateurs (retenir le plus grand). Pataugeoires et bassins de plongeon exclus du calcul plan d'eau.",
+        desc: "1 pers / m² plan d'eau OU 1 pers / 5 m² + spectateurs. Bassins de plongeon et pataugeoires EXCLUS du calcul plan d'eau.",
         seuil5_total: 200,
         zones: [
-          { id:"Xf_eau1", lbl:"Option 1 — Plan d'eau (calcul seul)", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m² de plan d'eau" },
+          { id:"Xf_eau1", lbl:"Option 1 — Plan d'eau (calcul seul, hors plongeon/pataugeoires)", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m² de plan d'eau" },
           { id:"Xf_eau2", lbl:"Option 2 — Plan d'eau (avec spectateurs à part)", unit:"m²", calc:s=>Math.round(s/5), ratioTxt:"1 personne / 5 m²" },
           { id:"Xf_plage", lbl:"Plages de piscine (zone hors eau)", unit:"m²", calc:s=>Math.round(s/3), ratioTxt:"1 personne / 3 m²" },
-          { id:"Xf_sieges", lbl:"Spectateurs sièges", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
-          { id:"Xf_bancs", lbl:"Spectateurs bancs / gradins", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" }
+          { id:"Xf_sieges", lbl:"Spectateurs — sièges fixes", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"Xf_bancs", lbl:"Spectateurs — bancs / gradins", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" },
+          { id:"Xf_debout_m2", lbl:"Spectateurs — zone debout (m²)", unit:"m²", calc:s=>Math.round(s*3), ratioTxt:"3 / m²" },
+          { id:"Xf_debout_ml", lbl:"Spectateurs — promenoirs debout (ml)", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 / ml" }
         ]
       },
       "g": {
@@ -707,13 +721,15 @@ const TYPES = {
         seuil5_total: 200,
         zones: [
           { id:"Xg_aire", lbl:"Aire d'activité", unit:"m²", calc:s=>Math.round(s*1), ratioTxt:"1 personne / m²" },
-          { id:"Xg_sieges", lbl:"Spectateurs sièges", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
-          { id:"Xg_bancs", lbl:"Spectateurs bancs", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" }
+          { id:"Xg_sieges", lbl:"Spectateurs — sièges fixes", unit:"sièges", calc:n=>n, ratioTxt:"1 / siège" },
+          { id:"Xg_bancs", lbl:"Spectateurs — bancs / gradins", unit:"m linéaire", calc:m=>Math.floor(m/0.5), ratioTxt:"1 / 0,50 ml" },
+          { id:"Xg_debout_m2", lbl:"Spectateurs — zone debout (m²)", unit:"m²", calc:s=>Math.round(s*3), ratioTxt:"3 / m²" },
+          { id:"Xg_debout_ml", lbl:"Spectateurs — promenoirs debout (ml)", unit:"m linéaire", calc:m=>Math.round(m*5), ratioTxt:"5 / ml" }
         ]
       }
     },
     notes: [
-      "<strong>Méthode \"le plus défavorable\"</strong> : pour les sous-types a, d, f, deux options de calcul coexistent. La pratique retient le résultat le plus grand. Saisir les deux options et comparer.",
+      "<strong>Options 1 / 2 mutuellement exclusives</strong> (a, b, c, d, f) : ne saisir qu'UNE seule des deux options. Option 1 = aire calculée seule (tout compris). Option 2 = aire calculée à densité réduite + spectateurs comptés séparément. La pratique retient le résultat le plus défavorable des deux configurations possibles.",
       "<strong>Salle polyvalente sportive</strong> ≥ 1 200 m² ou H < 6,50 m : passe en type L (e ou f), pas en X g.",
       "<strong>Piscines</strong> : dispositif de comptage obligatoire dès dépassement de l'effectif fixé. Bassins de plongeon et pataugeoires hors calcul plan d'eau.",
       "Vestiaires non accessibles au public spectateur : non comptés en zone spectateurs.",
