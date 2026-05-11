@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIB — Désenfumage ERP</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="supabase.js"></script>
+<style>
+  :root {
+    --navy: #1A2842;
+    --navy-dark: #0F1A2E;
+    --cherry: #C8102E;
+    --gold: #C9A961;
+    --cream: #F6F1E7;
+    --gray-text: #4A4A4A;
+    --gray-light: #E8E4DA;
+    --green: #1F7A3A;
+    --orange: #D67836;
+    --blue: #2E5C8A;
+    --shadow: 0 2px 8px rgba(15, 26, 46, 0.08);
+    --shadow-strong: 0 4px 16px rgba(15, 26, 46, 0.15);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: linear-gradient(135deg, #f8f6f0 0%, #ece6d6 100%);
+    color: var(--gray-text);
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  .top-back {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: white; border: 1.5px solid var(--gray-light);
+    padding: 8px 14px; border-radius: 8px; cursor: pointer;
+    font-family: inherit; font-size: 13px; font-weight: 600; color: var(--gray-text);
+    text-decoration: none; margin-bottom: 14px; transition: all .2s;
+  }
+  .top-back:hover { border-color: var(--navy); color: var(--navy); }
+
+  header {
+    background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 100%);
+    color: white; padding: 28px 36px; border-radius: 12px 12px 0 0;
+    box-shadow: var(--shadow-strong); position: relative; overflow: hidden;
+  }
+  header::before { content:''; position:absolute; top:0; left:0; bottom:0; width:6px; background: var(--gold); }
+  header .label { color: var(--gold); font-size: 11px; letter-spacing: 4px; font-weight: 600; margin-bottom: 8px; }
+  header h1 { font-family: Georgia, 'Times New Roman', serif; font-size: 32px; font-weight: 700; margin-bottom: 6px; }
+  header .subtitle { font-size: 14px; opacity: 0.85; font-style: italic; }
+
+  .tabs {
+    display: flex; background: white; border-bottom: 3px solid var(--gold);
+    box-shadow: var(--shadow); overflow-x: auto;
+  }
+  .tab {
+    flex: 1; min-width: 200px; padding: 18px 20px; background: white; border: none;
+    cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600;
+    color: var(--gray-text); border-bottom: 4px solid transparent; transition: all 0.2s;
+    white-space: nowrap; text-align: center;
+  }
+  .tab:hover { background: var(--cream); }
+  .tab.active { color: var(--navy-dark); border-bottom-color: var(--cherry); background: var(--cream); }
+  .tab .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; margin-right: 8px; color: white; font-weight: 700; }
+  .tab[data-tab="naturel-petit"] .badge { background: var(--green); }
+  .tab[data-tab="naturel-grand"] .badge { background: var(--cherry); }
+  .tab[data-tab="mecanique"] .badge { background: var(--navy); }
+
+  .panel { display: none; background: white; padding: 32px; border-radius: 0 0 12px 12px; box-shadow: var(--shadow-strong); margin-bottom: 24px; }
+  .panel.active { display: block; }
+
+  .formula-banner { background: var(--cream); border-left: 4px solid var(--gold); padding: 14px 18px; border-radius: 4px; margin-bottom: 24px; font-size: 14px; color: var(--navy); }
+  .formula-banner strong { font-family: Georgia, serif; font-size: 18px; color: var(--navy-dark); display: inline-block; margin: 0 6px; }
+
+  .section-title {
+    font-family: Georgia, serif; font-size: 18px; font-weight: 700; color: var(--navy-dark);
+    margin: 28px 0 14px; padding-bottom: 8px; border-bottom: 2px solid var(--gray-light);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-title:first-child { margin-top: 0; }
+  .section-title .icon {
+    width: 32px; height: 32px; background: var(--navy); color: var(--gold);
+    border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+
+  .input-grid { display: grid; grid-template-columns: 1fr 140px 80px; gap: 12px 18px; align-items: center; margin-bottom: 8px; }
+  .input-label { font-size: 14px; font-weight: 500; color: var(--gray-text); }
+  .input-help { font-size: 12px; color: #888; font-style: italic; grid-column: 1 / -1; margin-top: -8px; margin-bottom: 8px; padding-left: 4px; }
+  input[type="number"] {
+    width: 100%; padding: 9px 12px; border: 2px solid var(--gray-light); border-radius: 6px;
+    font-family: inherit; font-size: 14px; font-weight: 700; color: var(--blue);
+    background: #fffce8; transition: all 0.2s; text-align: center;
+  }
+  input[type="number"]:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201, 169, 97, 0.2); }
+  .input-unit { font-size: 12px; color: #888; font-style: italic; text-align: center; }
+
+  .calc-row {
+    display: grid; grid-template-columns: 1fr 140px 80px; gap: 12px 18px; align-items: center;
+    padding: 8px 12px; border-bottom: 1px solid var(--gray-light);
+  }
+  .calc-row:nth-child(odd) { background: #fafafa; }
+  .calc-label { font-size: 13px; color: var(--gray-text); }
+  .calc-value { font-size: 14px; font-weight: 700; color: var(--navy-dark); text-align: center; background: white; padding: 6px; border-radius: 4px; border: 1px solid var(--gray-light); }
+  .calc-unit { font-size: 11px; color: #888; font-style: italic; text-align: center; }
+  .check { color: var(--green); font-weight: 700; }
+  .warn { color: var(--cherry); font-weight: 700; }
+
+  .result-box { margin-top: 24px; background: linear-gradient(135deg, var(--cherry) 0%, #a30d24 100%); color: white; padding: 24px; border-radius: 10px; box-shadow: var(--shadow-strong); text-align: center; }
+  .result-box .label { font-size: 11px; letter-spacing: 4px; color: var(--gold); font-weight: 700; margin-bottom: 8px; }
+  .result-box .value { font-family: Georgia, serif; font-size: 42px; font-weight: 700; margin-bottom: 4px; }
+  .result-box .value.large { font-size: 56px; }
+  .result-box .unit { font-size: 14px; opacity: 0.85; font-style: italic; }
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 16px; }
+  .result-grid .result-mini { background: rgba(255,255,255,0.15); padding: 14px; border-radius: 6px; }
+  .result-grid .result-mini .label { font-size: 10px; letter-spacing: 2px; color: var(--gold); margin-bottom: 4px; }
+  .result-grid .result-mini .value { font-size: 24px; font-weight: 700; color: white; }
+  .result-grid .result-mini .unit { font-size: 11px; opacity: 0.75; }
+
+  .note { margin-top: 24px; background: var(--cream); border-left: 4px solid var(--gold); padding: 14px 18px; border-radius: 4px; font-size: 13px; line-height: 1.5; color: var(--gray-text); font-style: italic; }
+  .note strong { color: var(--navy-dark); font-style: normal; }
+
+  .actions { margin-top: 20px; text-align: right; }
+  .btn-reset { background: white; border: 2px solid var(--gray-light); color: var(--gray-text); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 13px; transition: all 0.2s; }
+  .btn-reset:hover { border-color: var(--cherry); color: var(--cherry); }
+
+  .alert { padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 13px; font-weight: 500; }
+  .alert.alert-warning { background: #fff4e6; border-left: 4px solid var(--orange); color: #8B4513; }
+  .alert.alert-danger { background: #fef2f2; border-left: 4px solid var(--cherry); color: #7a0a1f; }
+
+  footer { text-align: center; padding: 20px; font-size: 12px; color: #888; font-style: italic; }
+
+  .disabled-card { background: white; padding: 40px; border-radius: 12px; box-shadow: var(--shadow-strong); text-align: center; }
+  .disabled-card h2 { font-family: Georgia, serif; color: var(--navy-dark); margin-bottom: 10px; }
+  .disabled-card p { color: var(--gray-text); font-size: 14px; }
+  .hidden { display: none !important; }
+
+  @media (max-width: 700px) {
+    .input-grid, .calc-row { grid-template-columns: 1fr; }
+    .result-grid { grid-template-columns: 1fr; }
+    .calc-value, .calc-unit, .input-unit { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <a href="#" id="back-link" class="top-back" onclick="goBack();return false;">← Retour</a>
+
+  <div id="loading" style="text-align:center;padding:60px;color:var(--gray-text);">Chargement…</div>
+
+  <div id="disabled" class="disabled-card hidden">
+    <h2>⚠ Outil non activé</h2>
+    <p>L'outil <strong>Désenfumage</strong> n'est pas activé sur votre centre.<br>Contactez l'administrateur MIB Prévention.</p>
+  </div>
+
+  <div id="content" class="hidden">
+
+    <header>
+      <div class="label">MIB PRÉVENTION — SSIAP 3</div>
+      <h1>Fiche de calcul — Désenfumage ERP</h1>
+      <div class="subtitle">Articles DF du règlement de sécurité • Instruction Technique 246</div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="naturel-petit"><span class="badge">N1</span>Naturel ≤ 1 000 m²</button>
+      <button class="tab" data-tab="naturel-grand"><span class="badge">N2</span>Naturel &gt; 1 000 m² (canton + α)</button>
+      <button class="tab" data-tab="mecanique"><span class="badge">M</span>Mécanique</button>
+    </div>
+
+    <!-- ========== ONGLET 1 : NATUREL ≤ 1000 ========== -->
+    <div class="panel active" id="naturel-petit">
+      <div class="formula-banner">
+        <strong>SUE = S / 200</strong> &nbsp;•&nbsp; pour les locaux dont la surface au sol n'excède pas 1 000 m²
+      </div>
+
+      <h2 class="section-title"><span class="icon">📥</span> Données d'entrée</h2>
+      <div class="input-grid">
+        <span class="input-label">Surface au sol du local</span>
+        <input type="number" id="np_surf" value="800" step="10" min="0">
+        <span class="input-unit">m²</span>
+        <div class="input-help">Surface utile à désenfumer</div>
+
+        <span class="input-label">Surface géométrique d'un exutoire (SGO)</span>
+        <input type="number" id="np_sgo" value="1.0" step="0.1" min="0">
+        <span class="input-unit">m²</span>
+        <div class="input-help">Surface du cadre de l'exutoire</div>
+
+        <span class="input-label">Coefficient d'efficacité</span>
+        <input type="number" id="np_coef" value="0.7" step="0.05" min="0" max="1">
+        <span class="input-unit">—</span>
+        <div class="input-help">0,3 par défaut, ou valeur d'essai en laboratoire agréé</div>
+      </div>
+
+      <div id="np_alert"></div>
+
+      <h2 class="section-title"><span class="icon">🔢</span> Calculs intermédiaires</h2>
+      <div class="calc-row">
+        <span class="calc-label">SUE théorique requise (S/200)</span>
+        <span class="calc-value" id="np_sue">—</span>
+        <span class="calc-unit">m²</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">SUE par exutoire (SGO × coef)</span>
+        <span class="calc-value" id="np_sue_u">—</span>
+        <span class="calc-unit">m²</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Nombre théorique d'exutoires (avant arrondi)</span>
+        <span class="calc-value" id="np_nb_th">—</span>
+        <span class="calc-unit">u</span>
+      </div>
+
+      <div class="result-box">
+        <div class="label">RÉSULTAT</div>
+        <div class="value large" id="np_nb">—</div>
+        <div class="unit">exutoires à installer</div>
+        <div class="result-grid">
+          <div class="result-mini">
+            <div class="label">SUE THÉORIQUE</div>
+            <div class="value" id="np_r_sue">—</div>
+            <div class="unit">m²</div>
+          </div>
+          <div class="result-mini">
+            <div class="label">NB EXUTOIRES</div>
+            <div class="value" id="np_r_nb">—</div>
+            <div class="unit">unités</div>
+          </div>
+          <div class="result-mini">
+            <div class="label">SUE INSTALLÉE</div>
+            <div class="value" id="np_r_inst">—</div>
+            <div class="unit">m²</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Rappel :</strong> les amenées d'air doivent avoir une surface au moins égale à la surface utile d'évacuation. Elles sont placées en partie basse, à raison d'une amenée par exutoire ou en alternance.
+      </div>
+
+      <div class="actions">
+        <button class="btn-reset" onclick="reset_np()">↻ Réinitialiser</button>
+      </div>
+    </div>
+
+    <!-- ========== ONGLET 2 : NATUREL > 1000 ========== -->
+    <div class="panel" id="naturel-grand">
+      <div class="formula-banner">
+        <strong>SUE = (S × α) / 100</strong> &nbsp;•&nbsp; surface canton ≤ 1 600 m² • coefficient α selon classe et hauteurs
+      </div>
+
+      <h2 class="section-title"><span class="icon">📥</span> Données d'entrée</h2>
+      <div class="input-grid">
+        <span class="input-label">Surface du canton</span>
+        <input type="number" id="ng_surf" value="1200" step="50" min="0">
+        <span class="input-unit">m²</span>
+        <div class="input-help">≤ 1 600 m² — sinon redécouper</div>
+
+        <span class="input-label">Hauteur sol-plafond H</span>
+        <input type="number" id="ng_h" value="8" step="0.5" min="0">
+        <span class="input-unit">m</span>
+        <div class="input-help">Hauteur sous structure</div>
+
+        <span class="input-label">Hauteur sol-bas écran H'</span>
+        <input type="number" id="ng_hp" value="5.5" step="0.5" min="0">
+        <span class="input-unit">m</span>
+        <div class="input-help">Sol jusqu'à la base de l'écran de cantonnement</div>
+
+        <span class="input-label">Coefficient α (lu sur tableau IT 246)</span>
+        <input type="number" id="ng_alpha" value="0.67" step="0.01" min="0.3" max="1.5">
+        <span class="input-unit">—</span>
+        <div class="input-help">Tableau croisé classe/H/H' de l'IT 246</div>
+
+        <span class="input-label">Surface géométrique d'un exutoire (SGO)</span>
+        <input type="number" id="ng_sgo" value="1.0" step="0.1" min="0">
+        <span class="input-unit">m²</span>
+        <div class="input-help">Surface du cadre</div>
+
+        <span class="input-label">Coefficient d'efficacité</span>
+        <input type="number" id="ng_coef" value="0.3" step="0.05" min="0" max="1">
+        <span class="input-unit">—</span>
+        <div class="input-help">0,3 par défaut</div>
+      </div>
+
+      <div id="ng_alert"></div>
+
+      <h2 class="section-title"><span class="icon">✅</span> Vérifications de cohérence</h2>
+      <div class="calc-row">
+        <span class="calc-label">Surface canton ≤ 1 600 m²</span>
+        <span class="calc-value" id="ng_check_s">—</span>
+        <span class="calc-unit">—</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Hauteur de l'écran (H − H')</span>
+        <span class="calc-value" id="ng_ecran">—</span>
+        <span class="calc-unit">m</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Écran ≥ 0,5 m et ≥ 25 % × H</span>
+        <span class="calc-value" id="ng_check_e">—</span>
+        <span class="calc-unit">—</span>
+      </div>
+
+      <h2 class="section-title"><span class="icon">🔢</span> Calculs intermédiaires</h2>
+      <div class="calc-row">
+        <span class="calc-label">SUE théorique requise ((S × α)/100)</span>
+        <span class="calc-value" id="ng_sue">—</span>
+        <span class="calc-unit">m²</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">SUE par exutoire (SGO × coef)</span>
+        <span class="calc-value" id="ng_sue_u">—</span>
+        <span class="calc-unit">m²</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Nombre théorique d'exutoires (avant arrondi)</span>
+        <span class="calc-value" id="ng_nb_th">—</span>
+        <span class="calc-unit">u</span>
+      </div>
+
+      <div class="result-box">
+        <div class="label">RÉSULTAT (pour CE canton)</div>
+        <div class="value large" id="ng_nb">—</div>
+        <div class="unit">exutoires à installer</div>
+        <div class="result-grid">
+          <div class="result-mini">
+            <div class="label">SUE THÉORIQUE</div>
+            <div class="value" id="ng_r_sue">—</div>
+            <div class="unit">m²</div>
+          </div>
+          <div class="result-mini">
+            <div class="label">NB EXUTOIRES</div>
+            <div class="value" id="ng_r_nb">—</div>
+            <div class="unit">unités</div>
+          </div>
+          <div class="result-mini">
+            <div class="label">SUE INSTALLÉE</div>
+            <div class="value" id="ng_r_inst">—</div>
+            <div class="unit">m²</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Rappel canton :</strong> surface ≤ 1 600 m², longueur ≤ 60 m, écrans M0 SF 1/4 h. Le calcul est à refaire pour CHAQUE canton avec ses paramètres propres. Amenée d'air en partie basse au moins égale à la SUE.
+      </div>
+
+      <div class="actions">
+        <button class="btn-reset" onclick="reset_ng()">↻ Réinitialiser</button>
+      </div>
+    </div>
+
+    <!-- ========== ONGLET 3 : MÉCANIQUE ========== -->
+    <div class="panel" id="mecanique">
+      <div class="formula-banner">
+        <strong>12 vol/h</strong> &nbsp;•&nbsp; plafond <strong>3 m³/s par 100 m²</strong> &nbsp;•&nbsp; plancher <strong>1,5 m³/s</strong> &nbsp;•&nbsp; vitesse amenée <strong>&lt; 5 m/s</strong> (§ 4.6.1 et § 7.2.3)
+      </div>
+
+      <h2 class="section-title"><span class="icon">📥</span> Données d'entrée</h2>
+      <div class="input-grid">
+        <span class="input-label">Surface du canton</span>
+        <input type="number" id="m_surf" value="900" step="50" min="0">
+        <span class="input-unit">m²</span>
+        <div class="input-help">≤ 1 600 m² par canton</div>
+
+        <span class="input-label">Hauteur sous plafond</span>
+        <input type="number" id="m_h" value="4" step="0.5" min="0">
+        <span class="input-unit">m</span>
+        <div class="input-help">Hauteur de référence H</div>
+
+        <span class="input-label">Section libre bouche extraction</span>
+        <input type="number" id="m_sext" value="0.7" step="0.1" min="0">
+        <span class="input-unit">m²</span>
+        <div class="input-help">Section utile d'une bouche d'extraction</div>
+
+        <span class="input-label">Section libre bouche amenée d'air</span>
+        <input type="number" id="m_samn" value="1.5" step="0.1" min="0">
+        <span class="input-unit">m²</span>
+        <div class="input-help">Section utile d'une bouche d'amenée</div>
+
+        <span class="input-label">Type d'amenée d'air</span>
+        <select id="m_type" style="width:100%;padding:9px 12px;border:2px solid var(--gray-light);border-radius:6px;font-family:inherit;font-size:14px;font-weight:700;color:var(--blue);background:#fffce8;text-align:center;">
+          <option value="M">Mécanique (Q = 0,6 × Q_extr)</option>
+          <option value="N">Naturelle (Q = Q_extr)</option>
+        </select>
+        <span class="input-unit">—</span>
+        <div class="input-help">Mécanique : 0,6 × débit extrait — Naturelle : totalité</div>
+      </div>
+
+      <div id="m_alert"></div>
+
+      <h2 class="section-title"><span class="icon">✅</span> Vérifications de cohérence</h2>
+      <div class="calc-row">
+        <span class="calc-label">Canton ≤ 1 600 m²</span>
+        <span class="calc-value" id="m_check_c">—</span>
+        <span class="calc-unit">—</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Volume du canton (S × H)</span>
+        <span class="calc-value" id="m_vol">—</span>
+        <span class="calc-unit">m³</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Vitesse à l'amenée d'air &lt; 5 m/s</span>
+        <span class="calc-value" id="m_check_v">—</span>
+        <span class="calc-unit">—</span>
+      </div>
+
+      <h2 class="section-title"><span class="icon">🔢</span> Calcul du débit (§ 7.2.3)</h2>
+      <div class="calc-row">
+        <span class="calc-label">Débit règle 12 vol/h (V × 12 / 3600)</span>
+        <span class="calc-value" id="m_q12">—</span>
+        <span class="calc-unit">m³/s</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Plafond 3 m³/s par 100 m² (max)</span>
+        <span class="calc-value" id="m_qmax">—</span>
+        <span class="calc-unit">m³/s</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Plancher 1,5 m³/s (min)</span>
+        <span class="calc-value">1.50</span>
+        <span class="calc-unit">m³/s</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label"><strong>Débit retenu (entre min et max)</strong></span>
+        <span class="calc-value" id="m_qret"><strong>—</strong></span>
+        <span class="calc-unit">m³/s</span>
+      </div>
+
+      <h2 class="section-title"><span class="icon">📐</span> Surfaces des bouches (§ 4.6.1)</h2>
+      <div class="calc-row">
+        <span class="calc-label">Vitesse à la bouche extraction (info)</span>
+        <span class="calc-value" id="m_vext">—</span>
+        <span class="calc-unit">m/s</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Débit amenée d'air requis</span>
+        <span class="calc-value" id="m_qamn">—</span>
+        <span class="calc-unit">m³/s</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Surface mini amenée (Q_amn / 5)</span>
+        <span class="calc-value" id="m_smin">—</span>
+        <span class="calc-unit">m²</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Vitesse réelle à l'amenée d'air</span>
+        <span class="calc-value" id="m_vamn">—</span>
+        <span class="calc-unit">m/s</span>
+      </div>
+
+      <div class="result-box">
+        <div class="label">RÉSULTATS</div>
+        <div class="result-grid">
+          <div class="result-mini">
+            <div class="label">DÉBIT EXTRACTION</div>
+            <div class="value" id="m_r_qext">—</div>
+            <div class="unit">m³/s par canton</div>
+          </div>
+          <div class="result-mini">
+            <div class="label">DÉBIT AMENÉE</div>
+            <div class="value" id="m_r_qamn">—</div>
+            <div class="unit">m³/s</div>
+          </div>
+          <div class="result-mini">
+            <div class="label">SURFACE MINI AMENÉE</div>
+            <div class="value" id="m_r_smin">—</div>
+            <div class="unit">m² (vitesse &lt; 5 m/s)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>Rappels IT 246 §§ 4.6.1 et 7.2.3 :</strong> débit horaire ≥ 12 vol/h, plafonné à 3 m³/s par 100 m², plancher 1,5 m³/s par local. Surface libre amenées d'air ≥ surface géométrique évacuations (§ 7.1.4). Vitesse aux amenées d'air &lt; 5 m/s — strictement réglementaire. Amenée mécanique : débit = 0,6 × débit extrait. Amenée naturelle : totalité du débit.
+      </div>
+
+      <div class="actions">
+        <button class="btn-reset" onclick="reset_m()">↻ Réinitialiser</button>
+      </div>
+    </div>
+
+    <footer>
+      MIB Prévention — Outil pédagogique SSIAP 3<br>
+      ⚠ Cet outil est destiné à la formation. Toute installation réelle doit être validée par un bureau d'études et la commission de sécurité.
+    </footer>
+
+  </div>
+
+</div>
+
+<script>
+// ============ SESSION + ACTIVATION ============
+let SESSION_USER = null;
+
+window.addEventListener('DOMContentLoaded', async function(){
+  let role = null;
+  try {
+    const f = JSON.parse(localStorage.getItem('mib_formateur') || 'null');
+    if (f && f.formateur_id) {
+      role = 'formateur';
+      SESSION_USER = { id:f.formateur_id, nom:f.formateur_nom||'', center_id:f.center_id };
+    } else {
+      const s = JSON.parse(localStorage.getItem('mib_stagiaire') || 'null');
+      if (s && s.stagiaire_id) {
+        role = 'stagiaire';
+        SESSION_USER = { id:s.stagiaire_id, nom:(s.stagiaire_prenom?s.stagiaire_prenom+' ':'')+(s.stagiaire_nom||''), center_id:s.center_id };
+      }
+    }
+  } catch(e) {}
+  if (!SESSION_USER || !SESSION_USER.center_id) { window.location.href = 'index.html'; return; }
+  SESSION_USER.role = role;
+
+  const { data, error } = await supabase.from('centers').select('id,outil_desenfumage').eq('id', SESSION_USER.center_id).maybeSingle();
+  document.getElementById('loading').classList.add('hidden');
+  if (error || !data || !data.outil_desenfumage) {
+    document.getElementById('disabled').classList.remove('hidden');
+    return;
+  }
+  document.getElementById('content').classList.remove('hidden');
+  initCalc();
+});
+
+function goBack(){
+  if (SESSION_USER && SESSION_USER.role === 'formateur') window.location.href = 'formateur.html';
+  else if (SESSION_USER && SESSION_USER.role === 'stagiaire') window.location.href = 'stagiaire.html';
+  else window.history.back();
+}
+
+function initCalc(){
+  // ============ TABS ============
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.tab;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(target).classList.add('active');
+    });
+  });
+
+  ['np_surf', 'np_sgo', 'np_coef'].forEach(id => document.getElementById(id).addEventListener('input', calc_np));
+  ['ng_surf','ng_h','ng_hp','ng_alpha','ng_sgo','ng_coef'].forEach(id => document.getElementById(id).addEventListener('input', calc_ng));
+  ['m_surf','m_h','m_sext','m_samn'].forEach(id => document.getElementById(id).addEventListener('input', calc_m));
+  document.getElementById('m_type').addEventListener('change', calc_m);
+  calc_np(); calc_ng(); calc_m();
+}
+
+// ============ HELPERS ============
+const $ = id => document.getElementById(id);
+const fmt = (v, dec=2) => isFinite(v) ? v.toFixed(dec) : '—';
+const setVal = (id, val, dec=2) => $(id).innerHTML = fmt(val, dec);
+const setCheck = (id, ok, txtOk='✓ OK', txtKO='⚠ Non conforme') => {
+  $(id).innerHTML = ok ? `<span class="check">${txtOk}</span>` : `<span class="warn">${txtKO}</span>`;
+};
+const showAlert = (id, msg, type='warning') => {
+  $(id).innerHTML = msg ? `<div class="alert alert-${type}">${msg}</div>` : '';
+};
+
+// ============ ONGLET 1 ============
+function calc_np() {
+  const S = parseFloat($('np_surf').value) || 0;
+  const sgo = parseFloat($('np_sgo').value) || 0;
+  const coef = parseFloat($('np_coef').value) || 0;
+  if (S > 1000) showAlert('np_alert', '⚠ Surface > 1 000 m². Utilisez l\'onglet « Naturel > 1 000 m² » pour le calcul avec cantons.', 'warning');
+  else showAlert('np_alert', '');
+  const sue = S / 200;
+  const sue_u = sgo * coef;
+  const nb_th = sue_u > 0 ? sue / sue_u : 0;
+  const nb = Math.ceil(nb_th);
+  const inst = nb * sue_u;
+  setVal('np_sue', sue); setVal('np_sue_u', sue_u); setVal('np_nb_th', nb_th);
+  $('np_nb').textContent = nb;
+  setVal('np_r_sue', sue); $('np_r_nb').textContent = nb; setVal('np_r_inst', inst);
+}
+function reset_np() {
+  $('np_surf').value = 800; $('np_sgo').value = 1.0; $('np_coef').value = 0.7; calc_np();
+}
+
+// ============ ONGLET 2 ============
+function calc_ng() {
+  const S = parseFloat($('ng_surf').value) || 0;
+  const H = parseFloat($('ng_h').value) || 0;
+  const Hp = parseFloat($('ng_hp').value) || 0;
+  const alpha = parseFloat($('ng_alpha').value) || 0;
+  const sgo = parseFloat($('ng_sgo').value) || 0;
+  const coef = parseFloat($('ng_coef').value) || 0;
+  let alerts = [];
+  if (S > 1600) alerts.push('Surface canton > 1 600 m². Redécouper en cantons plus petits.');
+  if (Hp >= H) alerts.push('La hauteur H\' doit être strictement inférieure à H.');
+  showAlert('ng_alert', alerts.join('<br>'), 'danger');
+  setCheck('ng_check_s', S <= 1600);
+  const ecran = H - Hp;
+  setVal('ng_ecran', ecran);
+  setCheck('ng_check_e', ecran >= 0.5 && ecran >= 0.25 * H);
+  const sue = S * alpha / 100;
+  const sue_u = sgo * coef;
+  const nb_th = sue_u > 0 ? sue / sue_u : 0;
+  const nb = Math.ceil(nb_th);
+  const inst = nb * sue_u;
+  setVal('ng_sue', sue); setVal('ng_sue_u', sue_u); setVal('ng_nb_th', nb_th);
+  $('ng_nb').textContent = nb;
+  setVal('ng_r_sue', sue); $('ng_r_nb').textContent = nb; setVal('ng_r_inst', inst);
+}
+function reset_ng() {
+  $('ng_surf').value = 1200; $('ng_h').value = 8; $('ng_hp').value = 5.5;
+  $('ng_alpha').value = 0.67; $('ng_sgo').value = 1.0; $('ng_coef').value = 0.3;
+  calc_ng();
+}
+
+// ============ ONGLET 3 ============
+function calc_m() {
+  const S = parseFloat($('m_surf').value) || 0;
+  const H = parseFloat($('m_h').value) || 0;
+  const Sext = parseFloat($('m_sext').value) || 0;
+  const Samn = parseFloat($('m_samn').value) || 0;
+  const type = $('m_type').value;
+  let alerts = [];
+  if (S > 1600) alerts.push('Canton > 1 600 m². Réduire la taille du canton.');
+  showAlert('m_alert', alerts.join('<br>'), 'danger');
+  const vol = S * H;
+  const q12 = vol * 12 / 3600;
+  const qmax = S / 100 * 3;
+  const qmin = 1.5;
+  const qret = Math.max(qmin, Math.min(q12, qmax));
+  const vext = Sext > 0 ? qret / Sext : 0;
+  const qamn = type === "M" ? qret * 0.6 : qret;
+  const smin = qamn / 5;
+  const vamn = Samn > 0 ? qamn / Samn : 0;
+  setCheck('m_check_c', S <= 1600);
+  setCheck('m_check_v', vamn < 5, '✓ OK (' + fmt(vamn, 2) + ' m/s)', '⚠ ' + fmt(vamn, 2) + ' m/s — augmenter section amenée');
+  $('m_vol').textContent = fmt(vol, 0);
+  setVal('m_q12', q12); setVal('m_qmax', qmax); setVal('m_qret', qret);
+  setVal('m_vext', vext); setVal('m_qamn', qamn); setVal('m_smin', smin); setVal('m_vamn', vamn);
+  setVal('m_r_qext', qret); setVal('m_r_qamn', qamn); setVal('m_r_smin', smin);
+}
+function reset_m() {
+  $('m_surf').value = 900; $('m_h').value = 4;
+  $('m_sext').value = 0.7; $('m_samn').value = 1.5;
+  $('m_type').value = "M";
+  calc_m();
+}
+</script>
+</body>
+</html>

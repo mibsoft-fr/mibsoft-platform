@@ -177,6 +177,28 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
 
         </div>
 
+        <!-- OUTILS ERP -->
+        <div id="outils-erp-section" class="hidden" style="margin-top:18px;">
+          <h2 style="font-size:.85rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:14px;">📐 Outils ERP</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px;">
+            <a id="outil-effectif-link" href="outil-effectif.html" class="hidden" style="text-decoration:none;color:inherit;background:linear-gradient(145deg,#fff,#f9fffe);border:1.5px solid #d1fae5;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px;transition:all .2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(16,185,129,.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+              <div style="font-size:1.4rem;">📐</div>
+              <div style="font-size:.85rem;font-weight:800;color:var(--text);">Effectif admissible</div>
+              <div style="font-size:.7rem;color:var(--text2);">Calcul ERP</div>
+            </a>
+            <a id="outil-degagements-link" href="outil-degagements.html" class="hidden" style="text-decoration:none;color:inherit;background:linear-gradient(145deg,#fff,#f9fffe);border:1.5px solid #d1fae5;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px;transition:all .2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(16,185,129,.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+              <div style="font-size:1.4rem;">🚪</div>
+              <div style="font-size:.85rem;font-weight:800;color:var(--text);">Dégagements</div>
+              <div style="font-size:.7rem;color:var(--text2);">Sorties / unités de passage</div>
+            </a>
+            <a id="outil-desenfumage-link" href="outil-desenfumage.html" class="hidden" style="text-decoration:none;color:inherit;background:linear-gradient(145deg,#fff,#f9fffe);border:1.5px solid #d1fae5;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px;transition:all .2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(16,185,129,.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+              <div style="font-size:1.4rem;">💨</div>
+              <div style="font-size:.85rem;font-weight:800;color:var(--text);">Désenfumage</div>
+              <div style="font-size:.7rem;color:var(--text2);">Surfaces utiles</div>
+            </a>
+          </div>
+        </div>
+
         <!-- BOUTON AVIS & RETOURS -->
         <div onclick="openAvisModal()" style="
           display:flex;align-items:center;gap:12px;
@@ -273,6 +295,13 @@ window.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('card-ssi').style.cursor = 'not-allowed';
       document.getElementById('badge-ssi').textContent = 'Non activé';
     }
+
+    // Outils ERP
+    const anyOutil = centre?.outil_effectif || centre?.outil_degagements || centre?.outil_desenfumage;
+    if (anyOutil) document.getElementById('outils-erp-section').classList.remove('hidden');
+    if (centre?.outil_effectif)    document.getElementById('outil-effectif-link').classList.remove('hidden');
+    if (centre?.outil_degagements) document.getElementById('outil-degagements-link').classList.remove('hidden');
+    if (centre?.outil_desenfumage) document.getElementById('outil-desenfumage-link').classList.remove('hidden');
 
     // Charger sessions du stagiaire
     const { data: participations } = await supabase

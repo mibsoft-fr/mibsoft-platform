@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIB — Dégagements ERP</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="supabase.js"></script>
+<style>
+  :root {
+    --navy: #1A2842; --navy-dark: #0F1A2E; --cherry: #C8102E; --gold: #C9A961;
+    --cream: #F6F1E7; --gray-text: #4A4A4A; --gray-light: #E8E4DA;
+    --green: #1F7A3A; --orange: #D67836; --blue: #2E5C8A;
+    --shadow: 0 2px 8px rgba(15,26,46,.08); --shadow-strong: 0 4px 16px rgba(15,26,46,.15);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg,#f8f6f0 0%,#ece6d6 100%); color: var(--gray-text); min-height:100vh; padding:20px; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  .top-back { display:inline-flex; align-items:center; gap:8px; background:#fff; border:1.5px solid var(--gray-light); padding:8px 14px; border-radius:8px; cursor:pointer; font-family:inherit; font-size:13px; font-weight:600; color:var(--gray-text); text-decoration:none; margin-bottom:14px; transition:all .2s; }
+  .top-back:hover { border-color:var(--navy); color:var(--navy); }
+
+  header { background:linear-gradient(135deg,var(--navy-dark) 0%,var(--navy) 100%); color:#fff; padding:28px 36px; border-radius:12px 12px 0 0; box-shadow:var(--shadow-strong); position:relative; overflow:hidden; }
+  header::before { content:''; position:absolute; top:0; left:0; bottom:0; width:6px; background:var(--gold); }
+  header .label { color:var(--gold); font-size:11px; letter-spacing:4px; font-weight:600; margin-bottom:8px; }
+  header h1 { font-family:Georgia,serif; font-size:32px; font-weight:700; margin-bottom:6px; }
+  header .subtitle { font-size:14px; opacity:.85; font-style:italic; }
+
+  .tabs { display:flex; background:#fff; border-bottom:3px solid var(--gold); box-shadow:var(--shadow); overflow-x:auto; }
+  .tab { flex:1; min-width:200px; padding:18px 20px; background:#fff; border:none; cursor:pointer; font-family:inherit; font-size:13px; font-weight:600; color:var(--gray-text); border-bottom:4px solid transparent; transition:all .2s; white-space:nowrap; text-align:center; }
+  .tab:hover { background:var(--cream); }
+  .tab.active { color:var(--navy-dark); border-bottom-color:var(--cherry); background:var(--cream); }
+  .tab .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; margin-right:8px; color:#fff; font-weight:700; }
+  .tab[data-tab="groupe1"] .badge { background:var(--cherry); }
+  .tab[data-tab="cat5"] .badge { background:var(--green); }
+
+  .panel { display:none; background:#fff; padding:32px; border-radius:0 0 12px 12px; box-shadow:var(--shadow-strong); margin-bottom:24px; }
+  .panel.active { display:block; }
+
+  .formula-banner { background:var(--cream); border-left:4px solid var(--gold); padding:14px 18px; border-radius:4px; margin-bottom:24px; font-size:13px; color:var(--navy); line-height:1.6; }
+  .formula-banner strong { font-family:Georgia,serif; color:var(--navy-dark); }
+
+  .section-title { font-family:Georgia,serif; font-size:18px; font-weight:700; color:var(--navy-dark); margin:24px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--gray-light); display:flex; align-items:center; gap:10px; }
+  .section-title:first-child { margin-top:0; }
+  .section-title .icon { width:32px; height:32px; background:var(--navy); color:var(--gold); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+
+  .input-grid { display:grid; grid-template-columns:1fr 140px 80px; gap:12px 18px; align-items:center; margin-bottom:8px; }
+  .input-label { font-size:14px; font-weight:500; color:var(--gray-text); }
+  .input-help { font-size:12px; color:#888; font-style:italic; grid-column:1/-1; margin-top:-8px; margin-bottom:8px; padding-left:4px; }
+  input[type="number"], select.inp-sel { width:100%; padding:9px 12px; border:2px solid var(--gray-light); border-radius:6px; font-family:inherit; font-size:14px; font-weight:700; color:var(--blue); background:#fffce8; transition:all .2s; text-align:center; }
+  input[type="number"]:focus, select.inp-sel:focus { outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,169,97,.2); }
+  .input-unit { font-size:12px; color:#888; font-style:italic; text-align:center; }
+
+  .calc-row { display:grid; grid-template-columns:1fr 140px 80px; gap:12px 18px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--gray-light); }
+  .calc-row:nth-child(odd) { background:#fafafa; }
+  .calc-label { font-size:13px; color:var(--gray-text); }
+  .calc-value { font-size:14px; font-weight:700; color:var(--navy-dark); text-align:center; background:#fff; padding:6px; border-radius:4px; border:1px solid var(--gray-light); }
+  .calc-unit { font-size:11px; color:#888; font-style:italic; text-align:center; }
+  .check { color:var(--green); font-weight:700; }
+  .warn { color:var(--cherry); font-weight:700; }
+
+  .result-box { margin-top:24px; background:linear-gradient(135deg,var(--cherry) 0%,#a30d24 100%); color:#fff; padding:24px; border-radius:10px; box-shadow:var(--shadow-strong); text-align:center; }
+  .result-box .label { font-size:11px; letter-spacing:4px; color:var(--gold); font-weight:700; margin-bottom:8px; }
+  .result-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:6px; }
+  .result-mini { background:rgba(255,255,255,.18); padding:14px; border-radius:6px; border:1px solid rgba(255,255,255,.15); }
+  .result-mini .label { font-size:10px; letter-spacing:2px; color:var(--gold); margin-bottom:4px; }
+  .result-mini .value { font-family:Georgia,serif; font-size:26px; font-weight:700; color:#fff; line-height:1; }
+  .result-mini .unit { font-size:11px; opacity:.85; margin-top:4px; }
+
+  .repartition { background:#fff; border:1px solid var(--gray-light); border-radius:10px; padding:18px; margin-top:18px; }
+  .repartition .ttl { font-weight:700; color:var(--navy-dark); margin-bottom:12px; font-size:14px; }
+  .deg-card { display:inline-block; background:var(--cream); border:1.5px solid var(--gold); border-radius:8px; padding:10px 16px; margin:4px; font-size:13px; font-weight:700; color:var(--navy-dark); }
+  .deg-card .small { display:block; font-size:11px; color:var(--gray-text); font-weight:500; font-style:italic; margin-top:2px; }
+
+  .note { margin-top:20px; background:var(--cream); border-left:4px solid var(--gold); padding:14px 18px; border-radius:4px; font-size:13px; line-height:1.6; color:var(--gray-text); }
+  .note strong { color:var(--navy-dark); }
+  .note ul { margin:6px 0 0 18px; }
+
+  .alert { padding:12px 16px; border-radius:6px; margin-bottom:14px; font-size:13px; font-weight:500; }
+  .alert-warn { background:#fff4e6; border-left:4px solid var(--orange); color:#8B4513; }
+  .alert-danger { background:#fef2f2; border-left:4px solid var(--cherry); color:#7a0a1f; }
+  .alert-ok { background:#f0fdf4; border-left:4px solid var(--green); color:#14532d; }
+
+  .disabled-card { background:#fff; padding:40px; border-radius:12px; box-shadow:var(--shadow-strong); text-align:center; }
+  .disabled-card h2 { font-family:Georgia,serif; color:var(--navy-dark); margin-bottom:10px; }
+  .hidden { display:none!important; }
+  footer { text-align:center; padding:20px; font-size:12px; color:#888; font-style:italic; }
+
+  @media (max-width:700px){
+    .input-grid, .calc-row { grid-template-columns:1fr; }
+    .result-grid { grid-template-columns:1fr; }
+    .calc-value, .calc-unit, .input-unit { text-align:left; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <a href="#" class="top-back" onclick="goBack();return false;">← Retour</a>
+
+  <div id="loading" style="text-align:center;padding:60px;color:var(--gray-text);">Chargement…</div>
+
+  <div id="disabled" class="disabled-card hidden">
+    <h2>⚠ Outil non activé</h2>
+    <p>L'outil <strong>Dégagements</strong> n'est pas activé sur votre centre.<br>Contactez l'administrateur MIB Prévention.</p>
+  </div>
+
+  <div id="content" class="hidden">
+
+    <header>
+      <div class="label">MIB PRÉVENTION — SSIAP</div>
+      <h1>Dégagements ERP</h1>
+      <div class="subtitle">Articles CO 34 à CO 38 (1er groupe) et PE 11 (5e catégorie) — Arrêté du 25 juin 1980 modifié</div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="groupe1" onclick="showTab('groupe1')"><span class="badge">G1</span>1er groupe (1 à 4 cat.)</button>
+      <button class="tab" data-tab="cat5" onclick="showTab('cat5')"><span class="badge">5e</span>5e catégorie</button>
+    </div>
+
+    <!-- ════════ ONGLET 1 : 1ER GROUPE (CO) ════════ -->
+    <div class="panel active" id="panel-groupe1">
+
+      <div class="formula-banner">
+        <strong>1 UP = 0,60 m</strong> &nbsp;•&nbsp; Dérogation : <strong>1 UP → 0,90 m</strong>, <strong>2 UP → 1,40 m</strong>
+        <br>Articles <strong>CO 34, CO 35, CO 36, CO 38 §1</strong>. Largeur en UP = effectif / 100 (au-delà de 500 pers., sinon tableau ci-dessous).
+      </div>
+
+      <h2 class="section-title"><span class="icon">📥</span> Données d'entrée</h2>
+      <div class="input-grid">
+        <span class="input-label">Effectif total à évacuer</span>
+        <input type="number" id="g1_eff" value="250" min="0" step="1">
+        <span class="input-unit">personnes</span>
+        <div class="input-help">Effectif déterminé selon les règles de l'article L 3 / M 2 etc.</div>
+
+        <span class="input-label">Type d'ERP (pour règles particulières)</span>
+        <select id="g1_type" class="inp-sel">
+          <option value="">— Aucun (règles CO générales) —</option>
+          <option value="L">L — Salles de spectacles, conférences, polyvalentes</option>
+          <option value="M">M — Magasins, centres commerciaux</option>
+          <option value="N">N — Restaurants, débits de boissons</option>
+          <option value="O">O — Hôtels (locaux à sommeil)</option>
+          <option value="R">R — Enseignement</option>
+          <option value="U">U — Établissements de soins</option>
+          <option value="X">X — Sportifs couverts</option>
+        </select>
+        <span class="input-unit">—</span>
+      </div>
+
+      <div id="g1_alert"></div>
+
+      <h2 class="section-title"><span class="icon">🔢</span> Résultats du calcul (CO 38 §1)</h2>
+      <div class="calc-row">
+        <span class="calc-label">Nombre minimum de dégagements (CO 35)</span>
+        <span class="calc-value" id="g1_nb_deg">—</span>
+        <span class="calc-unit">dégagements</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Total UP requises</span>
+        <span class="calc-value" id="g1_up_total">—</span>
+        <span class="calc-unit">UP</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Largeur totale (en mètres)</span>
+        <span class="calc-value" id="g1_larg_total">—</span>
+        <span class="calc-unit">m</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Largeur minimale par dégagement (CO 36)</span>
+        <span class="calc-value" id="g1_larg_mini">—</span>
+        <span class="calc-unit">m / UP</span>
+      </div>
+
+      <div class="result-box">
+        <div class="label">DÉGAGEMENTS REQUIS</div>
+        <div class="result-grid">
+          <div class="result-mini">
+            <div class="label">DÉGAGEMENTS</div>
+            <div class="value" id="g1_r_nb">—</div>
+            <div class="unit">minimum</div>
+          </div>
+          <div class="result-mini">
+            <div class="label">UP TOTALES</div>
+            <div class="value" id="g1_r_up">—</div>
+            <div class="unit">unités de passage</div>
+          </div>
+          <div class="result-mini">
+            <div class="label">LARGEUR CUMULÉE</div>
+            <div class="value" id="g1_r_larg">—</div>
+            <div class="unit">mètres</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="repartition">
+        <div class="ttl">Répartition suggérée des dégagements</div>
+        <div id="g1_repartition" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        <div style="font-size:12px;color:#888;font-style:italic;margin-top:10px;">Cette répartition est une suggestion compatible CO 36/38. La conception architecturale peut imposer une autre répartition équivalente.</div>
+      </div>
+
+      <div class="note" id="g1_notes_specifiques"></div>
+
+      <div class="note">
+        <strong>Rappels CO 36 :</strong>
+        <ul>
+          <li>Aucun dégagement ne peut avoir une largeur inférieure à <strong>0,90 m</strong>.</li>
+          <li>Établissements de plus de 200 personnes : aucun dégagement normal accessible au public ne doit avoir une largeur inférieure à <strong>2 UP (1,40 m)</strong>.</li>
+          <li><strong>Superposition (CO 38 §2)</strong> : à un niveau donné, cumuler l'effectif des étages au-dessus (superstructure) ou au-dessous (sous-sol) qui empruntent les mêmes escaliers.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ════════ ONGLET 2 : 5E CATÉGORIE (PE) ════════ -->
+    <div class="panel" id="panel-cat5">
+
+      <div class="formula-banner">
+        <strong>Article PE 11</strong> &nbsp;•&nbsp; les ERP de 5e catégorie (« petits établissements ») relèvent du Livre III. Les UP <strong>ne s'appliquent pas</strong> ; les largeurs sont données en mètres absolus.
+      </div>
+
+      <h2 class="section-title"><span class="icon">📥</span> Données d'entrée</h2>
+      <div class="input-grid">
+        <span class="input-label">Effectif total (public + personnel sans sortie propre)</span>
+        <input type="number" id="pe_eff" value="80" min="0" max="300" step="1">
+        <span class="input-unit">personnes</span>
+        <div class="input-help">PE 11 s'applique jusqu'à 300 personnes en 5e catégorie.</div>
+
+        <span class="input-label">Distance maximale à parcourir vers la sortie</span>
+        <input type="number" id="pe_dist" value="20" min="0" step="1">
+        <span class="input-unit">m</span>
+        <div class="input-help">Pour la dérogation 20-50 pers. avec 1 seule sortie de 1,40 m (≤ 25 m).</div>
+
+        <span class="input-label">Locaux à sommeil ?</span>
+        <select id="pe_sommeil" class="inp-sel">
+          <option value="non">Non</option>
+          <option value="oui">Oui (PE 28-37 + PO/PU)</option>
+        </select>
+        <span class="input-unit">—</span>
+        <div class="input-help">Hôtels, gîtes, foyers, EHPAD, micro-crèches, etc.</div>
+
+        <span class="input-label">Existant / rénovation ?</span>
+        <select id="pe_existant" class="inp-sel">
+          <option value="non">Non (neuf)</option>
+          <option value="oui">Oui (tolérance 0,90 → 0,80 m)</option>
+        </select>
+        <span class="input-unit">—</span>
+      </div>
+
+      <div id="pe_alert"></div>
+
+      <h2 class="section-title"><span class="icon">🔢</span> Résultats du calcul (PE 11)</h2>
+      <div class="calc-row">
+        <span class="calc-label">Tranche d'effectif applicable</span>
+        <span class="calc-value" id="pe_tranche">—</span>
+        <span class="calc-unit">—</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Cul-de-sac admis (max)</span>
+        <span class="calc-value">10</span>
+        <span class="calc-unit">m</span>
+      </div>
+      <div class="calc-row">
+        <span class="calc-label">Distance porte chambre / escalier (si sommeil — PE 30)</span>
+        <span class="calc-value" id="pe_dist_sommeil">—</span>
+        <span class="calc-unit">m</span>
+      </div>
+
+      <div class="result-box">
+        <div class="label">DÉGAGEMENTS REQUIS (PE 11)</div>
+        <div class="result-grid">
+          <div class="result-mini">
+            <div class="label">NB SORTIES</div>
+            <div class="value" id="pe_r_nb">—</div>
+            <div class="unit">minimum</div>
+          </div>
+          <div class="result-mini">
+            <div class="label">LARGEURS</div>
+            <div class="value" id="pe_r_larg" style="font-size:18px;">—</div>
+            <div class="unit">par sortie (m)</div>
+          </div>
+          <div class="result-mini">
+            <div class="label">LARGEUR TOTALE</div>
+            <div class="value" id="pe_r_total">—</div>
+            <div class="unit">m cumulés</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="repartition">
+        <div class="ttl">Détail réglementaire</div>
+        <div id="pe_detail" style="font-size:13px;line-height:1.7;color:var(--gray-text);"></div>
+      </div>
+
+      <div class="note" id="pe_notes_sommeil"></div>
+
+      <div class="note">
+        <strong>Rappels PE 11 :</strong>
+        <ul>
+          <li>Cul-de-sac <strong>≤ 10 m</strong>.</li>
+          <li>Locaux en étage (PB du dernier niveau accessible &gt; 8 m) : <strong>1 escalier 0,90 m + 1 dégagement accessoire</strong>.</li>
+          <li>Existant / rénovation : la largeur <strong>0,90 m peut être ramenée à 0,80 m</strong>.</li>
+          <li>Le personnel n'ayant pas de dégagement propre s'ajoute au public pour le calcul.</li>
+        </ul>
+      </div>
+    </div>
+
+    <footer>
+      MIB Prévention — Outil pédagogique SSIAP<br>
+      ⚠ Cet outil est destiné à la formation. Toute évaluation officielle doit être validée par un préventionniste qualifié et la commission de sécurité.
+    </footer>
+
+  </div>
+
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// SESSION + ACTIVATION
+// ════════════════════════════════════════════════════════════
+let SESSION_USER = null;
+
+window.addEventListener('DOMContentLoaded', async function(){
+  let role = null;
+  try {
+    const f = JSON.parse(localStorage.getItem('mib_formateur') || 'null');
+    if (f && f.formateur_id) {
+      role = 'formateur';
+      SESSION_USER = { id:f.formateur_id, nom:f.formateur_nom||'', center_id:f.center_id };
+    } else {
+      const s = JSON.parse(localStorage.getItem('mib_stagiaire') || 'null');
+      if (s && s.stagiaire_id) {
+        role = 'stagiaire';
+        SESSION_USER = { id:s.stagiaire_id, nom:(s.stagiaire_prenom?s.stagiaire_prenom+' ':'')+(s.stagiaire_nom||''), center_id:s.center_id };
+      }
+    }
+  } catch(e) {}
+  if (!SESSION_USER || !SESSION_USER.center_id) { window.location.href='index.html'; return; }
+  SESSION_USER.role = role;
+
+  const { data, error } = await supabase.from('centers').select('id,outil_degagements').eq('id', SESSION_USER.center_id).maybeSingle();
+  document.getElementById('loading').classList.add('hidden');
+  if (error || !data || !data.outil_degagements) { document.getElementById('disabled').classList.remove('hidden'); return; }
+  document.getElementById('content').classList.remove('hidden');
+  initListeners();
+  calc_g1();
+  calc_pe();
+});
+
+function goBack(){
+  if (SESSION_USER && SESSION_USER.role === 'formateur') window.location.href = 'formateur.html';
+  else if (SESSION_USER && SESSION_USER.role === 'stagiaire') window.location.href = 'stagiaire.html';
+  else window.history.back();
+}
+
+function showTab(t){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===t));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='panel-'+t));
+}
+
+function initListeners(){
+  ['g1_eff','g1_type'].forEach(id=>document.getElementById(id).addEventListener('input', calc_g1));
+  document.getElementById('g1_type').addEventListener('change', calc_g1);
+  ['pe_eff','pe_dist','pe_sommeil','pe_existant'].forEach(id=>document.getElementById(id).addEventListener('input', calc_pe));
+  document.getElementById('pe_sommeil').addEventListener('change', calc_pe);
+  document.getElementById('pe_existant').addEventListener('change', calc_pe);
+}
+
+// ════════════════════════════════════════════════════════════
+// 1ER GROUPE — Calcul CO 35 + CO 38 §1
+// ════════════════════════════════════════════════════════════
+// Renvoie { nbDeg, totalUP, repartition: [{up, larg}] } pour un effectif N
+function calculDegagementsCO(N){
+  if (N <= 0) return { nbDeg:0, totalUP:0, repartition:[] };
+
+  // Tableau CO 38 §1 (jusqu'à 500)
+  if (N <= 19)  return { nbDeg:1, totalUP:1, repartition:[{up:1, larg:0.90, lbl:"1 UP (0,90 m)"}] };
+  if (N <= 50)  return { nbDeg:2, totalUP:1, repartition:[{up:1, larg:0.90, lbl:"1 UP normal (0,90 m)"}, {up:0, larg:0.60, lbl:"1 dégagement accessoire (0,60 m)"}] };
+  if (N <= 100) return { nbDeg:2, totalUP:2, repartition:[{up:1, larg:0.90, lbl:"1 UP (0,90 m)"}, {up:1, larg:0.90, lbl:"1 UP (0,90 m)"}] };
+  if (N <= 200) return { nbDeg:2, totalUP:3, repartition:[{up:2, larg:1.40, lbl:"2 UP (1,40 m)"}, {up:1, larg:0.90, lbl:"1 UP (0,90 m)"}] };
+  if (N <= 300) return { nbDeg:2, totalUP:4, repartition:[{up:2, larg:1.40, lbl:"2 UP (1,40 m)"}, {up:2, larg:1.40, lbl:"2 UP (1,40 m)"}] };
+  if (N <= 400) return { nbDeg:2, totalUP:5, repartition:[{up:3, larg:1.80, lbl:"3 UP (1,80 m)"}, {up:2, larg:1.40, lbl:"2 UP (1,40 m)"}] };
+  if (N <= 500) return { nbDeg:2, totalUP:6, repartition:[{up:3, larg:1.80, lbl:"3 UP (1,80 m)"}, {up:3, larg:1.80, lbl:"3 UP (1,80 m)"}] };
+
+  // Au-delà de 500 : largeur en UP = ceil(N/100). Nombre dégagements : 2 jusqu'à 500, +1 par 500 ou fraction.
+  const totalUP = Math.ceil(N / 100);
+  let nbDeg;
+  if (N <= 1500)      nbDeg = 3;
+  else if (N <= 2500) nbDeg = 4;
+  else if (N <= 3500) nbDeg = 5;
+  else                nbDeg = 5 + Math.ceil((N - 3500) / 500);
+
+  // Au-delà de 200 personnes : aucun dégagement < 2 UP (1,40 m)
+  // On répartit les UP de manière équilibrée avec minimum 2 UP par dégagement
+  const repartition = repartirUP(totalUP, nbDeg);
+  return { nbDeg, totalUP, repartition };
+}
+
+function repartirUP(totalUP, nbDeg){
+  // Répartition équilibrée avec minimum 2 UP par dégagement (si > 200 pers, ce qui est toujours le cas ici)
+  const reste = totalUP - nbDeg * 2;
+  const r = [];
+  for (let i = 0; i < nbDeg; i++){
+    let up = 2 + Math.floor(reste / nbDeg);
+    if (i < (reste % nbDeg)) up++;
+    r.push({ up, larg: largeurUP(up), lbl: up + " UP (" + largeurUP(up).toFixed(2).replace(".", ",") + " m)" });
+  }
+  return r;
+}
+
+function largeurUP(up){
+  if (up === 1) return 0.90;
+  if (up === 2) return 1.40;
+  return up * 0.60;
+}
+
+function calc_g1(){
+  const N = parseInt(document.getElementById('g1_eff').value) || 0;
+  const type = document.getElementById('g1_type').value;
+  const r = calculDegagementsCO(N);
+
+  // Largeur min/UP par dégagement (CO 36)
+  let largMin;
+  if (N <= 0) largMin = "—";
+  else if (N > 200) largMin = "1,40 m (2 UP)";
+  else largMin = "0,90 m (1 UP)";
+
+  document.getElementById('g1_nb_deg').textContent = r.nbDeg || "—";
+  document.getElementById('g1_up_total').textContent = r.totalUP || "—";
+  document.getElementById('g1_larg_total').textContent = r.repartition.length ? r.repartition.reduce((s,d)=>s+d.larg, 0).toFixed(2).replace(".", ",") : "—";
+  document.getElementById('g1_larg_mini').textContent = largMin;
+
+  document.getElementById('g1_r_nb').textContent = r.nbDeg || "—";
+  document.getElementById('g1_r_up').textContent = r.totalUP || "—";
+  document.getElementById('g1_r_larg').textContent = r.repartition.length ? r.repartition.reduce((s,d)=>s+d.larg, 0).toFixed(2).replace(".", ",") : "—";
+
+  // Répartition
+  const rep = document.getElementById('g1_repartition');
+  rep.innerHTML = r.repartition.map((d, i) =>
+    '<div class="deg-card">Dégagement ' + (i + 1) + '<span class="small">' + d.lbl + '</span></div>'
+  ).join('') || '<em style="color:#888;">—</em>';
+
+  // Alerte 5e catégorie
+  const alert5 = document.getElementById('g1_alert');
+  if (N > 0 && N <= 200) {
+    alert5.innerHTML = '<div class="alert alert-warn">⚠ Effectif compatible avec une 5e catégorie selon le type d\'ERP. Si l\'établissement est en 5e cat., utilisez l\'onglet « 5e catégorie » (règles PE 11 différentes).</div>';
+  } else {
+    alert5.innerHTML = '';
+  }
+
+  // Notes spécifiques par type
+  const notes = document.getElementById('g1_notes_specifiques');
+  notes.innerHTML = notesType(type, N);
+}
+
+function notesType(type, N){
+  if (!type) return '';
+  const t = {
+    L: "<strong>Type L — Spectacles, conférences, polyvalentes :</strong><ul><li><strong>L 26</strong> — Balcons : ≤ 200 pers. = 2 dégagements de 2 UP ; 201-300 pers. = 2 dégagements de 3 UP.</li><li><strong>L 28</strong> — Maximum 50 sièges entre deux circulations (8 sièges si une seule circulation). Largeur mini circulation entre rangées : 0,60 m.</li></ul>",
+    M: "<strong>Type M — Magasins, centres commerciaux :</strong><ul><li>Circulations secondaires : largeur mini <strong>0,90 m</strong>.</li><li><strong>Mails de centres commerciaux</strong> : 51-300 pers. = 1 sortie accessoire ; 301-700 = 1 sortie 2 UP ; > 700 = 2/3 nb + largeur des dégagements normaux.</li><li><strong>M 16</strong> — Passages aux groupes de caisses : sortie en file de 2 UP obligatoire au-delà d'une certaine largeur.</li></ul>",
+    N: "<strong>Type N — Restaurants :</strong><ul><li><strong>N 7</strong> — Circulations secondaires entre tables : largeur mini <strong>0,60 m</strong> (mesurée en position assise).</li><li>Seuls les dégagements accessoires peuvent être communs avec ceux de tiers.</li></ul>",
+    O: "<strong>Type O — Hôtels (locaux à sommeil) :</strong><ul><li>Distance max porte chambre / escalier : <strong>40 m</strong> (réduit à <strong>30 m</strong> en cul-de-sac).</li><li>Portes ouvrant sur dégagements zones à sommeil : <strong>ferme-porte obligatoire</strong> (sauf sanitaires).</li></ul>",
+    R: "<strong>Type R — Enseignement :</strong><ul><li>Largeur mini circulations escaliers/sorties : <strong>2 UP (1,40 m)</strong>.</li><li>Distance max vers escalier protégé : <strong>40 m</strong> (30 m en cul-de-sac).</li><li>Effectif > 300 pers. : 5 UP réparties sur 2 dégagements (3 UP + 2 UP).</li></ul>",
+    U: "<strong>Type U — Soins :</strong><ul><li>Circulations et escaliers : largeur mini <strong>2 UP (1,40 m)</strong> dans toutes les zones publiques/malades.</li><li>Distance max : <strong>40 m</strong> (30 m en cul-de-sac).</li><li>Stratégie d'évacuation par <strong>transfert horizontal</strong> vers zone protégée adjacente avant évacuation verticale.</li><li>Portes des chambres : ≥ <strong>0,90 m</strong> (passage de lits).</li></ul>",
+    X: "<strong>Type X — Sportifs couverts :</strong><ul><li><strong>X 11</strong> — Si circulations zones d'activité indépendantes des zones spectateurs : effectifs <strong>séparés</strong> pour le calcul des dégagements.</li><li><strong>Gradins</strong> : maximum <strong>22 places</strong> entre deux circulations, 11 places entre un mur et une circulation.</li></ul>"
+  };
+  return t[type] || '';
+}
+
+// ════════════════════════════════════════════════════════════
+// 5E CATÉGORIE — PE 11
+// ════════════════════════════════════════════════════════════
+function calc_pe(){
+  const N = parseInt(document.getElementById('pe_eff').value) || 0;
+  const D = parseInt(document.getElementById('pe_dist').value) || 0;
+  const sommeil = document.getElementById('pe_sommeil').value === 'oui';
+  const existant = document.getElementById('pe_existant').value === 'oui';
+
+  const elTranche = document.getElementById('pe_tranche');
+  const elNb = document.getElementById('pe_r_nb');
+  const elLarg = document.getElementById('pe_r_larg');
+  const elTotal = document.getElementById('pe_r_total');
+  const elDetail = document.getElementById('pe_detail');
+  const elAlert = document.getElementById('pe_alert');
+  const elDistS = document.getElementById('pe_dist_sommeil');
+  const elNotesS = document.getElementById('pe_notes_sommeil');
+
+  if (N <= 0) {
+    elTranche.textContent = "—";
+    elNb.textContent = "—"; elLarg.textContent = "—"; elTotal.textContent = "—";
+    elDetail.innerHTML = '<em style="color:#888;">Saisissez un effectif.</em>';
+    elAlert.innerHTML = '';
+    elDistS.textContent = sommeil ? "35" : "—";
+    elNotesS.innerHTML = '';
+    return;
+  }
+
+  if (N > 300) {
+    elAlert.innerHTML = '<div class="alert alert-danger">⚠ Effectif > 300 personnes — l\'établissement n\'est plus en 5e catégorie. Utilisez l\'onglet « 1er groupe » (CO 34-38).</div>';
+  } else {
+    elAlert.innerHTML = '';
+  }
+
+  let tranche, nb, largeurs, total, detail;
+  // Tolérance existant : 0,90 → 0,80 m
+  const l090 = existant ? 0.80 : 0.90;
+  const l090txt = existant ? "0,80 m" : "0,90 m";
+
+  if (N <= 19){
+    tranche = "1 à 19 personnes";
+    nb = 1; largeurs = ["0,80 m"]; total = 0.80;
+    detail = "<strong>1 dégagement de 0,80 m minimum</strong> (PE 11 §2).";
+  } else if (N <= 50){
+    tranche = "20 à 50 personnes";
+    if (D > 0 && D <= 25){
+      nb = 1; largeurs = ["1,40 m"]; total = 1.40;
+      detail = "<strong>Option 1 retenue</strong> (distance ≤ 25 m) : <strong>1 dégagement de 1,40 m</strong> débouchant directement sur l'extérieur.<br><br><em>Option alternative</em> : 2 dégagements (" + l090txt + " + 0,60 m) débouchant sur l'extérieur ou sur des locaux différents non en cul-de-sac.";
+    } else {
+      nb = 2; largeurs = [l090txt, "0,60 m (ou accessoire)"]; total = l090 + 0.60;
+      detail = "Distance > 25 m → <strong>2 dégagements</strong> (un de " + l090txt + ", un de 0,60 m ou dégagement accessoire), débouchant sur l'extérieur ou sur des locaux différents non en cul-de-sac.<br><br><em>Option alternative</em> : 1 dégagement de 1,40 m si la distance peut être réduite à ≤ 25 m.";
+    }
+  } else if (N <= 100){
+    tranche = "51 à 100 personnes";
+    nb = 2; largeurs = ["1,40 m", "0,60 m (ou accessoire)"]; total = 1.40 + 0.60;
+    detail = "<strong>2 dégagements</strong> : un de 1,40 m + un de 0,60 m ou dégagement accessoire.";
+  } else if (N <= 200){
+    tranche = "101 à 200 personnes";
+    nb = 2; largeurs = ["1,40 m", l090txt]; total = 1.40 + l090;
+    detail = "<strong>2 dégagements</strong> : un de 1,40 m + un de " + l090txt + ".";
+  } else { // 201-300
+    tranche = "201 à 300 personnes";
+    nb = 2; largeurs = ["1,40 m", "1,40 m"]; total = 2.80;
+    detail = "<strong>2 dégagements de 1,40 m</strong> chacun.";
+  }
+
+  elTranche.textContent = tranche;
+  elNb.textContent = nb;
+  elLarg.innerHTML = largeurs.join("<br>");
+  elTotal.textContent = total.toFixed(2).replace(".", ",");
+  elDetail.innerHTML = detail;
+  elDistS.textContent = sommeil ? "35" : "—";
+
+  // Notes locaux à sommeil
+  if (sommeil){
+    elNotesS.innerHTML = '<strong>Locaux à sommeil — Articles PE 28 à PE 37</strong><ul>'
+      + '<li>Distance maximale entre la porte d\'une chambre et l\'accès à un escalier : <strong>35 m</strong> (PE 30).</li>'
+      + '<li>Plan sommaire de repérage de chaque chambre par rapport aux dégagements à utiliser : <strong>affiché dans chaque chambre</strong>.</li>'
+      + '<li>Détection automatique d\'incendie obligatoire dans les locaux à sommeil ; éclairage de sécurité par BAES <strong>complété par BAEH</strong> sauf groupe électrogène.</li>'
+      + '<li>PB du dernier niveau ≤ 8 m : structure SF 1/2 h, planchers CF 1/2 h, portes locaux à sommeil PF 1/2 h + ferme-porte.</li>'
+      + '<li>Renvois : <strong>PO</strong> (petits hôtels ≤ 100 pers.), <strong>PU</strong> (petits sanitaires ≤ 20 lits).</li>'
+      + '</ul>';
+  } else {
+    elNotesS.innerHTML = '';
+  }
+}
+</script>
+
+</body>
+</html>
