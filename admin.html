@@ -137,6 +137,14 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
   color:var(--blue);box-shadow:inset 3px 3px 8px rgba(100,116,139,.18),inset -2px -2px 5px rgba(255,255,255,.9);}
 
 .sep{height:1px;background:linear-gradient(90deg,transparent,rgba(0,0,0,.07),transparent);margin:18px 0;}
+
+/* TOGGLES MODULES/OUTILS */
+.tg-row{display:flex;flex-wrap:wrap;gap:3px;}
+.tg{display:inline-block;padding:3px 7px;border-radius:999px;font-size:.65rem;font-weight:600;cursor:pointer;user-select:none;transition:all .12s;border:1px solid;}
+.tg-on{background:#dcfce7;color:#065f46;border-color:#86efac;}
+.tg-off{background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb;}
+.tg:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(0,0,0,.08);}
+
 .hidden{display:none!important;}
 </style>
 </head>
@@ -155,6 +163,11 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
     </div>
     <div class="space-y-4">
       <div>
+        <label class="lbl">Email du super-admin</label>
+        <input type="email" id="login-email" class="inp" placeholder="michel.b32@outlook.fr"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div>
         <label class="lbl">Mot de passe</label>
         <div style="position:relative;">
           <input type="password" id="login-pwd" class="inp" placeholder="••••••••••••"
@@ -165,7 +178,7 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
       <div id="login-err" class="alert-err hidden"></div>
       <button class="btn-login" onclick="doLogin()">Accéder au panneau →</button>
     </div>
-    <p style="margin-top:20px;font-size:.7rem;color:var(--text3);text-align:center;">URL confidentielle — ne pas partager</p>
+    <p style="margin-top:20px;font-size:.7rem;color:var(--text3);text-align:center;">Accès réservé aux super-administrateurs MIB Prévention</p>
   </div>
 </div>
 
@@ -264,7 +277,7 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
     <div id="tab-centres" class="hidden">
       <div class="flex items-center justify-between mb-6">
         <h1 class="logo-t" style="font-size:1.5rem;">Centres de formation</h1>
-        <button onclick="openModal('modal-new-centre')" class="btn btn-green">+ Nouveau centre</button>
+        <button onclick="openCreateCentreModal()" class="btn btn-green">+ Nouveau centre</button>
       </div>
 
       <!-- Filtres -->
@@ -292,9 +305,9 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
         <div class="overflow-x-auto">
           <table class="tbl" id="tbl-centres">
             <thead><tr>
-              <th>Centre</th><th>Email</th><th>Plan</th><th>Statut</th><th>Expire</th><th>Formateurs</th><th>Actions</th>
+              <th>Centre</th><th>Email</th><th>Plan</th><th>Statut</th><th>Expire</th><th>Modules</th><th>Outils ERP</th><th>Quotas</th><th>Actions</th>
             </tr></thead>
-            <tbody id="body-centres"><tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px;">Chargement...</td></tr></tbody>
+            <tbody id="body-centres"><tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px;">Chargement...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -604,27 +617,116 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
   </div>
 </div>
 
+<!-- Modal Création centre -->
+<div id="modal-create-centre" class="modal-bg hidden">
+  <div class="modal-box" style="max-width:600px;">
+    <div class="flex justify-between items-center mb-5">
+      <h3 style="font-size:1.1rem;font-weight:800;">🏢 Créer un nouveau centre</h3>
+      <button onclick="closeModal('modal-create-centre')" style="width:32px;height:32px;border-radius:50%;background:#f3f4f6;border:none;cursor:pointer;font-size:1rem;">✕</button>
+    </div>
+    <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Création immédiate avec mot de passe fonctionnel. La clé de licence peut être générée.</p>
+    <div id="cc-alert"></div>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="lbl">Nom du centre *</label><input id="cc-nom" type="text" class="inp" placeholder="MSA SERVICES…"></div>
+      <div><label class="lbl">Email *</label><input id="cc-email" type="email" class="inp" placeholder="contact@centre.fr"></div>
+      <div><label class="lbl">Mot de passe * (≥8)</label><input id="cc-pwd" type="text" class="inp" placeholder="à transmettre"></div>
+      <div>
+        <label class="lbl">Clé licence *</label>
+        <div style="display:flex;gap:6px;">
+          <input id="cc-key" type="text" class="inp" placeholder="XXXX-XXXX-XXXX-XXXX" style="flex:1;text-transform:uppercase;letter-spacing:.06em;">
+          <button onclick="ccGenerateKey()" class="btn btn-gray btn-sm">🎲</button>
+        </div>
+      </div>
+      <div>
+        <label class="lbl">Plan</label>
+        <select id="cc-plan" class="inp">
+          <option value="standard">Standard</option>
+          <option value="premium">Premium</option>
+          <option value="entreprise">Entreprise</option>
+        </select>
+      </div>
+      <div>
+        <label class="lbl">Type licence</label>
+        <select id="cc-type" class="inp">
+          <option value="annuelle">Annuelle</option>
+          <option value="mensuelle">Mensuelle</option>
+          <option value="essai">Essai</option>
+          <option value="permanente">Permanente</option>
+        </select>
+      </div>
+      <div><label class="lbl">Date expiration</label><input id="cc-exp" type="date" class="inp"></div>
+      <div>
+        <label class="lbl">Statut initial</label>
+        <select id="cc-status" class="inp">
+          <option value="active">Active</option>
+          <option value="suspended">Suspendue</option>
+        </select>
+      </div>
+      <div><label class="lbl">Max formateurs</label><input id="cc-fmt" type="number" class="inp" value="5" min="0"></div>
+      <div><label class="lbl">Max stagiaires</label><input id="cc-stg" type="number" class="inp" value="50" min="0"></div>
+      <div style="grid-column:1/-1;"><label class="lbl">Adresse</label><input id="cc-adr" type="text" class="inp"></div>
+      <div><label class="lbl">Ville</label><input id="cc-ville" type="text" class="inp"></div>
+      <div><label class="lbl">Code postal</label><input id="cc-cp" type="text" class="inp"></div>
+      <div style="grid-column:1/-1;"><label class="lbl">Téléphone</label><input id="cc-tel" type="text" class="inp"></div>
+    </div>
+    <div class="flex gap-3 mt-5">
+      <button onclick="closeModal('modal-create-centre')" class="btn btn-gray flex-1">Annuler</button>
+      <button onclick="submitCreateCentre()" class="btn btn-green flex-1" id="btn-cc">Créer →</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // AUTH
 // ============================================================
-const ADMIN_HASH='12797f6fe53c637ad9032fd2512c15580d40d018cec1e8a1acbae0caa6f04130'; // SHA-256('MIB2026admin')
-async function hashLocal(text){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
-
 let allCentres=[];
 
+// Vérifie la session Supabase au chargement
+window.addEventListener('DOMContentLoaded', async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session && isSuperAdminFromToken(session.access_token)) {
+    showApp();
+  }
+});
+
+function isSuperAdminFromToken(token){
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.is_super_admin === true;
+  } catch(e) { return false; }
+}
+
 async function doLogin(){
-  const pwd=document.getElementById('login-pwd').value;
-  const err=document.getElementById('login-err');
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const pwd = document.getElementById('login-pwd').value;
+  const err = document.getElementById('login-err');
   err.classList.add('hidden');
-  if(!pwd)return;
-  const h=await hashLocal(pwd);
-  if(h!==ADMIN_HASH){err.textContent='❌ Mot de passe incorrect.';err.classList.remove('hidden');return;}
-  SESSION.save('admin',{role:'admin'});
+  if (!email || !pwd) { err.textContent='❌ Remplissez email et mot de passe.'; err.classList.remove('hidden'); return; }
+  try { await supabase.auth.signOut(); } catch(_){}
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pwd });
+  if (error) {
+    err.textContent = '❌ Email ou mot de passe incorrect.';
+    err.classList.remove('hidden');
+    return;
+  }
+  if (!isSuperAdminFromToken(data.session.access_token)) {
+    err.textContent = '❌ Ce compte n\'est pas super-administrateur.';
+    err.classList.remove('hidden');
+    await supabase.auth.signOut();
+    return;
+  }
   showApp();
 }
+
 function togglePwd(){const i=document.getElementById('login-pwd');i.type=i.type==='password'?'text':'password';}
-function logout(){SESSION.clear('admin');document.getElementById('page-app').classList.add('hidden');document.getElementById('page-login').classList.remove('hidden');}
+async function logout(){
+  await supabase.auth.signOut();
+  document.getElementById('page-app').classList.add('hidden');
+  document.getElementById('page-login').classList.remove('hidden');
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pwd').value = '';
+}
 
 function showApp(){
   document.getElementById('page-login').classList.add('hidden');
@@ -688,23 +790,142 @@ async function loadCentres(){
   }catch(e){console.error(e);}
 }
 
+const ADMIN_MODULES = [
+  { key:'module_auto_entrainement', short:'Auto' },
+  { key:'module_ssi_autoformation', short:'SSI' },
+  { key:'module_ssi_supervise',     short:'SSIs' },
+  { key:'module_patrol',            short:'Patrol' },
+  { key:'module_quiz_salle',        short:'Quiz' },
+  { key:'module_challenge_cup',     short:'Cup' }
+];
+const ADMIN_OUTILS = [
+  { key:'outil_effectif',    short:'Effectif' },
+  { key:'outil_degagements', short:'Déga.' },
+  { key:'outil_desenfumage', short:'Désenf.' }
+];
+
+function flagToggle(centreId, key, value, label){
+  const on = !!value;
+  const cls = on ? 'tg-on' : 'tg-off';
+  return `<span class="tg ${cls}" onclick="toggleFlagAdmin('${centreId}','${key}',${!on})">${label}</span>`;
+}
+
 function renderCentres(data){
   const tbody=document.getElementById('body-centres');
-  if(!data.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px;">Aucun centre</td></tr>';return;}
-  tbody.innerHTML=data.map(c=>`<tr>
-    <td><strong>${c.nom}</strong></td>
-    <td style="font-size:.8rem;color:var(--text2);">${c.email}</td>
-    <td><span class="badge-plan bp-${c.plan}">${c.plan}</span></td>
-    <td>${statusBadge(c.license_status)}</td>
-    <td style="font-size:.8rem;">${c.license_expires_at?UTILS.dateStr(c.license_expires_at):'—'}</td>
-    <td style="font-size:.82rem;text-align:center;">${c.max_formateurs??'—'}</td>
-    <td>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button onclick="toggleStatus('${c.id}','${c.license_status}')" class="btn btn-sm ${c.license_status==='active'?'btn-orange':'btn-green'}">${c.license_status==='active'?'⏸ Suspendre':'▶ Réactiver'}</button>
-        <button onclick="extendLicence('${c.id}')" class="btn btn-blue btn-sm">📅 Prolonger</button>
-      </div>
-    </td>
-  </tr>`).join('');
+  if(!data.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px;">Aucun centre</td></tr>';return;}
+  tbody.innerHTML=data.map(c=>{
+    const modules = ADMIN_MODULES.map(m => flagToggle(c.id, m.key, c[m.key], m.short)).join('');
+    const outils  = ADMIN_OUTILS.map(o => flagToggle(c.id, o.key, c[o.key], o.short)).join('');
+    return `<tr data-cid="${c.id}">
+      <td><strong>${esc(c.nom)}</strong>${c.ville?`<div style="font-size:.7rem;color:var(--text3);">${esc(c.ville)}</div>`:''}</td>
+      <td style="font-size:.78rem;color:var(--text2);">${esc(c.email)}<div style="font-family:monospace;font-size:.7rem;color:var(--text3);margin-top:2px;">${esc(c.license_key||'')}</div></td>
+      <td><span class="badge-plan bp-${c.plan}">${esc(c.plan)}</span></td>
+      <td>${statusBadge(c.license_status)}</td>
+      <td style="font-size:.78rem;">${c.license_expires_at?UTILS.dateStr(c.license_expires_at):'—'}</td>
+      <td><div class="tg-row">${modules}</div></td>
+      <td><div class="tg-row">${outils}</div></td>
+      <td style="font-size:.75rem;text-align:center;">F:${c.max_formateurs??'—'}<br>S:${c.max_stagiaires??'—'}</td>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button onclick="toggleStatus('${c.id}','${c.license_status}')" class="btn btn-sm ${c.license_status==='active'?'btn-orange':'btn-green'}">${c.license_status==='active'?'⏸':'▶'}</button>
+          <button onclick="extendLicence('${c.id}')" class="btn btn-blue btn-sm">📅</button>
+          <button onclick="deleteCentreAdmin('${c.id}','${esc(c.nom||'').replace(/'/g,"\\'")}')" class="btn btn-red btn-sm">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function toggleFlagAdmin(centreId, field, newValue){
+  const { error } = await supabase.from('centers').update({ [field]: newValue }).eq('id', centreId);
+  if (error) { alert('Erreur : '+error.message); return; }
+  const c = allCentres.find(x => x.id === centreId);
+  if (c) { c[field] = newValue; renderCentres(allCentres); }
+}
+
+async function deleteCentreAdmin(centreId, nom){
+  if (!confirm(`Supprimer définitivement le centre « ${nom} » ?\n\nCette opération est irréversible (auth.users sera orphelin).`)) return;
+  const { error } = await supabase.from('centers').delete().eq('id', centreId);
+  if (error) { alert('Erreur : '+error.message); return; }
+  await loadCentres();
+}
+
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ════════════════════════════════════════════════════════════
+// CRÉATION DE CENTRE (via Edge Function admin-create-centre)
+// ════════════════════════════════════════════════════════════
+function openCreateCentreModal(){
+  // Reset form
+  ['cc-nom','cc-email','cc-pwd','cc-key','cc-exp','cc-adr','cc-ville','cc-cp','cc-tel'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cc-plan').value = 'standard';
+  document.getElementById('cc-type').value = 'annuelle';
+  document.getElementById('cc-status').value = 'active';
+  document.getElementById('cc-fmt').value = 5;
+  document.getElementById('cc-stg').value = 50;
+  document.getElementById('cc-alert').innerHTML = '';
+  openModal('modal-create-centre');
+}
+
+function ccGenerateKey(){
+  const seg = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+  document.getElementById('cc-key').value = `${seg()}-${seg()}-${seg()}-${seg()}`;
+}
+
+async function submitCreateCentre(){
+  const alertEl = document.getElementById('cc-alert');
+  const btn = document.getElementById('btn-cc');
+  alertEl.innerHTML = '';
+  const payload = {
+    nom: document.getElementById('cc-nom').value.trim(),
+    email: document.getElementById('cc-email').value.trim().toLowerCase(),
+    password: document.getElementById('cc-pwd').value,
+    license_key: document.getElementById('cc-key').value.trim().toUpperCase(),
+    plan: document.getElementById('cc-plan').value,
+    license_type: document.getElementById('cc-type').value,
+    license_expires_at: document.getElementById('cc-exp').value || null,
+    license_status: document.getElementById('cc-status').value,
+    max_formateurs: parseInt(document.getElementById('cc-fmt').value) || 0,
+    max_stagiaires: parseInt(document.getElementById('cc-stg').value) || 0,
+    adresse: document.getElementById('cc-adr').value.trim() || null,
+    ville: document.getElementById('cc-ville').value.trim() || null,
+    code_postal: document.getElementById('cc-cp').value.trim() || null,
+    telephone: document.getElementById('cc-tel').value.trim() || null
+  };
+  if (!payload.nom || !payload.email || !payload.password || !payload.license_key) {
+    alertEl.innerHTML = '<div class="alert-err" style="padding:10px;border-radius:8px;font-size:.8rem;">❌ Champs obligatoires manquants.</div>';
+    return;
+  }
+  if (payload.password.length < 8) {
+    alertEl.innerHTML = '<div class="alert-err" style="padding:10px;border-radius:8px;font-size:.8rem;">❌ Mot de passe trop court (≥ 8 caractères).</div>';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Création…';
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const url = `${supabase.supabaseUrl}/functions/v1/admin-create-centre`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+        'apikey': supabase.supabaseKey
+      },
+      body: JSON.stringify(payload)
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      alertEl.innerHTML = `<div class="alert-err" style="padding:10px;border-radius:8px;font-size:.8rem;">❌ ${esc(body.error||'Erreur')}${body.detail?' · '+esc(body.detail):''}</div>`;
+      return;
+    }
+    alertEl.innerHTML = `<div style="padding:10px;border-radius:8px;background:#f0fdf4;color:#065f46;font-size:.8rem;border:1px solid #86efac;">✅ Centre créé — mot de passe à transmettre.</div>`;
+    await loadCentres();
+    setTimeout(() => closeModal('modal-create-centre'), 1500);
+  } catch (e) {
+    alertEl.innerHTML = `<div class="alert-err" style="padding:10px;border-radius:8px;font-size:.8rem;">❌ Erreur réseau : ${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Créer →';
+  }
 }
 
 function filterCentres(){
