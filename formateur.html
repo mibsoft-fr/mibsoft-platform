@@ -652,8 +652,14 @@ body {
       <div class="nav-item" id="nav-profil" onclick="showPage('profil')">
         <span class="nav-icon">👤</span> Mon profil
       </div>
-      <div id="nav-outils-section" style="display:none;margin-top:14px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);">
-        <div style="font-size:.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;padding:0 14px 6px;">Outils ERP</div>
+      <div style="margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.10);">
+        <div style="font-size:.65rem;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;padding:0 14px 6px;">Modules</div>
+        <a href="challenge-cup-ssiap/index.html" target="_blank" class="nav-item" style="text-decoration:none;">
+          <span class="nav-icon">🏆</span> Challenge Cup SSIAP
+        </a>
+      </div>
+      <div id="nav-outils-section" style="display:none;margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.10);">
+        <div style="font-size:.65rem;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;padding:0 14px 6px;">Outils ERP</div>
         <a id="nav-outil-effectif" href="outil-effectif.html" class="nav-item" style="text-decoration:none;color:inherit;display:none;">
           <span class="nav-icon">📐</span> Effectif admissible
         </a>
@@ -1139,6 +1145,12 @@ function buildSessCard(sess, allStags, allEntr) {
            class="shortcut-btn" style="background:#eff6ff;color:#2563eb;border-color:#bfdbfe;"
            onmouseover="this.style.background='#2563eb';this.style.color='#fff'" onmouseout="this.style.background='#eff6ff';this.style.color='#2563eb'">
            🎯 Quiz Salle
+        </a>
+        <a href="challenge-cup-ssiap/index.html" target="_blank"
+           onclick="event.stopPropagation()"
+           class="shortcut-btn" style="background:#fff7ed;color:#d97706;border-color:#fed7aa;"
+           onmouseover="this.style.background='#d97706';this.style.color='#fff'" onmouseout="this.style.background='#fff7ed';this.style.color='#d97706'">
+           🏆 Challenge Cup
         </a>
         <span class="badge ${sess.statut==='actif'?'badge-green':'badge-gray'}">${sess.statut||'en cours'}</span>
         <span class="badge badge-blue">${stags.length} stag.</span>
