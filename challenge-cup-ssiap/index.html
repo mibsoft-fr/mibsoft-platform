@@ -1697,6 +1697,34 @@ document.getElementById('logout-btn').addEventListener('click',()=>{showConfirmD
 function saveSessionToLocalStorage(){if(sessionId&&teamId&&teamName)localStorage.setItem('ssiapTraineeSession',JSON.stringify({sessionId,teamId,teamName}));}
 window.addEventListener('DOMContentLoaded',()=>{
     loadAdminSettings();
+
+    // ════════════════════════════════════════════════════════════════════
+    // BYPASS LOGIN SUPERVISEUR si arrivée depuis dashboard formateur MIB
+    // (auth MIB déjà validée par PIN formateur — pas de double login)
+    // Le flag est posé par formateur.html via openChallengeCupSSIAP()
+    // ════════════════════════════════════════════════════════════════════
+    try {
+      const raw = localStorage.getItem('mib_cc_auth');
+      if (raw) {
+        const ccAuth = JSON.parse(raw);
+        // Flag valide < 2 minutes (anti-replay)
+        if (ccAuth && (Date.now() - ccAuth.ts) < 120000) {
+          localStorage.removeItem('mib_cc_auth'); // one-shot
+          // Attendre que database (Firebase shim) et window.supa soient prêts
+          const waitDB = setInterval(() => {
+            if (!database || !window.supa) return;
+            clearInterval(waitDB);
+            userRole = 'supervisor';
+            sessionId = 'ssiap_' + generateUUID();
+            if (typeof initializeSupervisor === 'function') initializeSupervisor();
+          }, 100);
+          return; // skip le flow stagiaire
+        } else {
+          localStorage.removeItem('mib_cc_auth'); // expired
+        }
+      }
+    } catch(e) { console.warn('[challenge-cup] auth bypass error', e); }
+
     const params=new URLSearchParams(window.location.search);
     const sP=params.get('session'),tP=params.get('team');
     if(sP){sessionId=sP;const w=setInterval(()=>{if(!database)return;clearInterval(w);if(tP){database.ref('sessions/'+sP+'/teams/'+tP).once('value').then(snap=>{if(snap.exists()){teamId=tP;reconnectToSession(sP,tP,snap.val());}else{localStorage.removeItem('ssiapTraineeSession');userRole='trainee';showScreenSafe('trainee-login');}});}else{database.ref('sessions/'+sP+'/ssiapLevel').once('value',snap=>{if(snap.exists())updateTraineeLevelBadge(snap.val());});userRole='trainee';showScreenSafe('trainee-login');}},200);}
