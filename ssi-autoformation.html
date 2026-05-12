@@ -2,37 +2,203 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SSI Auto-entraînement | MIB SSIAP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SSI Auto-entraînement — MIB Prévention</title>
+<meta name="theme-color" content="#F8FAFC">
+<link rel="icon" href="/Logo MIB.png" type="image/png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="design-tokens.css">
+<link rel="stylesheet" href="mib-design.css">
+
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
 <script src="supabase.js"></script>
+
 <style>
-@keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
-.blink{animation:blink 1s infinite}
-.led-light{width:16px;height:16px;border-radius:50%;border:2px solid #333;display:inline-block;box-shadow:inset 0 0 5px rgba(0,0,0,0.5);vertical-align:middle}
-.led-green{background-color:#00ff00;box-shadow:0 0 8px #00ff00}
-.led-orange{background-color:#ff8800;box-shadow:0 0 8px #ff8800}
-.led-red{background-color:#ff0000;box-shadow:0 0 8px #ff0000}
-.led-off{background-color:#333;box-shadow:none}
-.ssi-panel{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 50%,#1e4d7a 100%);border:3px solid #a0b4c8;border-radius:8px;padding:16px;box-shadow:0 4px 8px rgba(0,0,0,0.4);color:white}
-.ssi-screen{background-color:#000;color:#00ff00;font-family:'Courier New',monospace;padding:10px;border-radius:4px;border:2px solid #333;overflow-y:auto}
-.key-switch{width:38px;height:38px;border-radius:50%;border:3px solid #95a5a6;background:linear-gradient(135deg,#bdc3c7 0%,#ecf0f1 100%);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:transform 0.3s}
-.key-switch:hover{transform:rotate(45deg)}
-.command-led{width:10px;height:10px;border-radius:50%;background:#333;border:1px solid #666;display:inline-block;vertical-align:middle}
-.command-led.active{background:#ff0000;box-shadow:0 0 6px #ff0000}
-.nav-btn{width:34px;height:34px;border-radius:50%;background:linear-gradient(180deg,#7ec8e3 0%,#4fa3c7 100%);color:#1a3a5c;font-size:14px;font-weight:bold;border:2px solid #a0d2e8;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:2px 2px 4px rgba(0,0,0,0.3);transition:all 0.1s}
-.nav-btn:active{transform:scale(0.9)}
-.kp-btn{width:30px;height:30px;border-radius:50%;background:linear-gradient(180deg,#7ec8e3 0%,#4fa3c7 100%);color:#1a3a5c;font-size:11px;font-weight:bold;border:2px solid #a0d2e8;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.1s}
-.kp-btn:active{transform:scale(0.9)}
-.kp-red{background:linear-gradient(180deg,#f87171 0%,#dc2626 100%);border-color:#fca5a5;color:white}
-.kp-green{background:linear-gradient(180deg,#4ade80 0%,#16a34a 100%);border-color:#86efac;color:white}
-.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}
-.modal-content{background:white;border-radius:16px;padding:20px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;color:#1e293b}
-.temporization-display{min-height:28px}
+/* =============================================================
+   SSI Auto-entraînement — Refonte MIB Vigil
+   Garde la métaphore d'un panneau SSI technique (panneau bleu
+   marine industriel + LEDs réelles) mais aligné design system.
+   ============================================================= */
+
+/* Aliases legacy → Vigil */
+:root {
+  --bg: var(--bg-page);
+  --card: var(--bg-surface);
+  --text: var(--text-1);
+  --text2: var(--text-2);
+  --text3: var(--text-3);
+  --border: var(--border-default);
+  --blue: var(--info-600);
+  --green: var(--success-600);
+  --red: var(--danger-600);
+  --orange: var(--warning-600);
+  --purple: #7C3AED;
+}
+
+html, body { font-family: var(--font-body); color: var(--text-2); }
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 70% 50% at 10% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 90% 100%, rgba(37, 99, 235, 0.06) 0%, transparent 60%),
+    var(--bg-page);
+}
+
+/* ============ TITRES & TYPO ============ */
+h1, h2, h3, .panel-title { font-family: var(--font-display); font-weight: var(--weight-extrabold); letter-spacing: -0.02em; }
+
+/* ============ LEDs réelles (préservées) ============ */
+@keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+.blink { animation: blink 1s infinite; }
+.led-light {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid #1f2937;
+  display: inline-block;
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+  vertical-align: middle;
+}
+.led-green  { background-color: #00ff00; box-shadow: 0 0 8px #00ff00, inset 0 0 5px rgba(0,0,0,0.5); }
+.led-orange { background-color: #ff8800; box-shadow: 0 0 8px #ff8800, inset 0 0 5px rgba(0,0,0,0.5); }
+.led-red    { background-color: #ff0000; box-shadow: 0 0 8px #ff0000, inset 0 0 5px rgba(0,0,0,0.5); }
+.led-off    { background-color: #1f2937; box-shadow: none; }
+
+/* ============ PANNEAU SSI (simulation centrale) ============ */
+.ssi-panel {
+  position: relative; overflow: hidden;
+  background: linear-gradient(135deg, var(--marine-900) 0%, var(--marine-700) 50%, var(--marine-800) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.10) inset,
+    0 12px 28px -8px rgba(15, 23, 42, 0.45),
+    0 4px 10px -2px rgba(15, 23, 42, 0.25);
+  color: #fff;
+}
+.ssi-panel::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: var(--gradient-primary);
+  z-index: 1;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+/* Écran LCD vert phosphorescent (préservé pour réalisme) */
+.ssi-screen {
+  background-color: #021a08;
+  color: #4ade80;
+  font-family: 'Courier New', monospace;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 2px solid rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.65);
+  overflow-y: auto;
+}
+
+/* Switch à clé */
+.key-switch {
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 3px solid #94a3b8;
+  background: linear-gradient(135deg, #cbd5e1 0%, #f1f5f9 100%);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  transition: transform 0.3s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.key-switch:hover { transform: rotate(45deg); }
+
+/* LED commande */
+.command-led {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #1f2937;
+  border: 1px solid #475569;
+  display: inline-block;
+  vertical-align: middle;
+}
+.command-led.active { background: #ff0000; box-shadow: 0 0 6px #ff0000; }
+
+/* Boutons navigation panneau */
+.nav-btn {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: linear-gradient(180deg, #93c5fd 0%, #3b82f6 100%);
+  color: var(--marine-900);
+  font-size: 14px; font-weight: bold;
+  border: 2px solid #bfdbfe;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  transition: all 0.1s;
+}
+.nav-btn:hover { filter: brightness(1.1); }
+.nav-btn:active { transform: scale(0.9); }
+
+/* Keypad */
+.kp-btn {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(180deg, #93c5fd 0%, #3b82f6 100%);
+  color: var(--marine-900);
+  font-size: 11px; font-weight: bold;
+  border: 2px solid #bfdbfe;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.1s;
+}
+.kp-btn:active { transform: scale(0.9); }
+.kp-red   { background: linear-gradient(180deg, #fca5a5 0%, var(--danger-600) 100%); border-color: #fecaca; color: #fff; }
+.kp-green { background: linear-gradient(180deg, #86efac 0%, var(--success-600) 100%); border-color: #bbf7d0; color: #fff; }
+
+/* ============ MODALES (info / quiz / succès) ============ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+.modal-content {
+  position: relative; overflow: hidden;
+  background: var(--bg-modal);
+  border-radius: var(--radius-xl);
+  padding: 22px;
+  max-width: 460px;
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  color: var(--text-1);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.9) inset,
+    0 30px 60px -12px rgba(15, 23, 42, 0.35);
+}
+.modal-content::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: var(--gradient-primary);
+  z-index: 1;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+@media (max-width: 640px) {
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal-content { border-radius: var(--radius-xl) var(--radius-xl) 0 0; max-height: 92vh; }
+}
+
+.temporization-display { min-height: 28px; }
+
+/* ============ Tailwind overrides — utiliser Vigil au lieu de generic ============ */
+/* Les classes Tailwind bg-blue-600 / bg-green-500 etc. utilisées dans le JS render
+   sont préservées (Tailwind CDN), mais on ré-aligne le ton "page" sur Vigil. */
+.bg-gray-100 { background-color: transparent !important; }
 </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="min-h-screen">
 <div id="app"></div>
 
 <script>
