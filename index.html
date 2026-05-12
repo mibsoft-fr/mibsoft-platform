@@ -2,172 +2,309 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>MIB Prévention — Plateforme SSIAP</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<meta name="theme-color" content="#0F172A">
+<link rel="icon" href="/Logo MIB.png" type="image/png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="design-tokens.css">
+<link rel="stylesheet" href="mib-design.css">
+
 <style>
-  * { box-sizing: border-box; }
-  body { font-family: 'Poppins', sans-serif; }
-  .bg-animated {
-    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 30%, #4338ca 60%, #6d28d9 100%);
+  body {
+    font-family: var(--font-body);
+    background: linear-gradient(135deg, #064E3B 0%, #0F172A 35%, #1E3A8A 70%, #1E40AF 100%);
     min-height: 100vh;
     position: relative;
-    overflow: hidden;
+    overflow-x: hidden;
+    color: #fff;
   }
-  .bg-animated::before {
+  body::before {
     content: '';
-    position: absolute;
+    position: fixed;
     inset: 0;
     background:
-      radial-gradient(circle at 20% 20%, rgba(99,102,241,0.3) 0%, transparent 50%),
-      radial-gradient(circle at 80% 80%, rgba(139,92,246,0.3) 0%, transparent 50%);
+      radial-gradient(circle at 20% 20%, rgba(16, 185, 129, 0.20) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(37, 99, 235, 0.20) 0%, transparent 50%);
     animation: bgPulse 8s ease-in-out infinite alternate;
+    pointer-events: none;
   }
-  @keyframes bgPulse { from { opacity:0.6; } to { opacity:1; } }
-  .card-role {
-    background: rgba(255,255,255,0.07);
+  @keyframes bgPulse { from { opacity: 0.5; } to { opacity: 1; } }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: var(--space-6);
+  }
+
+  .header { text-align: center; margin-bottom: var(--space-10); }
+  .logo-wrap {
+    width: 88px; height: 88px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-xl);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto var(--space-5);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 24px;
-    padding: 32px 28px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.2) inset,
+      0 20px 50px -10px rgba(15, 23, 42, 0.5);
+    color: #fff;
+  }
+  .header h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: var(--weight-extrabold);
+    letter-spacing: var(--tracking-tight);
+    color: #fff;
+    margin-bottom: var(--space-2);
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+  .header h1 .accent {
+    background: linear-gradient(135deg, #6EE7B7 0%, #93C5FD 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  .header p {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-regular);
+  }
+
+  .grid-roles {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+    width: 100%;
+    max-width: 1000px;
+  }
+  @media (min-width: 640px) {
+    .grid-roles { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .card-role {
+    position: relative;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-xl);
+    padding: var(--space-7) var(--space-6);
     cursor: pointer;
     transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     text-decoration: none;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 16px;
-    position: relative;
-    overflow: hidden;
+    gap: var(--space-4);
+    color: inherit;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.15) inset,
+      0 10px 30px -10px rgba(15, 23, 42, 0.5);
   }
   .card-role::before {
     content: '';
     position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--gradient-primary);
+    z-index: 1;
+  }
+  .card-role::after {
+    content: '';
+    position: absolute;
     inset: 0;
+    border-radius: var(--radius-xl);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), transparent);
     opacity: 0;
-    transition: opacity 0.3s;
-    border-radius: 24px;
+    transition: opacity 0.35s;
+    pointer-events: none;
   }
   .card-role:hover {
     transform: translateY(-8px) scale(1.02);
-    border-color: rgba(255,255,255,0.4);
-    box-shadow: 0 24px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.2);
+    border-color: rgba(110, 231, 183, 0.4);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.2) inset,
+      0 24px 60px -10px rgba(15, 23, 42, 0.6),
+      0 0 0 1px rgba(110, 231, 183, 0.2);
   }
-  .card-role:hover::before { opacity: 1; }
-  .card-centre::before    { background: linear-gradient(135deg, rgba(99,102,241,0.2), transparent); }
-  .card-formateur::before { background: linear-gradient(135deg, rgba(16,185,129,0.2), transparent); }
-  .card-stagiaire::before { background: linear-gradient(135deg, rgba(245,158,11,0.2), transparent); }
-  .card-patrol::before    { background: linear-gradient(135deg, rgba(239,68,68,0.2), transparent); }
+  .card-role:hover::after { opacity: 1; }
+
   .icon-wrap {
-    width: 72px; height: 72px;
-    border-radius: 20px;
+    width: 76px; height: 76px;
+    border-radius: var(--radius-lg);
     display: flex; align-items: center; justify-content: center;
-    font-size: 28px;
-    transition: transform 0.3s;
+    transition: transform var(--duration-standard) var(--ease-bounce);
+    color: #fff;
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.25);
   }
-  .card-role:hover .icon-wrap { transform: scale(1.1) rotate(-3deg); }
-  .badge-new {
-    position: absolute; top: 16px; right: 16px;
-    background: linear-gradient(90deg, #f59e0b, #ef4444);
-    color: white; font-size: 10px; font-weight: 700;
-    padding: 3px 10px; border-radius: 20px;
-    text-transform: uppercase; letter-spacing: 0.5px;
+  .card-role:hover .icon-wrap { transform: scale(1.08) rotate(-3deg); }
+  .icon-centre { background: var(--gradient-primary); }
+  .icon-formateur { background: linear-gradient(135deg, #10B981 0%, #047857 100%); }
+  .icon-stagiaire { background: linear-gradient(135deg, #2563EB 0%, #1E3A8A 100%); }
+
+  .role-title {
+    font-family: var(--font-display);
+    font-weight: var(--weight-extrabold);
+    font-size: var(--text-lg);
+    color: #fff;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--lh-tight);
+    text-align: center;
   }
-  .logo-wrap {
-    width: 80px; height: 80px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 24px;
-    display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 8px;
-    border: 2px solid rgba(255,255,255,0.2);
+  .role-subtitle {
+    font-size: var(--text-sm);
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 4px;
+    text-align: center;
   }
+  .role-desc {
+    font-size: var(--text-xs);
+    color: rgba(255, 255, 255, 0.6);
+    text-align: center;
+    line-height: var(--lh-relaxed);
+  }
+  .role-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--vigil-300);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+    margin-top: var(--space-2);
+    transition: gap var(--duration-fast);
+  }
+  .card-role:hover .role-cta {
+    gap: var(--space-3);
+    color: #6EE7B7;
+  }
+
+  .footer {
+    margin-top: var(--space-12);
+    text-align: center;
+  }
+  .footer p {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: var(--text-sm);
+  }
+  .footer p + p {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: var(--text-xs);
+    margin-top: 4px;
+  }
+
+  /* Animations */
   .fade-up { animation: fadeUp 0.6s ease-out both; }
-  @keyframes fadeUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
   .delay-1 { animation-delay: 0.1s; }
   .delay-2 { animation-delay: 0.2s; }
   .delay-3 { animation-delay: 0.3s; }
-  .delay-4 { animation-delay: 0.4s; }
   .delay-5 { animation-delay: 0.5s; }
 </style>
 </head>
 <body>
-<div class="bg-animated flex flex-col items-center justify-center min-h-screen p-6">
 
-  <!-- Logo & titre -->
-  <div class="text-center mb-12 fade-up">
-    <div class="logo-wrap mb-6">
-      <i class="fas fa-shield-alt text-white text-3xl"></i>
+<div class="container">
+
+  <div class="header fade-up">
+    <div class="logo-wrap" aria-hidden="true">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+      </svg>
     </div>
-    <h1 class="text-4xl font-bold text-white mb-2 tracking-tight">MIB Prévention</h1>
-    <p class="text-indigo-200 text-lg font-light">Plateforme de formation SSIAP</p>
+    <h1><span class="accent">MIB</span> Prévention</h1>
+    <p>Plateforme de formation SSIAP</p>
   </div>
 
-  <!-- Grille des rôles -->
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 w-full max-w-3xl">
+  <div class="grid-roles">
 
-    <!-- Responsable de centre -->
-    <a href="login-centre.html" class="card-role card-centre fade-up delay-1">
-      <div class="icon-wrap" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
-        <i class="fas fa-building text-white"></i>
+    <a href="login-centre.html" class="card-role fade-up delay-1">
+      <div class="icon-wrap icon-centre">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"></path>
+          <line x1="9" y1="9" x2="9.01" y2="9"></line>
+          <line x1="9" y1="13" x2="9.01" y2="13"></line>
+          <line x1="9" y1="17" x2="9.01" y2="17"></line>
+        </svg>
       </div>
-      <div class="text-center">
-        <div class="text-white font-bold text-base leading-tight">Responsable</div>
-        <div class="text-indigo-200 text-sm mt-1">de centre</div>
+      <div>
+        <div class="role-title">Responsable</div>
+        <div class="role-subtitle">de centre</div>
       </div>
-      <div class="text-indigo-300 text-xs text-center opacity-80 leading-relaxed">
-        Gérer votre centre, licences, formateurs et statistiques
-      </div>
-      <div class="flex items-center gap-2 text-indigo-300 text-sm font-semibold mt-2">
-        <span>Accéder</span><i class="fas fa-arrow-right text-xs"></i>
+      <div class="role-desc">Gérer votre centre, licences, formateurs et statistiques</div>
+      <div class="role-cta">
+        Accéder
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
       </div>
     </a>
 
-    <!-- Formateur -->
-    <a href="login-formateur.html" class="card-role card-formateur fade-up delay-2">
-      <div class="icon-wrap" style="background: linear-gradient(135deg, #10b981, #34d399);">
-        <i class="fas fa-chalkboard-teacher text-white"></i>
+    <a href="login-formateur.html" class="card-role fade-up delay-2">
+      <div class="icon-wrap icon-formateur">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+          <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+        </svg>
       </div>
-      <div class="text-center">
-        <div class="text-white font-bold text-base leading-tight">Formateur</div>
-        <div class="text-green-200 text-sm mt-1">SSIAP 1 · 2 · 3</div>
+      <div>
+        <div class="role-title">Formateur</div>
+        <div class="role-subtitle">SSIAP 1 · 2 · 3</div>
       </div>
-      <div class="text-green-200 text-xs text-center opacity-80 leading-relaxed">
-        Gérer vos sessions, stagiaires et suivre leur progression
-      </div>
-      <div class="flex items-center gap-2 text-green-300 text-sm font-semibold mt-2">
-        <span>Accéder</span><i class="fas fa-arrow-right text-xs"></i>
-      </div>
-    </a>
-
-    <!-- Stagiaire -->
-    <a href="login-stagiaire.html" class="card-role card-stagiaire fade-up delay-3">
-      <div class="icon-wrap" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">
-        <i class="fas fa-user-graduate text-white"></i>
-      </div>
-      <div class="text-center">
-        <div class="text-white font-bold text-base leading-tight">Stagiaire</div>
-        <div class="text-yellow-200 text-sm mt-1">Formation incendie</div>
-      </div>
-      <div class="text-yellow-100 text-xs text-center opacity-80 leading-relaxed">
-        Quiz, entraînement et suivi de votre formation SSIAP
-      </div>
-      <div class="flex items-center gap-2 text-yellow-300 text-sm font-semibold mt-2">
-        <span>Accéder</span><i class="fas fa-arrow-right text-xs"></i>
+      <div class="role-desc">Gérer vos sessions, stagiaires et suivre leur progression</div>
+      <div class="role-cta">
+        Accéder
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
       </div>
     </a>
 
-
+    <a href="login-stagiaire.html" class="card-role fade-up delay-3">
+      <div class="icon-wrap icon-stagiaire">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 13c0 5-3.5 7.5-8 7.5s-8-2.5-8-7.5"></path>
+          <path d="M14.5 9a2.5 2.5 0 0 0-5 0"></path>
+          <path d="M12 2v7"></path>
+          <circle cx="12" cy="13" r="3"></circle>
+        </svg>
+      </div>
+      <div>
+        <div class="role-title">Stagiaire</div>
+        <div class="role-subtitle">Formation incendie</div>
+      </div>
+      <div class="role-desc">Quiz, entraînement et suivi de votre formation SSIAP</div>
+      <div class="role-cta">
+        Accéder
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </div>
+    </a>
 
   </div>
 
-  <!-- Footer -->
-  <div class="mt-14 text-center fade-up delay-5">
-    <p class="text-indigo-300 text-sm opacity-70">&copy; 2026 MIB Prévention · Tous droits réservés</p>
-    <p class="text-indigo-400 text-xs opacity-50 mt-1">Plateforme sécurisée · Données hébergées en Europe</p>
+  <div class="footer fade-up delay-5">
+    <p>&copy; 2026 MIB Prévention · Tous droits réservés</p>
+    <p>Plateforme sécurisée · Données hébergées en Europe</p>
   </div>
 
 </div>
+
 </body>
 </html>
