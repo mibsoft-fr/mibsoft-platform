@@ -2,59 +2,393 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>MIB — Espace Stagiaire</title>
-<meta name="theme-color" content="#f0fdf4">
+<meta name="theme-color" content="#F8FAFC">
+<link rel="icon" href="/Logo MIB.png" type="image/png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="design-tokens.css">
+<link rel="stylesheet" href="mib-design.css">
+
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
 <script src="supabase.js"></script>
+
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Syne:wght@700;800;900&display=swap');
-:root{--bg:#f0fdf4;--text:#111827;--text2:#6b7280;--text3:#9ca3af;--green:#059669;}
-*{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);}
-.bg-wrap{position:fixed;inset:0;z-index:0;
-  background:radial-gradient(ellipse 70% 50% at 10% 0%,rgba(16,185,129,.1) 0%,transparent 60%),
-  radial-gradient(ellipse 50% 40% at 90% 100%,rgba(5,150,105,.08) 0%,transparent 60%),
-  linear-gradient(160deg,#f0fdf4 0%,#f9fffe 50%,#ecfdf5 100%);}
+  /* Fond avec halos brand discrets */
+  body {
+    background:
+      radial-gradient(ellipse 70% 50% at 10% 0%, rgba(16, 185, 129, 0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 90% 100%, rgba(37, 99, 235, 0.08) 0%, transparent 60%),
+      var(--bg-page);
+    min-height: 100vh;
+  }
 
-.topbar{background:rgba(255,255,255,.9);backdrop-filter:blur(12px);border-bottom:1px solid rgba(16,185,129,.12);padding:14px 20px;
-  display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;
-  box-shadow:0 2px 12px rgba(16,185,129,.08);}
+  /* Topbar — sticky avec blur */
+  .topbar {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-default);
+    padding: var(--space-3) var(--space-5);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
+    box-shadow: 0 2px 12px -4px rgba(15, 23, 42, 0.06);
+  }
+  .topbar-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-md);
+    background: var(--gradient-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+    box-shadow: 0 4px 12px -2px rgba(16, 185, 129, 0.4);
+    color: var(--text-inverse);
+    flex-shrink: 0;
+  }
+  .topbar-name {
+    font-family: var(--font-display);
+    font-weight: var(--weight-bold);
+    font-size: var(--text-sm);
+    color: var(--text-1);
+    letter-spacing: var(--tracking-tight);
+  }
+  .topbar-sub {
+    font-size: var(--text-xs);
+    color: var(--text-3);
+  }
+  .topbar-logout {
+    background: transparent;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: 7px 12px;
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--text-3);
+    cursor: pointer;
+    transition: all var(--duration-fast);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .topbar-logout:hover {
+    background: var(--danger-50);
+    color: var(--danger-700);
+    border-color: var(--danger-200);
+  }
 
-.card{background:linear-gradient(145deg,#fff,#f9fffe);border-radius:20px;
-  border:1.5px solid rgba(255,255,255,.9);
-  box-shadow:6px 6px 20px rgba(16,185,129,.1),-3px -3px 10px rgba(255,255,255,.9),inset 0 1px 0 rgba(255,255,255,.8);
-  transition:all .25s;}
+  /* Container principal */
+  .stag-container {
+    max-width: 600px;
+    width: 100%;
+    margin: 0 auto;
+    padding: var(--space-5);
+  }
 
-.module-card{border-radius:22px;padding:28px;cursor:pointer;transition:all .3s;position:relative;overflow:hidden;}
-.module-card::before{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.15),transparent);pointer-events:none;}
-.module-card:hover{transform:translateY(-6px);box-shadow:0 20px 50px rgba(0,0,0,.15);}
-.module-card:active{transform:translateY(-2px);}
+  /* Salutation */
+  .greeting-h1 {
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-extrabold);
+    color: var(--text-1);
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--lh-tight);
+  }
+  .greeting-sub {
+    font-size: var(--text-sm);
+    color: var(--text-3);
+    margin-top: var(--space-1);
+  }
 
-.mod-auto{background:linear-gradient(135deg,#1d4ed8,#4f46e5);color:#fff;
-  box-shadow:0 8px 30px rgba(29,78,216,.4);}
-.mod-ssi{background:linear-gradient(135deg,#d97706,#b45309);color:#fff;
-  box-shadow:0 8px 30px rgba(217,119,6,.4);}
+  /* KPI — utilise .mib-kpi du design system */
+  .stag-kpi {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-sm);
+    text-align: center;
+  }
+  .stag-kpi-val {
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-extrabold);
+    line-height: 1;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  .stag-kpi-lbl {
+    font-size: 0.65rem;
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    color: var(--text-3);
+    margin-top: var(--space-1);
+  }
 
-.kpi{background:linear-gradient(145deg,#f0fdf4,#dcfce7);border-radius:16px;padding:16px;
-  border:1.5px solid rgba(16,185,129,.15);
-  box-shadow:3px 3px 10px rgba(16,185,129,.1),-2px -2px 8px rgba(255,255,255,.9);}
-.kpi-val{font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:800;line-height:1;color:#059669;}
-.kpi-lbl{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-top:4px;}
+  /* Section header */
+  .stag-section-title {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    color: var(--text-3);
+    margin-bottom: var(--space-3);
+  }
 
-.logo-t{font-family:'Syne',sans-serif;font-weight:900;}
-.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.68rem;font-weight:700;}
-.b-green{background:#f0fdf4;color:#065f46;border:1px solid #bbf7d0;}
-.b-blue{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}
-.b-orange{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;}
-.hidden{display:none!important;}
-.spin{width:20px;height:20px;border:2.5px solid rgba(5,150,105,.2);border-top-color:#059669;border-radius:50%;animation:sp .6s linear infinite;display:inline-block;}
-@keyframes sp{to{transform:rotate(360deg)}}
-@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-.fade-up{animation:fadeUp .4s ease forwards;}
-.fade-up-2{animation:fadeUp .4s .1s ease both;}
-.fade-up-3{animation:fadeUp .4s .2s ease both;}
+  /* Session en cours */
+  .session-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-sm);
+    border-left: 4px solid var(--vigil-500);
+  }
+  .session-eyebrow {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    color: var(--vigil-700);
+    margin-bottom: var(--space-2);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .session-name {
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    color: var(--text-1);
+  }
+  .session-meta {
+    font-size: var(--text-sm);
+    color: var(--text-3);
+    margin-top: var(--space-1);
+  }
+  .session-formateur {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border-subtle);
+    font-size: var(--text-sm);
+    color: var(--text-2);
+  }
+  .session-formateur strong { font-weight: var(--weight-semibold); color: var(--text-1); }
+
+  /* Modules grid */
+  .modules-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+  @media (max-width: 480px) {
+    .modules-grid { grid-template-columns: 1fr; }
+  }
+
+  .module-card {
+    border-radius: var(--radius-xl);
+    padding: var(--space-5);
+    cursor: pointer;
+    transition: transform var(--duration-standard) var(--ease-out),
+                box-shadow var(--duration-standard);
+    position: relative;
+    overflow: hidden;
+    color: var(--text-inverse);
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .module-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .module-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 40px -10px rgba(15, 23, 42, 0.25);
+  }
+  .module-card:active { transform: translateY(-1px); }
+
+  .module-card-emoji { font-size: 2rem; margin-bottom: var(--space-2); }
+  .module-card-title {
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: var(--weight-extrabold);
+    margin-bottom: var(--space-1);
+    letter-spacing: var(--tracking-tight);
+  }
+  .module-card-desc {
+    font-size: var(--text-xs);
+    opacity: 0.92;
+    line-height: var(--lh-normal);
+    margin-bottom: var(--space-3);
+  }
+  .module-card-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(4px);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    align-self: flex-start;
+  }
+  .module-card-badge {
+    margin-top: var(--space-2);
+    font-size: 0.65rem;
+    opacity: 0.85;
+    font-weight: var(--weight-semibold);
+  }
+
+  /* Module variants */
+  .mod-auto {
+    background: var(--gradient-primary);
+    box-shadow: 0 8px 28px -8px rgba(16, 185, 129, 0.45);
+  }
+  .mod-ssi {
+    background: linear-gradient(135deg, var(--warning-500) 0%, var(--warning-700) 100%);
+    box-shadow: 0 8px 28px -8px rgba(217, 119, 6, 0.45);
+  }
+
+  /* Outils ERP cards */
+  .outil-card {
+    text-decoration: none;
+    color: inherit;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    transition: transform var(--duration-fast) var(--ease-out),
+                box-shadow var(--duration-fast),
+                border-color var(--duration-fast);
+  }
+  .outil-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--vigil-300);
+  }
+  .outil-card-emoji { font-size: 1.5rem; }
+  .outil-card-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+    color: var(--text-1);
+  }
+  .outil-card-sub { font-size: var(--text-xs); color: var(--text-3); }
+
+  /* Avis & retours bouton */
+  .avis-button {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    background: var(--warning-50);
+    border: 1px solid var(--warning-200);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4) var(--space-5);
+    cursor: pointer;
+    transition: all var(--duration-fast);
+    width: 100%;
+    text-align: left;
+    font-family: var(--font-body);
+  }
+  .avis-button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    background: var(--warning-100);
+  }
+  .avis-button-emoji { font-size: 1.6rem; }
+  .avis-button-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+    color: var(--warning-800);
+  }
+  .avis-button-sub {
+    font-size: var(--text-xs);
+    color: var(--warning-700);
+    margin-top: 2px;
+  }
+  .avis-button-arrow { margin-left: auto; color: var(--warning-600); font-size: 1.2rem; font-weight: var(--weight-bold); }
+
+  /* Module disabled */
+  .module-disabled {
+    margin-top: var(--space-4);
+    padding: var(--space-4) var(--space-5);
+    border-radius: var(--radius-lg);
+    background: var(--warning-50);
+    border: 1px solid var(--warning-200);
+  }
+  .module-disabled p:first-child {
+    font-size: var(--text-sm);
+    color: var(--warning-800);
+    font-weight: var(--weight-semibold);
+  }
+  .module-disabled p:last-child {
+    font-size: var(--text-xs);
+    color: var(--warning-700);
+    margin-top: 4px;
+  }
+
+  /* Animations */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-up   { animation: fadeUp 0.4s var(--ease-out) forwards; }
+  .fade-up-2 { animation: fadeUp 0.4s 0.08s var(--ease-out) both; }
+  .fade-up-3 { animation: fadeUp 0.4s 0.16s var(--ease-out) both; }
+
+  /* Spinner */
+  .stag-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 0;
+  }
+  .stag-loading-text {
+    margin-top: var(--space-3);
+    color: var(--text-3);
+    font-size: var(--text-sm);
+  }
+
+  /* Hide */
+  .hidden { display: none !important; }
+
+  /* Star rating modal avis */
+  .star-rating {
+    display: flex;
+    gap: var(--space-2);
+    font-size: 1.8rem;
+    cursor: pointer;
+  }
+  .star-rating span {
+    transition: transform var(--duration-fast);
+    color: var(--neutral-300);
+    line-height: 1;
+  }
+  .star-rating span:hover { transform: scale(1.15); }
 </style>
 </head>
 <body>
@@ -81,185 +415,209 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
 })();
 </script>
 
-<div class="bg-wrap"></div>
-
-<div class="relative z-10 min-h-screen flex flex-col">
+<div class="min-h-screen flex flex-col">
 
   <!-- TOPBAR -->
-  <div class="topbar">
+  <div class="topbar mib-safe-top">
     <div class="flex items-center gap-3">
-      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:2px 2px 8px rgba(16,185,129,.35);">👨‍🎓</div>
+      <div class="topbar-avatar" aria-hidden="true">👨‍🎓</div>
       <div>
-        <div class="logo-t" style="font-size:.95rem;color:var(--text);" id="top-nom">—</div>
-        <div style="font-size:.65rem;color:var(--text3);" id="top-centre">—</div>
+        <div class="topbar-name" id="top-nom">—</div>
+        <div class="topbar-sub" id="top-centre">—</div>
       </div>
     </div>
-    <div class="flex items-center gap-3">
-      <span class="badge b-green" id="top-niveau">—</span>
-      <button onclick="logout()" style="background:none;border:1.5px solid rgba(0,0,0,.1);border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:600;color:var(--text2);cursor:pointer;transition:all .2s;" onmouseover="this.style.background='#fee2e2';this.style.color='#b91c1c'" onmouseout="this.style.background='none';this.style.color='var(--text2)'">
-        🚪 Déco
+    <div class="flex items-center gap-2">
+      <span class="mib-badge mib-badge-success" id="top-niveau">—</span>
+      <button onclick="logout()" class="topbar-logout" aria-label="Se déconnecter">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+        Déco
       </button>
     </div>
   </div>
 
   <!-- CONTENU -->
-  <div class="flex-1 p-5" style="max-width:600px;width:100%;margin:0 auto;">
+  <div class="flex-1">
+    <div class="stag-container">
 
-    <!-- CHARGEMENT -->
-    <div id="loading-state" class="flex flex-col items-center justify-center" style="padding:60px 0;">
-      <div class="spin" style="width:32px;height:32px;"></div>
-      <p style="margin-top:12px;color:var(--text2);font-size:.85rem;">Chargement de votre espace...</p>
-    </div>
-
-    <!-- CONTENU PRINCIPAL -->
-    <div id="main-content" class="hidden">
-
-      <!-- ACCUEIL -->
-      <div style="margin-bottom:24px;" class="fade-up">
-        <h1 style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:900;color:var(--text);">Bonjour <span id="prenom-display">—</span> 👋</h1>
-        <p style="font-size:.82rem;color:var(--text2);margin-top:4px;" id="session-info">Chargement de vos sessions...</p>
+      <!-- CHARGEMENT -->
+      <div id="loading-state" class="stag-loading">
+        <div class="mib-spinner" style="width:32px;height:32px;border-width:3px;"></div>
+        <p class="stag-loading-text">Chargement de votre espace...</p>
       </div>
 
-      <!-- KPIs -->
-      <div class="grid grid-cols-3 gap-3 mb-6 fade-up-2">
-        <div class="kpi">
-          <div class="kpi-val" id="kpi-sessions">—</div>
-          <div class="kpi-lbl">Sessions</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-val" id="kpi-presences">—</div>
-          <div class="kpi-lbl">Présences</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-val" id="kpi-niveau" style="font-size:1rem;">—</div>
-          <div class="kpi-lbl">Niveau</div>
-        </div>
-      </div>
+      <!-- CONTENU PRINCIPAL -->
+      <div id="main-content" class="hidden">
 
-      <!-- SESSION EN COURS -->
-      <div id="session-card" class="card p-4 mb-6 hidden fade-up-2">
-        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#059669;margin-bottom:8px;">📋 Session en cours</div>
-        <div style="font-size:.95rem;font-weight:700;" id="sess-nom">—</div>
-        <div style="font-size:.78rem;color:var(--text2);margin-top:4px;" id="sess-dates">—</div>
-        <div style="margin-top:10px;display:flex;align-items:center;gap:8px;">
-          <span style="font-size:.75rem;color:var(--text2);">Formateur :</span>
-          <span style="font-size:.78rem;font-weight:600;" id="sess-formateur">—</span>
+        <!-- ACCUEIL -->
+        <div class="fade-up" style="margin-bottom:var(--space-6);">
+          <h1 class="greeting-h1">Bonjour <span id="prenom-display">—</span> 👋</h1>
+          <p class="greeting-sub" id="session-info">Chargement de vos sessions...</p>
         </div>
-      </div>
 
-      <!-- MODULES -->
-      <div class="fade-up-3">
-        <h2 style="font-size:.85rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:14px;">🧩 Mes modules de formation</h2>
+        <!-- KPIs -->
+        <div class="grid grid-cols-3 gap-3 fade-up-2" style="margin-bottom:var(--space-6);">
+          <div class="stag-kpi">
+            <div class="stag-kpi-val" id="kpi-sessions">—</div>
+            <div class="stag-kpi-lbl">Sessions</div>
+          </div>
+          <div class="stag-kpi">
+            <div class="stag-kpi-val" id="kpi-presences">—</div>
+            <div class="stag-kpi-lbl">Présences</div>
+          </div>
+          <div class="stag-kpi">
+            <div class="stag-kpi-val" id="kpi-niveau" style="font-size:var(--text-base);padding-top:6px;">—</div>
+            <div class="stag-kpi-lbl">Niveau</div>
+          </div>
+        </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <!-- SESSION EN COURS -->
+        <div id="session-card" class="session-card hidden fade-up-2" style="margin-bottom:var(--space-6);">
+          <div class="session-eyebrow">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            Session en cours
+          </div>
+          <div class="session-name" id="sess-nom">—</div>
+          <div class="session-meta" id="sess-dates">—</div>
+          <div class="session-formateur">
+            Formateur : <strong id="sess-formateur">—</strong>
+          </div>
+        </div>
 
-          <!-- AUTO-ENTRAÎNEMENT -->
-          <div class="module-card mod-auto" id="card-auto" onclick="launchModule('auto')" style="padding:18px 16px;">
-            <div style="font-size:2rem;margin-bottom:8px;">🎯</div>
-            <div style="font-family:'Syne',sans-serif;font-size:.95rem;font-weight:900;margin-bottom:4px;">Auto-entraînement</div>
-            <div style="font-size:.74rem;opacity:.85;margin-bottom:12px;line-height:1.4;">QCM SSIAP adaptés à ton niveau. Suivi inclus.</div>
+        <!-- MODULES -->
+        <div class="fade-up-3">
+          <h2 class="stag-section-title">🧩 Mes modules de formation</h2>
+
+          <div class="modules-grid" style="margin-bottom:var(--space-4);">
+
+            <!-- AUTO-ENTRAÎNEMENT -->
+            <div class="module-card mod-auto" id="card-auto" onclick="launchModule('auto')">
+              <div>
+                <div class="module-card-emoji">🎯</div>
+                <div class="module-card-title">Auto-entraînement</div>
+                <div class="module-card-desc">QCM SSIAP adaptés à ton niveau. Suivi inclus.</div>
+              </div>
+              <div>
+                <span class="module-card-cta">▶ Commencer →</span>
+                <div class="module-card-badge" id="badge-auto"></div>
+              </div>
+            </div>
+
+            <!-- SSI AUTO-FORMATION -->
+            <div class="module-card mod-ssi" id="card-ssi" onclick="launchModule('ssi')">
+              <div>
+                <div class="module-card-emoji">🟡</div>
+                <div class="module-card-title">SSI Auto-formation</div>
+                <div class="module-card-desc">Scénarios guidés sur les systèmes SSI.</div>
+              </div>
+              <div>
+                <span class="module-card-cta">▶ Commencer →</span>
+                <div class="module-card-badge" id="badge-ssi"></div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- OUTILS ERP -->
+          <div id="outils-erp-section" class="hidden" style="margin-top:var(--space-6);">
+            <h2 class="stag-section-title">📐 Outils ERP</h2>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--space-3);margin-bottom:var(--space-4);">
+              <a id="outil-effectif-link" href="outil-effectif.html" class="outil-card hidden">
+                <div class="outil-card-emoji">📐</div>
+                <div class="outil-card-title">Effectif admissible</div>
+                <div class="outil-card-sub">Calcul ERP</div>
+              </a>
+              <a id="outil-degagements-link" href="outil-degagements.html" class="outil-card hidden">
+                <div class="outil-card-emoji">🚪</div>
+                <div class="outil-card-title">Dégagements</div>
+                <div class="outil-card-sub">Sorties / unités de passage</div>
+              </a>
+              <a id="outil-desenfumage-link" href="outil-desenfumage.html" class="outil-card hidden">
+                <div class="outil-card-emoji">💨</div>
+                <div class="outil-card-title">Désenfumage</div>
+                <div class="outil-card-sub">Surfaces utiles</div>
+              </a>
+            </div>
+          </div>
+
+          <!-- AVIS & RETOURS -->
+          <button class="avis-button" onclick="openAvisModal()" style="margin-top:var(--space-4);">
+            <span class="avis-button-emoji" aria-hidden="true">💬</span>
             <div>
-              <span style="background:rgba(255,255,255,.2);border-radius:8px;padding:5px 12px;font-size:.75rem;font-weight:700;">▶ Commencer →</span>
+              <div class="avis-button-title">Avis & Retours</div>
+              <div class="avis-button-sub">Donnez votre avis sur la formation</div>
             </div>
-            <div id="badge-auto" style="margin-top:6px;font-size:.68rem;opacity:.8;"></div>
-          </div>
-
-          <!-- SSI AUTO-FORMATION -->
-          <div class="module-card mod-ssi" id="card-ssi" onclick="launchModule('ssi')" style="padding:18px 16px;">
-            <div style="font-size:2rem;margin-bottom:8px;">🟡</div>
-            <div style="font-family:'Syne',sans-serif;font-size:.95rem;font-weight:900;margin-bottom:4px;">SSI Auto-formation</div>
-            <div style="font-size:.74rem;opacity:.85;margin-bottom:12px;line-height:1.4;">Scénarios guidés sur les systèmes SSI.</div>
-            <div>
-              <span style="background:rgba(255,255,255,.2);border-radius:8px;padding:5px 12px;font-size:.75rem;font-weight:700;">▶ Commencer →</span>
-            </div>
-            <div id="badge-ssi" style="margin-top:6px;font-size:.68rem;opacity:.8;"></div>
-          </div>
+            <span class="avis-button-arrow" aria-hidden="true">→</span>
+          </button>
 
         </div>
 
-        <!-- OUTILS ERP -->
-        <div id="outils-erp-section" class="hidden" style="margin-top:18px;">
-          <h2 style="font-size:.85rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:14px;">📐 Outils ERP</h2>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px;">
-            <a id="outil-effectif-link" href="outil-effectif.html" class="hidden" style="text-decoration:none;color:inherit;background:linear-gradient(145deg,#fff,#f9fffe);border:1.5px solid #d1fae5;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px;transition:all .2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(16,185,129,.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-              <div style="font-size:1.4rem;">📐</div>
-              <div style="font-size:.85rem;font-weight:800;color:var(--text);">Effectif admissible</div>
-              <div style="font-size:.7rem;color:var(--text2);">Calcul ERP</div>
-            </a>
-            <a id="outil-degagements-link" href="outil-degagements.html" class="hidden" style="text-decoration:none;color:inherit;background:linear-gradient(145deg,#fff,#f9fffe);border:1.5px solid #d1fae5;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px;transition:all .2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(16,185,129,.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-              <div style="font-size:1.4rem;">🚪</div>
-              <div style="font-size:.85rem;font-weight:800;color:var(--text);">Dégagements</div>
-              <div style="font-size:.7rem;color:var(--text2);">Sorties / unités de passage</div>
-            </a>
-            <a id="outil-desenfumage-link" href="outil-desenfumage.html" class="hidden" style="text-decoration:none;color:inherit;background:linear-gradient(145deg,#fff,#f9fffe);border:1.5px solid #d1fae5;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px;transition:all .2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(16,185,129,.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-              <div style="font-size:1.4rem;">💨</div>
-              <div style="font-size:.85rem;font-weight:800;color:var(--text);">Désenfumage</div>
-              <div style="font-size:.7rem;color:var(--text2);">Surfaces utiles</div>
-            </a>
+        <!-- MODAL AVIS -->
+        <div id="modal-avis-stag" class="mib-modal-backdrop hidden" style="display:none;">
+          <div class="mib-modal" style="max-width:420px;">
+            <div class="flex items-center justify-between" style="margin-bottom:var(--space-5);">
+              <h3 style="font-family:var(--font-display);font-size:var(--text-lg);font-weight:var(--weight-bold);color:var(--text-1);margin:0;">💬 Avis & Retours</h3>
+              <button onclick="closeAvisModal()" aria-label="Fermer" style="width:32px;height:32px;border-radius:50%;background:var(--neutral-100);border:none;cursor:pointer;font-size:0.9rem;color:var(--text-3);">✕</button>
+            </div>
+
+            <div style="margin-bottom:var(--space-4);">
+              <label class="mib-label">Type</label>
+              <select id="avis-type" class="mib-select">
+                <option value="avis">Avis sur la formation</option>
+                <option value="question">Question</option>
+                <option value="probleme">Problème rencontré</option>
+                <option value="suggestion">Suggestion</option>
+              </select>
+            </div>
+
+            <div style="margin-bottom:var(--space-4);">
+              <label class="mib-label">Note (optionnel)</label>
+              <div id="star-rating" class="star-rating">
+                <span onclick="setNote(1)" id="star-1">☆</span>
+                <span onclick="setNote(2)" id="star-2">☆</span>
+                <span onclick="setNote(3)" id="star-3">☆</span>
+                <span onclick="setNote(4)" id="star-4">☆</span>
+                <span onclick="setNote(5)" id="star-5">☆</span>
+              </div>
+            </div>
+
+            <div style="margin-bottom:var(--space-5);">
+              <label class="mib-label">Message</label>
+              <textarea id="avis-msg" rows="4" placeholder="Votre message..." class="mib-textarea"></textarea>
+            </div>
+
+            <div id="avis-result" class="mib-alert mib-alert-success" style="display:none;margin-bottom:var(--space-4);">
+              <span>✅ Avis envoyé !</span>
+            </div>
+
+            <div class="flex gap-3">
+              <button onclick="closeAvisModal()" class="mib-btn mib-btn-ghost" style="flex:1;">Annuler</button>
+              <button onclick="submitAvis()" id="btn-submit-avis" class="mib-btn mib-btn-warning" style="flex:2;">
+                Envoyer
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                  <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- BOUTON AVIS & RETOURS -->
-        <div onclick="openAvisModal()" style="
-          display:flex;align-items:center;gap:12px;
-          background:linear-gradient(145deg,#fffbeb,#fef3c7);
-          border:1.5px solid #fde68a;border-radius:16px;
-          padding:14px 18px;cursor:pointer;transition:all .2s;
-          " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
-          <div style="font-size:1.8rem;">💬</div>
-          <div>
-            <div style="font-size:.88rem;font-weight:800;color:#92400e;">Avis & Retours</div>
-            <div style="font-size:.74rem;color:#b45309;margin-top:2px;">Donnez votre avis sur la formation</div>
-          </div>
-          <div style="margin-left:auto;font-size:1rem;color:#d97706;">→</div>
+        <!-- MODULE DÉSACTIVÉ MESSAGE -->
+        <div id="module-disabled" class="module-disabled hidden">
+          <p>⚠️ Ce module n'est pas activé sur votre centre.</p>
+          <p>Contactez votre formateur ou responsable de centre.</p>
         </div>
 
       </div>
-
-      <!-- MODAL AVIS -->
-      <div id="modal-avis-stag" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:16px;">
-        <div style="background:#fff;border-radius:20px;padding:24px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.2);">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <h3 style="font-size:1rem;font-weight:800;">💬 Avis & Retours</h3>
-            <button onclick="closeAvisModal()" style="width:32px;height:32px;border-radius:50%;background:#f3f4f6;border:none;cursor:pointer;font-size:.9rem;">✕</button>
-          </div>
-          <div style="margin-bottom:12px;">
-            <label style="display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-bottom:6px;">Type</label>
-            <select id="avis-type" style="width:100%;padding:10px 12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:.85rem;font-family:inherit;outline:none;">
-              <option value="avis">Avis sur la formation</option>
-              <option value="question">Question</option>
-              <option value="probleme">Problème rencontré</option>
-              <option value="suggestion">Suggestion</option>
-            </select>
-          </div>
-          <div style="margin-bottom:12px;">
-            <label style="display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-bottom:6px;">Note (optionnel)</label>
-            <div id="star-rating" style="display:flex;gap:6px;font-size:1.6rem;cursor:pointer;">
-              <span onclick="setNote(1)" id="star-1">☆</span>
-              <span onclick="setNote(2)" id="star-2">☆</span>
-              <span onclick="setNote(3)" id="star-3">☆</span>
-              <span onclick="setNote(4)" id="star-4">☆</span>
-              <span onclick="setNote(5)" id="star-5">☆</span>
-            </div>
-          </div>
-          <div style="margin-bottom:16px;">
-            <label style="display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-bottom:6px;">Message</label>
-            <textarea id="avis-msg" rows="4" placeholder="Votre message..." style="width:100%;padding:10px 12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:.85rem;font-family:inherit;outline:none;resize:none;box-sizing:border-box;"></textarea>
-          </div>
-          <div id="avis-result" style="display:none;text-align:center;padding:12px;background:#f0fdf4;border-radius:10px;color:#16a34a;font-weight:700;margin-bottom:12px;">✅ Avis envoyé !</div>
-          <div style="display:flex;gap:10px;">
-            <button onclick="closeAvisModal()" style="flex:1;padding:10px;border:1.5px solid #e5e7eb;border-radius:10px;background:#f9fafb;cursor:pointer;font-weight:600;font-family:inherit;">Annuler</button>
-            <button onclick="submitAvis()" id="btn-submit-avis" style="flex:2;padding:10px;border:none;border-radius:10px;background:#f59e0b;color:#fff;cursor:pointer;font-weight:700;font-family:inherit;">Envoyer →</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- MODULE DÉSACTIVÉ MESSAGE -->
-      <div id="module-disabled" class="hidden" style="margin-top:16px;padding:14px 18px;border-radius:14px;background:linear-gradient(145deg,#fff7ed,#ffedd5);border:1.5px solid #fed7aa;">
-        <p style="font-size:.82rem;color:#c2410c;font-weight:600;">⚠️ Ce module n'est pas activé sur votre centre.</p>
-        <p style="font-size:.78rem;color:#92400e;margin-top:4px;">Contactez votre formateur ou responsable de centre.</p>
-      </div>
-
     </div>
   </div>
 </div>
@@ -280,11 +638,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('kpi-niveau').textContent = STAGIAIRE.niveau;
 
   try {
-    // Charger données centre (modules actifs)
     const { data: centre } = await supabase.from('centers').select('*').eq('id', STAGIAIRE.center_id).single();
     centerData = centre;
 
-    // Griser les modules non actifs
     if (!centre?.module_auto_entrainement) {
       document.getElementById('card-auto').style.opacity = '.45';
       document.getElementById('card-auto').style.cursor = 'not-allowed';
@@ -296,14 +652,12 @@ window.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('badge-ssi').textContent = 'Non activé';
     }
 
-    // Outils ERP
     const anyOutil = centre?.outil_effectif || centre?.outil_degagements || centre?.outil_desenfumage;
     if (anyOutil) document.getElementById('outils-erp-section').classList.remove('hidden');
     if (centre?.outil_effectif)    document.getElementById('outil-effectif-link').classList.remove('hidden');
     if (centre?.outil_degagements) document.getElementById('outil-degagements-link').classList.remove('hidden');
     if (centre?.outil_desenfumage) document.getElementById('outil-desenfumage-link').classList.remove('hidden');
 
-    // Charger sessions du stagiaire
     const { data: participations } = await supabase
       .from('session_participants')
       .select('*, sessions_formation(*, formateurs(nom,prenom))')
@@ -315,7 +669,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('kpi-sessions').textContent = parts.length;
     document.getElementById('kpi-presences').textContent = presences;
 
-    // Session en cours (planifiee ou en_cours)
     const active = parts.find(p =>
       p.sessions_formation?.statut === 'en_cours' ||
       p.sessions_formation?.statut === 'planifiee'
@@ -368,7 +721,8 @@ window.launchModule = function(mod) {
 };
 
 window.logout = function() {
-  SESSION.clear('stagiaire');
+  if (window.SESSION) SESSION.clear('stagiaire');
+  localStorage.removeItem('mib_stagiaire');
   window.location.href = 'login-stagiaire.html';
 };
 
@@ -377,28 +731,31 @@ function setNote(n) {
   currentNote = n;
   for(let i=1;i<=5;i++) {
     document.getElementById('star-'+i).textContent = i<=n ? '★' : '☆';
-    document.getElementById('star-'+i).style.color = i<=n ? '#f59e0b' : '#d1d5db';
+    document.getElementById('star-'+i).style.color = i<=n ? '#F59E0B' : '#CBD5E1';
   }
 }
 function openAvisModal() {
   const m = document.getElementById('modal-avis-stag');
   m.style.display = 'flex';
+  m.classList.remove('hidden');
   currentNote = 0;
   for(let i=1;i<=5;i++) {
     document.getElementById('star-'+i).textContent = '☆';
-    document.getElementById('star-'+i).style.color = '#d1d5db';
+    document.getElementById('star-'+i).style.color = '#CBD5E1';
   }
   document.getElementById('avis-msg').value = '';
   document.getElementById('avis-result').style.display = 'none';
 }
 function closeAvisModal() {
-  document.getElementById('modal-avis-stag').style.display = 'none';
+  const m = document.getElementById('modal-avis-stag');
+  m.style.display = 'none';
+  m.classList.add('hidden');
 }
 async function submitAvis() {
   const msg = document.getElementById('avis-msg').value.trim();
   if (!msg) { alert('Veuillez écrire un message.'); return; }
   const btn = document.getElementById('btn-submit-avis');
-  btn.disabled = true; btn.textContent = '⏳';
+  btn.disabled = true; btn.innerHTML = '<span class="mib-spinner" style="width:16px;height:16px;border-width:2px;"></span>';
   try {
     const centerId = STAGIAIRE?.center_id || centerData?.id || null;
     await window.supabase.from('avis_retours').insert({
@@ -411,10 +768,10 @@ async function submitAvis() {
       message: msg,
       statut: 'nouveau'
     });
-    document.getElementById('avis-result').style.display = 'block';
+    document.getElementById('avis-result').style.display = 'flex';
     setTimeout(closeAvisModal, 2000);
   } catch(e) { alert('Erreur : ' + e.message); }
-  finally { btn.disabled = false; btn.textContent = 'Envoyer →'; }
+  finally { btn.disabled = false; btn.innerHTML = 'Envoyer <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>'; }
 }
 </script>
 </body>
