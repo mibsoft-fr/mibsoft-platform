@@ -372,3 +372,139 @@ body {
 .legal-toc li { margin-bottom: 4px; color: var(--text-2); }
 .legal-toc a { color: var(--text-2); text-decoration: none; }
 .legal-toc a:hover { color: var(--vigil-700); }
+
+/* ============================================================
+   Bouton "Imprimer" (en haut à droite du contenu)
+   ============================================================ */
+.legal-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+.legal-print-btn {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: #fff;
+  color: var(--text-2);
+  font-family: var(--font-body);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--duration-fast);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 2px 6px -1px rgba(15, 23, 42, 0.08);
+}
+.legal-print-btn:hover {
+  border-color: var(--vigil-500);
+  color: var(--vigil-700);
+  background: var(--vigil-50);
+  transform: translateY(-1px);
+}
+.legal-print-btn.primary {
+  background: var(--gradient-primary);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 6px 14px -4px rgba(16, 185, 129, 0.45);
+}
+.legal-print-btn.primary:hover {
+  background: var(--gradient-primary-hover);
+  color: #fff;
+}
+
+/* ============================================================
+   @media print : styles d'impression
+   ============================================================ */
+@media print {
+  /* Cacher tout ce qui n'est pas du contenu */
+  .legal-topbar,
+  .legal-back,
+  .legal-actions,
+  .legal-print-btn,
+  .legal-card-chevron { display: none !important; }
+
+  /* Fond blanc + texte noir */
+  body { background: #fff !important; color: #000 !important; }
+  html { background: #fff !important; }
+
+  /* Container : pleine largeur impression */
+  .legal-wrap { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+
+  /* Hero compact */
+  .legal-hero {
+    box-shadow: none !important;
+    border: 1px solid #000 !important;
+    padding: 16px !important;
+    margin-bottom: 12px !important;
+    page-break-after: avoid;
+  }
+  .legal-hero::before { display: none !important; }
+  .legal-hero h1 { font-size: 22pt !important; color: #000 !important; }
+  .legal-hero .eyebrow { font-size: 9pt !important; color: #444 !important; }
+  .legal-hero .lead { font-size: 11pt !important; color: #222 !important; }
+  .legal-hero .meta { font-size: 9pt !important; color: #444 !important; }
+
+  /* Bandeau warning : préserver en gris discret pour impression */
+  .legal-warning {
+    background: #fff !important;
+    border: 1px solid #888 !important;
+    border-left: 4px solid #d97706 !important;
+    color: #000 !important;
+    page-break-inside: avoid;
+  }
+  .legal-warning strong { color: #000 !important; }
+
+  /* Article : sans ombre, page break optimisé */
+  .legal-article {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+  .legal-article h2, .legal-article h3 { page-break-after: avoid; color: #000 !important; }
+  .legal-article h2 { font-size: 14pt !important; }
+  .legal-article h3 { font-size: 12pt !important; }
+  .legal-article p, .legal-article li { font-size: 10pt !important; color: #111 !important; line-height: 1.5 !important; }
+  .legal-article strong { color: #000 !important; }
+  .legal-article a { color: #000 !important; text-decoration: underline !important; }
+  .legal-article ul, .legal-article ol { page-break-inside: avoid; }
+  .legal-article table { page-break-inside: avoid; font-size: 9pt !important; }
+  .legal-article table th { background: #eee !important; color: #000 !important; }
+
+  /* Callouts : noir/blanc */
+  .legal-callout {
+    background: #fff !important;
+    border: 1px solid #888 !important;
+    border-left: 4px solid #059669 !important;
+    color: #000 !important;
+  }
+  .legal-callout strong { color: #000 !important; }
+
+  /* Page breaks entre les docs (mode print-all) */
+  .legal-doc-section { page-break-before: always; }
+  .legal-doc-section:first-child { page-break-before: auto; }
+
+  /* Footer signature : compact */
+  .legal-footer {
+    font-size: 8pt !important;
+    color: #666 !important;
+    border-top: 1px solid #ccc !important;
+    margin-top: 16px !important;
+    padding-top: 8px !important;
+  }
+  .legal-footer a { color: #000 !important; }
+
+  /* Code blocks : noir/blanc */
+  .legal-article code {
+    background: #f5f5f5 !important;
+    color: #000 !important;
+    border: 1px solid #ccc !important;
+  }
+}
