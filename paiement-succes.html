@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Paiement validé — MIB Prévention</title>
+<link rel="icon" href="/Logo MIB.png" type="image/png">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Syne:wght@700;800;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{font-family:'Inter',sans-serif;background:linear-gradient(160deg,#f0fdf4 0%,#ecfdf5 50%,#dcfce7 100%);color:#111827;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+.card{background:#fff;border-radius:24px;padding:48px 40px;max-width:540px;width:100%;text-align:center;box-shadow:0 24px 60px rgba(16,185,129,.18);}
+.check{width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);margin:0 auto 24px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:42px;box-shadow:0 12px 28px rgba(16,185,129,.4);animation:pop .5s ease-out;}
+@keyframes pop{0%{transform:scale(0);}80%{transform:scale(1.1);}100%{transform:scale(1);}}
+h1{font-family:'Syne',sans-serif;font-size:2.2rem;font-weight:900;margin-bottom:14px;background:linear-gradient(135deg,#065f46,#047857);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.lead{font-size:1.05rem;color:#374151;margin-bottom:24px;line-height:1.55;}
+.box{background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:14px;padding:18px 20px;margin:24px 0;text-align:left;}
+.box strong{color:#065f46;display:block;margin-bottom:6px;font-size:.9rem;}
+.box p{font-size:.88rem;color:#374151;line-height:1.55;}
+.steps{list-style:none;padding:0;margin:24px 0;text-align:left;}
+.steps li{padding:10px 0;display:flex;gap:12px;align-items:flex-start;font-size:.92rem;}
+.steps .num{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:800;font-size:.8rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.btn-back{display:inline-block;margin-top:18px;background:linear-gradient(135deg,#1A2842,#0f172a);color:#fff;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:700;font-size:.92rem;box-shadow:0 4px 14px rgba(15,23,42,.3);}
+.footer{margin-top:30px;font-size:.78rem;color:#9ca3af;}
+.footer a{color:#3b82f6;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="check">✓</div>
+  <h1>Merci !</h1>
+  <p class="lead">Votre paiement a bien été reçu. Votre centre MIB Prévention est en cours d'activation.</p>
+
+  <div class="box">
+    <strong>📧 Vérifiez votre boîte mail</strong>
+    <p>Un email d'activation vient d'être envoyé à l'adresse utilisée pour le paiement. Cliquez sur le lien pour définir votre mot de passe et accéder à votre espace.</p>
+  </div>
+
+  <ol class="steps">
+    <li><span class="num">1</span><span>Ouvrez l'email "Bienvenue chez MIB Prévention"</span></li>
+    <li><span class="num">2</span><span>Cliquez sur le bouton "Définir mon mot de passe"</span></li>
+    <li><span class="num">3</span><span>Connectez-vous à votre espace centre et commencez l'onboarding</span></li>
+  </ol>
+
+  <a class="btn-back" href="https://mib-prevention.fr">← Retour au site</a>
+
+  <div class="footer">
+    Pas reçu d'email d'ici 10 minutes ? Vérifiez vos spams ou contactez-nous : <a href="mailto:contact@mib-prevention.fr">contact@mib-prevention.fr</a>
+  </div>
+</div>
+</body>
+</html>
