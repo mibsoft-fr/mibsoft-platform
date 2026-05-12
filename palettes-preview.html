@@ -127,13 +127,72 @@ html, body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #0f17
   --mock-success-bg: #ecfdf5;
   --mock-success-text: #065f46;
 }
+
+/* ============ PALETTE E — Vigil Marine ============ */
+.palette-E {
+  --mock-bg: #f8fafc;
+  --mock-border: #e2e8f0;
+  --mock-border-card: #e2e8f0;
+  --mock-sidebar: #1e3a8a;
+  --mock-brand: #059669;
+  --mock-brand-dark: #047857;
+  --mock-brand-light: #6ee7b7;
+  --mock-brand-soft: rgba(16,185,129,0.18);
+  --mock-secondary: #1e40af;
+  --mock-text-1: #0f172a;
+  --mock-text-3: #475569;
+  --mock-success: #059669;
+  --mock-success-bg: #ecfdf5;
+  --mock-success-text: #065f46;
+}
+
+/* ============ PALETTE F — Vigil Secours (Tricolore) ============ */
+.palette-F {
+  --mock-bg: #f8fafc;
+  --mock-border: #e2e8f0;
+  --mock-border-card: #e2e8f0;
+  --mock-sidebar: #1e3a8a;
+  --mock-brand: #059669;
+  --mock-brand-dark: #047857;
+  --mock-brand-light: #6ee7b7;
+  --mock-brand-soft: rgba(16,185,129,0.18);
+  --mock-secondary: #ea580c;
+  --mock-text-1: #0f172a;
+  --mock-text-3: #475569;
+  --mock-success: #059669;
+  --mock-success-bg: #ecfdf5;
+  --mock-success-text: #065f46;
+}
+
+/* ============ PALETTE G — Vigil Gradient ============ */
+.palette-G {
+  --mock-bg: #f8fafc;
+  --mock-border: #e2e8f0;
+  --mock-border-card: #e2e8f0;
+  --mock-sidebar: linear-gradient(180deg, #064e3b 0%, #1e3a8a 100%);
+  --mock-brand: linear-gradient(135deg, #059669 0%, #2563eb 100%);
+  --mock-brand-solid: #059669;
+  --mock-brand-dark: #047857;
+  --mock-brand-light: #6ee7b7;
+  --mock-brand-soft: rgba(16,185,129,0.18);
+  --mock-secondary: #1e40af;
+  --mock-text-1: #0f172a;
+  --mock-text-3: #475569;
+  --mock-success: #059669;
+  --mock-success-bg: #ecfdf5;
+  --mock-success-text: #065f46;
+}
+.palette-G .mock-btn { background: linear-gradient(135deg, #059669 0%, #2563eb 100%); }
+.palette-G .logo { background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); }
+.palette-G .choice-btn.brand { background: linear-gradient(135deg, #059669 0%, #2563eb 100%); }
+.palette-G .choice-btn.brand:hover { background: linear-gradient(135deg, #047857 0%, #1e40af 100%); }
 </style>
 </head>
 <body>
 
 <div class="page-header">
   <h1>Palettes MIB — Design system "Vigil"</h1>
-  <p>4 directions visuelles à comparer. Clique sur la palette que tu préfères pour me le dire.</p>
+  <p>7 directions visuelles à comparer. Clique sur la palette que tu préfères pour me le dire.</p>
 </div>
 
 <div class="legend">
@@ -295,10 +354,125 @@ html, body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #0f17
     <button class="choice-btn brand" onclick="alert('Tu choisis : Palette D (Vert + Orange). Réponds à Claude : D')">Choisir Palette D</button>
   </div>
 
+  <!-- PALETTE E : VIGIL MARINE -->
+  <div class="palette palette-E">
+    <div class="palette-name">
+      <h2>E — Vigil Marine</h2>
+      <p class="vibe">Vert sauvetage + bleu marine uniforme pompier · cohérence métier maximale · sobre</p>
+    </div>
+    <div class="swatches">
+      <div class="swatch" style="background:#059669">#059669</div>
+      <div class="swatch" style="background:#047857">#047857</div>
+      <div class="swatch" style="background:#1e40af">#1E40AF</div>
+      <div class="swatch" style="background:#1e3a8a">#1E3A8A</div>
+      <div class="swatch" style="background:#0f172a">#0F172A</div>
+    </div>
+    <div class="mockup">
+      <div class="mock-sidebar">
+        <div class="logo">M</div>
+        <div class="nav-item active">📊</div>
+        <div class="nav-item inactive">🏢</div>
+        <div class="nav-item inactive">🔑</div>
+        <div class="nav-item inactive">💰</div>
+      </div>
+      <div class="mock-content">
+        <div class="mock-title">Tableau de bord</div>
+        <div class="mock-kpis">
+          <div class="mock-kpi"><div class="mock-kpi-lbl">Centres</div><div class="mock-kpi-val">42<span class="delta">+8%</span></div></div>
+          <div class="mock-kpi"><div class="mock-kpi-lbl">Stagiaires</div><div class="mock-kpi-val">218<span class="delta">+12%</span></div></div>
+          <div class="mock-kpi"><div class="mock-kpi-lbl">CA mois</div><div class="mock-kpi-val">9 k€</div></div>
+        </div>
+        <div class="mock-row">
+          <button class="mock-btn">+ Nouveau centre</button>
+          <button class="mock-btn-2">Détails</button>
+          <span class="mock-badge">Actif</span>
+        </div>
+      </div>
+    </div>
+    <button class="choice-btn brand" onclick="alert('Tu choisis : Palette E (Vigil Marine). Réponds à Claude : E')">Choisir Palette E</button>
+  </div>
+
+  <!-- PALETTE F : VIGIL SECOURS (TRICOLORE) -->
+  <div class="palette palette-F">
+    <div class="palette-name">
+      <h2>F — Vigil Secours</h2>
+      <p class="vibe">Vert + bleu marine + accent orange · tricolore secours · code visuel SSIAP complet</p>
+    </div>
+    <div class="swatches">
+      <div class="swatch" style="background:#059669">#059669</div>
+      <div class="swatch" style="background:#1e3a8a">#1E3A8A</div>
+      <div class="swatch" style="background:#ea580c">#EA580C</div>
+      <div class="swatch" style="background:#1e40af">#1E40AF</div>
+      <div class="swatch" style="background:#065f46">#065F46</div>
+    </div>
+    <div class="mockup">
+      <div class="mock-sidebar">
+        <div class="logo">M</div>
+        <div class="nav-item active">📊</div>
+        <div class="nav-item inactive">🏢</div>
+        <div class="nav-item inactive">🔑</div>
+        <div class="nav-item inactive">💰</div>
+      </div>
+      <div class="mock-content">
+        <div class="mock-title">Tableau de bord</div>
+        <div class="mock-kpis">
+          <div class="mock-kpi"><div class="mock-kpi-lbl">Centres</div><div class="mock-kpi-val">42<span class="delta">+8%</span></div></div>
+          <div class="mock-kpi"><div class="mock-kpi-lbl">Stagiaires</div><div class="mock-kpi-val">218<span class="delta">+12%</span></div></div>
+          <div class="mock-kpi"><div class="mock-kpi-lbl">CA mois</div><div class="mock-kpi-val">9 k€</div></div>
+        </div>
+        <div class="mock-row">
+          <button class="mock-btn">+ Nouveau centre</button>
+          <button class="mock-btn-2">Alerter</button>
+          <span class="mock-badge">Actif</span>
+        </div>
+      </div>
+    </div>
+    <button class="choice-btn brand" onclick="alert('Tu choisis : Palette F (Vigil Secours). Réponds à Claude : F')">Choisir Palette F</button>
+  </div>
+
+  <!-- PALETTE G : VIGIL GRADIENT -->
+  <div class="palette palette-G">
+    <div class="palette-name">
+      <h2>G — Vigil Gradient</h2>
+      <p class="vibe">Dégradé vert→bleu sur logo &amp; CTA · effet premium moderne · ton tech innovant</p>
+    </div>
+    <div class="swatches">
+      <div class="swatch" style="background:linear-gradient(135deg,#10b981,#3b82f6)">vert→bleu</div>
+      <div class="swatch" style="background:#059669">#059669</div>
+      <div class="swatch" style="background:#2563eb">#2563EB</div>
+      <div class="swatch" style="background:#1e40af">#1E40AF</div>
+      <div class="swatch" style="background:linear-gradient(180deg,#064e3b,#1e3a8a)">sidebar</div>
+    </div>
+    <div class="mockup">
+      <div class="mock-sidebar" style="background: linear-gradient(180deg, #064e3b 0%, #1e3a8a 100%);">
+        <div class="logo">M</div>
+        <div class="nav-item active">📊</div>
+        <div class="nav-item inactive">🏢</div>
+        <div class="nav-item inactive">🔑</div>
+        <div class="nav-item inactive">💰</div>
+      </div>
+      <div class="mock-content">
+        <div class="mock-title">Tableau de bord</div>
+        <div class="mock-kpis">
+          <div class="mock-kpi"><div class="mock-kpi-lbl">Centres</div><div class="mock-kpi-val">42<span class="delta">+8%</span></div></div>
+          <div class="mock-kpi"><div class="mock-kpi-lbl">Stagiaires</div><div class="mock-kpi-val">218<span class="delta">+12%</span></div></div>
+          <div class="mock-kpi"><div class="mock-kpi-lbl">CA mois</div><div class="mock-kpi-val">9 k€</div></div>
+        </div>
+        <div class="mock-row">
+          <button class="mock-btn">+ Nouveau centre</button>
+          <button class="mock-btn-2">Détails</button>
+          <span class="mock-badge">Actif</span>
+        </div>
+      </div>
+    </div>
+    <button class="choice-btn brand" onclick="alert('Tu choisis : Palette G (Vigil Gradient). Réponds à Claude : G')">Choisir Palette G</button>
+  </div>
+
 </div>
 
 <div style="text-align:center; padding: 40px 24px; color: #64748b; font-size: 0.85rem;">
-  Une fois ton choix fait, dis-le à Claude (A, B, C ou D) — je crée le design system complet derrière.
+  Une fois ton choix fait, dis-le à Claude (A, D, E, F ou G) — je crée le design system complet derrière.<br>
+  Tu peux aussi me dire un mix (ex : "E mais avec le gradient de G sur le logo").
 </div>
 
 </body>
