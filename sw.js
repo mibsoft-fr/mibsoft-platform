@@ -3,7 +3,7 @@
  * Permet le fonctionnement hors-ligne et la mise en cache
  */
 
-const CACHE_NAME = 'ssi-formation-v1.3.0';
+const CACHE_NAME = 'ssi-formation-v1.4.0';
 const CACHE_URLS = [
   './',
   './index.html',
