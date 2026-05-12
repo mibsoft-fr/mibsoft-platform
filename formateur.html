@@ -1147,10 +1147,18 @@ function buildSessCard(sess, allStags, allEntr) {
            🎯 Quiz Salle
         </a>
         <a href="javascript:void(0)"
-           onclick="event.stopPropagation();openChallengeCupSSIAP()"
+           onclick="event.stopPropagation();openChallengeCupSSIAP('${sess.niveau||''}','${sess.id}', 'qr')"
            class="shortcut-btn" style="background:#fff7ed;color:#d97706;border-color:#fed7aa;"
-           onmouseover="this.style.background='#d97706';this.style.color='#fff'" onmouseout="this.style.background='#fff7ed';this.style.color='#d97706'">
-           🏆 Challenge Cup
+           onmouseover="this.style.background='#d97706';this.style.color='#fff'" onmouseout="this.style.background='#fff7ed';this.style.color='#d97706'"
+           title="QR Code — stagiaires libres (pseudo)">
+           🏆 Challenge Cup (QR)
+        </a>
+        <a href="javascript:void(0)"
+           onclick="event.stopPropagation();openChallengeCupSSIAP('${sess.niveau||''}','${sess.id}', 'invitation')"
+           class="shortcut-btn" style="background:#f3e8ff;color:#7c3aed;border-color:#ddd6fe;"
+           onmouseover="this.style.background='#7c3aed';this.style.color='#fff'" onmouseout="this.style.background='#f3e8ff';this.style.color='#7c3aed'"
+           title="Invitation — stagiaires nominatifs (traçabilité Qualiopi)">
+           🎯 Challenge Cup (Invitation)
         </a>
         <span class="badge ${sess.statut==='actif'?'badge-green':'badge-gray'}">${sess.statut||'en cours'}</span>
         <span class="badge badge-blue">${stags.length} stag.</span>
@@ -1892,15 +1900,52 @@ async function loadAvisStag() {
 /* ══════════════════════════════════════════
    SSIAP PATROL — Auto-login formateur
 ══════════════════════════════════════════ */
-function openChallengeCupSSIAP() {
-  // Marque qu'on arrive depuis le dashboard formateur (auth MIB déjà validée).
-  // L'app challenge-cup-ssiap détectera ce flag et bypassera son écran de login superviseur.
+/**
+ * Ouvre Challenge Cup SSIAP avec bypass login et options session.
+ * @param {string} niveau   - Ex: 'SSIAP1' | 'SSIAP2' | 'SSIAP3' (vide = libre)
+ * @param {string} sessionId - ID de la session MIB (optionnel, requis pour mode invitation)
+ * @param {string} mode     - 'qr' (défaut) | 'invitation' (stagiaires nominatifs)
+ */
+async function openChallengeCupSSIAP(niveau, sessionId, mode) {
+  niveau = niveau || '';
+  mode = mode || 'qr';
+  var ssiapLevel = niveau === 'SSIAP1' ? 1 : niveau === 'SSIAP2' ? 2 : niveau === 'SSIAP3' ? 3 : null;
+
+  var payload = {
+    ts: Date.now(),
+    formateur: (FSESSION && (FSESSION.nom || FSESSION.formateurNom)) || 'Formateur',
+    formateurId: (FSESSION && (FSESSION.formateurId || FSESSION.formateur_id)) || null,
+    centerId: (FSESSION && (FSESSION.centerId || FSESSION.center_id)) || null,
+    ssiapLevel: ssiapLevel,
+    sessionId: sessionId || null,
+    mode: mode
+  };
+
+  // Mode invitation : récupérer la liste des stagiaires de la session
+  if (mode === 'invitation' && sessionId) {
+    try {
+      var resp = await supabase
+        .from('session_participants')
+        .select('stagiaire_id, stagiaires(id, nom, prenom, niveau)')
+        .eq('session_id', sessionId);
+      var stags = (resp.data || [])
+        .map(p => p.stagiaires)
+        .filter(s => !!s)
+        .map(s => ({ id: s.id, nom: s.nom, prenom: s.prenom, niveau: s.niveau }));
+      payload.stagiaires = stags;
+      if (!stags.length) {
+        if (!confirm("Aucun stagiaire inscrit à cette session.\nOuvrir en mode QR libre ?")) return;
+        payload.mode = 'qr';
+      }
+    } catch(e) {
+      console.warn('[challenge-cup] chargement stagiaires échoué', e);
+      if (!confirm("Impossible de charger les stagiaires.\nOuvrir en mode QR libre ?")) return;
+      payload.mode = 'qr';
+    }
+  }
+
   try {
-    localStorage.setItem('mib_cc_auth', JSON.stringify({
-      ts: Date.now(),
-      formateur: (FSESSION && (FSESSION.nom || FSESSION.formateurNom)) || 'Formateur',
-      formateurId: (FSESSION && (FSESSION.formateurId || FSESSION.formateur_id)) || null
-    }));
+    localStorage.setItem('mib_cc_auth', JSON.stringify(payload));
   } catch(e) { console.warn('[challenge-cup] localStorage indisponible', e); }
   window.open('challenge-cup-ssiap/index.html', '_blank');
 }
