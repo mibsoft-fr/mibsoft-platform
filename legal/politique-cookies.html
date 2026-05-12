@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Politique cookies — MIB Prévention</title>
+<meta name="theme-color" content="#F8FAFC">
+<link rel="icon" href="/Logo MIB.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../design-tokens.css">
+<link rel="stylesheet" href="../mib-design.css">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+
+<div class="legal-topbar">
+  <a href="index.html" class="legal-back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"></line>
+      <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    Retour au référentiel
+  </a>
+  <h1>Cookies</h1>
+</div>
+
+<div class="legal-wrap">
+
+  <div class="legal-hero">
+    <div class="eyebrow">Document RGPD / ePrivacy</div>
+    <h1>Politique de gestion des cookies</h1>
+    <p class="lead">Informations sur les cookies et traceurs utilisés par MIB Prévention, en application de l'article 82 de la loi Informatique et Libertés et des recommandations CNIL.</p>
+    <div class="meta">
+      <span><strong>Version :</strong> 1.0 — Projet</span>
+      <span><strong>Dernière mise à jour :</strong> Mai 2026</span>
+      <span><strong>Statut :</strong> À valider par avocat</span>
+    </div>
+  </div>
+
+  <div class="legal-warning">
+    <span class="icon">⚠️</span>
+    <div>
+      <strong>Projet de document — à valider par un avocat</strong>
+      Ce document est une base de travail rédigée selon les standards juridiques français B2B. Il doit être adapté à votre situation précise et validé par un avocat spécialisé en droit du numérique avant publication.
+    </div>
+  </div>
+
+  <article class="legal-article">
+
+    <h2>1. Qu'est-ce qu'un cookie ?</h2>
+    <p>Un « cookie » est un petit fichier texte déposé sur votre terminal (ordinateur, tablette, smartphone) lors de la consultation d'un site ou de l'utilisation d'une application web. Il permet au site de reconnaître votre terminal, de mémoriser des informations relatives à votre navigation, ou de mesurer l'audience du service.</p>
+    <p>Le terme « cookie » est utilisé ici au sens large : il recouvre toutes les technologies similaires (local storage, session storage, IndexedDB, Service Worker cache, pixels) entrant dans le champ d'application de l'article 82 de la loi Informatique et Libertés.</p>
+
+    <h2>2. Cookies utilisés sur MIB Prévention</h2>
+    <p>MIB Prévention adopte une approche minimaliste : <strong>aucun cookie publicitaire ni de mesure d'audience non-essentielle</strong> n'est déposé par défaut. La liste exhaustive des cookies déposés est la suivante :</p>
+
+    <h3>2.1 Cookies strictement nécessaires (exemptés de consentement)</h3>
+    <p>Conformément à l'article 82 de la loi Informatique et Libertés, ces cookies sont exemptés de consentement car ils sont strictement nécessaires à la fourniture du service expressément demandé par l'utilisateur.</p>
+    <table>
+      <thead><tr><th>Nom / Type</th><th>Finalité</th><th>Émetteur</th><th>Durée</th></tr></thead>
+      <tbody>
+        <tr><td><code>sb-access-token</code> (httpOnly)</td><td>Session d'authentification Supabase</td><td>Supabase (1ère partie)</td><td>1 heure</td></tr>
+        <tr><td><code>sb-refresh-token</code> (httpOnly)</td><td>Renouvellement de session</td><td>Supabase (1ère partie)</td><td>30 jours glissants</td></tr>
+        <tr><td><code>localStorage</code> — préférences UI</td><td>Thème, langue, état d'affichage</td><td>MIB Prévention</td><td>Persistant (effacement manuel)</td></tr>
+        <tr><td>Service Worker cache</td><td>Mode hors-ligne (PWA)</td><td>MIB Prévention</td><td>Permanent jusqu'à mise à jour</td></tr>
+        <tr><td><code>__stripe_*</code></td><td>Sécurisation transaction et anti-fraude</td><td>Stripe (tiers nécessaire)</td><td>1 an max</td></tr>
+        <tr><td>CSRF token</td><td>Protection contre les attaques CSRF</td><td>MIB Prévention</td><td>Session</td></tr>
+      </tbody>
+    </table>
+
+    <h3>2.2 Cookies analytiques</h3>
+    <div class="legal-callout">
+      <strong>État actuel :</strong> MIB Prévention n'utilise <strong>aucun cookie de mesure d'audience tiers</strong> (pas de Google Analytics, pas de Meta Pixel, pas de Matomo cloud). Les métriques de performance Vercel sont purement techniques (temps de chargement) et anonymisées.
+    </div>
+    <p>Si une solution d'analyse était mise en place ultérieurement, elle serait :</p>
+    <ul>
+      <li>Soit dispensée de consentement (Matomo auto-hébergé avec IP anonymisée et conforme exemption CNIL) ;</li>
+      <li>Soit soumise au consentement préalable via bandeau dédié, avec choix granulaire et bouton « Tout refuser » de même niveau que « Tout accepter ».</li>
+    </ul>
+
+    <h3>2.3 Cookies publicitaires et marketing</h3>
+    <p><strong>Aucun cookie publicitaire ou marketing</strong> n'est déposé. MIB Prévention ne pratique pas de retargeting et n'alimente aucune plateforme publicitaire en données utilisateurs.</p>
+
+    <h3>2.4 Cookies de réseaux sociaux</h3>
+    <p>Le site ne contient pas de boutons de partage social actifs (likes, partages) susceptibles de déposer des cookies tiers. Les liens vers d'éventuels comptes de réseaux sociaux sont des liens hypertextes simples, sans iframe ni script tiers chargé.</p>
+
+    <h2>3. Bases légales</h2>
+    <ul>
+      <li>Cookies strictement nécessaires : <strong>intérêt légitime</strong> / exécution du service demandé (article 82 al. 2 LIL) ;</li>
+      <li>Cookies de paiement Stripe : <strong>exécution du contrat</strong> ;</li>
+      <li>Cookies non essentiels (le cas échéant) : <strong>consentement préalable</strong> (article 82 al. 1 LIL).</li>
+    </ul>
+
+    <h2>4. Comment gérer les cookies</h2>
+
+    <h3>4.1 Depuis votre navigateur</h3>
+    <p>Vous pouvez à tout moment configurer votre navigateur pour accepter, refuser ou supprimer les cookies. Les paramètres varient selon les navigateurs :</p>
+    <ul>
+      <li><strong>Chrome</strong> : Paramètres → Confidentialité et sécurité → Cookies et autres données de sites</li>
+      <li><strong>Firefox</strong> : Paramètres → Vie privée et sécurité → Cookies et données de sites</li>
+      <li><strong>Safari</strong> : Préférences → Confidentialité</li>
+      <li><strong>Edge</strong> : Paramètres → Cookies et autorisations de site</li>
+    </ul>
+    <div class="legal-callout">
+      <strong>Attention :</strong> le refus des cookies strictement nécessaires (session d'authentification) empêchera la connexion au service. La navigation privée supprime automatiquement les cookies à la fermeture de la fenêtre.
+    </div>
+
+    <h3>4.2 Outils de gestion des cookies</h3>
+    <ul>
+      <li>Pour iOS : Réglages → Safari → Bloquer tous les cookies ;</li>
+      <li>Pour Android : Paramètres Chrome → Paramètres des sites → Cookies.</li>
+    </ul>
+
+    <h3>4.3 Outils d'opposition spécifiques</h3>
+    <p>Pour les cookies tiers Stripe (paiement), Stripe propose une politique cookies dédiée : <a href="https://stripe.com/cookies-policy/legal" target="_blank" rel="noopener">stripe.com/cookies-policy/legal</a>.</p>
+
+    <h2>5. Durée de conservation des cookies</h2>
+    <p>Conformément aux recommandations CNIL :</p>
+    <ul>
+      <li>Cookies de session : supprimés à la fermeture du navigateur ;</li>
+      <li>Cookies persistants : durée maximale de 13 mois (recommandation CNIL pour les cookies soumis à consentement) ;</li>
+      <li>Données générées par les cookies (statistiques agrégées) : conservées 25 mois maximum.</li>
+    </ul>
+
+    <h2>6. Mise à jour de la présente politique</h2>
+    <p>Cette politique peut être révisée à tout moment, notamment pour refléter l'évolution des technologies utilisées par MIB Prévention. La date de dernière mise à jour est indiquée en tête de document. En cas de modification substantielle (ajout d'un nouveau type de cookie), une nouvelle information sera affichée à votre prochaine connexion.</p>
+
+    <h2>7. Pour aller plus loin</h2>
+    <ul>
+      <li>Site de la CNIL — Cookies et traceurs : <a href="https://www.cnil.fr/fr/cookies-et-traceurs" target="_blank" rel="noopener">cnil.fr/fr/cookies-et-traceurs</a> ;</li>
+      <li>Notre <a href="politique-confidentialite.html">politique de confidentialité</a> ;</li>
+      <li>Nos <a href="mentions-legales.html">mentions légales</a>.</li>
+    </ul>
+
+  </article>
+
+  <div class="legal-footer">
+    <p>
+      <strong>MIB Prévention</strong> — Plateforme SaaS de formation SSIAP<br>
+      Pour toute question : <a href="mailto:contact@mib-prevention.fr">contact@mib-prevention.fr</a><br>
+      <a href="index.html">← Retour au référentiel juridique</a>
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>

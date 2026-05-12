@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>PRA / PCA — MIB Prévention</title>
+<meta name="theme-color" content="#F8FAFC">
+<link rel="icon" href="/Logo MIB.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../design-tokens.css">
+<link rel="stylesheet" href="../mib-design.css">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+
+<div class="legal-topbar">
+  <a href="index.html" class="legal-back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"></line>
+      <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    Retour au référentiel
+  </a>
+  <h1>PCA / PRA</h1>
+</div>
+
+<div class="legal-wrap">
+
+  <div class="legal-hero">
+    <div class="eyebrow">Document opérationnel — Continuité d'activité</div>
+    <h1>Plan de Continuité et de Reprise d'Activité</h1>
+    <p class="lead">Plan combiné PCA / PRA de MIB Prévention, décrivant les dispositifs de continuité du service et les procédures de reprise en cas de sinistre majeur.</p>
+    <div class="meta">
+      <span><strong>Version :</strong> 1.0 — Projet</span>
+      <span><strong>Dernière mise à jour :</strong> Mai 2026</span>
+      <span><strong>Statut :</strong> À valider par avocat / RSSI</span>
+    </div>
+  </div>
+
+  <div class="legal-warning">
+    <span class="icon">⚠️</span>
+    <div>
+      <strong>Projet de document — à valider par un avocat et un RSSI</strong>
+      Ce document est une base de travail rédigée selon les standards juridiques français B2B. Il doit être adapté à votre situation précise et validé avant publication.
+    </div>
+  </div>
+
+  <article class="legal-article">
+
+    <h2>1. Objectifs</h2>
+    <p>Le présent document définit :</p>
+    <ul>
+      <li>Le <strong>Plan de Continuité d'Activité (PCA)</strong> — mesures préventives pour maintenir le service en condition opérationnelle ;</li>
+      <li>Le <strong>Plan de Reprise d'Activité (PRA)</strong> — procédures de retour à l'état nominal après un sinistre.</li>
+    </ul>
+
+    <div class="legal-callout">
+      <strong>Engagements de service (cibles)</strong><br>
+      <strong>RTO</strong> (Recovery Time Objective) : <strong>4 heures</strong> — durée maximale d'indisponibilité après un sinistre majeur.<br>
+      <strong>RPO</strong> (Recovery Point Objective) : <strong>24 heures</strong> — perte maximale de données acceptable.
+    </div>
+
+    <h2>2. Périmètre</h2>
+    <p>Le PCA / PRA couvre :</p>
+    <ul>
+      <li>L'application web MIB Prévention (frontend Vercel) ;</li>
+      <li>La base de données et le stockage (Supabase Frankfurt) ;</li>
+      <li>Les services connexes : Auth, Storage, Edge Functions, emails (Resend), paiements (Stripe) ;</li>
+      <li>Les processus internes (support client, communication de crise).</li>
+    </ul>
+
+    <h2>3. Plan de Continuité d'Activité (PCA)</h2>
+
+    <h3>3.1 Haute disponibilité de l'infrastructure</h3>
+    <ul>
+      <li><strong>Frontend Vercel</strong> : déploiement multi-régions (Edge Network mondial), bascule automatique en cas de défaillance d'un POP ;</li>
+      <li><strong>Supabase</strong> : architecture managée AWS multi-AZ (zones de disponibilité multiples au sein de la région eu-central-1), redondance automatique ;</li>
+      <li><strong>DNS</strong> : TTL court, basculement DNS prêt en cas de migration urgente.</li>
+    </ul>
+
+    <h3>3.2 Sauvegardes</h3>
+    <ul>
+      <li><strong>Point-In-Time Recovery (PITR) Supabase</strong> : restauration à n'importe quel instant des 7 derniers jours ;</li>
+      <li>Backups quotidiens automatiques chiffrés ;</li>
+      <li>Snapshots stockés en cross-region sur l'infra AWS de Supabase pour résilience régionale ;</li>
+      <li>Test de restauration <strong>trimestriel</strong> sur environnement isolé.</li>
+    </ul>
+
+    <h3>3.3 Monitoring et alerting</h3>
+    <ul>
+      <li>Supervision Supabase (santé DB, latence, requêtes) ;</li>
+      <li>Supervision Vercel (uptime, temps de réponse, erreurs 5xx) ;</li>
+      <li>Alerting sur seuils critiques : SMS / email vers astreinte technique ;</li>
+      <li>Page de statut publique (à mettre en place — status.mib-prevention.fr).</li>
+    </ul>
+
+    <h3>3.4 Astreinte</h3>
+    <ul>
+      <li>Astreinte technique 7j/7 pour les incidents P1 (service indisponible) ;</li>
+      <li>Délai de prise en charge : 30 min en heures ouvrées, 1 h hors heures ouvrées ;</li>
+      <li>Liste des contacts dans la section 6.</li>
+    </ul>
+
+    <h2>4. Plan de Reprise d'Activité (PRA)</h2>
+
+    <h3>4.1 Procédure générique de reprise</h3>
+    <ol>
+      <li><strong>Détection</strong> — alerte automatique ou signalement client ;</li>
+      <li><strong>Qualification</strong> — par le responsable d'astreinte (P1 à P4) ;</li>
+      <li><strong>Mobilisation</strong> — cellule de crise (P1 : direction + tech, P2 : tech) ;</li>
+      <li><strong>Confinement</strong> — isolement du périmètre impacté, communication initiale ;</li>
+      <li><strong>Restauration</strong> — selon scénario (cf. infra) ;</li>
+      <li><strong>Validation</strong> — tests fonctionnels avant remise en production ;</li>
+      <li><strong>Communication</strong> — notification clients, mise à jour statut ;</li>
+      <li><strong>Retour d'expérience (post-mortem)</strong> — sous 7 jours pour les P1.</li>
+    </ol>
+
+    <h3>4.2 Scénarios et procédures</h3>
+
+    <h4>Scénario 1 — Indisponibilité Supabase (hébergeur DB)</h4>
+    <ul>
+      <li><strong>Cause possible</strong> : panne AWS eu-central-1, incident Supabase global ;</li>
+      <li><strong>Première étape</strong> : vérifier <a href="https://status.supabase.com" target="_blank" rel="noopener">status.supabase.com</a> et <a href="https://health.aws.amazon.com/health/status" target="_blank" rel="noopener">status AWS</a> ;</li>
+      <li><strong>Procédure</strong> : afficher page de maintenance frontend, communiquer aux clients via email/statut, suivre la résolution upstream ;</li>
+      <li><strong>RTO</strong> : dépend du fournisseur — historique : 99,9 % uptime Supabase ;</li>
+      <li><strong>Plan de secours</strong> envisagé à terme : migration vers projet Supabase de secours dans une autre région UE (à l'étude).</li>
+    </ul>
+
+    <h4>Scénario 2 — Corruption de la base de données</h4>
+    <ul>
+      <li><strong>Cause possible</strong> : bug applicatif, fausse manipulation, attaque ciblée ;</li>
+      <li><strong>Procédure</strong> :
+        <ol>
+          <li>Identifier l'horodatage juste avant la corruption ;</li>
+          <li>Geler les écritures (mode maintenance) ;</li>
+          <li>Restaurer via PITR à T-X minutes/heures (interface Supabase) ;</li>
+          <li>Vérifier l'intégrité des données ;</li>
+          <li>Communiquer aux clients sur les éventuelles données perdues entre T et l'incident.</li>
+        </ol>
+      </li>
+      <li><strong>RTO</strong> : 2-4 h ; <strong>RPO</strong> : 5 min à 24 h selon timing.</li>
+    </ul>
+
+    <h4>Scénario 3 — Attaque cyber (intrusion, ransomware, déni de service)</h4>
+    <ul>
+      <li>Voir la <a href="procedure-incidents.html">procédure incidents</a> détaillée ;</li>
+      <li>Mesures immédiates : isolation (révocation tokens, rotation secrets), analyse forensique, notification CNIL si données personnelles compromises (sous 72 h) ;</li>
+      <li>Restauration depuis backup sain ;</li>
+      <li>Communication crise transparente avec les clients.</li>
+    </ul>
+
+    <h4>Scénario 4 — Indisponibilité Vercel (frontend)</h4>
+    <ul>
+      <li>Vercel dispose d'un Edge Network multi-régions très résilient ;</li>
+      <li>En cas d'indisponibilité globale Vercel : mise à disposition d'un domaine de secours Cloudflare Pages avec le même build (déploiement préalablement préparé), bascule DNS ;</li>
+      <li><strong>RTO</strong> cible : 1-2 h pour la bascule frontend.</li>
+    </ul>
+
+    <h4>Scénario 5 — Incendie / sinistre des locaux MIB</h4>
+    <ul>
+      <li><strong>Impact</strong> : limité, l'infrastructure de production est intégralement dans le cloud ;</li>
+      <li><strong>Conséquences</strong> : perte des postes de travail, des supports physiques ;</li>
+      <li><strong>Procédure</strong> : tous les collaborateurs disposent de postes portables chiffrés avec sauvegarde cloud, possibilité de télétravail immédiat depuis n'importe quel site ;</li>
+      <li>Postes de remplacement commandés sous 48 h.</li>
+    </ul>
+
+    <h4>Scénario 6 — Défaillance Stripe (paiements)</h4>
+    <ul>
+      <li>Acceptation temporaire des paiements par virement uniquement ;</li>
+      <li>Communication aux clients ;</li>
+      <li>Pas d'impact sur l'usage du service par les clients déjà à jour.</li>
+    </ul>
+
+    <h4>Scénario 7 — Défaillance Resend (emails)</h4>
+    <ul>
+      <li>Bascule vers fournisseur de secours (configuration préalable possible : SendGrid, Postmark) ;</li>
+      <li>Les emails critiques (reset mot de passe, factures) peuvent transiter par un secours technique sous 4 h.</li>
+    </ul>
+
+    <h2>5. Communication de crise</h2>
+    <ul>
+      <li><strong>Canal principal</strong> : email à l'administrateur de chaque centre client actif ;</li>
+      <li><strong>Canal complémentaire</strong> : page de statut publique (status.mib-prevention.fr — à mettre en place) ;</li>
+      <li><strong>Template</strong> de communication initiale disponible en annexe de la <a href="procedure-incidents.html">procédure incidents</a> ;</li>
+      <li><strong>Délai d'information</strong> : 1 h après confirmation d'un incident P1.</li>
+    </ul>
+
+    <h2>6. Cellule de crise — Coordonnées</h2>
+    <ul>
+      <li><strong>Directeur de crise :</strong> <code>[À COMPLÉTER : nom + téléphone]</code></li>
+      <li><strong>RSSI :</strong> <code>[À COMPLÉTER : nom + téléphone]</code></li>
+      <li><strong>Responsable technique :</strong> <code>[À COMPLÉTER : nom + téléphone]</code></li>
+      <li><strong>DPO :</strong> <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a></li>
+      <li><strong>Astreinte 24/7 :</strong> <code>[À COMPLÉTER : numéro d'astreinte]</code></li>
+      <li><strong>Support Supabase Enterprise :</strong> selon contrat support actif</li>
+      <li><strong>Support Vercel :</strong> selon contrat support actif</li>
+    </ul>
+
+    <h2>7. Tests du PCA / PRA</h2>
+    <p>Le présent plan fait l'objet de tests réguliers :</p>
+    <ul>
+      <li><strong>Tests de restauration backup</strong> : trimestriels, sur environnement isolé ;</li>
+      <li><strong>Exercice complet PRA</strong> : annuel — simulation d'un sinistre majeur (Supabase indisponible 4 h) avec mobilisation de la cellule de crise ;</li>
+      <li><strong>Exercice de communication</strong> : annuel ;</li>
+      <li><strong>Revue documentaire</strong> : annuelle ou suite à incident significatif.</li>
+    </ul>
+    <p>Le rapport de chaque test (synthèse anonymisée) est disponible sur demande sous NDA.</p>
+
+    <h2>8. Améliorations continues</h2>
+    <p>Chaque incident significatif donne lieu à un <strong>retour d'expérience (post-mortem)</strong> et à des actions correctives priorisées dans le backlog technique. Le suivi des actions est revu lors du comité sécurité trimestriel.</p>
+
+  </article>
+
+  <div class="legal-footer">
+    <p>
+      <strong>MIB Prévention</strong> — Plateforme SaaS de formation SSIAP<br>
+      Pour toute question : <a href="mailto:contact@mib-prevention.fr">contact@mib-prevention.fr</a><br>
+      <a href="index.html">← Retour au référentiel juridique</a>
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Sous-traitants ultérieurs — MIB Prévention</title>
+<meta name="theme-color" content="#F8FAFC">
+<link rel="icon" href="/Logo MIB.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../design-tokens.css">
+<link rel="stylesheet" href="../mib-design.css">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+
+<div class="legal-topbar">
+  <a href="index.html" class="legal-back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"></line>
+      <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    Retour au référentiel
+  </a>
+  <h1>Sous-traitants</h1>
+</div>
+
+<div class="legal-wrap">
+
+  <div class="legal-hero">
+    <div class="eyebrow">Document RGPD — Article 28.4</div>
+    <h1>Liste des sous-traitants ultérieurs</h1>
+    <p class="lead">Conformément à l'article 28.4 du RGPD, MIB Prévention rend publique la liste des sous-traitants ultérieurs auxquels elle a recours pour fournir son service, ainsi que les garanties associées.</p>
+    <div class="meta">
+      <span><strong>Version :</strong> 1.0 — Projet</span>
+      <span><strong>Dernière mise à jour :</strong> Mai 2026</span>
+      <span><strong>Statut :</strong> À valider par avocat</span>
+    </div>
+  </div>
+
+  <div class="legal-warning">
+    <span class="icon">⚠️</span>
+    <div>
+      <strong>Projet de document — à valider par un avocat</strong>
+      Ce document est une base de travail rédigée selon les standards juridiques français B2B. Il doit être adapté à votre situation précise et validé par un avocat spécialisé en droit du numérique avant publication.
+    </div>
+  </div>
+
+  <article class="legal-article">
+
+    <h2>1. Principe</h2>
+    <p>MIB Prévention recourt à des sous-traitants ultérieurs (« sub-processors ») pour la fourniture de son service. Ces sous-traitants sont sélectionnés pour leur fiabilité, leur conformité réglementaire et leur capacité à offrir des garanties techniques et organisationnelles appropriées au sens de l'article 28 du RGPD.</p>
+
+    <h2>2. Tableau des sous-traitants</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Sous-traitant</th>
+          <th>Pays / Localisation des données</th>
+          <th>Catégorie de données</th>
+          <th>Finalité</th>
+          <th>Garanties RGPD</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Supabase Inc.</strong></td>
+          <td>Siège : Singapour<br>Serveurs : Frankfurt (DE, UE)<br>AWS eu-central-1</td>
+          <td>Toutes données utilisateurs (identité, scores, sessions)</td>
+          <td>Hébergement base de données PostgreSQL, authentification, stockage de fichiers</td>
+          <td>DPA Supabase signé<br>SCC<br>Chiffrement TLS / AES-256</td>
+        </tr>
+        <tr>
+          <td><strong>Vercel Inc.</strong></td>
+          <td>USA (siège)<br>Edge Network mondial avec POPs UE</td>
+          <td>Logs techniques, métadonnées HTTP (IP, user-agent)</td>
+          <td>Hébergement frontend, CDN, Edge Functions</td>
+          <td>DPA Vercel signé<br>SCC<br>Adhésion EU-US DPF</td>
+        </tr>
+        <tr>
+          <td><strong>Stripe Payments Europe Ltd</strong></td>
+          <td>Irlande (UE)<br>Traitement principal en UE</td>
+          <td>Données de paiement (CB), informations facturation</td>
+          <td>Traitement des paiements CB, lutte anti-fraude</td>
+          <td>Conformité PCI-DSS niveau 1<br>DPA Stripe<br>Pas de transfert sortant pour la zone EU</td>
+        </tr>
+        <tr>
+          <td><strong>Resend (Resend, Inc.)</strong></td>
+          <td>USA</td>
+          <td>Email destinataire, contenu transactionnel, métadonnées d'envoi</td>
+          <td>Envoi d'emails transactionnels (inscription, mot de passe, factures)</td>
+          <td>DPA Resend<br>SCC<br>Chiffrement TLS</td>
+        </tr>
+        <tr>
+          <td><strong>GitHub Inc.</strong> (Microsoft)</td>
+          <td>USA (avec data residency UE possible)</td>
+          <td>Code source uniquement — <strong>pas de données clients</strong></td>
+          <td>Hébergement du code source, gestion des versions</td>
+          <td>DPA GitHub / Microsoft<br>SCC<br>EU-US DPF<br>ISO 27001</td>
+        </tr>
+        <tr>
+          <td><strong>Google LLC</strong> (Google Fonts)</td>
+          <td>USA</td>
+          <td>Adresse IP transitoire lors du chargement de la police (pas de cookie)</td>
+          <td>Service de polices typographiques web</td>
+          <td>SCC<br>EU-US DPF<br>Polices auto-hébergeables si exigence client</td>
+        </tr>
+        <tr>
+          <td><strong>Cloudflare, Inc.</strong> <em>(via Vercel)</em></td>
+          <td>USA<br>POPs UE</td>
+          <td>Métadonnées de trafic, IP source</td>
+          <td>Protection DDoS, WAF (par le biais de Vercel)</td>
+          <td>SCC<br>EU-US DPF</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>3. Notification de changement</h2>
+    <p>Conformément au DPA et au RGPD, MIB Prévention s'engage à :</p>
+    <ul>
+      <li>Informer les Clients de tout ajout, remplacement ou suppression de sous-traitant ultérieur avec un <strong>préavis d'au moins 30 jours</strong> avant entrée en vigueur ;</li>
+      <li>Procéder à cette information par :
+        <ul>
+          <li>Mise à jour de la présente page (avec changelog au bas de page) ;</li>
+          <li>Email à l'administrateur de chaque compte centre actif ;</li>
+        </ul>
+      </li>
+      <li>Imposer aux nouveaux sous-traitants les mêmes obligations contractuelles RGPD que celles décrites dans le DPA.</li>
+    </ul>
+
+    <h2>4. Droit d'opposition du Client</h2>
+    <p>Le Client (centre de formation, responsable de traitement) peut s'opposer à l'introduction ou au remplacement d'un sous-traitant ultérieur en notifiant son opposition motivée à <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a> dans le délai de préavis de 30 jours.</p>
+    <p>Si l'opposition est fondée et qu'aucune solution alternative ne peut être mise en place, chaque partie disposera de la faculté de résilier le contrat sans pénalité ni indemnité. Aucune absence de réponse dans le délai ne vaut acceptation tacite.</p>
+
+    <h2>5. Justificatifs et DPA des fournisseurs</h2>
+    <p>Les DPA et engagements de sous-traitance des principaux fournisseurs sont publiquement consultables :</p>
+    <ul>
+      <li>Supabase : <a href="https://supabase.com/legal/dpa" target="_blank" rel="noopener">supabase.com/legal/dpa</a></li>
+      <li>Vercel : <a href="https://vercel.com/legal/dpa" target="_blank" rel="noopener">vercel.com/legal/dpa</a></li>
+      <li>Stripe : <a href="https://stripe.com/legal/dpa" target="_blank" rel="noopener">stripe.com/legal/dpa</a></li>
+      <li>Resend : <a href="https://resend.com/legal/dpa" target="_blank" rel="noopener">resend.com/legal/dpa</a></li>
+      <li>GitHub : <a href="https://github.com/customer-terms/github-data-protection-agreement" target="_blank" rel="noopener">github.com/customer-terms</a></li>
+      <li>Google : <a href="https://privacy.google.com/businesses/processorterms/" target="_blank" rel="noopener">privacy.google.com/businesses/processorterms</a></li>
+    </ul>
+
+    <h2>6. Historique des modifications</h2>
+    <table>
+      <thead><tr><th>Date</th><th>Modification</th></tr></thead>
+      <tbody>
+        <tr><td>Mai 2026</td><td>Création initiale de la liste (v1.0)</td></tr>
+      </tbody>
+    </table>
+
+    <div class="legal-callout">
+      <strong>Vous avez une question ?</strong><br>
+      Pour toute interrogation sur nos sous-traitants ou sur le traitement de vos données, contactez notre référent RGPD : <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a>.
+    </div>
+
+  </article>
+
+  <div class="legal-footer">
+    <p>
+      <strong>MIB Prévention</strong> — Plateforme SaaS de formation SSIAP<br>
+      Pour toute question : <a href="mailto:contact@mib-prevention.fr">contact@mib-prevention.fr</a><br>
+      <a href="index.html">← Retour au référentiel juridique</a>
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>
