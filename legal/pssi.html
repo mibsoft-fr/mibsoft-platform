@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>PSSI — Politique de sécurité — MIB Prévention</title>
+<meta name="theme-color" content="#F8FAFC">
+<link rel="icon" href="/Logo MIB.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../design-tokens.css">
+<link rel="stylesheet" href="../mib-design.css">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+
+<div class="legal-topbar">
+  <a href="index.html" class="legal-back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"></line>
+      <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    Retour au référentiel
+  </a>
+  <h1>PSSI</h1>
+</div>
+
+<div class="legal-wrap">
+
+  <div class="legal-hero">
+    <div class="eyebrow">Document de sécurité — Référentiel interne</div>
+    <h1>Politique de Sécurité du Système d'Information (PSSI)</h1>
+    <p class="lead">Politique de sécurité encadrant la protection des données, de l'infrastructure et des accès du service MIB Prévention. Document fourni aux Clients dans le cadre du DPA.</p>
+    <div class="meta">
+      <span><strong>Version :</strong> 2.0 — Projet</span>
+      <span><strong>Dernière mise à jour :</strong> Mai 2026</span>
+      <span><strong>Statut :</strong> À valider par avocat / RSSI</span>
+    </div>
+  </div>
+
+  <div class="legal-warning">
+    <span class="icon">⚠️</span>
+    <div>
+      <strong>Projet de document — à valider par un avocat et un RSSI</strong>
+      Ce document est une base de travail rédigée selon les standards juridiques français B2B. Il doit être adapté à votre situation précise et validé par un avocat et un responsable sécurité avant publication.
+    </div>
+  </div>
+
+  <article class="legal-article">
+
+    <h2>1. Objet et portée</h2>
+    <p>La présente Politique de Sécurité du Système d'Information (« <strong>PSSI</strong> ») définit les principes, mesures et procédures de sécurité mis en œuvre par MIB Prévention pour garantir la <strong>confidentialité</strong>, l'<strong>intégrité</strong>, la <strong>disponibilité</strong> et la <strong>traçabilité</strong> (CIDT) des données et systèmes hébergeant le service.</p>
+    <p>Elle s'applique à l'ensemble des collaborateurs, prestataires, sous-traitants ayant accès au système d'information de MIB Prévention, ainsi qu'à toute personne intervenant dans son cycle de vie.</p>
+
+    <h2>2. Gouvernance</h2>
+    <ul>
+      <li><strong>Responsable sécurité :</strong> <code>[À COMPLÉTER : nom du RSSI ou mention « RSSI externalisé »]</code> ;</li>
+      <li><strong>DPO :</strong> <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a> ;</li>
+      <li><strong>Revue annuelle</strong> de la PSSI par la direction ;</li>
+      <li><strong>Comité sécurité</strong> trimestriel (technique + direction).</li>
+    </ul>
+
+    <h2>3. Architecture et hébergement</h2>
+
+    <h3>3.1 Topologie</h3>
+    <ul>
+      <li><strong>Frontend</strong> : Vercel (edge network), site statique + Edge Functions ;</li>
+      <li><strong>Backend / DB</strong> : Supabase — PostgreSQL managé sur AWS <strong>eu-central-1 (Frankfurt)</strong> ;</li>
+      <li><strong>Authentification</strong> : Supabase Auth (GoTrue), JWT signés ;</li>
+      <li><strong>Stockage fichiers</strong> : Supabase Storage (S3-compatible) en région Frankfurt ;</li>
+      <li><strong>Emails</strong> : Resend ;</li>
+      <li><strong>Paiements</strong> : Stripe.</li>
+    </ul>
+
+    <h3>3.2 Localisation des données</h3>
+    <div class="legal-callout">
+      <strong>Toutes les données de production sont stockées dans l'Union européenne (Frankfurt, Allemagne).</strong> Aucun stockage primaire n'est effectué hors UE. Les transferts éventuels vers les USA sont limités à des métadonnées techniques (logs Vercel, logs Resend) encadrées par des SCC et l'EU-US DPF.
+    </div>
+
+    <h2>4. Chiffrement</h2>
+    <ul>
+      <li><strong>En transit</strong> : TLS 1.3 obligatoire (HSTS activé, redirection HTTPS automatique, suite cryptographique modernes — A+ SSLLabs) ;</li>
+      <li><strong>Au repos</strong> : AES-256 pour la base PostgreSQL et le stockage S3 (chiffrement géré par AWS + Supabase) ;</li>
+      <li><strong>Mots de passe</strong> : hachés en <strong>bcrypt</strong> (cost ≥ 10) ou <strong>argon2id</strong>, jamais stockés en clair ;</li>
+      <li><strong>Secrets applicatifs</strong> : stockés dans le coffre Vercel + variables d'environnement chiffrées, jamais commitées dans Git ;</li>
+      <li><strong>Tokens JWT</strong> : signés HMAC-SHA256 avec rotation périodique des secrets.</li>
+    </ul>
+
+    <h2>5. Authentification et gestion des accès</h2>
+
+    <h3>5.1 Utilisateurs finaux</h3>
+    <ul>
+      <li>Mot de passe avec exigence de complexité (longueur min. 10 caractères, mélange) ;</li>
+      <li>Verrouillage automatique après 5 tentatives échouées (5 minutes) ;</li>
+      <li>Réinitialisation de mot de passe par email avec lien à usage unique limité à 1 h ;</li>
+      <li>MFA (authentification à deux facteurs) recommandée pour les administrateurs centre, obligatoire à partir du plan Entreprise.</li>
+    </ul>
+
+    <h3>5.2 Administrateurs MIB</h3>
+    <ul>
+      <li><strong>MFA obligatoire</strong> sur tous les comptes (Supabase, Vercel, Stripe, GitHub) ;</li>
+      <li>Comptes nominatifs, pas de compte générique partagé ;</li>
+      <li>Principe du moindre privilège ;</li>
+      <li>Revue d'accès trimestrielle ;</li>
+      <li>Révocation immédiate en cas de départ.</li>
+    </ul>
+
+    <h2>6. Cloisonnement multi-tenants (Row Level Security)</h2>
+    <p>L'isolation entre centres de formation est garantie au niveau base de données par le mécanisme <strong>Row Level Security (RLS)</strong> de PostgreSQL.</p>
+    <ul>
+      <li>Chaque table sensible (stagiaires, formateurs, scores, sessions) porte une colonne <code>center_id</code> ;</li>
+      <li>Des policies RLS strictes filtrent automatiquement chaque requête en fonction du JWT de l'utilisateur connecté ;</li>
+      <li>Les tests automatisés vérifient régulièrement que les fuites cross-tenant sont impossibles ;</li>
+      <li>L'accès direct à la base de données est interdit en production, hors administrateur dûment habilité.</li>
+    </ul>
+
+    <h2>7. Sauvegardes et restauration</h2>
+    <ul>
+      <li><strong>PITR (Point-In-Time Recovery)</strong> Supabase activé — restauration à n'importe quel point dans les <strong>7 derniers jours</strong> ;</li>
+      <li>Backups quotidiens automatiques chiffrés, stockés en région distincte (résilience régionale) ;</li>
+      <li>Tests de restauration trimestriels (objectif : RTO < 4 h, RPO < 24 h — voir <a href="pra-pca.html">PRA/PCA</a>) ;</li>
+      <li>Sauvegardes purgées au-delà de 90 jours pour respecter le principe de minimisation des données.</li>
+    </ul>
+
+    <h2>8. Journalisation et audit</h2>
+    <ul>
+      <li>Logs d'authentification (succès et échecs) conservés 1 an ;</li>
+      <li>Logs d'actions sensibles (création, modification, suppression utilisateur, paiement) conservés 1 an ;</li>
+      <li>Logs requêtes SQL anonymisés via Supabase ;</li>
+      <li>Logs Vercel (Edge / Functions) ;</li>
+      <li>Alerting automatique sur événements suspects (échecs massifs, requêtes anormales, élévation de privilèges).</li>
+    </ul>
+
+    <h2>9. Mise à jour et gestion des vulnérabilités</h2>
+    <ul>
+      <li>Suivi automatisé des CVE des dépendances (Dependabot, npm audit, GitHub Security Advisories) ;</li>
+      <li>Application des patches critiques sous <strong>48 h</strong>, des patches élevés sous <strong>7 jours</strong> ;</li>
+      <li>Mise à jour mineure mensuelle planifiée ;</li>
+      <li>Veille sur les bulletins ANSSI / CERT-FR.</li>
+    </ul>
+
+    <h2>10. Sécurité du développement</h2>
+    <ul>
+      <li>Revue de code obligatoire (Pull Request) sur les modifications critiques ;</li>
+      <li>Tests automatisés (unitaires, intégration) sur chaque PR ;</li>
+      <li>Tests dédiés aux policies RLS (cross-tenant) ;</li>
+      <li>Pas de secret en clair dans le code (scans automatiques via GitHub) ;</li>
+      <li>Environnements séparés : développement, staging, production ;</li>
+      <li>Données réelles jamais utilisées en développement (datasets anonymisés).</li>
+    </ul>
+
+    <h2>11. Sécurité physique</h2>
+    <p>L'infrastructure étant intégralement hébergée chez des prestataires cloud certifiés (Supabase / AWS Frankfurt — certifications ISO 27001, SOC 2 Type II ; Vercel — SOC 2), la sécurité physique est déléguée à ces opérateurs. MIB Prévention ne dispose pas de salle serveur en propre.</p>
+    <p>Les locaux administratifs de MIB Prévention disposent d'un contrôle d'accès et les postes de travail des collaborateurs sont :</p>
+    <ul>
+      <li>Chiffrés (FileVault macOS / BitLocker Windows / LUKS Linux) ;</li>
+      <li>Protégés par mot de passe fort + verrouillage automatique ;</li>
+      <li>Équipés d'antivirus / EDR ;</li>
+      <li>Mis à jour automatiquement.</li>
+    </ul>
+
+    <h2>12. Sensibilisation et formation</h2>
+    <ul>
+      <li>Sensibilisation RGPD et sécurité de tout nouveau collaborateur à l'arrivée ;</li>
+      <li>Rappel annuel des bonnes pratiques (phishing, mot de passe, gestion des données) ;</li>
+      <li>Engagement de confidentialité signé par tous les collaborateurs et prestataires.</li>
+    </ul>
+
+    <h2>13. Sous-traitants et chaîne de sécurité</h2>
+    <p>MIB Prévention sélectionne ses sous-traitants sur leurs garanties RGPD et sécurité (voir <a href="sous-traitants.html">sous-traitants</a>). Tous les sous-traitants principaux disposent de certifications reconnues (ISO 27001, SOC 2) et signent un DPA conforme.</p>
+
+    <h2>14. Tests de pénétration et audits</h2>
+    <ul>
+      <li><strong>Pentest annuel</strong> par un prestataire externe spécialisé (à planifier — premier pentest prévu <code>[À COMPLÉTER : trimestre]</code>) ;</li>
+      <li>Scope : application web, API, infra exposée, RLS ;</li>
+      <li>Rapport sécurisé, anomalies corrigées selon criticité (critique : 48 h, élevée : 7 jours) ;</li>
+      <li>Synthèse anonymisée disponible sur demande aux Clients sous NDA.</li>
+    </ul>
+
+    <h2>15. Conformité RGPD et réglementaire</h2>
+    <p>La PSSI s'inscrit en cohérence avec :</p>
+    <ul>
+      <li>L'article 32 du RGPD (sécurité du traitement) ;</li>
+      <li>Le référentiel <strong>guide CNIL de la sécurité des données personnelles</strong> ;</li>
+      <li>Les recommandations <strong>ANSSI</strong> applicables aux PME numériques ;</li>
+      <li>Les bonnes pratiques OWASP (Top 10).</li>
+    </ul>
+
+    <h2>16. Gestion des incidents</h2>
+    <p>La gestion opérationnelle des incidents (cyber, fuites de données, attaques) est détaillée dans la <a href="procedure-incidents.html">Procédure de gestion des incidents</a>.</p>
+
+    <h2>17. Continuité d'activité</h2>
+    <p>La continuité et la reprise d'activité sont décrites dans le <a href="pra-pca.html">PCA / PRA</a>.</p>
+
+    <h2>18. Révision</h2>
+    <p>La présente PSSI fait l'objet d'une revue annuelle minimum, et de mises à jour à la suite de tout incident significatif ou évolution majeure de l'architecture. Toute modification est validée par le RSSI et la direction.</p>
+
+  </article>
+
+  <div class="legal-footer">
+    <p>
+      <strong>MIB Prévention</strong> — Plateforme SaaS de formation SSIAP<br>
+      Pour toute question : <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a><br>
+      <a href="index.html">← Retour au référentiel juridique</a>
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>

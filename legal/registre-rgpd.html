@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Registre des traitements RGPD — MIB Prévention</title>
+<meta name="theme-color" content="#F8FAFC">
+<link rel="icon" href="/Logo MIB.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../design-tokens.css">
+<link rel="stylesheet" href="../mib-design.css">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+
+<div class="legal-topbar">
+  <a href="index.html" class="legal-back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"></line>
+      <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    Retour au référentiel
+  </a>
+  <h1>Registre RGPD</h1>
+</div>
+
+<div class="legal-wrap">
+
+  <div class="legal-hero">
+    <div class="eyebrow">Document RGPD — Article 30</div>
+    <h1>Registre des activités de traitement</h1>
+    <p class="lead">Registre tenu par MIB Prévention en application de l'article 30 du RGPD, recensant l'ensemble des traitements de données à caractère personnel mis en œuvre.</p>
+    <div class="meta">
+      <span><strong>Version :</strong> 1.0 — Projet</span>
+      <span><strong>Dernière mise à jour :</strong> Mai 2026</span>
+      <span><strong>Statut :</strong> À valider par avocat</span>
+    </div>
+  </div>
+
+  <div class="legal-warning">
+    <span class="icon">⚠️</span>
+    <div>
+      <strong>Projet de document — à valider par un avocat</strong>
+      Ce document est une base de travail rédigée selon les standards juridiques français B2B. Il doit être adapté à votre situation précise et validé par un avocat spécialisé en droit du numérique avant publication.
+    </div>
+  </div>
+
+  <article class="legal-article">
+
+    <h2>Coordonnées du responsable de traitement</h2>
+    <ul>
+      <li><strong>Raison sociale :</strong> <code>[À COMPLÉTER]</code></li>
+      <li><strong>Adresse :</strong> <code>[À COMPLÉTER]</code></li>
+      <li><strong>DPO / Référent RGPD :</strong> <code>[À COMPLÉTER]</code> — <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a></li>
+    </ul>
+
+    <div class="legal-callout">
+      <strong>Note méthodologique :</strong> ce registre couvre les traitements pour lesquels MIB Prévention est <strong>responsable de traitement</strong>. Pour les traitements où MIB agit en sous-traitant (données stagiaires / formateurs créés par les centres), le registre est tenu en application de l'article 30 §2 RGPD et fourni sur demande aux Clients.
+    </div>
+
+    <h2>Fiche n° 1 — Gestion des comptes centre de formation</h2>
+    <table>
+      <tbody>
+        <tr><td><strong>Responsable</strong></td><td>MIB Prévention</td></tr>
+        <tr><td><strong>Finalité</strong></td><td>Gestion contractuelle, ouverture, suivi et clôture des comptes administrateurs des centres clients</td></tr>
+        <tr><td><strong>Base légale</strong></td><td>Exécution du contrat (art. 6.1.b RGPD)</td></tr>
+        <tr><td><strong>Catégories de personnes</strong></td><td>Représentants légaux et administrateurs des centres de formation</td></tr>
+        <tr><td><strong>Catégories de données</strong></td><td>Identité (nom, prénom, fonction), contact pro (email, téléphone), entreprise (raison sociale, SIRET, adresse)</td></tr>
+        <tr><td><strong>Destinataires</strong></td><td>Équipe MIB Prévention (commercial, support, comptabilité), hébergeurs sous-traitants (Supabase, Vercel)</td></tr>
+        <tr><td><strong>Transferts hors UE</strong></td><td>Aucun pour la donnée principale (Frankfurt). Métadonnées Vercel : USA — SCC + DPF</td></tr>
+        <tr><td><strong>Durée de conservation</strong></td><td>Durée du contrat + 3 ans (prescription commerciale)</td></tr>
+        <tr><td><strong>Mesures de sécurité</strong></td><td>RLS, chiffrement, MFA recommandé, journalisation</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Fiche n° 2 — Comptes formateurs (sous-traitance)</h2>
+    <table>
+      <tbody>
+        <tr><td><strong>Rôle MIB</strong></td><td>Sous-traitant (le responsable est le centre de formation employeur)</td></tr>
+        <tr><td><strong>Finalité</strong></td><td>Hébergement et mise à disposition d'une interface de gestion pédagogique pour les formateurs</td></tr>
+        <tr><td><strong>Catégories de personnes</strong></td><td>Formateurs salariés ou indépendants des centres clients</td></tr>
+        <tr><td><strong>Catégories de données</strong></td><td>Identité, email pro, rôle, sessions animées, statistiques personnelles d'usage</td></tr>
+        <tr><td><strong>Destinataires</strong></td><td>Administrateur du centre, équipe support MIB (sur demande explicite)</td></tr>
+        <tr><td><strong>Transferts hors UE</strong></td><td>Aucun (Supabase Frankfurt)</td></tr>
+        <tr><td><strong>Durée de conservation</strong></td><td>Durée du contrat centre + 30 jours (réversibilité)</td></tr>
+        <tr><td><strong>Mesures de sécurité</strong></td><td>RLS multi-tenants par centre, journalisation des actions, chiffrement</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Fiche n° 3 — Comptes stagiaires (sous-traitance)</h2>
+    <table>
+      <tbody>
+        <tr><td><strong>Rôle MIB</strong></td><td>Sous-traitant (le responsable est le centre de formation organisateur de la session)</td></tr>
+        <tr><td><strong>Finalité</strong></td><td>Participation aux modules pédagogiques (QCM, Quiz Salle, Challenge Cup, SSI), suivi de progression, traçabilité des présences</td></tr>
+        <tr><td><strong>Catégories de personnes</strong></td><td>Stagiaires SSIAP 1, 2, 3 inscrits par les centres</td></tr>
+        <tr><td><strong>Catégories de données</strong></td><td>Identité (nom, prénom), email, pseudo Challenge Cup, scores QCM, présences, temps de réponse, photo de profil (optionnelle)</td></tr>
+        <tr><td><strong>Destinataires</strong></td><td>Formateurs et administrateur du centre concerné uniquement (isolation RLS)</td></tr>
+        <tr><td><strong>Transferts hors UE</strong></td><td>Aucun (Supabase Frankfurt)</td></tr>
+        <tr><td><strong>Durée de conservation</strong></td><td>Durée de la formation + 3 ans (cohérence Qualiopi) — réversibilité 30 jours après fin contrat centre</td></tr>
+        <tr><td><strong>Mesures de sécurité</strong></td><td>Isolation par centre, pseudo possible sur Challenge Cup, chiffrement</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Fiche n° 4 — Paiements et facturation</h2>
+    <table>
+      <tbody>
+        <tr><td><strong>Responsable</strong></td><td>MIB Prévention</td></tr>
+        <tr><td><strong>Finalité</strong></td><td>Encaissement des abonnements, édition des factures, suivi des paiements, recouvrement, comptabilité</td></tr>
+        <tr><td><strong>Base légale</strong></td><td>Exécution du contrat (art. 6.1.b) et obligation légale comptable (art. 6.1.c — L. 123-22 C. com.)</td></tr>
+        <tr><td><strong>Catégories de personnes</strong></td><td>Représentants des centres clients ayant la responsabilité financière</td></tr>
+        <tr><td><strong>Catégories de données</strong></td><td>Identité, contact, raison sociale, SIRET, adresse de facturation, montant, mode de paiement, statut, token Stripe (pas de CB stockée)</td></tr>
+        <tr><td><strong>Destinataires</strong></td><td>Comptabilité MIB, Stripe (paiement), expert-comptable, autorités fiscales sur réquisition</td></tr>
+        <tr><td><strong>Transferts hors UE</strong></td><td>Stripe : traitement principal en UE (Irlande)</td></tr>
+        <tr><td><strong>Durée de conservation</strong></td><td><strong>10 ans</strong> à compter de la clôture de l'exercice (article L. 123-22 C. com. et L. 102 B LPF)</td></tr>
+        <tr><td><strong>Mesures de sécurité</strong></td><td>Tokenisation Stripe, pas de stockage CB, accès limité comptabilité</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Fiche n° 5 — Support utilisateurs et contact</h2>
+    <table>
+      <tbody>
+        <tr><td><strong>Responsable</strong></td><td>MIB Prévention</td></tr>
+        <tr><td><strong>Finalité</strong></td><td>Traitement des demandes de support, réponse aux questions commerciales, suivi qualité</td></tr>
+        <tr><td><strong>Base légale</strong></td><td>Exécution du contrat / intérêt légitime à répondre aux demandes</td></tr>
+        <tr><td><strong>Catégories de personnes</strong></td><td>Utilisateurs ayant contacté le support, prospects</td></tr>
+        <tr><td><strong>Catégories de données</strong></td><td>Identité, email, contenu du message, pièces jointes éventuelles, historique d'échanges</td></tr>
+        <tr><td><strong>Destinataires</strong></td><td>Équipe support MIB Prévention</td></tr>
+        <tr><td><strong>Transferts hors UE</strong></td><td>Resend (USA) pour notifications email — SCC + DPF</td></tr>
+        <tr><td><strong>Durée de conservation</strong></td><td>3 ans à compter du dernier échange (prescription)</td></tr>
+        <tr><td><strong>Mesures de sécurité</strong></td><td>Outil interne ou helpdesk sécurisé, accès limité</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Fiche n° 6 — Journalisation et logs techniques</h2>
+    <table>
+      <tbody>
+        <tr><td><strong>Responsable</strong></td><td>MIB Prévention</td></tr>
+        <tr><td><strong>Finalité</strong></td><td>Détection d'incidents de sécurité, audit, diagnostic technique, lutte contre la fraude et l'abus</td></tr>
+        <tr><td><strong>Base légale</strong></td><td>Intérêt légitime (sécurité du SI — art. 6.1.f), obligation légale (LCEN art. 6 II — conservation 1 an des données de connexion)</td></tr>
+        <tr><td><strong>Catégories de personnes</strong></td><td>Tous utilisateurs du service</td></tr>
+        <tr><td><strong>Catégories de données</strong></td><td>Adresse IP, user-agent, horodatage, action effectuée, ressource consultée, code de réponse HTTP</td></tr>
+        <tr><td><strong>Destinataires</strong></td><td>Équipe technique MIB, hébergeur (Supabase, Vercel)</td></tr>
+        <tr><td><strong>Transferts hors UE</strong></td><td>Logs Vercel : USA — SCC + DPF</td></tr>
+        <tr><td><strong>Durée de conservation</strong></td><td>1 an (conformément aux exigences LCEN), puis purge ou anonymisation</td></tr>
+        <tr><td><strong>Mesures de sécurité</strong></td><td>Logs en lecture seule, accès restreint aux administrateurs, alerting automatique</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Fiche n° 7 — Prospection commerciale (optionnel)</h2>
+    <table>
+      <tbody>
+        <tr><td><strong>Responsable</strong></td><td>MIB Prévention</td></tr>
+        <tr><td><strong>Finalité</strong></td><td>Prospection commerciale B2B auprès de centres de formation cibles, suivi opportunités</td></tr>
+        <tr><td><strong>Base légale</strong></td><td>Intérêt légitime (prospection B2B sur emails professionnels nominatifs, dispensée de consentement — art. L. 34-5 CPCE)</td></tr>
+        <tr><td><strong>Catégories de personnes</strong></td><td>Représentants de centres de formation prospects</td></tr>
+        <tr><td><strong>Catégories de données</strong></td><td>Nom, prénom, fonction, email pro, téléphone pro, centre employeur</td></tr>
+        <tr><td><strong>Destinataires</strong></td><td>Équipe commerciale MIB</td></tr>
+        <tr><td><strong>Transferts hors UE</strong></td><td>Aucun (CRM hébergé en UE)</td></tr>
+        <tr><td><strong>Durée de conservation</strong></td><td>3 ans à compter du dernier contact</td></tr>
+        <tr><td><strong>Droit d'opposition</strong></td><td>Lien de désinscription dans chaque email et email <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Mise à jour du registre</h2>
+    <p>Le présent registre est revu et mis à jour :</p>
+    <ul>
+      <li>À chaque création ou modification substantielle d'un traitement ;</li>
+      <li>À chaque ajout ou retrait de sous-traitant ultérieur ;</li>
+      <li>Au minimum une fois par an dans le cadre d'une revue annuelle de conformité.</li>
+    </ul>
+    <p>Le registre est tenu à la disposition de la CNIL en cas de contrôle, conformément à l'article 30.4 du RGPD.</p>
+
+  </article>
+
+  <div class="legal-footer">
+    <p>
+      <strong>MIB Prévention</strong> — Plateforme SaaS de formation SSIAP<br>
+      Pour toute question : <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a><br>
+      <a href="index.html">← Retour au référentiel juridique</a>
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>

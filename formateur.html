@@ -654,7 +654,7 @@ body {
       </div>
       <div style="margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.10);">
         <div style="font-size:.65rem;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;padding:0 14px 6px;">Modules</div>
-        <a href="challenge-cup-ssiap/index.html" target="_blank" class="nav-item" style="text-decoration:none;">
+        <a href="javascript:void(0)" onclick="openChallengeCupSSIAP()" class="nav-item" style="text-decoration:none;">
           <span class="nav-icon">🏆</span> Challenge Cup SSIAP
         </a>
       </div>
@@ -1146,8 +1146,8 @@ function buildSessCard(sess, allStags, allEntr) {
            onmouseover="this.style.background='#2563eb';this.style.color='#fff'" onmouseout="this.style.background='#eff6ff';this.style.color='#2563eb'">
            🎯 Quiz Salle
         </a>
-        <a href="challenge-cup-ssiap/index.html" target="_blank"
-           onclick="event.stopPropagation()"
+        <a href="javascript:void(0)"
+           onclick="event.stopPropagation();openChallengeCupSSIAP()"
            class="shortcut-btn" style="background:#fff7ed;color:#d97706;border-color:#fed7aa;"
            onmouseover="this.style.background='#d97706';this.style.color='#fff'" onmouseout="this.style.background='#fff7ed';this.style.color='#d97706'">
            🏆 Challenge Cup
@@ -1892,6 +1892,19 @@ async function loadAvisStag() {
 /* ══════════════════════════════════════════
    SSIAP PATROL — Auto-login formateur
 ══════════════════════════════════════════ */
+function openChallengeCupSSIAP() {
+  // Marque qu'on arrive depuis le dashboard formateur (auth MIB déjà validée).
+  // L'app challenge-cup-ssiap détectera ce flag et bypassera son écran de login superviseur.
+  try {
+    localStorage.setItem('mib_cc_auth', JSON.stringify({
+      ts: Date.now(),
+      formateur: (FSESSION && (FSESSION.nom || FSESSION.formateurNom)) || 'Formateur',
+      formateurId: (FSESSION && (FSESSION.formateurId || FSESSION.formateur_id)) || null
+    }));
+  } catch(e) { console.warn('[challenge-cup] localStorage indisponible', e); }
+  window.open('challenge-cup-ssiap/index.html', '_blank');
+}
+
 function openPatrol(sessionId) {
   var centerId    = FSESSION.centerId    || FSESSION.center_id    || "";
   var formateurId = FSESSION.formateurId || FSESSION.formateur_id || "";

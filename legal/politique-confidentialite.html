@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Politique de confidentialité — MIB Prévention</title>
+<meta name="theme-color" content="#F8FAFC">
+<link rel="icon" href="/Logo MIB.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../design-tokens.css">
+<link rel="stylesheet" href="../mib-design.css">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+
+<div class="legal-topbar">
+  <a href="index.html" class="legal-back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"></line>
+      <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    Retour au référentiel
+  </a>
+  <h1>Confidentialité</h1>
+</div>
+
+<div class="legal-wrap">
+
+  <div class="legal-hero">
+    <div class="eyebrow">Document RGPD — Information des personnes</div>
+    <h1>Politique de confidentialité</h1>
+    <p class="lead">Description complète des traitements de données personnelles mis en œuvre par MIB Prévention, dans le respect du RGPD (Règlement UE 2016/679) et de la loi Informatique et Libertés.</p>
+    <div class="meta">
+      <span><strong>Version :</strong> 1.0 — Projet</span>
+      <span><strong>Dernière mise à jour :</strong> Mai 2026</span>
+      <span><strong>Statut :</strong> À valider par avocat</span>
+    </div>
+  </div>
+
+  <div class="legal-warning">
+    <span class="icon">⚠️</span>
+    <div>
+      <strong>Projet de document — à valider par un avocat</strong>
+      Ce document est une base de travail rédigée selon les standards juridiques français B2B. Il doit être adapté à votre situation précise et validé par un avocat spécialisé en droit du numérique avant publication.
+    </div>
+  </div>
+
+  <article class="legal-article">
+
+    <h2>1. Engagement et cadre légal</h2>
+    <p>MIB Prévention accorde une importance majeure à la protection des données personnelles et s'engage à respecter :</p>
+    <ul>
+      <li>Le Règlement (UE) 2016/679 du 27 avril 2016 (« <strong>RGPD</strong> ») ;</li>
+      <li>La loi n° 78-17 du 6 janvier 1978 modifiée relative à l'informatique, aux fichiers et aux libertés ;</li>
+      <li>Les recommandations et lignes directrices de la <strong>CNIL</strong> et du <strong>Comité européen de la protection des données (CEPD)</strong>.</li>
+    </ul>
+
+    <h2>2. Rôles de MIB Prévention</h2>
+    <p>MIB Prévention intervient à un double titre selon la nature des données :</p>
+
+    <h3>2.1 Responsable de traitement</h3>
+    <p>MIB Prévention est <strong>responsable de traitement</strong> pour :</p>
+    <ul>
+      <li>Les données des prospects et visiteurs du site (formulaires de contact, newsletter, démos) ;</li>
+      <li>Les données des comptes administrateurs des centres clients (gestion contractuelle, facturation, support) ;</li>
+      <li>Les données techniques (logs de connexion, métriques de performance) ;</li>
+      <li>Les données comptables liées aux factures.</li>
+    </ul>
+
+    <h3>2.2 Sous-traitant</h3>
+    <p>MIB Prévention agit en qualité de <strong>sous-traitant</strong> au sens de l'article 28 du RGPD pour :</p>
+    <ul>
+      <li>Les données des formateurs créées par les centres clients ;</li>
+      <li>Les données des stagiaires (identité, scores, présences, résultats QCM) ;</li>
+      <li>Les contenus pédagogiques propres au centre.</li>
+    </ul>
+    <p>Pour ces traitements, le <strong>centre de formation</strong> est responsable de traitement et un Data Processing Agreement (<a href="dpa.html">DPA</a>) encadre la sous-traitance.</p>
+
+    <h2>3. Données collectées et finalités</h2>
+
+    <h3>3.1 Données de compte (centre, formateur, stagiaire)</h3>
+    <table>
+      <thead><tr><th>Données</th><th>Finalité</th><th>Base légale</th></tr></thead>
+      <tbody>
+        <tr><td>Nom, prénom, email professionnel</td><td>Identification, communication</td><td>Exécution du contrat</td></tr>
+        <tr><td>Mot de passe (haché bcrypt/argon2)</td><td>Authentification sécurisée</td><td>Exécution du contrat</td></tr>
+        <tr><td>Rôle (admin, formateur, stagiaire)</td><td>Autorisation d'accès</td><td>Exécution du contrat</td></tr>
+        <tr><td>Centre de rattachement</td><td>Cloisonnement multi-tenant</td><td>Exécution du contrat</td></tr>
+      </tbody>
+    </table>
+
+    <h3>3.2 Données d'usage pédagogique</h3>
+    <table>
+      <thead><tr><th>Données</th><th>Finalité</th><th>Base légale</th></tr></thead>
+      <tbody>
+        <tr><td>Scores QCM, temps de réponse, historique</td><td>Suivi pédagogique, statistiques</td><td>Exécution du contrat</td></tr>
+        <tr><td>Présences aux sessions</td><td>Traçabilité Qualiopi (centre)</td><td>Obligation légale du centre</td></tr>
+        <tr><td>Réponses aux QCM</td><td>Évaluation continue</td><td>Exécution du contrat</td></tr>
+        <tr><td>Photos optionnelles (Patrol, ID)</td><td>Identification ronde / examen</td><td>Consentement / intérêt légitime</td></tr>
+      </tbody>
+    </table>
+
+    <h3>3.3 Données de paiement et facturation</h3>
+    <table>
+      <thead><tr><th>Données</th><th>Finalité</th><th>Base légale</th></tr></thead>
+      <tbody>
+        <tr><td>Raison sociale, SIRET, adresse facturation</td><td>Édition des factures</td><td>Obligation légale</td></tr>
+        <tr><td>Montant, mode de paiement, statut</td><td>Comptabilité, recouvrement</td><td>Obligation légale</td></tr>
+        <tr><td>Token Stripe (PAS de carte stockée chez nous)</td><td>Prélèvement récurrent</td><td>Exécution du contrat</td></tr>
+        <tr><td>RIB (pour prélèvement SEPA, le cas échéant)</td><td>Paiement</td><td>Exécution du contrat</td></tr>
+      </tbody>
+    </table>
+
+    <h3>3.4 Données de support et contact</h3>
+    <table>
+      <thead><tr><th>Données</th><th>Finalité</th><th>Base légale</th></tr></thead>
+      <tbody>
+        <tr><td>Email, téléphone, message, pièces jointes</td><td>Traitement de la demande</td><td>Intérêt légitime / contrat</td></tr>
+        <tr><td>Métadonnées (date, ticket, statut)</td><td>Suivi qualité support</td><td>Intérêt légitime</td></tr>
+      </tbody>
+    </table>
+
+    <h3>3.5 Données techniques et logs</h3>
+    <table>
+      <thead><tr><th>Données</th><th>Finalité</th><th>Base légale</th></tr></thead>
+      <tbody>
+        <tr><td>Adresse IP, user-agent, horodatage</td><td>Sécurité, détection d'intrusion</td><td>Intérêt légitime (sécurité)</td></tr>
+        <tr><td>Logs Supabase (requêtes DB anonymisées)</td><td>Diagnostic technique</td><td>Intérêt légitime</td></tr>
+        <tr><td>Métriques de performance (Vercel)</td><td>Optimisation du service</td><td>Intérêt légitime</td></tr>
+      </tbody>
+    </table>
+
+    <h2>4. Durées de conservation</h2>
+    <table>
+      <thead><tr><th>Catégorie</th><th>Durée active</th><th>Archivage</th></tr></thead>
+      <tbody>
+        <tr><td>Compte actif (toutes données)</td><td>Durée du contrat</td><td>—</td></tr>
+        <tr><td>Données après résiliation</td><td>30 jours (réversibilité)</td><td>Purge totale</td></tr>
+        <tr><td>Factures et comptabilité</td><td>10 ans</td><td>Obligation L. 123-22 C. com.</td></tr>
+        <tr><td>Sauvegardes techniques (PITR)</td><td>7 jours</td><td>Effacement automatique</td></tr>
+        <tr><td>Logs de connexion</td><td>1 an</td><td>Anonymisation puis purge</td></tr>
+        <tr><td>Tickets support</td><td>3 ans après dernier échange</td><td>Suppression</td></tr>
+        <tr><td>Prospects (CRM)</td><td>3 ans après dernier contact</td><td>Suppression</td></tr>
+        <tr><td>Newsletter</td><td>Jusqu'à désinscription + 6 mois</td><td>Suppression</td></tr>
+      </tbody>
+    </table>
+
+    <h2>5. Destinataires des données</h2>
+    <p>Les données sont accessibles, dans la stricte limite de leurs missions, à :</p>
+    <ul>
+      <li>Les salariés et prestataires habilités de MIB Prévention (support, équipe technique, comptabilité) ;</li>
+      <li>Les sous-traitants techniques listés sur la page <a href="sous-traitants.html">sous-traitants</a> ;</li>
+      <li>Les autorités administratives ou judiciaires en cas de réquisition légale.</li>
+    </ul>
+    <p>Aucune donnée n'est vendue, louée ni cédée à des fins commerciales à des tiers.</p>
+
+    <h2>6. Transferts hors Union européenne</h2>
+    <p>Les données sont hébergées en Union européenne (Supabase — Frankfurt, Allemagne). Toutefois, certains sous-traitants ont leur siège hors UE :</p>
+    <ul>
+      <li><strong>Stripe Payments Europe Ltd</strong> (Irlande, UE) — traitement principal en UE ; pas de transfert sortant pour les paiements européens ;</li>
+      <li><strong>Vercel Inc.</strong> (USA) — frontend, possible transit de logs techniques ;</li>
+      <li><strong>Resend</strong> (USA) — métadonnées d'envoi d'emails transactionnels ;</li>
+      <li><strong>GitHub Inc.</strong> (USA / Microsoft) — code source uniquement, pas de données clients ;</li>
+      <li><strong>Google Fonts</strong> (USA) — pas de cookie ni de profilage.</li>
+    </ul>
+    <p>Ces transferts sont encadrés par les <strong>Clauses Contractuelles Types</strong> de la Commission européenne (décision UE 2021/914 du 4 juin 2021) et, le cas échéant, par l'adhésion au cadre <strong>EU-US Data Privacy Framework (DPF)</strong>.</p>
+
+    <h2>7. Sécurité des données</h2>
+    <p>MIB Prévention met en œuvre des mesures techniques et organisationnelles adaptées (voir <a href="pssi.html">PSSI</a>), notamment :</p>
+    <ul>
+      <li>Chiffrement TLS 1.3 en transit, AES-256 au repos ;</li>
+      <li>Authentification renforcée (Supabase Auth, hachage des mots de passe argon2/bcrypt) ;</li>
+      <li>Isolation multi-tenants par <strong>Row Level Security</strong> (PostgreSQL) ;</li>
+      <li>Sauvegardes Point-In-Time Recovery 7 jours ;</li>
+      <li>Journalisation et détection d'anomalies ;</li>
+      <li>Sensibilisation et habilitation du personnel ;</li>
+      <li>Procédure de gestion des incidents (voir <a href="procedure-incidents.html">procédure incidents</a>).</li>
+    </ul>
+
+    <h2>8. Vos droits</h2>
+    <p>Conformément aux articles 15 à 22 du RGPD, vous disposez des droits suivants :</p>
+    <ul>
+      <li><strong>Droit d'accès</strong> aux données vous concernant ;</li>
+      <li><strong>Droit de rectification</strong> des données inexactes ou incomplètes ;</li>
+      <li><strong>Droit à l'effacement</strong> (« droit à l'oubli ») dans les conditions de l'article 17 ;</li>
+      <li><strong>Droit à la limitation</strong> du traitement ;</li>
+      <li><strong>Droit à la portabilité</strong> de vos données dans un format structuré, couramment utilisé et lisible par machine ;</li>
+      <li><strong>Droit d'opposition</strong> pour les traitements fondés sur l'intérêt légitime ;</li>
+      <li><strong>Droit de retirer votre consentement</strong> à tout moment pour les traitements qui en dépendent ;</li>
+      <li><strong>Droit de définir des directives</strong> relatives au sort de vos données après votre décès (article 85 loi Informatique et Libertés).</li>
+    </ul>
+
+    <h2>9. Comment exercer vos droits</h2>
+    <p>Pour exercer vos droits, vous pouvez :</p>
+    <ul>
+      <li>Adresser un email à <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a> ;</li>
+      <li>Envoyer un courrier postal à : MIB Prévention — DPO — <code>[À COMPLÉTER : adresse]</code> ;</li>
+      <li>Pour les stagiaires et formateurs, contacter d'abord votre centre de formation (responsable de traitement).</li>
+    </ul>
+    <p>Une réponse vous sera apportée dans un délai d'<strong>un mois</strong> à compter de la réception de votre demande (extensible à 3 mois en cas de complexité ou de demandes multiples, conformément à l'article 12 du RGPD). Une pièce d'identité pourra être demandée en cas de doute raisonnable sur votre identité.</p>
+
+    <div class="legal-callout">
+      <strong>Délégué à la protection des données (DPO) :</strong> <code>[À COMPLÉTER : nom du DPO ou mention « DPO externalisé »]</code><br>
+      Contact : <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a>
+    </div>
+
+    <h2>10. Réclamation auprès de la CNIL</h2>
+    <p>Si vous estimez, après nous avoir contactés, que vos droits ne sont pas respectés, vous pouvez introduire une réclamation auprès de la Commission nationale de l'informatique et des libertés (CNIL) :</p>
+    <ul>
+      <li><strong>Adresse :</strong> 3 place de Fontenoy, TSA 80715, 75334 Paris cedex 07</li>
+      <li><strong>Téléphone :</strong> 01 53 73 22 22</li>
+      <li><strong>Site :</strong> <a href="https://www.cnil.fr/fr/plaintes" target="_blank" rel="noopener">www.cnil.fr/fr/plaintes</a></li>
+    </ul>
+
+    <h2>11. Modifications de la politique</h2>
+    <p>Cette politique peut être mise à jour pour refléter des évolutions techniques, légales ou organisationnelles. La date de dernière mise à jour figure en tête de document. Les modifications substantielles font l'objet d'une notification spécifique par email.</p>
+
+  </article>
+
+  <div class="legal-footer">
+    <p>
+      <strong>MIB Prévention</strong> — Plateforme SaaS de formation SSIAP<br>
+      Pour toute question : <a href="mailto:contact@mib-prevention.fr">contact@mib-prevention.fr</a><br>
+      <a href="index.html">← Retour au référentiel juridique</a>
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>
