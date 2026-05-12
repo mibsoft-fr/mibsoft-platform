@@ -311,6 +311,9 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
 <body>
 <div class="bg-wrap"></div>
 
+<!-- Backdrop drawer mobile -->
+<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar(false)"></div>
+
 <!-- ═══════════ PAGE LOGIN ═══════════ -->
 <div id="page-login" class="relative z-10 min-h-screen flex items-center justify-center p-4">
   <div class="login-card w-full p-8" style="max-width:400px;">
@@ -346,12 +349,12 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
 <div id="page-app" class="hidden relative z-10 flex min-h-screen">
 
   <!-- SIDEBAR -->
-  <div class="sidebar flex-shrink-0">
+  <div class="sidebar flex-shrink-0" id="sidebar">
     <div class="flex items-center gap-2 mb-8">
-      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:2px 2px 8px rgba(239,68,68,.35);">⚙️</div>
+      <div style="width:38px;height:38px;border-radius:var(--radius-md);background:var(--gradient-primary);display:flex;align-items:center;justify-content:center;font-size:1.1rem;box-shadow:0 4px 12px -2px rgba(16,185,129,.4);color:#fff;">⚙</div>
       <div>
-        <div class="logo-t" style="font-size:1rem;color:var(--text);">MIB Admin</div>
-        <div style="font-size:.65rem;color:var(--text3);">Panneau de contrôle</div>
+        <div class="logo-t" style="font-size:1rem;color:#fff;">MIB Admin</div>
+        <div style="font-size:.65rem;color:rgba(255,255,255,.6);">Panneau de contrôle</div>
       </div>
     </div>
 
@@ -395,16 +398,41 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
   </div>
 
   <!-- CONTENU PRINCIPAL -->
-  <div class="flex-1 p-6 overflow-y-auto" style="max-height:100vh;">
+  <div class="flex-1 overflow-y-auto" style="max-height:100vh;min-width:0;">
+
+    <!-- Topbar avec hamburger mobile -->
+    <div class="admin-topbar">
+      <div class="flex items-center" style="min-width:0;flex:1;">
+        <button class="sidebar-burger" onclick="toggleSidebar()" aria-label="Ouvrir le menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+        <div style="min-width:0;">
+          <div class="logo-t" id="topbar-title" style="font-size:1.1rem;color:var(--text-1);">Dashboard</div>
+          <div style="font-size:0.72rem;color:var(--text-3);" id="topbar-sub">Vue d'ensemble plateforme</div>
+        </div>
+      </div>
+      <button onclick="loadAll()" class="btn btn-blue btn-sm" aria-label="Actualiser">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="p-6">
 
     <!-- ── DASHBOARD ── -->
     <div id="tab-dashboard">
       <div class="flex items-center justify-between mb-6">
         <div>
-          <h1 class="logo-t" style="font-size:1.5rem;color:var(--text);">Bonjour Michel 👋</h1>
-          <p style="font-size:.82rem;color:var(--text2);margin-top:2px;">Voici l'état de la plateforme en temps réel</p>
+          <h1 class="logo-t" style="font-size:1.5rem;color:var(--text-1);">Bonjour Michel 👋</h1>
+          <p style="font-size:.85rem;color:var(--text-3);margin-top:2px;">Voici l'état de la plateforme en temps réel</p>
         </div>
-        <button onclick="loadAll()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
       </div>
 
       <!-- KPI -->
@@ -756,6 +784,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
       </div>
     </div>
 
+    </div><!-- /p-6 wrapper -->
   </div><!-- /contenu -->
 </div><!-- /app -->
 
@@ -1098,6 +1127,19 @@ function showApp(){
 // NAVIGATION
 // ============================================================
 const TABS=['dashboard','centres','licences','comptabilite','avis','activite','logs','monitoring','contenus','stats'];
+const TAB_TITLES = {
+  dashboard: ['Dashboard', "Vue d'ensemble plateforme"],
+  centres: ['Centres', 'Gestion des centres clients'],
+  licences: ['Licences', 'Génération et gestion des licences'],
+  comptabilite: ['Comptabilité', 'Suivi financier'],
+  avis: ['Avis & Retours', 'Messages des centres'],
+  activite: ['Activité', 'Activité plateforme en temps réel'],
+  logs: ['Logs', 'Logs système 24h'],
+  monitoring: ['Monitoring', 'Alertes et surveillance'],
+  contenus: ['Contenus', 'Gestion des contenus pédagogiques'],
+  stats: ['Statistiques', 'Statistiques plateforme']
+};
+
 function showTab(t){
   TABS.forEach(id=>{
     const el = document.getElementById(`tab-${id}`);
@@ -1105,6 +1147,11 @@ function showTab(t){
     const nav = document.getElementById(`nav-${id}`);
     if (nav) nav.classList.toggle('on',id===t);
   });
+  const ti = TAB_TITLES[t] || ['', ''];
+  const titleEl = document.getElementById('topbar-title');
+  const subEl = document.getElementById('topbar-sub');
+  if (titleEl) titleEl.textContent = ti[0];
+  if (subEl) subEl.textContent = ti[1];
   if(t==='centres')loadCentres();
   if(t==='licences'){loadLicences();loadCentresSelect();}
   if(t==='comptabilite')loadComptabilite();
@@ -1115,6 +1162,24 @@ function showTab(t){
   if(t==='contenus')loadContenus();
   if(t==='stats')loadStats();
 }
+
+window.toggleSidebar = function(forceState) {
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('sidebar-backdrop');
+  if (!sb || !bd) return;
+  const open = (typeof forceState === 'boolean')
+    ? forceState
+    : !sb.classList.contains('open');
+  sb.classList.toggle('open', open);
+  bd.classList.toggle('open', open);
+  document.body.style.overflow = open ? 'hidden' : '';
+};
+document.addEventListener('click', (e) => {
+  const item = e.target.closest('.nav-item');
+  if (item && window.innerWidth < 1024) {
+    window.toggleSidebar(false);
+  }
+});
 
 // ============================================================
 // DONNÉES
