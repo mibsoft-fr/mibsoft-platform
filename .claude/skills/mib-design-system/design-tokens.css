@@ -1,0 +1,281 @@
+/* =============================================================================
+   MIB DESIGN SYSTEM — "VIGIL"
+   Design tokens (variables CSS) — Source unique de vérité du design.
+   À inclure AVANT mib-design.css et avant tout style spécifique de page.
+   ============================================================================= */
+
+:root {
+
+  /* ==========================================================================
+     BRAND — Vert sauvetage + bleu pompier (palette G "Vigil Gradient")
+     ========================================================================== */
+
+  /* Vert primaire (action, succès, marque) */
+  --vigil-50:  #ECFDF5;
+  --vigil-100: #D1FAE5;
+  --vigil-200: #A7F3D0;
+  --vigil-300: #6EE7B7;
+  --vigil-400: #34D399;
+  --vigil-500: #10B981;
+  --vigil-600: #059669;   /* base brand */
+  --vigil-700: #047857;   /* hover/pressed */
+  --vigil-800: #065F46;
+  --vigil-900: #064E3B;
+
+  /* Bleu marine (uniforme pompier, accent gradient) */
+  --marine-50:  #EFF6FF;
+  --marine-100: #DBEAFE;
+  --marine-200: #BFDBFE;
+  --marine-300: #93C5FD;
+  --marine-400: #60A5FA;
+  --marine-500: #3B82F6;
+  --marine-600: #2563EB;
+  --marine-700: #1D4ED8;
+  --marine-800: #1E40AF;
+  --marine-900: #1E3A8A;
+
+  /* Gradient primaire — vert dominant (60%) → bleu (40%) */
+  --gradient-primary:       linear-gradient(135deg, #10B981 0%, #059669 50%, #2563EB 100%);
+  --gradient-primary-hover: linear-gradient(135deg, #059669 0%, #047857 50%, #1D4ED8 100%);
+  --gradient-primary-soft:  linear-gradient(135deg, rgba(16,185,129,0.10) 0%, rgba(37,99,235,0.10) 100%);
+  --gradient-sidebar:       linear-gradient(180deg, #064E3B 0%, #1E3A8A 100%);
+  --gradient-logo:          linear-gradient(135deg, #10B981 0%, #3B82F6 100%);
+
+
+  /* ==========================================================================
+     SÉMANTIQUE — Couleurs métier
+     ========================================================================== */
+
+  /* Success (validation, présent, certif OK) — alias vert */
+  --success-50:  #ECFDF5;
+  --success-100: #D1FAE5;
+  --success-500: #10B981;
+  --success-600: #059669;
+  --success-700: #047857;
+  --success-800: #065F46;
+
+  /* Warning (alerter, recyclage à venir, formation expire bientôt) */
+  --warning-50:  #FFFBEB;
+  --warning-100: #FEF3C7;
+  --warning-200: #FDE68A;
+  --warning-500: #F59E0B;
+  --warning-600: #D97706;   /* base warning — bouton "Alerter" */
+  --warning-700: #B45309;
+  --warning-800: #92400E;
+
+  /* Danger (critique, supprimer, expiré, erreur bloquante) */
+  --danger-50:   #FEF2F2;
+  --danger-100:  #FEE2E2;
+  --danger-200:  #FECACA;
+  --danger-500:  #EF4444;
+  --danger-600:  #DC2626;   /* base danger */
+  --danger-700:  #B91C1C;
+  --danger-800:  #991B1B;
+  --danger-900:  #7F1D1D;
+
+  /* Info (notice neutre, nouveauté) */
+  --info-50:  #EFF6FF;
+  --info-100: #DBEAFE;
+  --info-500: #3B82F6;
+  --info-600: #2563EB;
+  --info-700: #1D4ED8;
+  --info-800: #1E40AF;
+
+
+  /* ==========================================================================
+     NEUTRES — Slate
+     ========================================================================== */
+
+  --neutral-50:  #F8FAFC;
+  --neutral-100: #F1F5F9;
+  --neutral-200: #E2E8F0;
+  --neutral-300: #CBD5E1;
+  --neutral-400: #94A3B8;
+  --neutral-500: #64748B;
+  --neutral-600: #475569;
+  --neutral-700: #334155;
+  --neutral-800: #1E293B;
+  --neutral-900: #0F172A;
+
+
+  /* ==========================================================================
+     SURFACES & FONDS
+     ========================================================================== */
+
+  --bg-page:     var(--neutral-50);   /* fond de page */
+  --bg-surface:  #FFFFFF;             /* cartes, modals, inputs */
+  --bg-elevated: #FFFFFF;             /* surfaces flottantes */
+  --bg-sidebar:  var(--gradient-sidebar);
+  --bg-modal:    #FFFFFF;
+  --bg-overlay:  rgba(15, 23, 42, 0.6);  /* backdrop modal */
+  --bg-muted:    var(--neutral-100);  /* zones de fond léger (sections alt.) */
+
+
+  /* ==========================================================================
+     TEXTE
+     ========================================================================== */
+
+  --text-1: var(--neutral-900);   /* titres principaux */
+  --text-2: var(--neutral-700);   /* corps de texte */
+  --text-3: var(--neutral-500);   /* secondaire, labels */
+  --text-4: var(--neutral-400);   /* placeholder, tertiaire */
+  --text-inverse: #FFFFFF;        /* sur fond sombre */
+  --text-brand:   var(--vigil-700);
+  --text-warning: var(--warning-700);
+  --text-danger:  var(--danger-700);
+
+
+  /* ==========================================================================
+     BORDURES
+     ========================================================================== */
+
+  --border-subtle:  var(--neutral-100);
+  --border-default: var(--neutral-200);
+  --border-strong:  var(--neutral-300);
+  --border-brand:   var(--vigil-500);
+  --border-warning: var(--warning-500);
+  --border-danger:  var(--danger-500);
+
+
+  /* ==========================================================================
+     TYPOGRAPHIE
+     ========================================================================== */
+
+  --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body:    'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --text-xs:   0.75rem;     /* 12px - captions, badges */
+  --text-sm:   0.875rem;    /* 14px - UI dense, labels */
+  --text-base: 1rem;        /* 16px - corps */
+  --text-lg:   1.125rem;    /* 18px - lead */
+  --text-xl:   1.25rem;     /* 20px - H4 */
+  --text-2xl:  1.5rem;      /* 24px - H3 */
+  --text-3xl:  1.875rem;    /* 30px - H2 */
+  --text-4xl:  2.25rem;     /* 36px - H1 */
+  --text-5xl:  3rem;        /* 48px - hero */
+
+  --lh-tight:  1.15;
+  --lh-snug:   1.3;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.6;
+
+  --tracking-tight:  -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.06em;
+
+  --weight-regular:   400;
+  --weight-medium:    500;
+  --weight-semibold:  600;
+  --weight-bold:      700;
+  --weight-extrabold: 800;
+
+
+  /* ==========================================================================
+     SPACING (base 4px)
+     ========================================================================== */
+
+  --space-0:  0;
+  --space-1:  0.25rem;   /* 4px */
+  --space-2:  0.5rem;    /* 8px */
+  --space-3:  0.75rem;   /* 12px */
+  --space-4:  1rem;      /* 16px */
+  --space-5:  1.25rem;   /* 20px */
+  --space-6:  1.5rem;    /* 24px */
+  --space-8:  2rem;      /* 32px */
+  --space-10: 2.5rem;    /* 40px */
+  --space-12: 3rem;      /* 48px */
+  --space-16: 4rem;      /* 64px */
+  --space-20: 5rem;      /* 80px */
+  --space-24: 6rem;      /* 96px */
+  --space-32: 8rem;      /* 128px */
+
+
+  /* ==========================================================================
+     RADIUS
+     ========================================================================== */
+
+  --radius-sm:   6px;     /* badges */
+  --radius-md:   10px;    /* boutons, inputs */
+  --radius-lg:   14px;    /* cards */
+  --radius-xl:   20px;    /* modals */
+  --radius-2xl:  28px;    /* hero blocks */
+  --radius-full: 9999px;  /* pills, avatars */
+
+
+  /* ==========================================================================
+     SHADOWS (élévation)
+     ========================================================================== */
+
+  --shadow-xs:    0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-sm:    0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md:    0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -2px rgba(15, 23, 42, 0.05);
+  --shadow-lg:    0 10px 30px -10px rgba(15, 23, 42, 0.15);
+  --shadow-xl:    0 20px 50px -20px rgba(15, 23, 42, 0.25);
+  --shadow-brand: 0 8px 24px -8px rgba(16, 185, 129, 0.35);
+  --shadow-focus: 0 0 0 3px rgba(16, 185, 129, 0.25);
+  --shadow-focus-warning: 0 0 0 3px rgba(217, 119, 6, 0.25);
+  --shadow-focus-danger:  0 0 0 3px rgba(220, 38, 38, 0.25);
+
+
+  /* ==========================================================================
+     BREAKPOINTS (à utiliser dans @media — informatif ici)
+     ========================================================================== */
+
+  --bp-sm:  640px;    /* large smartphone */
+  --bp-md:  768px;    /* tablette portrait */
+  --bp-lg:  1024px;   /* tablette paysage / laptop */
+  --bp-xl:  1280px;   /* desktop */
+  --bp-2xl: 1536px;   /* grand écran */
+
+
+  /* ==========================================================================
+     CONTAINERS
+     ========================================================================== */
+
+  --container-sm:  640px;
+  --container-md:  768px;
+  --container-lg:  1024px;
+  --container-xl:  1200px;
+  --container-2xl: 1440px;
+
+
+  /* ==========================================================================
+     MOTION
+     ========================================================================== */
+
+  --ease-out:     cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out:  cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce:  cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --duration-fast:     150ms;
+  --duration-standard: 200ms;
+  --duration-slow:     300ms;
+
+
+  /* ==========================================================================
+     Z-INDEX (stacking)
+     ========================================================================== */
+
+  --z-base:     1;
+  --z-dropdown: 10;
+  --z-sticky:   20;
+  --z-overlay:  30;
+  --z-modal:    40;
+  --z-toast:    50;
+  --z-tooltip:  60;
+}
+
+
+/* =============================================================================
+   ACCESSIBILITÉ — respect des préférences utilisateur
+   ============================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
