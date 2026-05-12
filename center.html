@@ -138,23 +138,32 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
 .card {
   background: var(--bg-surface);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 4px 12px -2px rgba(15, 23, 42, 0.10),
+    0 2px 4px -1px rgba(15, 23, 42, 0.06);
 }
 
-/* ============ KPI ============ */
+/* ============ KPI — relief 3D marqué ============ */
 .kpi {
   background: var(--bg-surface);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 6px 16px -4px rgba(15, 23, 42, 0.12),
+    0 2px 6px -2px rgba(15, 23, 42, 0.06);
   transition: transform var(--duration-standard) var(--ease-out),
               box-shadow var(--duration-standard);
 }
 .kpi:hover {
   transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 14px 28px -6px rgba(15, 23, 42, 0.18),
+    0 4px 10px -2px rgba(15, 23, 42, 0.08);
 }
 .kpi-val {
   font-family: var(--font-display);
@@ -215,7 +224,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
   margin-bottom: var(--space-2);
 }
 
-/* ============ BUTTONS — design system tokens ============ */
+/* ============ BUTTONS — relief 3D harmonisé ============ */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -223,7 +232,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
   gap: var(--space-2);
   padding: 10px 18px;
   border-radius: var(--radius-md);
-  border: none;
+  border: 1px solid transparent;
   font-family: var(--font-body);
   font-weight: var(--weight-semibold);
   font-size: var(--text-sm);
@@ -237,54 +246,84 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
 }
 .btn:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
 .btn:hover:not(:disabled) { transform: translateY(-1px); }
-.btn:active:not(:disabled) { transform: translateY(0); }
+.btn:active:not(:disabled) { transform: translateY(0); box-shadow: var(--shadow-xs); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-/* Primary action = gradient brand (au lieu du bleu legacy) */
-.btn-blue {
-  background: var(--gradient-primary);
-  color: var(--text-inverse);
-  box-shadow: var(--shadow-brand);
-}
-.btn-blue:hover:not(:disabled) {
-  background: var(--gradient-primary-hover);
-  box-shadow: 0 12px 28px -8px rgba(16, 185, 129, 0.45);
-}
-
-/* Green = action positive (création) — gradient brand aussi */
+/* Blue / Green = action principale (gradient brand) — réservés aux CTA majeurs */
+.btn-blue,
 .btn-green {
   background: var(--gradient-primary);
   color: var(--text-inverse);
-  box-shadow: var(--shadow-brand);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 6px 14px -4px rgba(16, 185, 129, 0.45),
+    0 2px 6px -2px rgba(15, 23, 42, 0.10);
 }
+.btn-blue:hover:not(:disabled),
 .btn-green:hover:not(:disabled) {
   background: var(--gradient-primary-hover);
-  box-shadow: 0 12px 28px -8px rgba(16, 185, 129, 0.45);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 12px 24px -6px rgba(16, 185, 129, 0.50),
+    0 4px 10px -2px rgba(15, 23, 42, 0.12);
 }
 
-/* Orange = warning */
+/* Orange = warning (plat) */
 .btn-orange {
   background: var(--warning-600);
   color: var(--text-inverse);
-  box-shadow: 0 4px 14px -2px rgba(217, 119, 6, 0.35);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 4px 12px -2px rgba(217, 119, 6, 0.35),
+    0 2px 4px -1px rgba(15, 23, 42, 0.08);
 }
-.btn-orange:hover:not(:disabled) { background: var(--warning-700); }
+.btn-orange:hover:not(:disabled) {
+  background: var(--warning-700);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 8px 18px -4px rgba(217, 119, 6, 0.45),
+    0 3px 6px -2px rgba(15, 23, 42, 0.10);
+}
 
-/* Red = danger */
+/* Red = danger (plat) */
 .btn-red {
   background: var(--danger-600);
   color: var(--text-inverse);
-  box-shadow: 0 4px 14px -2px rgba(220, 38, 38, 0.35);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 4px 12px -2px rgba(220, 38, 38, 0.35),
+    0 2px 4px -1px rgba(15, 23, 42, 0.08);
 }
-.btn-red:hover:not(:disabled) { background: var(--danger-700); }
+.btn-red:hover:not(:disabled) {
+  background: var(--danger-700);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 8px 18px -4px rgba(220, 38, 38, 0.45),
+    0 3px 6px -2px rgba(15, 23, 42, 0.10);
+}
 
-/* Gray = neutre / annuler */
+/* Gray = neutre / annuler (relief subtil) */
 .btn-gray {
-  background: var(--neutral-100);
+  background: #FFFFFF;
   color: var(--text-2);
-  border: 1px solid var(--border-default);
+  border-color: var(--border-default);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 2px 6px -1px rgba(15, 23, 42, 0.08),
+    0 1px 3px -1px rgba(15, 23, 42, 0.04);
 }
-.btn-gray:hover:not(:disabled) { background: var(--neutral-200); color: var(--text-1); }
+.btn-gray:hover:not(:disabled) {
+  background: var(--neutral-50);
+  color: var(--text-1);
+  border-color: var(--border-strong);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 4px 10px -2px rgba(15, 23, 42, 0.10),
+    0 2px 4px -1px rgba(15, 23, 42, 0.06);
+}
 
 .btn-sm { padding: 7px 12px; font-size: var(--text-xs); border-radius: var(--radius-sm); }
 .btn-xs { padding: 5px 10px; font-size: 0.7rem; border-radius: var(--radius-sm); }
@@ -341,22 +380,74 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
 .b-gray   { background: var(--neutral-100); color: var(--neutral-700); }
 .b-purple { background: #F3E8FF; color: #6B21A8; }
 
-/* ============ MODULE CARDS ============ */
+/* ============ MODULE CARDS — cohérent avec KPI/cards ============ */
 .mod-card {
   border-radius: var(--radius-lg);
   padding: var(--space-5);
-  border: 1.5px solid;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: var(--bg-surface);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 4px 12px -2px rgba(15, 23, 42, 0.10),
+    0 2px 4px -1px rgba(15, 23, 42, 0.06);
   transition: transform var(--duration-fast), box-shadow var(--duration-fast);
 }
-.mod-on  { background: var(--vigil-50); border-color: var(--vigil-300); }
-.mod-on:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-.mod-off { background: var(--neutral-50); border-color: var(--border-default); opacity: 0.55; }
+.mod-on {
+  background: linear-gradient(135deg, #FFFFFF 0%, var(--vigil-50) 100%);
+  border-color: var(--vigil-200);
+}
+.mod-on::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--gradient-primary);
+}
+.mod-on { position: relative; overflow: hidden; }
+.mod-on:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 12px 24px -6px rgba(15, 23, 42, 0.15),
+    0 4px 8px -2px rgba(15, 23, 42, 0.08);
+}
+.mod-off {
+  background: var(--neutral-50);
+  border-color: var(--border-default);
+  opacity: 0.6;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04);
+}
 .mod-icon { font-size: 1.8rem; margin-bottom: var(--space-2); }
-.mod-title { font-size: var(--text-sm); font-weight: var(--weight-bold); color: var(--text-1); }
-.mod-desc { font-size: var(--text-xs); color: var(--text-3); margin-top: 4px; }
-.mod-status { font-size: 0.68rem; font-weight: var(--weight-bold); margin-top: 6px; }
-.mod-on .mod-status { color: var(--vigil-700); }
-.mod-off .mod-status { color: var(--text-4); }
+.mod-title {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--text-1);
+  letter-spacing: var(--tracking-tight);
+}
+.mod-desc { font-size: var(--text-xs); color: var(--text-3); margin-top: 4px; line-height: var(--lh-normal); }
+.mod-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  margin-top: var(--space-3);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+}
+.mod-on .mod-status {
+  color: var(--vigil-800);
+  background: var(--vigil-100);
+}
+.mod-off .mod-status {
+  color: var(--neutral-600);
+  background: var(--neutral-100);
+}
 
 /* ============ MODAL ============ */
 .modal-bg {
@@ -394,18 +485,22 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
   }
 }
 
-/* ============ PLAN BANNER ============ */
+/* ============ PLAN BANNER — relief 3D ============ */
 .plan-banner {
   border-radius: var(--radius-lg);
-  padding: var(--space-5);
+  padding: var(--space-5) var(--space-6);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
   flex-wrap: wrap;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 6px 16px -4px rgba(15, 23, 42, 0.12),
+    0 2px 6px -2px rgba(15, 23, 42, 0.06);
 }
 .pb-starter {
-  background: linear-gradient(135deg, var(--vigil-50), var(--marine-50));
+  background: linear-gradient(135deg, #FFFFFF 0%, var(--vigil-50) 60%, var(--marine-50) 100%);
   border: 1px solid var(--vigil-200);
 }
 
