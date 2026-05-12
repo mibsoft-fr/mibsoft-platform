@@ -794,12 +794,34 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
       <h3 style="font-size:1.1rem;font-weight:800;">🏢 Créer un nouveau centre</h3>
       <button onclick="closeModal('modal-create-centre')" style="width:32px;height:32px;border-radius:50%;background:#f3f4f6;border:none;cursor:pointer;font-size:1rem;">✕</button>
     </div>
-    <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Création immédiate avec mot de passe fonctionnel. La clé de licence peut être générée.</p>
+    <p style="font-size:.78rem;color:var(--text2);margin-bottom:14px;">Création immédiate. Le centre recevra un email d'invitation pour définir son mot de passe.</p>
+
+    <!-- Mode d'activation -->
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:12px;margin-bottom:14px;">
+      <label class="lbl" style="margin-bottom:8px;">Mode d'activation</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer;flex:1;min-width:240px;padding:8px 10px;background:#fff;border:1.5px solid #86efac;border-radius:8px;">
+          <input type="radio" name="cc-mode" value="magic" checked onchange="toggleCCMode()"> 📧 Email d'invitation (recommandé)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer;flex:1;min-width:240px;padding:8px 10px;background:#fff;border:1.5px solid #e5e7eb;border-radius:8px;">
+          <input type="radio" name="cc-mode" value="manual" onchange="toggleCCMode()"> 🔑 Mot de passe manuel
+        </label>
+      </div>
+      <label class="lbl" style="margin-top:10px;margin-bottom:4px;">Motif de création</label>
+      <select id="cc-payment" class="inp" style="font-size:.82rem;">
+        <option value="virement">💰 Paiement par virement</option>
+        <option value="especes">💵 Paiement espèces / chèque</option>
+        <option value="essai">🎁 Essai gratuit</option>
+        <option value="offert">🎀 Offert / partenariat</option>
+        <option value="autre">📝 Autre</option>
+      </select>
+    </div>
+
     <div id="cc-alert"></div>
     <div class="grid grid-cols-2 gap-3">
       <div><label class="lbl">Nom du centre *</label><input id="cc-nom" type="text" class="inp" placeholder="MSA SERVICES…"></div>
       <div><label class="lbl">Email *</label><input id="cc-email" type="email" class="inp" placeholder="contact@centre.fr"></div>
-      <div><label class="lbl">Mot de passe * (≥8)</label><input id="cc-pwd" type="text" class="inp" placeholder="à transmettre"></div>
+      <div id="cc-pwd-wrap" class="hidden"><label class="lbl">Mot de passe * (≥8)</label><input id="cc-pwd" type="text" class="inp" placeholder="à transmettre"></div>
       <div>
         <label class="lbl">Clé licence *</label>
         <div style="display:flex;gap:6px;">
@@ -1094,9 +1116,27 @@ function applyPlanDefaults(){
   document.getElementById('cc-exp').value = toDateInput(exp);
 }
 
+function toggleCCMode(){
+  const isManual = (document.querySelector('input[name="cc-mode"]:checked')||{}).value === 'manual';
+  document.getElementById('cc-pwd-wrap').classList.toggle('hidden', !isManual);
+  // Visuel des cartes radio
+  document.querySelectorAll('input[name="cc-mode"]').forEach(r => {
+    const card = r.closest('label');
+    if (!card) return;
+    const checked = r.checked;
+    card.style.borderColor = checked ? '#10b981' : '#e5e7eb';
+    card.style.background = checked ? '#f0fdf4' : '#fff';
+  });
+}
+
 function openCreateCentreModal(){
   // Reset form
   ['cc-nom','cc-email','cc-pwd','cc-key','cc-adr','cc-ville','cc-cp','cc-tel'].forEach(id => document.getElementById(id).value = '');
+  // Reset mode → magic par défaut
+  const magicRadio = document.querySelector('input[name="cc-mode"][value="magic"]');
+  if (magicRadio) magicRadio.checked = true;
+  toggleCCMode();
+  document.getElementById('cc-payment').value = 'virement';
   document.getElementById('cc-plan').value = 'starter';
   document.getElementById('cc-cycle').value = 'annuel';
   document.getElementById('cc-cycle').disabled = false;
@@ -1116,10 +1156,11 @@ async function submitCreateCentre(){
   const alertEl = document.getElementById('cc-alert');
   const btn = document.getElementById('btn-cc');
   alertEl.innerHTML = '';
+  const mode = (document.querySelector('input[name="cc-mode"]:checked')||{}).value || 'magic';
+  const sendMagicLink = mode === 'magic';
   const payload = {
     nom: document.getElementById('cc-nom').value.trim(),
     email: document.getElementById('cc-email').value.trim().toLowerCase(),
-    password: document.getElementById('cc-pwd').value,
     license_key: document.getElementById('cc-key').value.trim().toUpperCase(),
     plan: document.getElementById('cc-plan').value,
     license_type: document.getElementById('cc-type').value,
@@ -1131,13 +1172,18 @@ async function submitCreateCentre(){
     adresse: document.getElementById('cc-adr').value.trim() || null,
     ville: document.getElementById('cc-ville').value.trim() || null,
     code_postal: document.getElementById('cc-cp').value.trim() || null,
-    telephone: document.getElementById('cc-tel').value.trim() || null
+    telephone: document.getElementById('cc-tel').value.trim() || null,
+    send_magic_link: sendMagicLink,
+    payment_method: document.getElementById('cc-payment').value
   };
-  if (!payload.nom || !payload.email || !payload.password || !payload.license_key) {
+  if (!sendMagicLink) {
+    payload.password = document.getElementById('cc-pwd').value;
+  }
+  if (!payload.nom || !payload.email || !payload.license_key) {
     alertEl.innerHTML = '<div class="alert-err" style="padding:10px;border-radius:8px;font-size:.8rem;">❌ Champs obligatoires manquants.</div>';
     return;
   }
-  if (payload.password.length < 8) {
+  if (!sendMagicLink && (!payload.password || payload.password.length < 8)) {
     alertEl.innerHTML = '<div class="alert-err" style="padding:10px;border-radius:8px;font-size:.8rem;">❌ Mot de passe trop court (≥ 8 caractères).</div>';
     return;
   }
@@ -1159,7 +1205,21 @@ async function submitCreateCentre(){
       alertEl.innerHTML = `<div class="alert-err" style="padding:10px;border-radius:8px;font-size:.8rem;">❌ ${esc(body.error||'Erreur')}${body.detail?' · '+esc(body.detail):''}</div>`;
       return;
     }
-    alertEl.innerHTML = `<div style="padding:10px;border-radius:8px;background:#f0fdf4;color:#065f46;font-size:.8rem;border:1px solid #86efac;">✅ Centre créé — mot de passe à transmettre.</div>`;
+    // Message adapté selon le mode d'activation et le résultat d'envoi email
+    let msg;
+    if (body.mode === 'magic_link') {
+      if (body.email_sent) {
+        msg = `✅ Centre créé — Email d'invitation envoyé à ${esc(payload.email)}. Le centre définira son mot de passe via le lien magique.`;
+      } else {
+        msg = `⚠️ Centre créé mais l'email n'a pas pu être envoyé (${esc(body.email_error || 'erreur inconnue')}). Renvoyez l'invitation manuellement.`;
+      }
+    } else {
+      msg = `✅ Centre créé — Mot de passe à transmettre au centre.`;
+    }
+    const bg = (body.mode === 'magic_link' && !body.email_sent) ? '#fef3c7' : '#f0fdf4';
+    const fg = (body.mode === 'magic_link' && !body.email_sent) ? '#92400e' : '#065f46';
+    const bd = (body.mode === 'magic_link' && !body.email_sent) ? '#fbbf24' : '#86efac';
+    alertEl.innerHTML = `<div style="padding:10px;border-radius:8px;background:${bg};color:${fg};font-size:.8rem;border:1px solid ${bd};">${msg}</div>`;
     await loadCentres();
     setTimeout(() => closeModal('modal-create-centre'), 1500);
   } catch (e) {
