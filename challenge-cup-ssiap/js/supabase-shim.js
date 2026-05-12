@@ -1,10 +1,15 @@
 // =====================================================================
-// Firebase Realtime DB shim, backed by Supabase.
-// Drop-in replacement for the firebase-app-compat + firebase-database-compat
-// scripts: it exposes window.firebase and window.firebase.database() with
-// the methods the legacy index.html actually uses.
+// SUPABASE SHIM (API compatible Realtime DB — pas de Firebase utilisé)
 //
-// Path conventions (kept identical to the original Firebase tree):
+// Ce fichier expose une API similaire à firebase.database() / database.ref()
+// historiquement utilisée dans le code applicatif, MAIS toutes les écritures
+// et lectures vont vers Supabase PostgreSQL (UE Frankfurt).
+//
+// L'identifiant `window.firebase` est conservé uniquement pour ne pas avoir
+// à réécrire l'ensemble de l'index.html. Aucune dépendance Firebase n'est
+// chargée ni utilisée — c'est juste un nom d'API historique.
+//
+// Conventions de chemins (calquées sur la convention RTDB d'origine) :
 //   sessions/{code}
 //   sessions/{code}/teams/{teamId}
 //   sessions/{code}/teams/{teamId}/<field>

@@ -54,9 +54,11 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <!-- Firebase Realtime DB compat shim, backed by Supabase. Sets window.firebase. -->
+    <!-- Backend = Supabase (UE). Le fichier supabase-shim.js expose une API
+         compatible Firebase Realtime DB (window.firebase / database.ref) mais
+         persiste tout dans Supabase PostgreSQL. Pas de Firebase utilisé. -->
     <script type="module">
-      import './js/firebase-shim.js';
+      import './js/supabase-shim.js';
       import { supa } from './js/supabase-client.js';
       window.supa = supa;
       // Load the question catalogue for all 3 levels and dispatch a ready event.
@@ -701,7 +703,7 @@
 </div>
 
 <script>
-// Firebase config retired — backend is Supabase via js/firebase-shim.js
+// Pas de Firebase — backend = Supabase via js/supabase-shim.js (PostgreSQL UE)
 
 /* ════ PICTOGRAMMES ════ */
 const PICTOGRAMS={
@@ -772,9 +774,9 @@ window.addEventListener('catalogue-ready',()=>{
   if(typeof renderSessionConfigUI==='function')renderSessionConfigUI();
 });
 
-/* ════ INIT BACKEND (Firebase shim → Supabase) ════ */
-function initializeFirebase(){if(typeof firebase==='undefined'){setTimeout(initializeFirebase,100);return;}try{if(!firebase.apps.length)firebase.initializeApp({});database=firebase.database();}catch(e){console.error('❌',e);}}
-initializeFirebase();
+/* ════ INIT BACKEND — Supabase via shim (API compat Firebase RTDB) ════ */
+function initializeBackend(){if(typeof firebase==='undefined'){setTimeout(initializeBackend,100);return;}try{if(!firebase.apps.length)firebase.initializeApp({});database=firebase.database();}catch(e){console.error('❌',e);}}
+initializeBackend();
 
 /* ════ LOGS ════ */
 function fireLog(level,category,message,meta={}){
@@ -1800,7 +1802,7 @@ window.addEventListener('DOMContentLoaded',()=>{
         // Flag valide < 2 minutes (anti-replay)
         if (ccAuth && (Date.now() - ccAuth.ts) < 120000) {
           localStorage.removeItem('mib_cc_auth'); // one-shot
-          // Attendre que database (Firebase shim) et window.supa soient prêts
+          // Attendre que database (Supabase shim) et window.supa soient prêts
           const waitDB = setInterval(() => {
             if (!database || !window.supa) return;
             clearInterval(waitDB);
@@ -1820,35 +1822,52 @@ window.addEventListener('DOMContentLoaded',()=>{
             }
             if (typeof initializeSupervisor === 'function') initializeSupervisor();
 
-            // Mode invitation : pré-créer les équipes nominatives dans Firebase
+            // Mode invitation : pré-créer les équipes nominatives dans Supabase Challenge Cup
+            // (appels individuels — le shim Supabase ne supporte pas le multipath update pour
+            // créer des objets entiers, seulement les field-updates)
             if (window.MIB_INVITATION_MODE) {
-              try {
-                var updates = {};
-                ccAuth.stagiaires.forEach(function(stag) {
-                  var teamId = 'mib_' + stag.id;
-                  updates['sessions/' + sessionId + '/teams/' + teamId] = {
-                    name: (stag.prenom || '') + ' ' + (stag.nom || ''),
-                    avatar: '',
-                    mibStagiaireId: stag.id,
-                    mibNominative: true,
-                    online: false,
-                    score: 0,
-                    answer: null,
-                    hasAnswered: false,
-                    isCorrect: false,
-                    lastPoints: 0,
-                    joinedAt: Date.now()
-                  };
-                });
-                updates['sessions/' + sessionId + '/mibInvitation'] = true;
-                updates['sessions/' + sessionId + '/mibSessionId'] = ccAuth.sessionId || null;
-                database.ref().update(updates);
-                if (typeof fireLog === 'function') {
-                  fireLog('info', 'INVITATION',
-                    ccAuth.stagiaires.length + ' stagiaires pré-inscrits (mode invitation MIB)',
-                    { count: ccAuth.stagiaires.length, sessionId: ccAuth.sessionId });
+              (async () => {
+                try {
+                  for (var i = 0; i < ccAuth.stagiaires.length; i++) {
+                    var stag = ccAuth.stagiaires[i];
+                    var teamId = 'mib_' + stag.id;
+                    var teamName = ((stag.prenom || '') + ' ' + (stag.nom || '')).trim() || ('Stagiaire ' + (i + 1));
+                    // Création via .set() — appel individuel par stagiaire
+                    await database.ref('sessions/' + sessionId + '/teams/' + teamId).set({
+                      name: teamName,
+                      avatar: '',
+                      online: false,
+                      score: 0,
+                      answer: null,
+                      hasAnswered: false,
+                      isCorrect: false,
+                      lastPoints: 0,
+                      joinedAt: Date.now()
+                    });
+                  }
+                  if (typeof fireLog === 'function') {
+                    fireLog('info', 'INVITATION',
+                      ccAuth.stagiaires.length + ' stagiaires pré-inscrits (mode invitation MIB)',
+                      { count: ccAuth.stagiaires.length, sessionId: ccAuth.sessionId });
+                  }
+                  // Re-générer le QR code avec le paramètre invitation=1 pour signaler le mode
+                  // au stagiaire qui scanne
+                  setTimeout(function() {
+                    var qrEl = document.getElementById('qrcode-container');
+                    if (qrEl) {
+                      qrEl.innerHTML = '';
+                      new QRCode(qrEl, {
+                        text: window.location.href.split('?')[0] + '?session=' + sessionId + '&invitation=1',
+                        width: 220, height: 220,
+                        colorDark: '#059669', colorLight: '#ffffff',
+                        correctLevel: QRCode.CorrectLevel.H
+                      });
+                    }
+                  }, 500);
+                } catch (err) {
+                  console.warn('[mib-invitation] pré-création équipes échouée', err);
                 }
-              } catch(err) { console.warn('[mib-invitation] pré-création équipes échouée', err); }
+              })();
             }
 
             // Cacher le loader anti-flash + ré-afficher les screens normaux
@@ -1896,36 +1915,42 @@ function updateTraineeLevelBadge(level){
 
 /* ════════════════════════════════════════════════════════════════════
    MODE INVITATION : afficher la liste des stagiaires pré-inscrits
-   (détecte si la session a mibInvitation === true)
+   Détection : ?invitation=1 dans l'URL (param ajouté par le formateur
+   lors du bypass MIB). On lit ensuite les teams où id commence par 'mib_'
+   et online=false → ce sont les stagiaires invités encore disponibles.
    ════════════════════════════════════════════════════════════════════ */
 function showTraineeJoinPanel(sId) {
   if (!database) return;
-  database.ref('sessions/'+sId).once('value', snap => {
-    const sess = snap.val();
-    const free = document.getElementById('trainee-free-panel');
-    const inv = document.getElementById('trainee-invitation-panel');
-    if (!free || !inv) return;
+  const isInvitationMode = new URLSearchParams(window.location.search).get('invitation') === '1';
+  const free = document.getElementById('trainee-free-panel');
+  const inv = document.getElementById('trainee-invitation-panel');
+  if (!free || !inv) return;
 
-    if (sess && sess.mibInvitation === true && sess.teams) {
-      // Mode invitation : récupérer les teams pré-créées (nominatives, online=false)
-      const invitedTeams = [];
-      Object.entries(sess.teams).forEach(([id, t]) => {
-        if (t && t.mibNominative && !t.online) invitedTeams.push({ id, name: t.name });
-      });
-      if (invitedTeams.length === 0) {
-        // Plus de stagiaires pré-inscrits disponibles → fallback mode libre
-        free.classList.remove('hidden');
-        inv.classList.add('hidden');
-        return;
+  if (!isInvitationMode) {
+    // Mode QR libre standard
+    free.classList.remove('hidden');
+    inv.classList.add('hidden');
+    return;
+  }
+
+  // Mode invitation : lire les teams MIB (id 'mib_*', online=false)
+  database.ref('sessions/'+sId+'/teams').once('value', snap => {
+    const teams = snap.val() || {};
+    const invitedTeams = [];
+    Object.entries(teams).forEach(([id, t]) => {
+      if (t && id.startsWith('mib_') && !t.online) {
+        invitedTeams.push({ id, name: t.name });
       }
-      free.classList.add('hidden');
-      inv.classList.remove('hidden');
-      renderInvitationList(sId, invitedTeams);
-    } else {
-      // Mode QR libre standard
+    });
+    if (invitedTeams.length === 0) {
+      // Plus aucun stagiaire disponible → fallback mode libre
       free.classList.remove('hidden');
       inv.classList.add('hidden');
+      return;
     }
+    free.classList.add('hidden');
+    inv.classList.remove('hidden');
+    renderInvitationList(sId, invitedTeams);
   });
 }
 
