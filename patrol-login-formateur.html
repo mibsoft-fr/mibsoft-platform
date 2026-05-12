@@ -2,54 +2,241 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>SSIAP Patrol — Accès Formateur</title>
+<meta name="theme-color" content="#F8FAFC">
+<link rel="icon" href="/Logo MIB.png" type="image/png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="design-tokens.css">
+<link rel="stylesheet" href="mib-design.css">
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
 <script src="supabase.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:linear-gradient(135deg,#1e293b 0%,#334155 50%,#1e293b 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;}
-.card{background:#fff;border-radius:24px;padding:36px 32px;width:100%;max-width:440px;box-shadow:0 30px 80px rgba(0,0,0,.35);animation:fadeIn .3s ease-out;}
-@keyframes fadeIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
-.logo{width:68px;height:68px;border-radius:18px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 8px 24px rgba(245,158,11,.4);}
-.step{display:none;}
-.step.active{display:block;}
-.input{width:100%;padding:12px 15px;border:1.5px solid #e2e8f0;border-radius:11px;font-size:.9rem;font-family:inherit;outline:none;transition:all .15s;background:#fff;color:#1e293b;}
-.input:focus{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.12);}
-.btn{width:100%;padding:13px;border-radius:11px;border:none;font-weight:700;font-size:.9rem;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;}
-.btn:hover{transform:translateY(-1px);}
-.btn-primary{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 4px 14px rgba(245,158,11,.35);}
-.btn-gray{background:#f8fafc;color:#64748b;border:1.5px solid #e2e8f0;}
-.err{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;color:#dc2626;font-size:.82rem;font-weight:600;display:none;margin-bottom:12px;}
-.session-card{width:100%;padding:16px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:14px;cursor:pointer;transition:all .18s;text-align:left;font-family:inherit;margin-bottom:10px;display:flex;align-items:center;gap:14px;}
-.session-card:hover{background:#fffbeb;border-color:#f59e0b;box-shadow:0 4px 14px rgba(245,158,11,.15);}
-.session-card:active{transform:scale(.98);}
-.sess-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1rem;color:#fff;}
-.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:.67rem;font-weight:700;}
-.b-blue{background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;}
-.b-green{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;}
-.b-orange{background:#fff7ed;color:#ea580c;border:1px solid #fed7aa;}
-.b-purple{background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;}
-.b-gray{background:#f8fafc;color:#64748b;border:1px solid #e2e8f0;}
-.spin{width:18px;height:18px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite;display:inline-block;}
-@keyframes sp{to{transform:rotate(360deg)}}
-.label{font-size:.73rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px;}
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse 70% 50% at 10% 0%, rgba(16, 185, 129, 0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 90% 100%, rgba(37, 99, 235, 0.08) 0%, transparent 60%),
+      var(--bg-page);
+    display: flex; align-items: center; justify-content: center;
+    padding: var(--space-4);
+  }
+  .card {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-surface);
+    border-radius: var(--radius-xl);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    padding: var(--space-7) var(--space-6);
+    width: 100%; max-width: 460px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 30px 80px -20px rgba(15, 23, 42, 0.25);
+    animation: fadeIn 0.3s ease-out;
+  }
+  .card::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 4px;
+    background: var(--gradient-primary);
+    z-index: 1;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+  .logo {
+    width: 68px; height: 68px;
+    border-radius: var(--radius-lg);
+    background: var(--gradient-primary);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto var(--space-4);
+    color: #fff;
+    box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.45);
+  }
+  .card h1 {
+    text-align: center;
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: var(--weight-extrabold);
+    color: var(--text-1);
+    letter-spacing: var(--tracking-tight);
+    margin-bottom: 4px;
+  }
+  .subtitle { text-align: center; color: var(--text-3); font-size: var(--text-sm); margin-bottom: var(--space-5); }
+
+  .step { display: none; }
+  .step.active { display: block; }
+
+  .label {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    display: block;
+    margin-bottom: var(--space-2);
+  }
+  .input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    outline: none;
+    transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+    background: #fff;
+    color: var(--text-1);
+  }
+  .input:hover { border-color: var(--border-strong); }
+  .input:focus { border-color: var(--vigil-500); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15); }
+
+  .btn {
+    width: 100%;
+    padding: var(--space-3);
+    min-height: 48px;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    font-family: var(--font-body);
+    font-weight: var(--weight-bold);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition: all var(--duration-fast);
+    display: flex; align-items: center; justify-content: center; gap: var(--space-2);
+  }
+  .btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .btn-primary {
+    background: var(--gradient-primary);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.25) inset,
+      0 6px 14px -4px rgba(16, 185, 129, 0.45);
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--gradient-primary-hover); }
+  .btn-gray {
+    background: #fff;
+    color: var(--text-2);
+    border-color: var(--border-default);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 2px 6px -1px rgba(15, 23, 42, 0.08);
+  }
+  .btn-gray:hover { background: var(--neutral-50); color: var(--text-1); border-color: var(--border-strong); }
+
+  .err {
+    background: var(--danger-50);
+    border: 1px solid var(--danger-200);
+    border-left: 4px solid var(--danger-500);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    color: var(--danger-800);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    display: none;
+    margin-bottom: var(--space-3);
+  }
+
+  .session-card {
+    width: 100%;
+    padding: var(--space-4);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--duration-fast);
+    text-align: left;
+    font-family: var(--font-body);
+    margin-bottom: var(--space-2);
+    display: flex; align-items: center; gap: var(--space-3);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 2px 6px -1px rgba(15, 23, 42, 0.06);
+  }
+  .session-card:hover {
+    background: linear-gradient(135deg, #FFFFFF 0%, var(--vigil-50) 100%);
+    border-color: var(--vigil-300);
+    transform: translateY(-1px);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 6px 14px -2px rgba(16, 185, 129, 0.18);
+  }
+  .session-card:active { transform: scale(0.98); }
+
+  .sess-icon {
+    width: 44px; height: 44px;
+    border-radius: var(--radius-md);
+    background: var(--gradient-primary);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 3px 9px;
+    border-radius: var(--radius-full);
+    font-size: 0.65rem;
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+  .b-blue { background: var(--info-100); color: var(--info-800); }
+  .b-green { background: var(--success-100); color: var(--success-800); }
+  .b-orange { background: var(--warning-100); color: var(--warning-800); }
+  .b-purple { background: #F3E8FF; color: #6B21A8; }
+  .b-gray { background: var(--neutral-100); color: var(--neutral-700); }
+
+  .spin {
+    width: 18px; height: 18px;
+    border: 2.5px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: sp 0.6s linear infinite;
+    display: inline-block;
+  }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  .form-header {
+    display: flex; align-items: center; gap: var(--space-3);
+    margin-bottom: var(--space-4);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .form-header-avatar {
+    width: 40px; height: 40px;
+    border-radius: var(--radius-md);
+    background: var(--gradient-primary);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-weight: var(--weight-extrabold);
+    font-size: var(--text-sm);
+    flex-shrink: 0;
+  }
+  .field-stack { display: flex; flex-direction: column; gap: var(--space-3); }
 </style>
 </head>
 <body>
-<div class="card">
 
-  <!-- LOGO -->
-  <div class="logo"><i class="fas fa-shield-alt" style="font-size:1.4rem;"></i></div>
-  <h1 style="text-align:center;font-size:1.35rem;font-weight:800;color:#1e293b;margin-bottom:4px;">SSIAP Patrol</h1>
-  <p style="text-align:center;color:#94a3b8;font-size:.83rem;margin-bottom:24px;" id="subtitle">Acces Formateur</p>
+<div class="card">
+  <div class="logo" aria-hidden="true">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+    </svg>
+  </div>
+  <h1>SSIAP Patrol</h1>
+  <p class="subtitle" id="subtitle">Accès Formateur</p>
 
   <!-- ETAPE 1 : LOGIN FORMATEUR -->
   <div id="step-login" class="step active">
     <div class="err" id="err-login"></div>
-    <div style="display:flex;flex-direction:column;gap:13px;">
+    <div class="field-stack">
       <div>
         <label class="label">Formateur</label>
         <select id="sel-formateur" class="input">
@@ -58,29 +245,42 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:linear-gradient(135de
       </div>
       <div>
         <label class="label">Code PIN</label>
-        <input type="password" id="inp-pin" class="input" placeholder="......" maxlength="6" inputmode="numeric">
+        <input type="password" id="inp-pin" class="input" placeholder="••••••" maxlength="6" inputmode="numeric">
       </div>
       <button class="btn btn-primary" id="btn-login" onclick="doLogin()">
-        <i class="fas fa-sign-in-alt"></i> Se connecter
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+          <polyline points="10 17 15 12 10 7"/>
+          <line x1="15" y1="12" x2="3" y2="12"/>
+        </svg>
+        Se connecter
       </button>
       <button class="btn btn-gray" onclick="window.history.back()">
-        <i class="fas fa-arrow-left"></i> Retour
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        Retour
       </button>
     </div>
   </div>
 
   <!-- ETAPE 2 : CHOIX DE SESSION -->
   <div id="step-sessions" class="step">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #f1f5f9;">
-      <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:.85rem;flex-shrink:0;" id="formateur-initiales">FM</div>
+    <div class="form-header">
+      <div class="form-header-avatar" id="formateur-initiales">FM</div>
       <div>
-        <div style="font-weight:800;font-size:.9rem;" id="formateur-nom">Formateur</div>
-        <div style="font-size:.72rem;color:#94a3b8;">Selectionnez votre session</div>
+        <div style="font-family:var(--font-display);font-weight:var(--weight-bold);font-size:var(--text-sm);color:var(--text-1);" id="formateur-nom">Formateur</div>
+        <div style="font-size:var(--text-xs);color:var(--text-3);">Sélectionnez votre session</div>
       </div>
     </div>
     <div id="sessions-list"></div>
-    <button class="btn btn-gray" style="margin-top:6px;" onclick="retourLogin()">
-      <i class="fas fa-arrow-left"></i> Changer de formateur
+    <button class="btn btn-gray" style="margin-top: var(--space-2);" onclick="retourLogin()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+      Changer de formateur
     </button>
   </div>
 
@@ -101,25 +301,23 @@ window.addEventListener("DOMContentLoaded", async function() {
     return;
   }
 
-  // Charger les formateurs du centre
   try {
     var cr = await sb.from("centers").select("nom").eq("id", CENTER_ID).single();
     if (cr.data) document.getElementById("subtitle").textContent = cr.data.nom;
 
-    // Via RPC SECURITY DEFINER (anon-compatible) pour permettre le drop de anon_all sur formateurs
     var fr = await sb.rpc("get_patrol_agents_from_formateurs", { p_center_id: CENTER_ID });
     var formateurs = fr.data || [];
 
     var sel = document.getElementById("sel-formateur");
-    sel.innerHTML = "<option value=\"\">Selectionner un formateur...</option>";
+    sel.innerHTML = "<option value=\"\">Sélectionner un formateur...</option>";
     formateurs.forEach(function(f) {
       var o = document.createElement("option");
       o.value = f.id;
       o.textContent = f.prenom + " " + f.nom;
-      o.dataset.pinHash  = f.pin_hash  || "";
+      o.dataset.pinHash = f.pin_hash || "";
       o.dataset.pinClair = f.pin_clair || "";
-      o.dataset.prenom   = f.prenom;
-      o.dataset.nom      = f.nom;
+      o.dataset.prenom = f.prenom;
+      o.dataset.nom = f.nom;
       sel.appendChild(o);
     });
   } catch(e) {
@@ -129,22 +327,21 @@ window.addEventListener("DOMContentLoaded", async function() {
 
 async function doLogin() {
   hideErr("err-login");
-  var sel    = document.getElementById("sel-formateur");
-  var pin    = document.getElementById("inp-pin").value.trim();
-  var opt    = sel.options[sel.selectedIndex];
-  var fid    = sel.value;
+  var sel = document.getElementById("sel-formateur");
+  var pin = document.getElementById("inp-pin").value.trim();
+  var opt = sel.options[sel.selectedIndex];
+  var fid = sel.value;
 
-  if (!fid)  { showErr("err-login", "Selectionnez un formateur."); return; }
-  if (!pin)  { showErr("err-login", "Entrez votre code PIN."); return; }
+  if (!fid) { showErr("err-login", "Sélectionnez un formateur."); return; }
+  if (!pin) { showErr("err-login", "Entrez votre code PIN."); return; }
 
   var btn = document.getElementById("btn-login");
   btn.innerHTML = "<span class=\"spin\"></span>";
   btn.disabled = true;
 
-  // Verifier PIN
   var ok = false;
   try {
-    var pinHash  = opt.dataset.pinHash;
+    var pinHash = opt.dataset.pinHash;
     var pinClair = opt.dataset.pinClair;
     if (pinHash) {
       var h = await UTILS.hash(pin);
@@ -155,12 +352,10 @@ async function doLogin() {
 
   if (!ok) {
     showErr("err-login", "Code PIN incorrect.");
-    btn.innerHTML = "<i class=\"fas fa-sign-in-alt\"></i> Se connecter";
-    btn.disabled = false;
+    restoreLoginBtn();
     return;
   }
 
-  // Login OK — charger les sessions du formateur
   currentFormateur = { id: fid, prenom: opt.dataset.prenom, nom: opt.dataset.nom };
 
   var initiales = (opt.dataset.prenom[0] || "") + (opt.dataset.nom[0] || "");
@@ -182,7 +377,12 @@ async function doLogin() {
     showErr("err-login", "Erreur chargement sessions.");
   }
 
-  btn.innerHTML = "<i class=\"fas fa-sign-in-alt\"></i> Se connecter";
+  restoreLoginBtn();
+}
+
+function restoreLoginBtn() {
+  var btn = document.getElementById("btn-login");
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Se connecter';
   btn.disabled = false;
 }
 
@@ -190,17 +390,17 @@ function renderSessions(sessions) {
   var el = document.getElementById("sessions-list");
 
   if (!sessions.length) {
-    el.innerHTML = "<div style=\"text-align:center;padding:32px 20px;color:#94a3b8;\">"
-      + "<div style=\"font-size:2rem;margin-bottom:10px;\">📋</div>"
-      + "<div style=\"font-weight:700;margin-bottom:4px;\">Aucune session en cours</div>"
-      + "<div style=\"font-size:.82rem;\">Creez une session depuis le dashboard formateur.</div>"
-      + "</div>";
+    el.innerHTML = '<div style="text-align:center;padding:32px 20px;color:var(--text-3);">'
+      + '<div style="font-size:2rem;margin-bottom:10px;">📋</div>'
+      + '<div style="font-family:var(--font-display);font-weight:var(--weight-bold);margin-bottom:4px;color:var(--text-1);">Aucune session en cours</div>'
+      + '<div style="font-size:var(--text-sm);">Créez une session depuis le dashboard formateur.</div>'
+      + '</div>';
     return;
   }
 
-  var niveauBadge = { SSIAP1:"b-blue", SSIAP2:"b-orange", SSIAP3:"b-purple" };
-  var typeBadge   = { INI:"b-green", REC:"b-orange", RAN:"b-purple" };
-  var typeLabel   = { INI:"Initial", REC:"Recyclage", RAN:"Remise a niveau" };
+  var niveauBadge = { SSIAP1: "b-blue", SSIAP2: "b-orange", SSIAP3: "b-purple" };
+  var typeBadge = { INI: "b-green", REC: "b-orange", RAN: "b-purple" };
+  var typeLabel = { INI: "Initial", REC: "Recyclage", RAN: "Remise à niveau" };
 
   el.innerHTML = sessions.map(function(s) {
     var dateCode = s.date_debut
@@ -208,39 +408,37 @@ function renderSessions(sessions) {
       : "";
     var titre = s.type_formation + "_" + s.niveau + dateCode;
     var nbc = niveauBadge[s.niveau] || "b-gray";
-    var tbc = typeBadge[s.type_formation]  || "b-gray";
-    var tbl = typeLabel[s.type_formation]  || s.type_formation;
-    var dateStr = s.date_debut ? new Date(s.date_debut).toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"}) : "";
+    var tbc = typeBadge[s.type_formation] || "b-gray";
+    var tbl = typeLabel[s.type_formation] || s.type_formation;
+    var dateStr = s.date_debut ? new Date(s.date_debut).toLocaleDateString("fr-FR", {day:"2-digit",month:"short",year:"numeric"}) : "";
 
-    return "<button class=\"session-card\" onclick=\"choisirSession('" + s.id + "')\">"
-      + "<div class=\"sess-icon\"><i class=\"fas fa-clipboard-list\"></i></div>"
-      + "<div style=\"flex:1;\">"
-      + "<div style=\"font-weight:800;font-size:.88rem;color:#1e293b;margin-bottom:5px;\">" + titre + "</div>"
-      + "<div style=\"display:flex;gap:5px;flex-wrap:wrap;\">"
-      + "<span class=\"badge " + tbc + "\">" + tbl + "</span>"
-      + "<span class=\"badge " + nbc + "\">" + s.niveau + "</span>"
-      + (dateStr ? "<span class=\"badge b-gray\">" + dateStr + "</span>" : "")
-      + "</div></div>"
-      + "<i class=\"fas fa-chevron-right\" style=\"color:#e2e8f0;flex-shrink:0;\"></i>"
-      + "</button>";
+    return '<button class="session-card" onclick="choisirSession(\'' + s.id + '\')">'
+      + '<div class="sess-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-family:var(--font-display);font-weight:var(--weight-bold);font-size:var(--text-sm);color:var(--text-1);margin-bottom:5px;">' + titre + '</div>'
+      + '<div style="display:flex;gap:5px;flex-wrap:wrap;">'
+      + '<span class="badge ' + tbc + '">' + tbl + '</span>'
+      + '<span class="badge ' + nbc + '">' + s.niveau + '</span>'
+      + (dateStr ? '<span class="badge b-gray">' + dateStr + '</span>' : '')
+      + '</div></div>'
+      + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-4);flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>'
+      + '</button>';
   }).join("");
 }
 
 function choisirSession(sessionId) {
-  // Stocker le formateur dans sessionStorage pour patrol-admin
   var patrolSession = {
-    centerId:   CENTER_ID,
-    sessionId:  sessionId,
-    agentId:    currentFormateur.id,
-    nom:        currentFormateur.nom,
-    prenom:     currentFormateur.prenom,
+    centerId: CENTER_ID,
+    sessionId: sessionId,
+    agentId: currentFormateur.id,
+    nom: currentFormateur.nom,
+    prenom: currentFormateur.prenom,
     qualification: "SSIAP 3",
-    type:       "formateur",
-    ts:         Date.now()
+    type: "formateur",
+    ts: Date.now()
   };
   sessionStorage.setItem("patrol_session", JSON.stringify(patrolSession));
 
-  // Ouvrir patrol-admin directement (formateur = admin)
   var base = window.location.href.replace(/patrol-login-formateur\.html.*/, "");
   window.location.href = base + "patrol-admin.html?center=" + CENTER_ID + "&session=" + sessionId + "&autologin=1&fid=" + currentFormateur.id + "&fnom=" + encodeURIComponent(currentFormateur.nom) + "&fprenom=" + encodeURIComponent(currentFormateur.prenom);
 }
@@ -260,11 +458,10 @@ function showStep(id) {
 
 function showErr(id, msg) {
   var el = document.getElementById(id);
-  el.textContent = msg; el.style.display = "block";
+  el.textContent = msg;
+  el.style.display = "block";
 }
-function hideErr(id) {
-  document.getElementById(id).style.display = "none";
-}
+function hideErr(id) { document.getElementById(id).style.display = "none"; }
 
 document.addEventListener("keydown", function(e) {
   if (e.key === "Enter") {
