@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Référentiel juridique complet — Impression — MIB Prévention</title>
+<meta name="theme-color" content="#F8FAFC">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/Logo MIB.png" type="image/png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="../design-tokens.css">
+<link rel="stylesheet" href="../mib-design.css">
+<link rel="stylesheet" href="legal.css">
+
+<style>
+  .print-toolbar {
+    position: sticky; top: 0; z-index: 100;
+    background: #fff;
+    border-bottom: 1px solid var(--border-default);
+    padding: var(--space-3) var(--space-6);
+    display: flex; align-items: center; gap: var(--space-3);
+    box-shadow: 0 2px 10px -4px rgba(15, 23, 42, 0.06);
+  }
+  .print-toolbar h1 {
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: var(--weight-extrabold);
+    color: var(--text-1);
+    margin: 0;
+    flex: 1;
+  }
+  .print-progress {
+    font-size: var(--text-sm);
+    color: var(--text-3);
+    margin-right: var(--space-4);
+  }
+  .doc-section {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-6);
+    page-break-after: always;
+  }
+  .doc-section:last-child { page-break-after: auto; }
+  .doc-section h1.doc-title {
+    font-family: var(--font-display);
+    font-size: 24pt;
+    font-weight: var(--weight-extrabold);
+    color: var(--text-1);
+    margin-bottom: var(--space-2);
+    padding-bottom: var(--space-3);
+    border-bottom: 3px solid var(--vigil-500);
+    letter-spacing: var(--tracking-tight);
+  }
+  .doc-section .doc-eyebrow {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    color: var(--vigil-700);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    margin-bottom: var(--space-2);
+  }
+  .doc-section .doc-content { font-size: var(--text-base); color: var(--text-2); line-height: var(--lh-relaxed); }
+  .doc-section .doc-content h2 {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: var(--weight-extrabold);
+    color: var(--text-1);
+    margin-top: var(--space-6);
+    margin-bottom: var(--space-2);
+    padding-top: var(--space-3);
+    border-top: 2px solid var(--border-subtle);
+    page-break-after: avoid;
+  }
+  .doc-section .doc-content h3 {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-bold);
+    color: var(--text-1);
+    margin-top: var(--space-4);
+    margin-bottom: var(--space-2);
+    page-break-after: avoid;
+  }
+  .doc-section .doc-content p,
+  .doc-section .doc-content li { color: var(--text-2); margin-bottom: var(--space-3); }
+  .doc-section .doc-content ul, .doc-section .doc-content ol { margin-left: var(--space-5); }
+  .doc-section .doc-content table { width: 100%; border-collapse: collapse; margin: var(--space-3) 0; font-size: var(--text-sm); page-break-inside: avoid; }
+  .doc-section .doc-content table th { background: var(--neutral-50); padding: 8px 12px; border-bottom: 1px solid var(--border-default); font-size: var(--text-xs); font-weight: var(--weight-bold); text-align: left; color: var(--text-2); text-transform: uppercase; letter-spacing: var(--tracking-wide); }
+  .doc-section .doc-content table td { padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  .doc-section .doc-content code { background: var(--neutral-100); border: 1px solid var(--border-subtle); padding: 2px 6px; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 0.9em; }
+
+  .toc-block {
+    max-width: 920px;
+    margin: 0 auto var(--space-6);
+    padding: var(--space-7) var(--space-6);
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+  .toc-block h2 {
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-extrabold);
+    color: var(--text-1);
+    margin-bottom: var(--space-4);
+  }
+  .toc-block ol { list-style: decimal; padding-left: var(--space-6); }
+  .toc-block li { margin-bottom: var(--space-1); color: var(--text-2); }
+
+  .cover {
+    max-width: 920px;
+    margin: var(--space-8) auto;
+    padding: var(--space-12) var(--space-8);
+    text-align: center;
+  }
+  .cover h1 {
+    font-family: var(--font-display);
+    font-size: 36pt;
+    font-weight: var(--weight-extrabold);
+    color: var(--text-1);
+    margin-bottom: var(--space-3);
+    letter-spacing: var(--tracking-tight);
+  }
+  .cover .subtitle {
+    font-size: var(--text-xl);
+    color: var(--text-3);
+    margin-bottom: var(--space-6);
+  }
+  .cover .badge {
+    display: inline-block;
+    background: var(--gradient-primary);
+    color: #fff;
+    padding: 8px 20px;
+    border-radius: var(--radius-full);
+    font-weight: var(--weight-bold);
+    font-size: var(--text-sm);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .loading-box {
+    max-width: 700px;
+    margin: var(--space-8) auto;
+    padding: var(--space-7);
+    text-align: center;
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-default);
+  }
+  .loading-bar {
+    height: 8px;
+    background: var(--neutral-200);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: var(--space-4);
+  }
+  .loading-fill {
+    height: 100%;
+    background: var(--gradient-primary);
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+
+  @media print {
+    .print-toolbar, .loading-box { display: none !important; }
+    .cover { page-break-after: always; padding: 80px 40px !important; }
+    .toc-block { page-break-after: always; box-shadow: none !important; border: 1px solid #888 !important; }
+    .doc-section { padding: 20px 0 !important; max-width: 100% !important; }
+    .doc-section h1.doc-title { font-size: 18pt !important; border-bottom: 2px solid #000 !important; color: #000 !important; }
+    .doc-section .doc-eyebrow { color: #555 !important; }
+    .doc-section .doc-content h2 { font-size: 14pt !important; color: #000 !important; }
+    .doc-section .doc-content h3 { font-size: 12pt !important; color: #000 !important; }
+    .doc-section .doc-content p, .doc-section .doc-content li { font-size: 10pt !important; color: #111 !important; }
+    .doc-section .doc-content table { font-size: 9pt !important; }
+    body { background: #fff !important; }
+    @page { margin: 18mm 15mm; }
+  }
+</style>
+</head>
+<body>
+
+<div class="print-toolbar">
+  <a href="index.html" class="legal-print-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"></line>
+      <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    Retour
+  </a>
+  <h1>Référentiel juridique complet — Impression</h1>
+  <span class="print-progress" id="loading-status">Chargement…</span>
+  <button id="print-btn" type="button" class="legal-print-btn primary" onclick="window.print()" disabled>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 6 2 18 2 18 9"></polyline>
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+      <rect x="6" y="14" width="12" height="8"></rect>
+    </svg>
+    Imprimer / PDF
+  </button>
+</div>
+
+<!-- Couverture -->
+<div class="cover">
+  <h1>Référentiel juridique &amp; conformité</h1>
+  <div class="subtitle">MIB Prévention — Plateforme SaaS de formation SSIAP</div>
+  <div class="badge">12 documents · Version 1.0 — Projet</div>
+  <div style="margin-top: 24px; color: var(--text-3); font-size: var(--text-sm);">
+    Dernière mise à jour : Mai 2026<br>
+    À valider par un avocat spécialisé en droit du numérique avant publication
+  </div>
+</div>
+
+<!-- Loader -->
+<div class="loading-box" id="loading-box">
+  <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-lg);color:var(--text-1);">⏳ Chargement des 12 documents…</div>
+  <div style="font-size:var(--text-sm);color:var(--text-3);margin-top:8px;" id="loading-detail">Préparation…</div>
+  <div class="loading-bar"><div class="loading-fill" id="loading-fill"></div></div>
+</div>
+
+<!-- Table des matières -->
+<div class="toc-block" id="toc-block" style="display:none;">
+  <h2>Table des matières</h2>
+  <ol id="toc-list"></ol>
+</div>
+
+<!-- Container où injecter tous les documents -->
+<div id="docs-container"></div>
+
+<script>
+const DOCS = [
+  { file: 'mentions-legales.html',         title: 'Mentions légales',                       cat: 'Documents contractuels' },
+  { file: 'cgv.html',                       title: 'Conditions Générales de Vente (CGV)',   cat: 'Documents contractuels' },
+  { file: 'cgu.html',                       title: 'Conditions Générales d\'Utilisation (CGU)', cat: 'Documents contractuels' },
+  { file: 'politique-confidentialite.html', title: 'Politique de confidentialité',          cat: 'Protection des données' },
+  { file: 'politique-cookies.html',         title: 'Politique de cookies',                  cat: 'Protection des données' },
+  { file: 'dpa.html',                       title: 'DPA — Accord de sous-traitance RGPD',   cat: 'Protection des données' },
+  { file: 'sous-traitants.html',            title: 'Liste des sous-traitants',              cat: 'Protection des données' },
+  { file: 'registre-rgpd.html',             title: 'Registre des traitements (Article 30)', cat: 'Protection des données' },
+  { file: 'pssi.html',                      title: 'PSSI — Politique de Sécurité SI',       cat: 'Sécurité informatique' },
+  { file: 'pra-pca.html',                   title: 'PRA / PCA',                              cat: 'Sécurité informatique' },
+  { file: 'procedure-incidents.html',       title: 'Procédure incidents cyber',             cat: 'Sécurité informatique' },
+  { file: 'kit-qualiopi.html',              title: 'Kit Qualiopi',                          cat: 'Conformité formation' }
+];
+
+async function loadAllDocs() {
+  const container = document.getElementById('docs-container');
+  const tocList = document.getElementById('toc-list');
+  const tocBlock = document.getElementById('toc-block');
+  const loadingBox = document.getElementById('loading-box');
+  const loadingDetail = document.getElementById('loading-detail');
+  const loadingFill = document.getElementById('loading-fill');
+  const loadingStatus = document.getElementById('loading-status');
+  const printBtn = document.getElementById('print-btn');
+
+  // Build TOC
+  DOCS.forEach((doc, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<a href="#doc-${i}" style="color:var(--vigil-700);text-decoration:none;font-weight:var(--weight-semibold);">${doc.title}</a> <span style="color:var(--text-3);font-size:var(--text-xs);">— ${doc.cat}</span>`;
+    tocList.appendChild(li);
+  });
+
+  let loaded = 0;
+  for (let i = 0; i < DOCS.length; i++) {
+    const doc = DOCS[i];
+    loadingDetail.textContent = `Chargement de ${doc.title}…`;
+    try {
+      const resp = await fetch(doc.file);
+      const html = await resp.text();
+
+      // Parse + extract .legal-article content
+      const parser = new DOMParser();
+      const docNode = parser.parseFromString(html, 'text/html');
+      const article = docNode.querySelector('.legal-article');
+      const articleHTML = article ? article.innerHTML : '<p>(contenu indisponible)</p>';
+
+      const section = document.createElement('section');
+      section.className = 'doc-section';
+      section.id = `doc-${i}`;
+      section.innerHTML = `
+        <div class="doc-eyebrow">${doc.cat} — Document ${i + 1} / ${DOCS.length}</div>
+        <h1 class="doc-title">${doc.title}</h1>
+        <div class="doc-content">${articleHTML}</div>
+      `;
+      container.appendChild(section);
+    } catch(err) {
+      console.error('Failed to load', doc.file, err);
+      const section = document.createElement('section');
+      section.className = 'doc-section';
+      section.innerHTML = `<h1 class="doc-title">${doc.title}</h1><p style="color:var(--danger-600);">❌ Erreur de chargement : ${err.message}</p>`;
+      container.appendChild(section);
+    }
+    loaded++;
+    loadingFill.style.width = ((loaded / DOCS.length) * 100) + '%';
+    loadingStatus.textContent = `${loaded}/${DOCS.length}`;
+  }
+
+  loadingBox.style.display = 'none';
+  tocBlock.style.display = 'block';
+  loadingStatus.textContent = '✓ Prêt';
+  printBtn.disabled = false;
+}
+
+document.addEventListener('DOMContentLoaded', loadAllDocs);
+</script>
+
+</body>
+</html>
