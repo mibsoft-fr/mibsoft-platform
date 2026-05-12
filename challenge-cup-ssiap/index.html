@@ -4,6 +4,54 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QCM SSIAP - Challenge Cup</title>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         ANTI-FLASH : si arrivée depuis MIB formateur, cache l'écran login
+         AVANT le rendu (script bloquant en <head>)
+    ════════════════════════════════════════════════════════════════════ -->
+    <script>
+      (function() {
+        try {
+          var raw = localStorage.getItem('mib_cc_auth');
+          if (raw) {
+            var ccAuth = JSON.parse(raw);
+            if (ccAuth && (Date.now() - ccAuth.ts) < 120000) {
+              document.documentElement.classList.add('mib-cc-bypass');
+            }
+          }
+        } catch(e) {}
+      })();
+    </script>
+    <style>
+      /* Cache instantanément TOUS les screens en mode bypass + affiche un loader */
+      html.mib-cc-bypass #app > div { display: none !important; }
+      html.mib-cc-bypass #mib-bypass-loader { display: flex !important; }
+      #mib-bypass-loader {
+        display: none;
+        position: fixed; inset: 0;
+        background: linear-gradient(135deg, #064E3B 0%, #0F172A 50%, #1E3A8A 100%);
+        color: #fff;
+        align-items: center; justify-content: center;
+        flex-direction: column; gap: 16px;
+        z-index: 9999;
+        font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      }
+      #mib-bypass-loader .mib-spin {
+        width: 36px; height: 36px;
+        border: 3px solid rgba(255,255,255,0.2);
+        border-top-color: #6EE7B7;
+        border-radius: 50%;
+        animation: mib-spin 0.7s linear infinite;
+      }
+      #mib-bypass-loader .mib-text {
+        font-weight: 700;
+        font-size: 0.95rem;
+        letter-spacing: 0.02em;
+        opacity: 0.85;
+      }
+      @keyframes mib-spin { to { transform: rotate(360deg); } }
+    </style>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- Firebase Realtime DB compat shim, backed by Supabase. Sets window.firebase. -->
@@ -163,6 +211,12 @@
     <script>tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#3B82F6',secondary:'#6366F1'}}}}</script>
 </head>
 <body class="h-full bg-gradient-to-br from-blue-100 via-indigo-50 to-cyan-100">
+
+<!-- Loader anti-flash (visible uniquement si html.mib-cc-bypass — défini par script en <head>) -->
+<div id="mib-bypass-loader">
+  <div class="mib-spin"></div>
+  <div class="mib-text">Initialisation Challenge Cup SSIAP…</div>
+</div>
 <div id="confetti-container" class="fixed inset-0 pointer-events-none z-50"></div>
 <div id="app" class="min-h-screen p-4 md:p-8">
 
@@ -794,14 +848,38 @@ window.clearLogs=function(){
 
 /* ════ NIVEAU SSIAP ════ */
 function selectSSIAPLevel(level){
+    // Si verrou actif (depuis MIB), refuse le changement
+    if (window.MIB_LOCK_SSIAP_LEVEL && SELECTED_SSIAP_LEVEL && level !== SELECTED_SSIAP_LEVEL) {
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert("🔒 Niveau SSIAP verrouillé (défini par la session formateur)");
+        }
+        return;
+    }
     SELECTED_SSIAP_LEVEL=level;BOXES_DATA=BOXES_BY_LEVEL[level];
-    [1,2,3].forEach(l=>{const btn=document.getElementById(`level-btn-${l}`);if(btn)btn.className='level-badge '+(l===level?`active-${l}`:'inactive');});
-    const label=document.getElementById('level-active-label');if(label)label.textContent=LEVEL_LABELS[level];
+    [1,2,3].forEach(l=>{
+        const btn=document.getElementById(`level-btn-${l}`);
+        if(btn) {
+            btn.className='level-badge '+(l===level?`active-${l}`:'inactive');
+            // Verrou visuel : grise et désactive les autres niveaux
+            if (window.MIB_LOCK_SSIAP_LEVEL) {
+                if (l !== level) {
+                    btn.style.opacity = '0.35';
+                    btn.style.cursor = 'not-allowed';
+                    btn.title = '🔒 Verrouillé — niveau imposé par la session formateur';
+                } else {
+                    btn.style.opacity = '1';
+                    btn.style.cursor = 'default';
+                    btn.title = '🔒 Niveau verrouillé (session formateur)';
+                }
+            }
+        }
+    });
+    const label=document.getElementById('level-active-label');if(label)label.textContent=LEVEL_LABELS[level]+(window.MIB_LOCK_SSIAP_LEVEL?' 🔒':'');
     const bL=document.getElementById('boxes-level-label');if(bL)bL.textContent=LEVEL_SHORT[level];
     const tL=document.getElementById('trainee-level-badge');if(tL)tL.textContent='🛡️ '+LEVEL_SHORT[level];
     if(database&&sessionId)database.ref(`sessions/${sessionId}/ssiapLevel`).set(level);
     renderSessionConfigUI();
-    fireLog('info','NIVEAU',`Niveau : ${LEVEL_LABELS[level]}`,{level});
+    fireLog('info','NIVEAU',`Niveau : ${LEVEL_LABELS[level]}${window.MIB_LOCK_SSIAP_LEVEL?' [verrouillé MIB]':''}`,{level,locked:!!window.MIB_LOCK_SSIAP_LEVEL});
 }
 
 /* ════ CONFIGURATION DE LA SESSION ════ */
@@ -1716,7 +1794,55 @@ window.addEventListener('DOMContentLoaded',()=>{
             clearInterval(waitDB);
             userRole = 'supervisor';
             sessionId = 'ssiap_' + generateUUID();
+            // Pré-sélection + verrou du niveau SSIAP (depuis session MIB)
+            if (ccAuth.ssiapLevel && [1,2,3].includes(ccAuth.ssiapLevel)) {
+              SELECTED_SSIAP_LEVEL = ccAuth.ssiapLevel;
+              window.SELECTED_SSIAP_LEVEL = ccAuth.ssiapLevel;
+              window.MIB_LOCK_SSIAP_LEVEL = true;
+            }
+            // Mode invitation : stocker le contexte MIB pour pré-création équipes nominatives
+            if (ccAuth.mode === 'invitation' && Array.isArray(ccAuth.stagiaires) && ccAuth.stagiaires.length) {
+              window.MIB_INVITATION_MODE = true;
+              window.MIB_INVITATION_STAGIAIRES = ccAuth.stagiaires;
+              window.MIB_INVITATION_SESSION_ID = ccAuth.sessionId;
+            }
             if (typeof initializeSupervisor === 'function') initializeSupervisor();
+
+            // Mode invitation : pré-créer les équipes nominatives dans Firebase
+            if (window.MIB_INVITATION_MODE) {
+              try {
+                var updates = {};
+                ccAuth.stagiaires.forEach(function(stag) {
+                  var teamId = 'mib_' + stag.id;
+                  updates['sessions/' + sessionId + '/teams/' + teamId] = {
+                    name: (stag.prenom || '') + ' ' + (stag.nom || ''),
+                    avatar: '',
+                    mibStagiaireId: stag.id,
+                    mibNominative: true,
+                    online: false,
+                    score: 0,
+                    answer: null,
+                    hasAnswered: false,
+                    isCorrect: false,
+                    lastPoints: 0,
+                    joinedAt: Date.now()
+                  };
+                });
+                updates['sessions/' + sessionId + '/mibInvitation'] = true;
+                updates['sessions/' + sessionId + '/mibSessionId'] = ccAuth.sessionId || null;
+                database.ref().update(updates);
+                if (typeof fireLog === 'function') {
+                  fireLog('info', 'INVITATION',
+                    ccAuth.stagiaires.length + ' stagiaires pré-inscrits (mode invitation MIB)',
+                    { count: ccAuth.stagiaires.length, sessionId: ccAuth.sessionId });
+                }
+              } catch(err) { console.warn('[mib-invitation] pré-création équipes échouée', err); }
+            }
+
+            // Cacher le loader anti-flash + ré-afficher les screens normaux
+            document.documentElement.classList.remove('mib-cc-bypass');
+            var loader = document.getElementById('mib-bypass-loader');
+            if (loader) loader.style.display = 'none';
           }, 100);
           return; // skip le flow stagiaire
         } else {
