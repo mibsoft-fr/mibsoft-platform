@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Procédure de gestion des incidents — MIB Prévention</title>
+<meta name="theme-color" content="#F8FAFC">
+<link rel="icon" href="/Logo MIB.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../design-tokens.css">
+<link rel="stylesheet" href="../mib-design.css">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+
+<div class="legal-topbar">
+  <a href="index.html" class="legal-back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"></line>
+      <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    Retour au référentiel
+  </a>
+  <h1>Procédure incidents</h1>
+</div>
+
+<div class="legal-wrap">
+
+  <div class="legal-hero">
+    <div class="eyebrow">Document opérationnel — Sécurité</div>
+    <h1>Procédure de gestion des incidents</h1>
+    <p class="lead">Procédure interne décrivant la détection, le confinement, la notification et la remédiation des incidents de sécurité affectant le service MIB Prévention.</p>
+    <div class="meta">
+      <span><strong>Version :</strong> 1.0 — Projet</span>
+      <span><strong>Dernière mise à jour :</strong> Mai 2026</span>
+      <span><strong>Statut :</strong> À valider par avocat / RSSI</span>
+    </div>
+  </div>
+
+  <div class="legal-warning">
+    <span class="icon">⚠️</span>
+    <div>
+      <strong>Projet de document — à valider par un avocat et un RSSI</strong>
+      Ce document est une base de travail rédigée selon les standards juridiques français B2B. Il doit être adapté à votre situation précise et validé avant publication.
+    </div>
+  </div>
+
+  <article class="legal-article">
+
+    <h2>1. Objet</h2>
+    <p>La présente procédure décrit le processus opérationnel de gestion des incidents de sécurité au sein de MIB Prévention, dans le respect des obligations RGPD (articles 33 et 34), des exigences ANSSI et des bonnes pratiques OWASP.</p>
+    <p>Sont visés les incidents :</p>
+    <ul>
+      <li>Affectant la <strong>confidentialité</strong> des données (fuites, accès non autorisé) ;</li>
+      <li>Affectant l'<strong>intégrité</strong> des données (corruption, altération) ;</li>
+      <li>Affectant la <strong>disponibilité</strong> du service (déni de service, panne majeure) ;</li>
+      <li>Constituant une <strong>tentative d'atteinte au système</strong> (intrusion, exfiltration, défacement).</li>
+    </ul>
+
+    <h2>2. Niveaux de gravité</h2>
+    <table>
+      <thead>
+        <tr><th>Niveau</th><th>Définition</th><th>Exemples</th><th>Délai de prise en charge</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>P1 Critique</strong></td>
+          <td>Service indisponible ou fuite confirmée de données personnelles</td>
+          <td>Indisponibilité globale, ransomware, breach RGPD avéré</td>
+          <td>< 30 min (HO) / < 1 h (HNO)</td>
+        </tr>
+        <tr>
+          <td><strong>P2 Majeur</strong></td>
+          <td>Dégradation forte du service, atteinte partielle</td>
+          <td>Module clé inutilisable, suspicion d'intrusion non confirmée</td>
+          <td>< 2 h</td>
+        </tr>
+        <tr>
+          <td><strong>P3 Modéré</strong></td>
+          <td>Dégradation partielle, fonctionnalité secondaire impactée</td>
+          <td>Lenteur isolée, bug fonctionnel sans perte de données</td>
+          <td>< 1 jour ouvré</td>
+        </tr>
+        <tr>
+          <td><strong>P4 Mineur</strong></td>
+          <td>Anomalie sans impact significatif</td>
+          <td>Anomalie cosmétique, log atypique isolé</td>
+          <td>< 5 jours ouvrés</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>3. Détection</h2>
+    <p>Les incidents sont détectés via :</p>
+    <ul>
+      <li><strong>Alertes automatiques</strong> Supabase (santé DB, requêtes anormales, erreurs auth massives) ;</li>
+      <li><strong>Monitoring Vercel</strong> (uptime, codes 5xx, latences) ;</li>
+      <li><strong>Outils de sécurité</strong> : scans CVE Dependabot, alertes GitHub Security ;</li>
+      <li><strong>Signalements externes</strong> : utilisateurs, chercheurs en sécurité (via responsible disclosure : <a href="mailto:security@mib-prevention.fr">security@mib-prevention.fr</a>) ;</li>
+      <li><strong>Veille</strong> : bulletins ANSSI, CERT-FR, suivi des CVE des dépendances.</li>
+    </ul>
+
+    <h2>4. Étape 1 — Confinement</h2>
+    <p>Objectif : <strong>limiter l'impact de l'incident</strong> dans les meilleurs délais.</p>
+    <ul>
+      <li>Couper les accès suspects (révocation de tokens JWT, blacklist d'IP, désactivation de comptes compromis) ;</li>
+      <li>Mise en maintenance partielle ou totale du service si nécessaire ;</li>
+      <li>Rotation immédiate des secrets compromis (clés API, mots de passe administrateur) ;</li>
+      <li>Isolation des systèmes concernés ;</li>
+      <li>Préservation des éléments de preuve (logs, captures, état système) pour analyse forensique.</li>
+    </ul>
+
+    <h2>5. Étape 2 — Analyse</h2>
+    <ul>
+      <li>Collecte des logs Supabase, Vercel, applicatifs ;</li>
+      <li>Reconstitution de la chronologie de l'incident ;</li>
+      <li><strong>Détermination du périmètre</strong> :
+        <ul>
+          <li>Quelles données ont été potentiellement exposées ?</li>
+          <li>Quels utilisateurs / centres sont concernés ?</li>
+          <li>L'attaquant a-t-il exfiltré des données ?</li>
+          <li>L'intégrité des données est-elle compromise ?</li>
+        </ul>
+      </li>
+      <li>Qualification de la nature : faille technique, erreur humaine, attaque externe, malveillance interne ;</li>
+      <li>Si nécessaire, recours à un prestataire de réponse à incident (CSIRT / CERT externe).</li>
+    </ul>
+
+    <h2>6. Étape 3 — Notification</h2>
+
+    <h3>6.1 Notification CNIL (sous 72 h)</h3>
+    <p>Si l'incident constitue une <strong>violation de données à caractère personnel</strong> au sens de l'article 4(12) du RGPD, et qu'elle est susceptible d'engendrer un risque pour les droits et libertés des personnes physiques :</p>
+    <ul>
+      <li><strong>Délai</strong> : 72 heures après en avoir pris connaissance ;</li>
+      <li><strong>Canal</strong> : téléservice de notification de violation CNIL — <a href="https://www.cnil.fr/fr/notifier-une-violation-de-donnees-personnelles" target="_blank" rel="noopener">cnil.fr/notifier-une-violation</a> ;</li>
+      <li><strong>Contenu</strong> minimum : nature de la violation, catégories et nombre approximatif de personnes / enregistrements, conséquences probables, mesures prises ou envisagées, coordonnées du DPO ;</li>
+      <li>Notification possible en plusieurs phases si toutes les informations ne sont pas immédiatement disponibles.</li>
+    </ul>
+
+    <h3>6.2 Information des personnes concernées</h3>
+    <p>Si la violation est susceptible d'engendrer un <strong>risque élevé</strong> pour les droits et libertés (art. 34 RGPD), information directe et claire des personnes concernées :</p>
+    <ul>
+      <li>Délai : <strong>dans les meilleurs délais</strong> ;</li>
+      <li>Canal : email, et le cas échéant communication publique ;</li>
+      <li>Contenu : description en langage clair, conséquences probables, mesures prises, recommandations (ex. changement de mot de passe).</li>
+    </ul>
+
+    <h3>6.3 Notification aux Clients (responsables de traitement)</h3>
+    <p>En sa qualité de sous-traitant, MIB Prévention notifie ses Clients <strong>sous 48 h</strong> en cas de violation affectant leurs données, conformément au DPA (article 4.5).</p>
+
+    <h3>6.4 Autres notifications</h3>
+    <ul>
+      <li><strong>ANSSI</strong> : si l'incident relève des opérateurs d'importance vitale ou de services essentiels (généralement non applicable au stade actuel de MIB Prévention, mais à réévaluer) ;</li>
+      <li><strong>Police / Gendarmerie</strong> : en cas d'infraction pénale (intrusion, extorsion, ransomware) — dépôt de plainte ;</li>
+      <li><strong>Assureur cyber</strong> : selon les clauses du contrat d'assurance (à souscrire — <code>[À COMPLÉTER]</code>).</li>
+    </ul>
+
+    <h2>7. Étape 4 — Remédiation</h2>
+    <ul>
+      <li>Application des correctifs (patch sécurité, refonte d'une fonctionnalité défaillante) ;</li>
+      <li>Restauration des données depuis une sauvegarde saine si nécessaire (cf. <a href="pra-pca.html">PRA</a>) ;</li>
+      <li>Renforcement des mesures préventives (règles d'alerting, règles RLS, durcissement) ;</li>
+      <li>Mise à jour des dépendances vulnérables ;</li>
+      <li>Communication de clôture aux clients après vérification.</li>
+    </ul>
+
+    <h2>8. Étape 5 — Post-mortem</h2>
+    <p>Pour tous les incidents P1 et P2, un retour d'expérience est rédigé sous <strong>7 jours</strong>, contenant :</p>
+    <ul>
+      <li>Chronologie détaillée ;</li>
+      <li>Cause racine ;</li>
+      <li>Impact réel constaté ;</li>
+      <li>Actions de remédiation appliquées ;</li>
+      <li>Actions préventives à mettre en place (avec responsable et échéance).</li>
+    </ul>
+    <p>Une version anonymisée du post-mortem peut être communiquée aux clients impactés.</p>
+
+    <h2>9. Modèle de notification aux clients</h2>
+    <div class="legal-callout">
+      <strong>[Email type — incident affectant les données clients]</strong><br><br>
+      <em>Objet</em> : [URGENT] Incident de sécurité — Information importante<br><br>
+      Bonjour [Prénom Nom],<br><br>
+      Nous vous informons qu'un incident de sécurité a été détecté le [date, heure] sur la plateforme MIB Prévention.<br><br>
+      <strong>Nature de l'incident :</strong> [description factuelle].<br>
+      <strong>Périmètre :</strong> [données / utilisateurs concernés].<br>
+      <strong>Risque pour vous :</strong> [évaluation honnête : aucun / modéré / élevé].<br>
+      <strong>Mesures prises :</strong> [confinement, correctif, etc.].<br>
+      <strong>Recommandations :</strong> [actions de votre côté, ex. changer mot de passe].<br><br>
+      Nous mettons tout en œuvre pour résoudre cet incident et renforcer nos mesures de prévention. Une déclaration auprès de la CNIL a été effectuée le [date], conformément à nos obligations RGPD.<br><br>
+      Pour toute question, notre DPO se tient à votre disposition : <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a>.<br><br>
+      L'équipe MIB Prévention
+    </div>
+
+    <h2>10. Registre des violations de données</h2>
+    <p>Conformément à l'article 33.5 du RGPD, MIB Prévention tient un registre interne de l'ensemble des violations de données, contenant pour chacune :</p>
+    <ul>
+      <li>Date de détection et de fin de l'incident ;</li>
+      <li>Faits, effets et mesures prises ;</li>
+      <li>Catégories et nombre de personnes concernées ;</li>
+      <li>Référence à la notification CNIL (le cas échéant) ;</li>
+      <li>Lien vers le post-mortem.</li>
+    </ul>
+    <p>Ce registre est tenu à la disposition de la CNIL en cas de contrôle.</p>
+
+    <h2>11. Responsabilités et acteurs</h2>
+    <ul>
+      <li><strong>Responsable d'astreinte</strong> : prise en charge initiale, qualification, premières mesures de confinement ;</li>
+      <li><strong>RSSI</strong> : pilotage de la réponse, validation des actions techniques, supervision du post-mortem ;</li>
+      <li><strong>DPO</strong> : appréciation du risque RGPD, notification CNIL et aux personnes, registre des violations ;</li>
+      <li><strong>Direction</strong> : décision sur les communications externes, dépôt de plainte, déclenchement assurance ;</li>
+      <li><strong>Support client</strong> : relais auprès des clients, traitement des sollicitations.</li>
+    </ul>
+
+    <h2>12. Coordonnées d'urgence</h2>
+    <ul>
+      <li><strong>Astreinte technique 24/7 :</strong> <code>[À COMPLÉTER : numéro]</code></li>
+      <li><strong>Signalement responsible disclosure :</strong> <a href="mailto:security@mib-prevention.fr">security@mib-prevention.fr</a></li>
+      <li><strong>DPO :</strong> <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a></li>
+      <li><strong>Direction :</strong> <code>[À COMPLÉTER : email + téléphone]</code></li>
+      <li><strong>CNIL</strong> (notification violations) : <a href="https://www.cnil.fr/fr/notifier-une-violation-de-donnees-personnelles" target="_blank" rel="noopener">cnil.fr</a></li>
+      <li><strong>ANSSI / CERT-FR</strong> : <a href="https://www.cert.ssi.gouv.fr" target="_blank" rel="noopener">cert.ssi.gouv.fr</a></li>
+      <li><strong>Cybermalveillance.gouv.fr</strong> : <a href="https://www.cybermalveillance.gouv.fr" target="_blank" rel="noopener">cybermalveillance.gouv.fr</a></li>
+    </ul>
+
+  </article>
+
+  <div class="legal-footer">
+    <p>
+      <strong>MIB Prévention</strong> — Plateforme SaaS de formation SSIAP<br>
+      Pour toute question : <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a><br>
+      <a href="index.html">← Retour au référentiel juridique</a>
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>
