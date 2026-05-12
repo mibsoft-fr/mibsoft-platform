@@ -27,14 +27,26 @@
   }
 
   .cancel-card {
+    position: relative;
+    overflow: hidden;
     background: var(--bg-surface);
     border-radius: var(--radius-2xl);
     padding: clamp(28px, 5vw, 48px) clamp(20px, 4vw, 40px);
     max-width: 540px;
     width: 100%;
     text-align: center;
-    box-shadow: var(--shadow-xl), 0 24px 60px -20px rgba(217, 119, 6, 0.18);
-    border: 1px solid var(--border-subtle);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 20px 50px -20px rgba(15, 23, 42, 0.25);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+  .cancel-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, var(--warning-500), var(--warning-700));
+    z-index: 1;
   }
 
   .cancel-icon {

@@ -65,12 +65,17 @@ Ce skill s'applique automatiquement quand :
 - État erreur : ajouter `.is-error` sur l'input + `.mib-help.is-error` pour le message
 - Helper : `.mib-help`
 
-**Cards**
-- `.mib-card` (défaut, avec ombre légère)
-- `.mib-card-elevated` (ombre forte)
-- `.mib-card-bordered` (bordure, sans ombre)
+**Cards** — toutes ont **automatiquement** :
+- Une **barre gradient brand 3px en haut** (signature visuelle Vigil)
+- Un **relief 3D marqué** (ombre 10% + light inset rgba(255,255,255,0.9) en haut + bordure 1px rgba(15,23,42,0.08))
+- `.mib-card` (défaut, avec barre brand)
+- `.mib-card-elevated` (ombre plus forte)
+- `.mib-card-bordered` (bordure forte, ombre réduite — toujours avec barre brand)
 - `.mib-card-interactive` (hover lift, pour cards cliquables)
+- `.mib-card-no-bar` (modifier pour SUPPRIMER la barre brand si besoin)
 - Titre interne : `.mib-card-title`
+
+**Important** : la barre brand est appliquée via `::before` avec `position:absolute; top:0`. Les `.mib-card` ont automatiquement `position:relative + overflow:hidden`. Si tu as un dropdown qui doit déborder de la card, utilise `.mib-card-no-bar` ou un wrapper externe.
 
 **Badges**
 - `.mib-badge .mib-badge-success` (vert)
@@ -87,8 +92,17 @@ Ce skill s'applique automatiquement quand :
 - Wrapper : `.mib-modal-backdrop`
 - Contenu : `.mib-modal` (devient bottom-sheet sur mobile auto)
 
-**KPI**
+**KPI** — relief 3D + barre brand 3px + fond gradient blanc→vigil-50
 - `.mib-kpi` (carte) avec `.mib-kpi-label`, `.mib-kpi-value`, `.mib-kpi-delta.is-positive` ou `.is-negative`
+- Hover : lift -3px + ombre amplifiée
+
+**Modal**
+- Wrapper : `.mib-modal-backdrop` (blur 8px)
+- Contenu : `.mib-modal` (devient bottom-sheet auto en mobile, avec barre brand en haut)
+
+**Buttons** — tous ont relief 3D avec light inset rgba(255,255,255,0.25) en haut
+- Hover translateY(-1px), active translateY(0) + shadow-xs (effet "pressé")
+- Bordure 1px translucide pour cohérence
 
 **Tables**
 - `.mib-table` (stylée avec header sticky-friendly)
