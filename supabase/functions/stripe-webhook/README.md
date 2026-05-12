@@ -1,115 +1,102 @@
-# Phase 7 — Intégration Stripe + paiements virement
+# Phase 7 — Intégration Stripe complète ✅
 
-## État au moment de la pause (session 11/05/2026 matin)
+## État final (12/05/2026)
 
-### ✅ Phase 7a — Déployé en DB et Supabase
+Tout est en production sur Supabase. Le flow bout-en-bout fonctionne :
+**vitrine → checkout Stripe → webhook → centre créé en DB → email Mailgun → activation par lien magique → connexion sur l'app**.
 
-**Migration `phase7a_stripe_foundation`** :
-- Table `stripe_prices` (mapping plan/cycle ↔ Stripe Price ID) avec RLS super-admin
-- Table `stripe_events` (idempotence webhook + audit)
-- Trigger `updated_at` automatique
+## Edge Functions déployées
 
-**Edge Function `stripe-webhook`** (déployée v1, code dans `supabase/functions/stripe-webhook/index.ts`) :
-- Signature Stripe vérifiée
-- Idempotence via `stripe_events`
-- Events traités :
-  - `checkout.session.completed` → crée auth.users + centre + envoie email invitation Resend
-  - `customer.subscription.updated` → met à jour expiration / statut
-  - `customer.subscription.deleted` → statut expired
-  - `invoice.payment_failed` → suspend + alerte monitoring
+| Function | Auth | Rôle |
+|---|---|---|
+| `stripe-webhook` v4 | aucune (signature Stripe) | Reçoit events Stripe → provisionne centre + envoie email |
+| `stripe-create-checkout` v5 | aucune (CORS strict) | Appelée depuis vitrine/app → crée session Checkout Stripe |
+| `stripe-setup-products` v3 | JWT super-admin | Crée/met à jour les produits + prices Stripe d'un coup |
+| `mailgun-test` v1 | aucune | Diagnostic config Mailgun (envoi test + détail erreur) |
+| `resend-welcome` v1 | JWT super-admin | Renvoie un email de bienvenue à un centre existant (cas perte du mail initial) |
 
-### À faire ce soir
+## Tables DB
 
-#### 1. Configuration Supabase (secrets Edge Functions)
+- `stripe_prices` (plan, cycle, stripe_price_id, amount_cents) — RLS super-admin
+- `stripe_events` (id, event_type, status, error_message) — idempotence webhook
 
-À ajouter dans Project Settings → Edge Functions → Secrets :
-- `STRIPE_SECRET_KEY` = `sk_test_...` (clé secrète Stripe, mode test au début)
-- `STRIPE_WEBHOOK_SECRET` = `whsec_...` (à créer dans Stripe Dashboard → Webhooks)
-- `RESEND_API_KEY` = `re_...` (déjà demandé pour le monitoring)
-- `RESEND_FROM` = `MIB Prévention <onboarding@resend.dev>` ou domaine vérifié
-- `APP_URL` = `http://localhost:8000` (dev) ou `https://app.mib-prevention.fr`
+## Secrets Supabase Edge Functions (configurés)
 
-#### 2. Configuration Stripe Dashboard
+- `STRIPE_SECRET_KEY` (mode test sk_test_...)
+- `STRIPE_WEBHOOK_SECRET` (whsec_...)
+- `MAILGUN_API_KEY` (Private API Key)
+- `MAILGUN_DOMAIN` = `mib-prevention.fr`
+- `MAILGUN_HOST` = `api.eu.mailgun.net` (compte Mailgun EU)
+- `APP_URL`, `VITRINE_URL` selon environnement
 
-- Créer le webhook endpoint pointant vers `https://ozfkmlokovxigfnwjeuk.supabase.co/functions/v1/stripe-webhook`
-- Sélectionner les événements :
-  - `checkout.session.completed`
-  - `customer.subscription.updated`
-  - `customer.subscription.deleted`
-  - `invoice.payment_failed`
-- Copier le `whsec_...` dans `STRIPE_WEBHOOK_SECRET`
-- Créer un produit + price par plan × cycle (5 plans × 2 cycles = 10 prices)
-- Pour chaque price : insérer dans `stripe_prices` via admin MIB
+## Prix configurés (mode test)
 
-#### 3. Phase 7b — Edge Function create-checkout + snippet site vitrine
+| Plan | Mensuel | Annuel | Quotas formateurs/stagiaires |
+|---|---|---|---|
+| Indépendant | 69 € HT | — | 1 / 30 (license_type=formateur) |
+| Starter | 160 € HT | 1 600 € HT | 3 / 30 |
+| Pro | 260 € HT | 2 600 € HT | 10 / 100 |
+| Expert | 360 € HT | 3 600 € HT | 20 / 200 |
+| Entreprise | sur devis (pas de Stripe) | — | illimité |
+| Demo | gratuit 14j (pas de Stripe) | — | 1 / 5 |
 
-- Edge Function `stripe-create-checkout` qui :
-  - Reçoit `{plan, cycle, email?, nom_centre?}`
-  - Lit le `stripe_price_id` depuis `stripe_prices`
-  - Crée une session Stripe Checkout
-  - Retourne `{url}` à rediriger
-- Snippet HTML/JS pour `mib-prevention.fr` (site vitrine) avec sélecteur de plan
-- Page success/cancel à héberger sur le site vitrine
+## Pages HTML
 
-#### 4. Phase 7c — Admin
+Dans le repo (app Vercel) :
+- `pricing.html` — page tarifs avec toggle Mensuel/Annuel, 5 plans, modal email+nom, appel `stripe-create-checkout`
+- `paiement-succes.html` — page de retour post-paiement (instructions email)
+- `paiement-annule.html` — page de retour si abandon
 
-- Onglet "Tarifs Stripe" dans admin pour gérer `stripe_prices`
-- Onglet "Paiements" pour voir les `stripe_events` récents + paiements échoués
+Versions standalone (`vitrine/`) pour copier-coller sur `mib-prevention.fr` :
+- `vitrine/pricing.html` (inline les constantes Supabase, sans dépendance supabase.js)
+- `vitrine/paiement-succes.html`
+- `vitrine/paiement-annule.html`
 
-#### 5. Paiements par virement (pas de Stripe)
+## Test end-to-end validé
 
-**Décision Michel** : centres qui paient par virement → création manuelle depuis l'admin.
+1. ✅ pricing.html chargée sur preview Vercel
+2. ✅ Choix plan Indépendant → modal → continuer
+3. ✅ Redirection Stripe Checkout
+4. ✅ Carte test 4242 acceptée
+5. ✅ Retour sur paiement-succes.html
+6. ✅ Webhook reçu (event_type=checkout.session.completed, status=done)
+7. ✅ Centre créé en DB (license_status=active, password_set=false)
+8. ✅ Profile JWT créé (role=formateur pour indépendant)
+9. ✅ Email Mailgun envoyé avec lien magique
+10. ✅ Lien magique → définition mot de passe → connexion
 
-À adapter dans `admin-create-centre` Edge Function :
-- Remplacer la création avec mot de passe en clair par un **lien d'invitation magique** (même mécanisme que dans `stripe-webhook`)
-- Le centre reçoit un email Resend identique à celui Stripe (mais déclenché par admin)
-- Le modal "Nouveau centre" perd le champ "Mot de passe initial" (devient inutile)
-- Ajouter un champ "Motif" : `virement_paye` / `essai` / `demo` etc.
+## À faire encore (suite Phase 7)
 
-#### 6. Tests
+1. **Adapter `admin-create-centre`** pour le flow virement bancaire :
+   - Remplacer le mot de passe en clair par un lien d'invitation magique (même mécanisme que Stripe)
+   - Le centre reçoit l'email Mailgun avec lien magique au lieu d'un mot de passe initial
+   - Plus sécurisé et cohérent
 
-- Mode test Stripe : carte `4242 4242 4242 4242` + n'importe quelle date future + CVC quelconque
-- Vérifier dans Stripe Dashboard → Events que le webhook reçoit bien
-- Vérifier dans `stripe_events` que l'événement est marqué `done`
-- Vérifier dans `centers` que le centre a été créé avec les bons paramètres
-- Vérifier que l'email d'invitation arrive bien (vérifier les spams)
+2. **Bascule mode LIVE** quand prêt :
+   - Récupérer `sk_live_...` et nouveau `whsec_...` mode live
+   - Remplacer `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET`
+   - Recréer les produits Stripe en mode live (re-run `stripe-setup-products`)
+   - Vérifier `mib-prevention.fr` configuré dans Mailgun avec SPF/DKIM corrects
 
-## Sécurité / dette technique
+3. **Déploiement vitrine** : copier `vitrine/pricing.html`, `vitrine/paiement-succes.html`, `vitrine/paiement-annule.html` sur `mib-prevention.fr`
 
-- ✅ Signature webhook Stripe vérifiée (anti-spoofing)
-- ✅ Idempotence (un même `event.id` ne sera pas traité 2x)
-- ⚠️ Rate limiting : pas implémenté (Stripe le gère côté leur)
-- ⚠️ Le centre créé via Stripe a `password_set: false` — vérifier que le flow `login-centre.html` accepte bien ce cas (avec le lien magique)
+4. **Admin UI Phase 7c** (optionnel) : onglet "Tarifs Stripe" pour modifier les prix sans console + onglet "Paiements" pour voir les events Stripe récents
 
-## Architecture finale (à termes)
+## Diagnostic / debug
 
-```
-mib-prevention.fr (vitrine)              Edge Functions                       Email Resend
-─────────────────────────                ──────────────                       ────────────
-Page Tarifs → btn "Pro" ──POST──→ stripe-create-checkout
-                                          │
-                                          └─ retourne URL Stripe Checkout
-Browser ──redirige──→ Stripe Checkout (carte) 
-                                          │
-                                          └─ paiement OK
-                                          │
-                                    stripe-webhook ← événement Stripe
-                                          │
-                                          ├─ Crée auth.users + centre + licence
-                                          ├─ generateLink type=recovery
-                                          ├─ ────────────────────────────── → Email invitation au centre
-                                          │
-                                  ←─ Centre reçoit email + clic
-                                                                              
-                                                                              Centre arrive sur login-centre.html
-                                                                              avec une session de recovery
-                                                                              → définit son mot de passe
-                                                                              → connexion sur center.html
+- Logs webhook : table `stripe_events` (status `done` / `error` / `ignored`)
+- Logs Mailgun : Mailgun Dashboard → Sending → Logs
+- Logs Edge Functions : Supabase Dashboard → Edge Functions → Logs
+- Renvoyer un email perdu : appeler `resend-welcome` depuis admin console
 
-Virement bancaire :
-Michel reçoit virement → Admin → "Nouveau centre" → admin-create-centre
-                                          │ (similaire au flow Stripe mais sans paiement automatique)
-                                          ├─ Crée auth.users + centre + licence
-                                          ├─ generateLink type=recovery
-                                          ├─ ────────────────────────────── → Email invitation au centre
-```
+## Cartes de test Stripe utiles
+
+| Scénario | Numéro |
+|---|---|
+| Succès | 4242 4242 4242 4242 |
+| 3D Secure requis | 4000 0027 6000 3184 |
+| Refus générique | 4000 0000 0000 0002 |
+| Fonds insuffisants | 4000 0000 0000 9995 |
+| Carte expirée | 4000 0000 0000 0069 |
+
+Date d'expiration : n'importe quelle date future. CVC : n'importe quel nombre à 3 chiffres.
