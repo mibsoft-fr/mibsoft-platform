@@ -113,7 +113,8 @@
         .matching-item{transition:all .3s;cursor:pointer;border:3px solid transparent}
         .matching-item:hover{transform:scale(1.04)}
         .matching-item.selected{border-color:#FFD700;box-shadow:0 0 20px rgba(255,215,0,.7);transform:scale(1.06);outline:2px solid #FFD700}
-        .matching-item.matched{opacity:.65;cursor:not-allowed;background:linear-gradient(135deg,rgba(16,185,129,.4),rgba(16,185,129,.25))!important;border-color:#10b981!important;transform:scale(1)!important}
+        .matching-item.matched{opacity:.85;cursor:pointer;background:linear-gradient(135deg,rgba(100,116,139,.55),rgba(71,85,105,.5))!important;border-color:#94a3b8!important;transform:scale(1)!important}
+        .matching-item.matched:hover{transform:scale(1.02)!important;opacity:1}
         .matching-item.wrong-flash{border-color:#ef4444!important;box-shadow:0 0 16px rgba(239,68,68,.7)!important}
         .word-bank-item{transition:all .3s;cursor:pointer;user-select:none}
         .word-bank-item:hover{transform:scale(1.05)}
@@ -671,6 +672,8 @@
                 <div class="text-2xl md:text-4xl font-bold text-primary mb-1 md:mb-2" id="trainee-total-score">0</div>
                 <div class="text-base md:text-xl text-gray-600">Score total</div>
             </div>
+            <!-- Détail de la correction (rempli par showTraineeResult selon le type) -->
+            <div id="trainee-result-correction" class="hidden mt-5 md:mt-6 bg-white rounded-2xl p-4 md:p-6 text-left"></div>
         </div>
     </div>
 
@@ -893,7 +896,7 @@ function renderAvatar(avatar,sizeClass='av-md'){
 let answersListener=null,timerInterval=null,timeRemaining=30;
 let gameStatusListener=null,currentGameListener=null,questionStartTime=null;
 let editingBox=-1,editingGame=-1,adminCurrentBox=0,adminCurrentLevel=1;
-let matchingLeft=null,matchingRight=null;
+let matchingLeft=null,matchingRight=null,matchingUserPairs={};
 let SELECTED_SSIAP_LEVEL=1;
 const LEVEL_LABELS={1:'🛡️ SSIAP 1 — Équipier de sécurité',2:'🛡️🛡️ SSIAP 2 — Chef d\'équipe',3:'🛡️🛡️🛡️ SSIAP 3 — Chef de service'};
 const LEVEL_SHORT={1:'SSIAP 1',2:'SSIAP 2',3:'SSIAP 3'};
@@ -2288,7 +2291,7 @@ function showTraineeGame(game){
     document.getElementById('trainee-team-display').innerHTML=`<span class="inline-flex items-center gap-2">${renderAvatar(selectedAvatar||'🛡️','av-md')} ${teamName}</span>`;
     database.ref('sessions/'+sessionId+'/teams/'+teamId+'/score').on('value',s=>{document.getElementById('trainee-score-display').textContent=(s.val()||0)+' pts';});
     document.getElementById('trainee-game-container').innerHTML=renderUploadedMedia(game,'trainee')+renderGameForTrainee(game);
-    selectedAnswer=null;selectedSequence=[];selectedMultiple=[];selectedRanking=[];fillBlankAnswers=[];categoriesAnswers={};decisionPath=[];selectedCatItem=null;matchingLeft=null;matchingRight=null;
+    selectedAnswer=null;selectedSequence=[];selectedMultiple=[];selectedRanking=[];fillBlankAnswers=[];categoriesAnswers={};decisionPath=[];selectedCatItem=null;matchingLeft=null;matchingRight=null;matchingUserPairs={};
     const btn=document.getElementById('trainee-validate-btn');btn.disabled=false;btn.textContent='✓ Valider ma réponse';btn.classList.remove('opacity-50','cursor-not-allowed');btn.onclick=()=>validateTraineeAnswer(game);
 }
 function renderGameForTrainee(game){
@@ -2305,7 +2308,7 @@ function renderGameForTrainee(game){
         return`<div class="text-center">${typeBadge}</div>${qHtml}<div class="grid grid-cols-1 gap-3">${(game.itemsWithIndex||[]).map(item=>`<div class="sequence-item bg-white p-5 rounded-xl shadow-lg text-center" data-original-index="${item.originalIndex}" onclick="selectSequenceItem(${item.originalIndex})"><span class="trainee-option-text text-gray-800">${item.text}</span></div>`).join('')}</div><div class="mt-4 p-4 bg-white rounded-xl shadow-lg"><div class="text-sm font-bold mb-1">Votre ordre :</div><div id="selected-sequence-display" class="text-gray-600 text-sm">Cliquez dans l'ordre...</div></div>`;
     if(game.type==='ranking')
         return`<div class="text-center">${typeBadge}</div>${qHtml}<div class="bg-blue-50 border-2 border-blue-300 rounded-xl p-3 mb-4 text-center text-sm font-bold text-blue-800">🏅 1er clic = priorité 1</div><div class="grid grid-cols-1 gap-3">${(game.itemsWithIndex||[]).map(item=>`<div class="ranking-drag bg-white p-5 rounded-xl shadow-lg text-center" data-original-index="${item.originalIndex}" onclick="selectRankingItem(${item.originalIndex})"><span class="trainee-option-text text-gray-800">${item.text}</span></div>`).join('')}</div><div class="mt-4 p-4 bg-white rounded-xl shadow-lg"><div class="text-sm font-bold mb-1">Votre classement :</div><div id="selected-ranking-display" class="text-gray-600 text-sm">Cliquez pour classer...</div></div>`;
-    if(game.type==='matching'){const total=(game.pairsLeft||[]).length;return`<div class="text-center">${typeBadge}</div>${qHtml}<div class="bg-blue-50 border-2 border-blue-300 rounded-xl p-3 mb-4 text-center text-sm font-bold text-blue-800">🔗 Gauche puis droite pour former une paire</div><div class="grid grid-cols-2 gap-4"><div class="space-y-3">${(game.pairsLeft||[]).map(item=>`<div class="matching-item bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4 rounded-xl text-sm font-bold text-center shadow-lg" data-side="left" data-index="${item.originalIndex}" onclick="selectMatchingItem('left',${item.originalIndex})">${item.text}</div>`).join('')}</div><div class="space-y-3">${(game.pairsRight||[]).map(item=>`<div class="matching-item bg-gradient-to-r from-cyan-500 to-teal-600 text-white p-4 rounded-xl text-sm font-bold text-center shadow-lg" data-side="right" data-index="${item.originalIndex}" onclick="selectMatchingItem('right',${item.originalIndex})">${item.text}</div>`).join('')}</div></div><div class="mt-3 p-3 bg-white rounded-xl shadow-lg text-center text-sm"><span class="font-bold">Paires trouvées : </span><span id="pairs-count" class="text-green-600 font-bold">0/${total}</span></div>`;}
+    if(game.type==='matching'){const total=(game.pairsLeft||[]).length;return`<div class="text-center">${typeBadge}</div>${qHtml}<div class="bg-blue-50 border-2 border-blue-300 rounded-xl p-3 mb-4 text-center text-sm font-bold text-blue-800">🔗 Gauche puis droite pour former une paire — re-cliquer sur une paire pour la défaire. Les bonnes/mauvaises associations seront révélées à la correction.</div><div class="grid grid-cols-2 gap-4"><div class="space-y-3">${(game.pairsLeft||[]).map(item=>`<div class="matching-item bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4 rounded-xl text-sm font-bold text-center shadow-lg" data-side="left" data-index="${item.originalIndex}" onclick="selectMatchingItem('left',${item.originalIndex})">${item.text}</div>`).join('')}</div><div class="space-y-3">${(game.pairsRight||[]).map(item=>`<div class="matching-item bg-gradient-to-r from-cyan-500 to-teal-600 text-white p-4 rounded-xl text-sm font-bold text-center shadow-lg" data-side="right" data-index="${item.originalIndex}" onclick="selectMatchingItem('right',${item.originalIndex})">${item.text}</div>`).join('')}</div></div><div class="mt-3 p-3 bg-white rounded-xl shadow-lg text-center text-sm"><span class="font-bold">Paires faites : </span><span id="pairs-count" class="text-blue-600 font-bold">0/${total}</span></div>`;}
     if(game.type==='fill-blank'){let sH=game.sentence;const bC=(game.sentence.match(/%\d+%/g)||[]).length;fillBlankAnswers=new Array(bC).fill(null);for(let i=1;i<=bC;i++)sH=sH.replace(`%${i}%`,`<span class="blank-slot" id="blank-${i}" onclick="clearBlank(${i})">___</span>`);return`<div class="text-center">${typeBadge}</div>${qHtml}<div class="bg-white p-6 rounded-xl shadow-lg text-xl text-center leading-loose mb-6">${sH}</div><div class="text-sm font-bold text-center text-gray-600 mb-3">Cliquez sur un mot :</div><div class="flex flex-wrap gap-3 justify-center">${(game.wordBankShuffled||game.wordBank||[]).map((w,i)=>`<button class="word-bank-item px-4 py-2 ssiap-gradient text-white rounded-xl font-bold text-sm shadow-lg" id="word-${i}" data-word="${w}" onclick="selectWord('${w}',${i})">${w}</button>`).join('')}</div>`;}
     if(game.type==='categories'){(game.categories||[]).forEach(cat=>{categoriesAnswers[cat.id]=[];});const items=game.itemsShuffled||game.items||[];return`<div class="text-center">${typeBadge}</div>${qHtml}<div class="grid grid-cols-${(game.categories||[]).length} gap-3 mb-4">${(game.categories||[]).map(cat=>`<div><div class="ssiap-gradient text-white p-3 rounded-t-xl text-center font-bold text-sm">${cat.label}</div><div class="cat-drop-zone p-2" id="cat-zone-${cat.id}" onclick="placeToCat('${cat.id}')"><div class="text-xs text-gray-400 text-center py-2" id="cat-empty-${cat.id}">Appuyez ici</div></div></div>`).join('')}</div><div class="bg-white rounded-xl p-4 shadow-lg"><div class="text-sm font-bold mb-3 text-gray-700">👆 Sélectionnez un élément puis une zone :</div><div class="flex flex-wrap gap-2" id="items-pool">${items.map((item,i)=>`<button class="cat-item px-3 py-2 border-2 border-blue-400 text-blue-800 bg-blue-50 rounded-lg font-bold text-sm" id="cat-item-${i}" onclick="selectCatItemFn(${i},'${item.text.replace(/'/g,"\\'")}')">${item.text}</button>`).join('')}</div></div>`;}
     if(game.type==='decision'){decisionPath=[];return`<div class="text-center">${typeBadge}</div><div class="scenario-box mb-5"><div class="text-sm font-bold text-blue-700 mb-2">📋 Situation :</div><p class="text-gray-800 text-sm leading-relaxed">${game.scenario||game.question}</p></div><div id="decision-container">${renderDecisionStepTrainee(game,0)}</div><div id="decision-path" class="hidden mt-4 p-4 bg-white rounded-xl shadow-lg"><div class="text-sm font-bold mb-2 text-gray-700">📍 Vos choix :</div><div id="decision-path-display" class="text-gray-600 text-sm space-y-1"></div></div>`;}
@@ -2320,12 +2323,33 @@ window.selectSequenceItem=function(idx){const pos=selectedSequence.indexOf(idx);
 window.selectRankingItem=function(idx){const pos=selectedRanking.indexOf(idx);if(pos!==-1)selectedRanking.splice(pos,1);else selectedRanking.push(idx);document.querySelectorAll('.ranking-drag').forEach(el=>{const i=parseInt(el.getAttribute('data-original-index'));const p=selectedRanking.indexOf(i);el.classList.remove('ranked');el.querySelector('.rank-badge')?.remove();if(p!==-1){el.classList.add('ranked');const d=document.createElement('div');d.className='rank-badge';d.textContent=p+1;el.appendChild(d);}});database.ref('sessions/'+sessionId+'/currentGame').once('value',s=>{const g=s.val();if(!g)return;const labels=selectedRanking.map(i=>g.itemsWithIndex.find(x=>x.originalIndex===i)?.text||'');const el=document.getElementById('selected-ranking-display');if(el)el.textContent=labels.map((l,i)=>`${i+1}. ${l}`).join(' | ')||'Cliquez pour classer...';});};
 window.selectMatchingItem=function(side,idx){
     const item=document.querySelector(`.matching-item[data-side="${side}"][data-index="${idx}"]`);
-    if(!item||item.classList.contains('matched'))return;
+    if(!item)return;
+    // Click on an already-locked pair → unpair it (l'utilisateur peut corriger)
+    if(item.classList.contains('matched')){
+        const pairedWith=parseInt(item.getAttribute('data-paired-with'));
+        if(!isNaN(pairedWith)){
+            const otherSide=side==='left'?'right':'left';
+            const other=document.querySelector(`.matching-item[data-side="${otherSide}"][data-index="${pairedWith}"]`);
+            [item,other].forEach(el=>{if(!el)return;el.classList.remove('matched');el.removeAttribute('data-paired-with');});
+            if(side==='left')delete matchingUserPairs[idx];
+            else{for(const [l,r] of Object.entries(matchingUserPairs)){if(parseInt(r)===idx){delete matchingUserPairs[l];break;}}}
+            const m=Object.keys(matchingUserPairs).length;const t=document.querySelectorAll('.matching-item[data-side="left"]').length;const cEl=document.getElementById('pairs-count');if(cEl)cEl.textContent=`${m}/${t}`;
+        }
+        return;
+    }
     if(side==='left'){if(matchingLeft!==null)document.querySelector(`.matching-item[data-side="left"][data-index="${matchingLeft}"]`)?.classList.remove('selected');if(matchingLeft===idx){matchingLeft=null;return;}matchingLeft=idx;item.classList.add('selected');}
     else{if(matchingRight!==null)document.querySelector(`.matching-item[data-side="right"][data-index="${matchingRight}"]`)?.classList.remove('selected');if(matchingRight===idx){matchingRight=null;return;}matchingRight=idx;item.classList.add('selected');}
     if(matchingLeft!==null&&matchingRight!==null){
-        if(matchingLeft===matchingRight){const lE=document.querySelector(`.matching-item[data-side="left"][data-index="${matchingLeft}"]`);const rE=document.querySelector(`.matching-item[data-side="right"][data-index="${matchingRight}"]`);lE?.classList.replace('selected','matched');rE?.classList.replace('selected','matched');matchingLeft=null;matchingRight=null;const matched=document.querySelectorAll('.matching-item.matched').length/2;const total=document.querySelectorAll('.matching-item[data-side="left"]').length;const cEl=document.getElementById('pairs-count');if(cEl)cEl.textContent=`${matched}/${total}`;}
-        else{const lE=document.querySelector(`.matching-item[data-side="left"][data-index="${matchingLeft}"]`);const rE=document.querySelector(`.matching-item[data-side="right"][data-index="${matchingRight}"]`);[lE,rE].forEach(el=>{if(!el)return;el.classList.add('wrong-flash','shake-wrong');setTimeout(()=>el.classList.remove('selected','wrong-flash','shake-wrong'),500);});matchingLeft=null;matchingRight=null;}
+        // Lock la paire (correcte OU incorrecte — la correction sera affichée après validation)
+        const lE=document.querySelector(`.matching-item[data-side="left"][data-index="${matchingLeft}"]`);
+        const rE=document.querySelector(`.matching-item[data-side="right"][data-index="${matchingRight}"]`);
+        matchingUserPairs[matchingLeft]=matchingRight;
+        lE?.classList.replace('selected','matched');
+        rE?.classList.replace('selected','matched');
+        lE?.setAttribute('data-paired-with',matchingRight);
+        rE?.setAttribute('data-paired-with',matchingLeft);
+        matchingLeft=null;matchingRight=null;
+        const m=Object.keys(matchingUserPairs).length;const t=document.querySelectorAll('.matching-item[data-side="left"]').length;const cEl=document.getElementById('pairs-count');if(cEl)cEl.textContent=`${m}/${t}`;
     }
 };
 window.selectWord=function(word,wordIdx){const nE=fillBlankAnswers.findIndex(b=>b===null);if(nE===-1)return;fillBlankAnswers[nE]=word;const slot=document.getElementById(`blank-${nE+1}`);if(slot){slot.textContent=word;slot.classList.add('filled');}const btn=document.getElementById(`word-${wordIdx}`);if(btn){btn.classList.add('used');btn.dataset.blankIndex=nE+1;}};
@@ -2343,7 +2367,7 @@ function validateTraineeAnswer(game){
     if(['quiz','true-false','find-intruder','scenario','image-identify'].includes(game.type)){answer=selectedAnswer;isCorrect=(selectedAnswer===game.correctAnswer);}
     else if(game.type==='multiple-select'){answer=[...selectedMultiple].sort();isCorrect=JSON.stringify(answer)===JSON.stringify([...(game.correctAnswers||[])].sort());}
     else if(game.type==='sequence'||game.type==='ranking'){answer=game.type==='ranking'?selectedRanking:selectedSequence;isCorrect=JSON.stringify(answer)===JSON.stringify(game.correctOrder);}
-    else if(game.type==='matching'){const mP=new Set();document.querySelectorAll('.matching-item.matched[data-side="left"]').forEach(el=>{mP.add(parseInt(el.getAttribute('data-index')));});isCorrect=mP.size===(game.pairsLeft||[]).length;answer=Array.from(mP);}
+    else if(game.type==='matching'){const total=(game.pairsLeft||[]).length;let correct=0;for(const [l,r] of Object.entries(matchingUserPairs)){if(parseInt(l)===parseInt(r))correct++;}isCorrect=correct===total&&Object.keys(matchingUserPairs).length===total;answer={...matchingUserPairs};}
     else if(game.type==='fill-blank'){answer=[...fillBlankAnswers];isCorrect=JSON.stringify(answer)===JSON.stringify(game.correctBlanks);}
     else if(game.type==='categories'){const items=game.itemsShuffled||game.items||[];answer=categoriesAnswers;let allOk=true;items.forEach((item,i)=>{if(!(categoriesAnswers[item.category]||[]).includes(i))allOk=false;});isCorrect=allOk;}
     else if(game.type==='decision'){answer=decisionPath.map(p=>p.choice);isCorrect=JSON.stringify(answer)===JSON.stringify(game.correctPath);}
@@ -2368,6 +2392,31 @@ function showTraineeResult(){
         else if(pts>0){icon.textContent='✓';title.textContent='Bonne réponse !';title.className='text-5xl md:text-6xl font-bold mb-6 text-green-600';earn.textContent='+'+pts;bText.textContent=bonus>0?`⚡ Bonus vitesse : +${bonus} pts`:''; }
         else{icon.textContent='✗';title.textContent='Mauvaise réponse';title.className='text-5xl md:text-6xl font-bold mb-6 text-red-600';earn.textContent='0';bText.textContent='';}
         document.getElementById('trainee-total-score').textContent=(team.score||0)+' pts';
+        // Détail de la correction (paires correctes pour matching, explanation pour les autres)
+        const corrEl=document.getElementById('trainee-result-correction');
+        if(corrEl){
+            const lastGame=lastTraineeGame||null;
+            if(lastGame&&lastGame.type==='matching'&&Array.isArray(lastGame.pairs)){
+                const userPairs=(team.answer&&typeof team.answer==='object')?team.answer:{};
+                corrEl.classList.remove('hidden');
+                corrEl.innerHTML=`<div class="text-sm md:text-base font-bold text-gray-700 mb-3 text-center">🔗 Bonnes associations</div>`
+                  +`<div class="space-y-2">`
+                  +lastGame.pairs.map((p,i)=>{
+                      const userR=userPairs[i];
+                      const ok=(typeof userR!=='undefined'&&parseInt(userR)===i);
+                      const wrongRight=(typeof userR!=='undefined'&&parseInt(userR)!==i)?lastGame.pairs[parseInt(userR)]?.right:null;
+                      return `<div class="${ok?'bg-green-50 border-green-300':'bg-red-50 border-red-300'} border-2 rounded-xl p-3"><div class="font-bold ${ok?'text-green-800':'text-red-800'}">${ok?'✅':'❌'} ${p.left} <span class="opacity-70">→</span> ${p.right}</div>${!ok&&wrongRight?`<div class="text-xs text-red-600 mt-1">Ta réponse : ${wrongRight}</div>`:''}</div>`;
+                  }).join('')
+                  +`</div>`
+                  +(lastGame.explanation?`<div class="mt-4 bg-blue-50 border-2 border-blue-200 rounded-xl p-3 text-sm text-blue-900">💡 ${lastGame.explanation}</div>`:'');
+            } else if(lastGame&&lastGame.explanation){
+                corrEl.classList.remove('hidden');
+                corrEl.innerHTML=`<div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-3 text-sm text-blue-900">💡 ${lastGame.explanation}</div>`;
+            } else {
+                corrEl.classList.add('hidden');
+                corrEl.innerHTML='';
+            }
+        }
     });
 }
 
