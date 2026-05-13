@@ -1140,11 +1140,17 @@ function buildSessCard(sess, allStags, allEntr) {
            onmouseover="this.style.background='#16a34a';this.style.color='#fff'" onmouseout="this.style.background='#f0fdf4';this.style.color='#16a34a'">
            🚶 Patrol
         </a>
-        <a href="quiz-salle.html?session=${sess.id}&formateur=${FSESSION.formateurId||''}" target="_blank"
+        <a href="quiz-salle.html?session=${sess.id}&formateur=${FSESSION.formateurId||''}&mode=groupe" target="_blank"
            onclick="event.stopPropagation()"
            class="shortcut-btn" style="background:#eff6ff;color:#2563eb;border-color:#bfdbfe;"
            onmouseover="this.style.background='#2563eb';this.style.color='#fff'" onmouseout="this.style.background='#eff6ff';this.style.color='#2563eb'">
-           🎯 Quiz Salle
+           🎯 Training Salle (groupe)
+        </a>
+        <a href="quiz-salle.html?session=${sess.id}&formateur=${FSESSION.formateurId||''}&mode=stagiaire" target="_blank"
+           onclick="event.stopPropagation()"
+           class="shortcut-btn" style="background:#ecfeff;color:#0891b2;border-color:#a5f3fc;"
+           onmouseover="this.style.background='#0891b2';this.style.color='#fff'" onmouseout="this.style.background='#ecfeff';this.style.color='#0891b2'">
+           👤 Training Salle (stagiaire)
         </a>
         <a href="javascript:void(0)"
            onclick="event.stopPropagation();openChallengeCupSSIAP('${sess.niveau||''}','${sess.id}', 'qr')"
