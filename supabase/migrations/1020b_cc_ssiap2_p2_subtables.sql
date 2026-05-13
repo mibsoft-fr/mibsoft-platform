@@ -1,0 +1,122 @@
+-- SSIAP 2 — Partie 2 « Réglementation IGH et compléments ERP »
+-- Sub-tables for ssiap2-hc-p2-q1..q26
+begin;
+
+insert into public.cc_question_options (question_id, option_index, option_text) values
+('ssiap2-hc-p2-q1', 0, '28 m'),
+('ssiap2-hc-p2-q1', 1, '50 m'),
+('ssiap2-hc-p2-q1', 2, '100 m'),
+('ssiap2-hc-p2-q1', 3, '200 m'),
+('ssiap2-hc-p2-q2', 0, 'GHA'),
+('ssiap2-hc-p2-q2', 1, 'GHO'),
+('ssiap2-hc-p2-q2', 2, 'GHW'),
+('ssiap2-hc-p2-q2', 3, 'GHU'),
+('ssiap2-hc-p2-q3', 0, '500 m²'),
+('ssiap2-hc-p2-q3', 1, '2 500 m²'),
+('ssiap2-hc-p2-q3', 2, '5 000 m²'),
+('ssiap2-hc-p2-q3', 3, 'Aucune limite réglementaire'),
+('ssiap2-hc-p2-q4', 0, 'Pendant les heures d''ouverture uniquement'),
+('ssiap2-hc-p2-q4', 1, '24h/24 et 7j/7'),
+('ssiap2-hc-p2-q4', 2, 'Sur appel du directeur'),
+('ssiap2-hc-p2-q4', 3, 'Aux heures de pointe'),
+('ssiap2-hc-p2-q5', 0, 'Vrai'),
+('ssiap2-hc-p2-q5', 1, 'Faux'),
+('ssiap2-hc-p2-q6', 0, 'Vrai'),
+('ssiap2-hc-p2-q6', 1, 'Faux'),
+('ssiap2-hc-p2-q7', 0, 'Vrai'),
+('ssiap2-hc-p2-q7', 1, 'Faux'),
+('ssiap2-hc-p2-q8', 0, 'Maire ou son représentant'),
+('ssiap2-hc-p2-q8', 1, 'SDIS (sapeurs-pompiers)'),
+('ssiap2-hc-p2-q8', 2, 'DDT (urbanisme / accessibilité)'),
+('ssiap2-hc-p2-q8', 3, 'Police ou gendarmerie'),
+('ssiap2-hc-p2-q8', 4, 'Représentant syndical des salariés'),
+('ssiap2-hc-p2-q9', 0, 'Registre de sécurité tenu à jour'),
+('ssiap2-hc-p2-q9', 1, 'Rapports de vérifications réglementaires (RVRAT, RVRMD, Q18)'),
+('ssiap2-hc-p2-q9', 2, 'Plan d''intervention et plan d''évacuation'),
+('ssiap2-hc-p2-q9', 3, 'PV d''essais SSI'),
+('ssiap2-hc-p2-q9', 4, 'Comptes annuels de l''entreprise'),
+('ssiap2-hc-p2-q10', 0, 'Encadrer les agents SSIAP 1'),
+('ssiap2-hc-p2-q10', 1, 'Tenir le registre de sécurité à jour'),
+('ssiap2-hc-p2-q10', 2, 'Conduire les exercices d''évacuation'),
+('ssiap2-hc-p2-q10', 3, 'Préparer le passage de la commission de sécurité'),
+('ssiap2-hc-p2-q10', 4, 'Signer les contrats de maintenance ascenseur'),
+('ssiap2-hc-p2-q11', 0, 'GHA (habitation)'),
+('ssiap2-hc-p2-q11', 1, 'GHO (hôtels)'),
+('ssiap2-hc-p2-q11', 2, 'GHX'),
+('ssiap2-hc-p2-q11', 3, 'GHU (sanitaire)'),
+('ssiap2-hc-p2-q12', 0, 'Consignation des exercices d''évacuation'),
+('ssiap2-hc-p2-q12', 1, 'Inscription des contrôles techniques périodiques'),
+('ssiap2-hc-p2-q12', 2, 'Liste des employés avec leurs salaires'),
+('ssiap2-hc-p2-q12', 3, 'Notes des rapports de la commission de sécurité'),
+('ssiap2-hc-p2-q13', 0, 'Faire signer un permis de feu au technicien'),
+('ssiap2-hc-p2-q13', 1, 'Mettre l''ascenseur hors service, alerter la maintenance, consigner au registre, prévenir le directeur sécurité'),
+('ssiap2-hc-p2-q13', 2, 'Continuer à le faire utiliser jusqu''à l''arrivée du technicien'),
+('ssiap2-hc-p2-q13', 3, 'Démonter le tableau pour vérifier soi-même'),
+('ssiap2-hc-p2-q14', 0, 'Refuser, mon planning est chargé'),
+('ssiap2-hc-p2-q14', 1, 'Accueillir, présenter le registre + dossier de sécurité, accompagner la visite'),
+('ssiap2-hc-p2-q14', 2, 'Faire patienter et joindre uniquement le directeur'),
+('ssiap2-hc-p2-q14', 3, 'Cacher les non-conformités en cours'),
+('ssiap2-hc-p2-q15', 0, 'Toilettes'),
+('ssiap2-hc-p2-q15', 1, 'Issue / sortie de secours (E001/E002)'),
+('ssiap2-hc-p2-q15', 2, 'Restaurant / point repas'),
+('ssiap2-hc-p2-q15', 3, 'Salle de réunion'),
+('ssiap2-hc-p2-q16', 0, 'Borne d''arrosage de jardin'),
+('ssiap2-hc-p2-q16', 1, 'Point d''eau d''incendie pour les pompiers (F002)'),
+('ssiap2-hc-p2-q16', 2, 'Fontaine à boire'),
+('ssiap2-hc-p2-q16', 3, 'Vanne d''arrêt général gaz');
+
+insert into public.cc_question_items (question_id, item_index, item_text) values
+('ssiap2-hc-p2-q17', 0, 'Dépôt du permis de construire ou DAACT'),
+('ssiap2-hc-p2-q17', 1, 'Étude technique des services compétents'),
+('ssiap2-hc-p2-q17', 2, 'Visite de réception par la commission de sécurité'),
+('ssiap2-hc-p2-q17', 3, 'Avis (favorable/défavorable) de la commission'),
+('ssiap2-hc-p2-q17', 4, 'Arrêté d''autorisation d''ouverture du maire'),
+('ssiap2-hc-p2-q18', 0, 'Détection automatique → alarme restreinte au PCS'),
+('ssiap2-hc-p2-q18', 1, 'Confirmation par le chef d''équipe SSIAP sur le terrain'),
+('ssiap2-hc-p2-q18', 2, 'Évacuation du compartiment sinistré + N+1'),
+('ssiap2-hc-p2-q18', 3, 'Alerte des services de secours (18 / 112)'),
+('ssiap2-hc-p2-q18', 4, 'Accueil et guidage des sapeurs-pompiers'),
+('ssiap2-hc-p2-q19', 0, '1ère catégorie (> 1500 personnes)'),
+('ssiap2-hc-p2-q19', 1, '2e catégorie (701 à 1500)'),
+('ssiap2-hc-p2-q19', 2, '3e catégorie (301 à 700)'),
+('ssiap2-hc-p2-q19', 3, '4e catégorie (≤ 300 et > seuil 5e)'),
+('ssiap2-hc-p2-q20', 0, 'Hebdomadaire — essais d''alarme'),
+('ssiap2-hc-p2-q20', 1, 'Mensuel — essais SSI'),
+('ssiap2-hc-p2-q20', 2, 'Annuel — vérifications réglementaires (Q18 / RVRAT)'),
+('ssiap2-hc-p2-q20', 3, 'Triennal — visite périodique de la commission de sécurité');
+
+insert into public.cc_question_pairs (question_id, pair_index, left_text, right_text) values
+('ssiap2-hc-p2-q21', 0, 'Type J', 'Personnes âgées / handicapées'),
+('ssiap2-hc-p2-q21', 1, 'Type O', 'Hôtels'),
+('ssiap2-hc-p2-q21', 2, 'Type R', 'Enseignement'),
+('ssiap2-hc-p2-q21', 3, 'Type U', 'Établissements de soins'),
+('ssiap2-hc-p2-q22', 0, 'GHA', 'Habitation'),
+('ssiap2-hc-p2-q22', 1, 'GHO', 'Hôtels'),
+('ssiap2-hc-p2-q22', 2, 'GHU', 'Sanitaire / hospitalier'),
+('ssiap2-hc-p2-q22', 3, 'GHW2', 'Bureaux à plus de 50 m');
+
+insert into public.cc_question_categories (question_id, category_index, category_id, category_label) values
+('ssiap2-hc-p2-q25', 0, 'reglementaire', '🟢 Réglementaire'),
+('ssiap2-hc-p2-q25', 1, 'operationnel', '🔵 Opérationnel'),
+('ssiap2-hc-p2-q25', 2, 'technique', '🟠 Technique');
+
+insert into public.cc_question_category_items (question_id, item_index, item_text, correct_category) values
+('ssiap2-hc-p2-q25', 0, 'Notice de sécurité', 'reglementaire'),
+('ssiap2-hc-p2-q25', 1, 'Plan d''intervention pompiers', 'operationnel'),
+('ssiap2-hc-p2-q25', 2, 'RVRAT — rapport de vérification', 'technique'),
+('ssiap2-hc-p2-q25', 3, 'Arrêté d''autorisation d''ouverture', 'reglementaire'),
+('ssiap2-hc-p2-q25', 4, 'Planning du personnel SSIAP de garde', 'operationnel'),
+('ssiap2-hc-p2-q25', 5, 'Registre de maintenance ascenseur', 'technique');
+
+insert into public.cc_question_decision_steps (question_id, step_index, step_question, options) values
+('ssiap2-hc-p2-q26', 0,
+ 'ÉTAPE 1 — La commission demande à voir le registre de sécurité. Première action ?',
+ '[{"text":"Accueillir et présenter immédiatement le registre tenu à jour","nextStep":1},{"text":"Refuser au motif que le directeur n''est pas là","nextStep":99},{"text":"Demander à la commission de revenir un autre jour","nextStep":99}]'::jsonb),
+('ssiap2-hc-p2-q26', 1,
+ 'ÉTAPE 2 — Une non-conformité est constatée. Que faites-vous ?',
+ '[{"text":"Consigner par écrit, alerter le directeur sécurité, organiser l''action corrective","nextStep":2},{"text":"Effacer la mention du registre","nextStep":99},{"text":"Ne rien dire, attendre que ça passe","nextStep":99}]'::jsonb),
+('ssiap2-hc-p2-q26', 2,
+ 'ÉTAPE 3 — La commission risque un avis défavorable. Suite à donner ?',
+ '[{"text":"Préparer un plan d''actions chiffré et daté à présenter à la prochaine commission","nextStep":null},{"text":"Continuer l''exploitation comme si de rien n''était","nextStep":null},{"text":"Fermer immédiatement l''ERP sans concertation","nextStep":null}]'::jsonb);
+
+commit;

@@ -495,6 +495,80 @@ body {
   to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
 }
 
+/* ============ FINAL MESSAGE (Gong/Applause) ============ */
+@keyframes finalMsgIn {
+  0%   { opacity: 0; transform: scale(0.7) translateY(20px); }
+  60%  { opacity: 1; transform: scale(1.06) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.final-msg {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.35rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+  animation: finalMsgIn 0.9s var(--ease-out) both;
+}
+.final-msg.good {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.final-msg.meh {
+  color: var(--text-1);
+}
+.final-emoji-big {
+  font-size: 2.4rem;
+  margin-bottom: 4px;
+  display: block;
+  animation: finalMsgIn 0.7s var(--ease-out) both;
+}
+
+/* ============ RECAP TOGGLE ============ */
+#recap-toggle {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1.5px dashed var(--vigil-300);
+  color: var(--vigil-700);
+  font-weight: 700;
+  font-size: .88rem;
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: all var(--duration-fast);
+}
+#recap-toggle:hover { background: var(--vigil-50); border-color: var(--vigil-500); }
+.recap-q-ok { border-left: 4px solid var(--success-500) !important; }
+.recap-q-ko { border-left: 4px solid var(--danger-500) !important; }
+.recap-choice {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: .82rem;
+  margin-bottom: 4px;
+  line-height: 1.4;
+  background: var(--neutral-50);
+  border: 1px solid var(--neutral-200);
+}
+.recap-choice.is-correct {
+  background: var(--success-50);
+  border-color: var(--success-200, #BBF7D0);
+  color: var(--success-800);
+  font-weight: 600;
+}
+.recap-choice.is-user-wrong {
+  background: var(--danger-50);
+  border-color: var(--danger-200);
+  color: var(--danger-800);
+  text-decoration: line-through;
+}
+.recap-choice.is-user {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* ============ GAME MODE — Timer + animations ============ */
 #timer-game {
   position: fixed;
@@ -599,7 +673,7 @@ body {
       <span style="font-size:.72rem;font-weight:500;opacity:.85;">Sans chrono &middot; pour apprendre &#224; ton rythme</span>
     </button>
     <button onclick="startSession('game')" class="btn btn-orange" style="width:100%;padding:14px;font-size:.95rem;flex-direction:column;gap:2px;" id="btn-start-game">
-      <span style="display:flex;align-items:center;gap:8px;font-size:1rem;">&#127918; GAME &mdash; Chrono 60s</span>
+      <span style="display:flex;align-items:center;gap:8px;font-size:1rem;">&#127918; GAME &mdash; Chrono 60s (QCM rapide)</span>
       <span style="font-size:.72rem;font-weight:500;opacity:.92;">Une minute par question &middot; mode d&#233;fi</span>
     </button>
   </div>
@@ -627,8 +701,8 @@ body {
 <div id="scr-result" class="flex-1 p-4 hidden" style="max-width:560px;width:100%;margin:0 auto;">
   <div class="card p-5 text-center mb-4 fade-up">
     <div class="score-ring mx-auto mb-3"><svg viewBox="0 0 120 120" width="120" height="120"><circle class="ring-bg" cx="60" cy="60" r="52"/><circle class="ring-fill" id="ring-fill" cx="60" cy="60" r="52" stroke="#3b82f6" style="stroke-dasharray:0 327;"/></svg><div class="score-center"><div class="logo-t" style="font-size:1.7rem;" id="r-pct">0%</div><div style="font-size:.7rem;color:#6b7280;">Score</div></div></div>
-    <div style="font-size:1.8rem;margin-bottom:6px;" id="r-emoji"></div>
-    <div class="logo-t" style="font-size:1.05rem;margin-bottom:4px;" id="r-msg"></div>
+    <span class="final-emoji-big" id="r-emoji"></span>
+    <div class="final-msg" id="r-msg"></div>
     <div style="font-size:.8rem;color:#6b7280;margin-bottom:16px;" id="r-detail"></div>
     <div style="display:flex;justify-content:center;gap:24px;">
       <div><div class="logo-t" style="font-size:1.4rem;color:#059669;" id="r-ok">0</div><div style="font-size:.68rem;color:#6b7280;">Correctes</div></div>
@@ -637,6 +711,7 @@ body {
     </div>
   </div>
   <div id="analyse-wrap" class="card p-4 mb-4 hidden"><div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:12px;">Analyse par partie</div><div id="analyse-list"></div></div>
+  <button id="recap-toggle" onclick="toggleRecap()" type="button">&#128218; Voir les questions et explications &#9662;</button>
   <div id="correction-wrap" class="hidden"><div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:10px;">Correction d&#233;taill&#233;e</div><div id="correction-list" class="space-y-3"></div></div>
   <div style="display:flex;gap:8px;margin-top:16px;margin-bottom:24px;">
     <button onclick="restartSame()" class="btn btn-blue flex-1">Recommencer</button>
@@ -856,7 +931,34 @@ async function startSession(mode) {
       } catch(e) { /* stats non bloquantes */ }
     }
 
-    // 5) Affichage écran question (+ classe game-mode si mode game)
+    // 5) Initialiser le tracking localStorage (détail des réponses)
+    window.CURRENT_SESSION_ID = sessionId || ('local_' + Date.now());
+    window.CURRENT_SESSION_DATA = {
+      sessionId: window.CURRENT_SESSION_ID,
+      niveau: selectedNiveau,
+      mode: mode,
+      nbQuestions: questions.length,
+      startedAt: Date.now(),
+      questions: questions.map(function(q) {
+        return {
+          id: q.id,
+          question: q.question,
+          options: q.options,
+          correctAnswers: q.correctAnswers,
+          bonne_reponse: q.bonne_reponse,
+          explication: q.explication,
+          titre: q.titre,
+          partieLabel: q.partieLabel,
+          sequenceLabel: q.sequenceLabel,
+          themeLabel: q.themeLabel
+        };
+      })
+    };
+
+    // 6) Activer l'audio (geste utilisateur — politique navigateur)
+    getAudioCtx();
+
+    // 7) Affichage écran question (+ classe game-mode si mode game)
     document.body.classList.toggle('game-mode', mode === 'game');
     updateTopScore();
     showScreen('scr-question');
@@ -890,7 +992,13 @@ function startGameTimer() {
     gameTimeLeft--;
     if (val) val.textContent = gameTimeLeft;
     if (gameTimeLeft <= 10 && wrap) wrap.classList.add('danger');
+    // Bip court chaque seconde dans les 10 dernières (>0)
+    if (gameTimeLeft <= 10 && gameTimeLeft > 0) {
+      playBeep(880, 0.08, 0.2);
+    }
     if (gameTimeLeft <= 0) {
+      // Son grave de timeout
+      playBeep(440, 0.3, 0.3);
       clearGameTimer();
       if (!answered) handleGameTimeout();
     }
@@ -921,6 +1029,11 @@ function handleGameTimeout() {
   wrongCount++;
   var bon = multiChoices.filter(function(c){return c.correct;}).map(function(c){return c.text;}).join(', ');
   reponses.push({q: q, isCorrect: false, choisi: '⏱️ Temps écoulé', bon: bon, timeout: true});
+  if (window.CURRENT_SESSION_DATA && window.CURRENT_SESSION_DATA.questions[currentIdx]) {
+    window.CURRENT_SESSION_DATA.questions[currentIdx].userAnswer = null;
+    window.CURRENT_SESSION_DATA.questions[currentIdx].userCorrect = false;
+    window.CURRENT_SESSION_DATA.questions[currentIdx].timeoutReason = 'timeout';
+  }
   if (sessionId) supabase.from('entrainement_reponses').insert({session_id: sessionId, question_id: String(q.id), reponse: 'TIMEOUT', est_correcte: false}).then(function(){}, function(){});
   updateTopScore();
   flyScore('+0', '#ef4444');
@@ -974,13 +1087,17 @@ function renderQuestion() {
   var el = document.getElementById('q-choices');
   el.innerHTML = '';
   
+  // Mode QUIZ : bouton VALIDER toujours pr\u00e9sent (multi ou simple)
+  // Mode GAME : valider \u00e0 chaque clic (rythme prime)
+  var isQuizMode = (window.CURRENT_MODE !== 'game');
+  var useValiderBtn = isMultiQ || isQuizMode;
+
   if (isMultiQ) {
-    // Afficher indice
     var hint = document.createElement('p');
     hint.style.cssText = 'font-size:.75rem;color:#6366f1;font-weight:600;margin-bottom:10px;';
     hint.textContent = '\u2611\ufe0f ' + nbCorrects + ' r\u00e9ponses correctes \u2014 s\u00e9lectionnez-les toutes';
     el.appendChild(hint);
-    
+
     for (var i = 0; i < choices.length; i++) {
       (function(ch, idx) {
         var btn = document.createElement('button');
@@ -1001,8 +1118,21 @@ function renderQuestion() {
     }
     document.getElementById('btn-valider').classList.remove('hidden');
     document.getElementById('btn-valider').disabled = true;
+  } else if (isQuizMode) {
+    // QUIZ + question simple : s\u00e9lection unique avant validation
+    for (var i = 0; i < choices.length; i++) {
+      (function(ch, idx) {
+        var btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.textContent = ch.text;
+        btn.onclick = function() { toggleSingleSelect(idx, btn); };
+        el.appendChild(btn);
+      })(choices[i], i);
+    }
+    document.getElementById('btn-valider').classList.remove('hidden');
+    document.getElementById('btn-valider').disabled = true;
   } else {
-    // Question simple - comportement original
+    // GAME + question simple : validation imm\u00e9diate au clic
     for (var i = 0; i < choices.length; i++) {
       (function(ch) {
         var btn = document.createElement('button');
@@ -1038,6 +1168,18 @@ function toggleMulti(idx, btn, chk) {
   document.getElementById('btn-valider').disabled = multiSelected.size === 0;
 }
 
+// QUIZ + question simple : sélection unique (radio-like) avant validation
+function toggleSingleSelect(idx, btn) {
+  if (answered) return;
+  // Déselectionner tous les autres
+  var allBtns = document.querySelectorAll('#q-choices .choice-btn');
+  for (var i = 0; i < allBtns.length; i++) allBtns[i].classList.remove('selected');
+  // Sélectionner celui-ci
+  btn.classList.add('selected');
+  multiSelected = new Set([idx]);
+  document.getElementById('btn-valider').disabled = false;
+}
+
 function validerMulti() {
   if (answered || multiSelected.size === 0) return;
   clearGameTimer();
@@ -1050,37 +1192,46 @@ function validerMulti() {
   var selectedArr = Array.from(multiSelected).sort();
   var correctArr = correctIndices.sort();
   var isCorrect = JSON.stringify(selectedArr) === JSON.stringify(correctArr);
-  
-  // Afficher le feedback visuel
+
   answered = true;
   document.getElementById('btn-valider').classList.add('hidden');
   var allBtns = document.querySelectorAll('.choice-btn');
   for (var i = 0; i < allBtns.length; i++) allBtns[i].disabled = true;
-  
-  // Colorier correctement
-  var choiceEls = document.getElementById('q-choices').querySelectorAll('.choice-btn');
-  for (var i = 0; i < multiChoices.length; i++) {
-    var el = choiceEls[i+1]; // +1 car le hint est le premier enfant
-    if (!el) continue;
-    el.classList.remove('selected');
-    if (multiChoices[i].correct) el.classList.add('correct');
-    else if (multiSelected.has(i) && !multiChoices[i].correct) el.classList.add('wrong');
+
+  // GAME : feedback rapide vert/rouge (pas d'explication)
+  // QUIZ : aucun feedback visuel, on passe à la suivante
+  var isGame = (window.CURRENT_MODE === 'game');
+  if (isGame) {
+    var choiceEls = document.getElementById('q-choices').querySelectorAll('.choice-btn');
+    var offset = isMultiQ ? 1 : 0; // +1 si le hint multi est en premier
+    for (var i = 0; i < multiChoices.length; i++) {
+      var el2 = choiceEls[i + offset];
+      if (!el2) continue;
+      el2.classList.remove('selected');
+      if (multiChoices[i].correct) el2.classList.add('correct');
+      else if (multiSelected.has(i)) el2.classList.add('wrong');
+    }
   }
-  
+
   var bon = correctIndices.map(function(i) { return multiChoices[i].text; }).join(', ');
+  var userAnsText = selectedArr.map(function(i){return multiChoices[i].text;}).join(', ');
   if (isCorrect) correctCount++; else wrongCount++;
-  reponses.push({q: q, isCorrect: isCorrect, choisi: selectedArr.map(function(i){return multiChoices[i].text;}).join(', '), bon: bon});
+  reponses.push({q: q, isCorrect: isCorrect, choisi: userAnsText, bon: bon});
+  // Persistance localStorage (détail)
+  if (window.CURRENT_SESSION_DATA && window.CURRENT_SESSION_DATA.questions[currentIdx]) {
+    window.CURRENT_SESSION_DATA.questions[currentIdx].userAnswer = userAnsText;
+    window.CURRENT_SESSION_DATA.questions[currentIdx].userCorrect = isCorrect;
+  }
   if (sessionId) supabase.from('entrainement_reponses').insert({session_id: sessionId, question_id: String(q.id), reponse: bon, est_correcte: isCorrect}).then(function(){}, function(){});
   updateTopScore();
-  if (window.CURRENT_MODE === 'game') flyScore(isCorrect ? '+1' : '+0', isCorrect ? '#10b981' : '#ef4444');
-  
-  var expl = q.explication || '';
-  if (expl) { document.getElementById('q-expl-txt').textContent = expl; document.getElementById('q-expl').classList.remove('hidden'); }
-  
+  if (isGame) flyScore(isCorrect ? '+1' : '+0', isCorrect ? '#10b981' : '#ef4444');
+
+  // Aucune explication affichée en cours de quiz — récap en fin
+  var delay = isGame ? 700 : 250;
   setTimeout(function() {
     if (currentIdx + 1 < questions.length) nextQ();
     else showResults();
-  }, 1200);
+  }, delay);
 }
 
 function buildChoices(q) {
@@ -1124,18 +1275,33 @@ function selectAnswer(btn, isCorrect, q, choices) {
   for (var i = 0; i < allBtns.length; i++) allBtns[i].disabled = true;
   var bon = '';
   for (var i = 0; i < choices.length; i++) { if (choices[i].correct) { bon = choices[i].text; break; } }
-  // Marquer discrètement (pour le récap final) sans feedback visible
+  // GAME : feedback visuel rapide
+  if (window.CURRENT_MODE === 'game') {
+    btn.classList.add(isCorrect ? 'correct' : 'wrong');
+    // Si faux, mettre aussi la bonne en vert
+    if (!isCorrect) {
+      for (var i = 0; i < allBtns.length; i++) {
+        if (allBtns[i].textContent === bon) allBtns[i].classList.add('correct');
+      }
+    }
+  }
   btn.setAttribute('data-chosen', '1');
   if (isCorrect) { correctCount++; } else { wrongCount++; }
   reponses.push({q: q, isCorrect: isCorrect, choisi: btn.textContent, bon: bon});
+  // Persistance localStorage (détail)
+  if (window.CURRENT_SESSION_DATA && window.CURRENT_SESSION_DATA.questions[currentIdx]) {
+    window.CURRENT_SESSION_DATA.questions[currentIdx].userAnswer = btn.textContent;
+    window.CURRENT_SESSION_DATA.questions[currentIdx].userCorrect = isCorrect;
+  }
   if (sessionId) supabase.from('entrainement_reponses').insert({session_id: sessionId, question_id: String(q.id), reponse: btn.textContent, est_correcte: isCorrect}).then(function(){}, function(){});
   updateTopScore();
   if (window.CURRENT_MODE === 'game') flyScore(isCorrect ? '+1' : '+0', isCorrect ? '#10b981' : '#ef4444');
-  // Passer directement à la suite sans délai
+  // Délai court pour voir le feedback en GAME
+  var delay = window.CURRENT_MODE === 'game' ? 600 : 200;
   setTimeout(function() {
     if (currentIdx + 1 < questions.length) nextQ();
     else showResults();
-  }, 300);
+  }, delay);
 }
 
 function nextQ() { currentIdx++; renderQuestion(); }
@@ -1155,6 +1321,31 @@ async function showResults() {
   if (sessionId) await supabase.from('entrainement_sessions').update({score: correctCount, status: 'terminee', duree_secondes: dur}).eq('id', sessionId);
   // Sauvegarder les réponses dans la session pour l'historique
   lastReponses = reponses.slice();
+
+  // Persistance localStorage (LRU 20 sessions)
+  if (window.CURRENT_SESSION_DATA) {
+    window.CURRENT_SESSION_DATA.score = correctCount;
+    window.CURRENT_SESSION_DATA.scorePct = pct;
+    window.CURRENT_SESSION_DATA.completedAt = Date.now();
+    try {
+      localStorage.setItem('mib_session_' + window.CURRENT_SESSION_ID, JSON.stringify(window.CURRENT_SESSION_DATA));
+      var keys = Object.keys(localStorage).filter(function(k) { return k.indexOf('mib_session_') === 0; });
+      if (keys.length > 20) {
+        // Trier par completedAt ascendant si possible
+        keys.sort(function(a, b) {
+          try {
+            var da = JSON.parse(localStorage.getItem(a) || '{}').completedAt || 0;
+            var db = JSON.parse(localStorage.getItem(b) || '{}').completedAt || 0;
+            return da - db;
+          } catch(e) { return 0; }
+        });
+        while (keys.length > 20) {
+          localStorage.removeItem(keys.shift());
+        }
+      }
+    } catch(e) { console.warn('[mib] localStorage plein', e); }
+  }
+
   showScreen('scr-result');
   document.getElementById('r-pct').textContent = pct + '%';
   document.getElementById('r-ok').textContent = correctCount;
@@ -1162,16 +1353,48 @@ async function showResults() {
   var m = Math.floor(dur/60), s = dur%60;
   document.getElementById('r-time').textContent = (m > 0 ? m + 'm ' : '') + s + 's';
   document.getElementById('r-detail').textContent = correctCount + ' / ' + total + ' correctes';
-  var msgs = ['A retravailler','Des progres a faire','Continuez !','Tres bien !','Excellent !'];
-  var emojis = ['&#x1F504;','&#x1F4AA;','&#x1F4AA;','&#x1F389;','&#x1F947;'];
-  var idx2 = pct >= 90 ? 4 : pct >= 75 ? 3 : pct >= 60 ? 2 : pct >= 50 ? 1 : 0;
-  document.getElementById('r-msg').textContent = msgs[idx2];
-  document.getElementById('r-emoji').innerHTML = emojis[idx2];
+
+  // Messages adaptés au score + prénom
+  var prenomTxt = PRENOM ? (' ' + PRENOM.split(' ')[0]) : '';
+  var msg, emoji, isGood;
+  if (pct >= 95) {
+    msg = '🎉 Parfait' + prenomTxt + ' ! Tu es prêt(e) !'; emoji = '🥇'; isGood = true;
+  } else if (pct >= 85) {
+    msg = '🎉 Excellent' + prenomTxt + ' ! Quel score !'; emoji = '🏆'; isGood = true;
+  } else if (pct >= 70) {
+    msg = '🎉 Bravo' + prenomTxt + ' ! Très bien joué !'; emoji = '🎯'; isGood = true;
+  } else if (pct >= 50) {
+    msg = '💪 Encore un effort' + prenomTxt + ' !'; emoji = '💪'; isGood = false;
+  } else if (pct >= 30) {
+    msg = '📚 Reprends les bases tranquillement' + prenomTxt + '.'; emoji = '📚'; isGood = false;
+  } else {
+    msg = '🔄 Pas de panique, recommence avec moins de questions.'; emoji = '🔄'; isGood = false;
+  }
+  var msgEl = document.getElementById('r-msg');
+  msgEl.textContent = msg;
+  msgEl.classList.remove('good', 'meh');
+  msgEl.classList.add(isGood ? 'good' : 'meh');
+  document.getElementById('r-emoji').textContent = emoji;
+
   var circ = 2 * Math.PI * 52;
   var ring = document.getElementById('ring-fill');
   ring.style.stroke = pct >= 75 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
   setTimeout(function() { ring.style.strokeDasharray = (circ * pct / 100) + ' ' + circ; }, 100);
-  if (pct >= 75) createConfetti();
+
+  // Gong + (si bon score) applause + confetti
+  playGong();
+  if (pct >= 70) {
+    createConfetti();
+    setTimeout(function() { playApplause(); }, 1200);
+  }
+
+  // Préparer le récap (caché par défaut, déroulable via le bouton)
+  var recapBtn = document.getElementById('recap-toggle');
+  if (recapBtn) {
+    recapBtn.classList.remove('hidden');
+    recapBtn.innerHTML = '&#128218; Voir les questions et explications &#9662;';
+  }
+  document.getElementById('correction-wrap').classList.add('hidden');
   // Analyse par partie (utilise partieLabel des questions Challenge Cup,
   // ou fallback boite_id pour compat ascendante)
   var byB = {};
@@ -1205,26 +1428,55 @@ async function showResults() {
     if (axes.length) aHtml += '<div style="background:#fff7ed;border-radius:10px;padding:10px 14px;margin-top:8px;font-size:.82rem;"><strong style="color:#c2410c;">&#128218; &#192; retravailler :</strong> ' + axes.join(', ') + '</div>';
     document.getElementById('analyse-list').innerHTML = aHtml;
   }
-  // Correction
-  document.getElementById('correction-wrap').classList.remove('hidden');
+  // Récap détaillé (caché par défaut — affiché via bouton toggleRecap)
   var cHtml = '';
   for (var i = 0; i < reponses.length; i++) {
     var r = reponses[i];
     var cls = r.isCorrect ? 'b-green' : 'b-red';
-    var lbl = r.isCorrect ? '&#10003; Correct' : '&#10007; Incorrect';
-    var bg = r.isCorrect ? '#f0fdf4' : '#fff';
-    var border = r.isCorrect ? 'border-left:4px solid #10b981;' : 'border-left:4px solid #ef4444;';
-    cHtml += '<div class="card p-4" style="' + border + 'margin-bottom:10px;">';
-    cHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+    var lbl = r.isCorrect ? '&#10003; Correct' : (r.timeout ? '&#9201;&#65039; Temps écoulé' : '&#10007; Incorrect');
+    var cardCls = r.isCorrect ? 'recap-q-ok' : 'recap-q-ko';
+    var userAns = (r.choisi || '').split(',').map(function(x){return x.trim();});
+    var bonAns = (r.bon || '').split(',').map(function(x){return x.trim();});
+
+    cHtml += '<div class="card p-4 ' + cardCls + '" style="margin-bottom:10px;">';
+    cHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">';
     cHtml += '<span style="font-size:.72rem;font-weight:700;color:#6b7280;">Question ' + (i+1) + ' / ' + total + '</span>';
     cHtml += '<span class="badge ' + cls + '">' + lbl + '</span></div>';
-    cHtml += '<p style="font-size:.9rem;font-weight:600;margin-bottom:10px;line-height:1.5;">' + (r.q.question || '') + '</p>';
-    cHtml += '<div style="background:#f0fdf4;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:.82rem;">';
-    cHtml += '<strong style="color:#065f46;">&#10003; Bonne r&#233;ponse :</strong> ' + r.bon + '</div>';
-    if (!r.isCorrect) {
-      cHtml += '<div style="background:#fff1f2;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:.82rem;">';
-      cHtml += '<strong style="color:#b91c1c;">Votre r&#233;ponse :</strong> ' + r.choisi + '</div>';
+    if (r.q.partieLabel || r.q.themeLabel) {
+      cHtml += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">';
+      if (r.q.partieLabel) cHtml += '<span class="badge b-gray" style="font-size:.62rem;">' + r.q.partieLabel + '</span>';
+      if (r.q.themeLabel && r.q.themeLabel !== r.q.partieLabel) cHtml += '<span class="badge b-blue" style="font-size:.62rem;">' + r.q.themeLabel + '</span>';
+      cHtml += '</div>';
     }
+    cHtml += '<p style="font-size:.9rem;font-weight:600;margin-bottom:10px;line-height:1.5;">' + (r.q.question || '') + '</p>';
+
+    // Lister TOUS les choix (vert = bon, souligné = ma réponse, rouge si ma réponse fausse)
+    var opts = r.q.options || [];
+    var correctIdxs = r.q.correctAnswers || [];
+    if (opts.length) {
+      cHtml += '<div style="margin-bottom:10px;">';
+      for (var j = 0; j < opts.length; j++) {
+        var optText = typeof opts[j] === 'string' ? opts[j] : (opts[j] && opts[j].text ? opts[j].text : String(opts[j]));
+        var isCorrectOpt = correctIdxs.indexOf(j) !== -1;
+        var isUserOpt = userAns.indexOf(optText) !== -1;
+        var rcCls = 'recap-choice';
+        if (isCorrectOpt) rcCls += ' is-correct';
+        if (isUserOpt && !isCorrectOpt) rcCls += ' is-user-wrong';
+        if (isUserOpt) rcCls += ' is-user';
+        var prefix = isCorrectOpt ? '&#10003; ' : (isUserOpt ? '&#10007; ' : '&#9675; ');
+        cHtml += '<div class="' + rcCls + '">' + prefix + optText + '</div>';
+      }
+      cHtml += '</div>';
+    } else {
+      // Fallback : pas d'options listées, juste bonne/ma réponse
+      cHtml += '<div style="background:#f0fdf4;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:.82rem;">';
+      cHtml += '<strong style="color:#065f46;">&#10003; Bonne r&#233;ponse :</strong> ' + r.bon + '</div>';
+      if (!r.isCorrect) {
+        cHtml += '<div style="background:#fff1f2;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:.82rem;">';
+        cHtml += '<strong style="color:#b91c1c;">Votre r&#233;ponse :</strong> ' + (r.choisi || '—') + '</div>';
+      }
+    }
+
     if (r.q.explication) {
       cHtml += '<div style="background:#eff6ff;border-radius:8px;padding:8px 12px;font-size:.8rem;color:#1d4ed8;line-height:1.5;">';
       cHtml += '<strong>&#128161; Explication :</strong> ' + r.q.explication + '</div>';
@@ -1280,37 +1532,100 @@ function reviewErrIdx(i) { reviewErrors(histoSessions[i]); }
 async function reviewErrors(sess) {
   var sessId = (sess && sess.id) || sess;
   var sessNiveau = (sess && sess.niveau) || selectedNiveau;
+
+  // 1) PRIORITÉ : localStorage (détail complet questions + réponses)
+  var localSess = null;
+  try {
+    var rawLs = localStorage.getItem('mib_session_' + sessId);
+    if (rawLs) localSess = JSON.parse(rawLs);
+  } catch(e) { localSess = null; }
+
+  if (localSess && localSess.questions && localSess.questions.length) {
+    var lqs = localSess.questions;
+    var errs = lqs.filter(function(q) { return q.userCorrect === false; });
+    if (!errs.length) { alert('Bravo ! Aucune erreur dans cette session.'); return; }
+    var totalLQ = lqs.length;
+    var okLQ = lqs.filter(function(q) { return q.userCorrect === true; }).length;
+    var pctLQ = Math.round(okLQ / totalLQ * 100);
+    document.getElementById('modal-erreurs-sub').textContent = pctLQ + '% · ' + errs.length + ' erreur(s) sur ' + totalLQ + ' questions';
+    var lHtml = '<div style="background:#fff7ed;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:.82rem;color:#c2410c;">';
+    lHtml += '<strong>Conseil :</strong> Relisez bien les explications avant de refaire ces thèmes.</div>';
+    for (var li = 0; li < errs.length; li++) {
+      var lq = errs[li];
+      var lopts = lq.options || [];
+      var lcorrectIdxs = lq.correctAnswers || [];
+      var luserAns = lq.userAnswer || '';
+      var luserAnsArr = (typeof luserAns === 'string') ? luserAns.split(',').map(function(x){return x.trim();}) : [];
+      lHtml += '<div class="card p-4 recap-q-ko" style="margin-bottom:10px;">';
+      if (lq.partieLabel || lq.themeLabel) {
+        lHtml += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">';
+        if (lq.partieLabel) lHtml += '<span class="badge b-gray" style="font-size:.62rem;">' + lq.partieLabel + '</span>';
+        if (lq.themeLabel && lq.themeLabel !== lq.partieLabel) lHtml += '<span class="badge b-blue" style="font-size:.62rem;">' + lq.themeLabel + '</span>';
+        lHtml += '</div>';
+      }
+      lHtml += '<p style="font-size:.88rem;font-weight:600;margin-bottom:10px;line-height:1.5;">' + (lq.question||'') + '</p>';
+      if (lopts.length) {
+        lHtml += '<div style="margin-bottom:10px;">';
+        for (var lj = 0; lj < lopts.length; lj++) {
+          var loptText = typeof lopts[lj] === 'string' ? lopts[lj] : (lopts[lj] && lopts[lj].text ? lopts[lj].text : String(lopts[lj]));
+          var lisCorrect = lcorrectIdxs.indexOf(lj) !== -1;
+          var lisUser = luserAnsArr.indexOf(loptText) !== -1;
+          var lrcCls = 'recap-choice';
+          if (lisCorrect) lrcCls += ' is-correct';
+          if (lisUser && !lisCorrect) lrcCls += ' is-user-wrong';
+          if (lisUser) lrcCls += ' is-user';
+          var lprefix = lisCorrect ? '✓ ' : (lisUser ? '✗ ' : '○ ');
+          lHtml += '<div class="' + lrcCls + '">' + lprefix + loptText + '</div>';
+        }
+        lHtml += '</div>';
+      } else if (lq.bonne_reponse) {
+        lHtml += '<div style="background:#f0fdf4;border-radius:8px;padding:8px 12px;font-size:.82rem;color:#065f46;margin-bottom:6px;"><strong>Bonne réponse :</strong> ' + lq.bonne_reponse + '</div>';
+      }
+      if (lq.explication) lHtml += '<div style="background:#eff6ff;border-radius:8px;padding:8px 12px;font-size:.8rem;color:#1d4ed8;line-height:1.5;"><strong>Explication :</strong> ' + lq.explication + '</div>';
+      lHtml += '</div>';
+    }
+    document.getElementById('modal-erreurs-content').innerHTML = lHtml;
+    closeModalHisto();
+    document.getElementById('modal-erreurs').classList.remove('hidden');
+    return;
+  }
+
+  // 2) FALLBACK : Supabase (sessions anciennes — peut être vide à cause du bug d'insertion)
   var res = await supabase.from('entrainement_reponses').select('question_id, est_correcte').eq('session_id', sessId);
   var reps = res.data;
-  if (!reps || !reps.length) { alert('Aucune donn\u00e9e pour cette session.'); return; }
+  if (!reps || !reps.length) {
+    alert('Cette session est trop ancienne (avant la mise à jour) — les données détaillées ne sont plus disponibles.');
+    return;
+  }
   var errIds = reps.filter(function(r) { return !r.est_correcte; }).map(function(r) { return String(r.question_id); });
   if (!errIds.length) { alert('Bravo ! Aucune erreur dans cette session.'); return; }
-  // R\u00e9cup\u00e9rer les questions depuis la banque Challenge Cup
   var bank = [];
   try { bank = await loadQuestionsForLevel(sessNiveau); } catch(e) { bank = []; }
   var qs = bank.filter(function(q) { return errIds.indexOf(String(q.id)) !== -1; });
-  // Fallback ancien format (questions Supabase legacy)
   if (!qs.length) {
     try {
       var res2 = await supabase.from('questions').select('*').in('id', errIds);
       qs = res2.data || [];
     } catch(e) { qs = []; }
   }
-  if (!qs.length) { alert('Impossible de retrouver les questions de cette session.'); return; }
+  if (!qs.length) {
+    alert('Cette session est trop ancienne (avant la mise à jour) — les données détaillées ne sont plus disponibles.');
+    return;
+  }
   var totalQ = reps.length;
   var okQ = reps.filter(function(r) { return r.est_correcte; }).length;
   var pctQ = Math.round(okQ/totalQ*100);
   document.getElementById('modal-erreurs-sub').textContent = pctQ + '% · ' + errIds.length + ' erreur(s) sur ' + totalQ + ' questions';
   var html = '<div style="background:#fff7ed;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:.82rem;color:#c2410c;">';
-  html += '<strong>Conseil :</strong> Relisez bien les explications avant de refaire ces th\u00e8mes.</div>';
+  html += '<strong>Conseil :</strong> Relisez bien les explications avant de refaire ces thèmes.</div>';
   for (var i = 0; i < qs.length; i++) {
     var q = qs[i];
     var bon = buildChoices(q).filter(function(ch) { return ch.correct; });
-    html += '<div class="card p-4" style="border-left:4px solid #ef4444;margin-bottom:10px;">';
+    html += '<div class="card p-4 recap-q-ko" style="margin-bottom:10px;">';
     if (q.titre) html += '<span class="badge b-blue" style="font-size:.68rem;margin-bottom:6px;display:inline-block;">' + q.titre + '</span><br>';
     html += '<p style="font-size:.88rem;font-weight:600;margin-bottom:10px;line-height:1.5;">' + (q.question||'') + '</p>';
     html += '<div style="background:#f0fdf4;border-radius:8px;padding:8px 12px;font-size:.82rem;color:#065f46;margin-bottom:6px;">';
-    html += '<strong>Bonne r\u00e9ponse :</strong> ' + (bon.length ? bon[0].text : '-') + '</div>';
+    html += '<strong>Bonne réponse :</strong> ' + (bon.length ? bon[0].text : '-') + '</div>';
     if (q.explication) html += '<div style="background:#eff6ff;border-radius:8px;padding:8px 12px;font-size:.8rem;color:#1d4ed8;line-height:1.5;"><strong>Explication :</strong> ' + q.explication + '</div>';
     html += '</div>';
   }
@@ -1318,7 +1633,6 @@ async function reviewErrors(sess) {
   closeModalHisto();
   document.getElementById('modal-erreurs').classList.remove('hidden');
 }
-
 function closeModalErreurs() { document.getElementById('modal-erreurs').classList.add('hidden'); }
 
 function restartSame() {
@@ -1378,6 +1692,104 @@ function createConfetti() {
     d.style.cssText = 'position:fixed;width:' + (5+Math.random()*8) + 'px;height:' + (5+Math.random()*8) + 'px;background:' + cols[Math.floor(Math.random()*cols.length)] + ';left:' + Math.random()*100 + 'vw;top:-10px;z-index:9999;border-radius:' + (Math.random()>.5?'50%':'2px') + ';animation:cf ' + (2+Math.random()*2) + 's linear forwards;';
     document.getElementById('confetti').appendChild(d);
     setTimeout(function(el) { return function() { el.remove(); }; }(d), 4000);
+  }
+}
+
+// ============================================================
+// AUDIO (Web Audio API — pas de fichier)
+// ============================================================
+var audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e) { return null; }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    try { audioCtx.resume(); } catch(e) {}
+  }
+  return audioCtx;
+}
+
+function playBeep(freq, duration, volume) {
+  var ctx = getAudioCtx(); if (!ctx) return;
+  try {
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq || 880;
+    gain.gain.value = 0;
+    osc.connect(gain).connect(ctx.destination);
+    var now = ctx.currentTime;
+    var dur = (duration || 0.1);
+    var vol = (volume || 0.3);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.01);
+    gain.gain.linearRampToValueAtTime(0, now + dur);
+    osc.start(now);
+    osc.stop(now + dur);
+  } catch(e) {}
+}
+
+function playGong() {
+  var ctx = getAudioCtx(); if (!ctx) return;
+  [120, 240, 360].forEach(function(freq, i) {
+    setTimeout(function() {
+      try {
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.value = 0;
+        osc.connect(gain).connect(ctx.destination);
+        var now = ctx.currentTime;
+        gain.gain.linearRampToValueAtTime(0.25 - i * 0.05, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+        osc.start(now);
+        osc.stop(now + 2.5);
+      } catch(e) {}
+    }, i * 40);
+  });
+}
+
+function playApplause() {
+  var ctx = getAudioCtx(); if (!ctx) return;
+  for (var i = 0; i < 40; i++) {
+    setTimeout(function() {
+      try {
+        var bufferSize = Math.floor(ctx.sampleRate * 0.1);
+        var buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        var data = buffer.getChannelData(0);
+        for (var j = 0; j < bufferSize; j++) {
+          data[j] = (Math.random() - 0.5) * Math.exp(-j / (bufferSize * 0.3));
+        }
+        var src = ctx.createBufferSource();
+        var filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 1500 + Math.random() * 2000;
+        var gain = ctx.createGain();
+        gain.gain.value = 0.05 + Math.random() * 0.1;
+        src.buffer = buffer;
+        src.connect(filter).connect(gain).connect(ctx.destination);
+        src.start();
+      } catch(e) {}
+    }, i * 80 + Math.random() * 100);
+  }
+}
+
+// ============================================================
+// RECAP TOGGLE (questions + explications dans l'écran score)
+// ============================================================
+function toggleRecap() {
+  var wrap = document.getElementById('correction-wrap');
+  var btn = document.getElementById('recap-toggle');
+  if (!wrap || !btn) return;
+  var hidden = wrap.classList.toggle('hidden');
+  btn.innerHTML = hidden
+    ? '&#128218; Voir les questions et explications &#9662;'
+    : '&#128218; Masquer les questions et explications &#9652;';
+  if (!hidden) {
+    setTimeout(function() {
+      wrap.scrollIntoView({behavior: 'smooth', block: 'start'});
+    }, 60);
   }
 }
 

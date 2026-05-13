@@ -12,8 +12,11 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const SUPABASE_URL = 'https://uojhwuwplpodgnwvwvmm.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_D0J8NNAGuXqy0u1lQ2qqhg_WZrLAzWk';
+// Pointe vers la Supabase MIB (instance unique partagée).
+// Toutes les tables Challenge Cup sont préfixées `cc_` pour cohabiter avec
+// les tables MIB existantes.
+const SUPABASE_URL = 'https://ozfkmlokovxigfnwjeuk.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZmttbG9rb3Z4aWdmbndqZXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1ODUzODUsImV4cCI6MjA5MTE2MTM4NX0.zu5V20Nz7vO3dSYhOtr7mqS7VAMaUDVS2Ibs01xS9Fk';
 
 export let client = null;
 
@@ -48,7 +51,7 @@ async function ok(promise, label) {
 export const auth = {
   async login(email, password) {
     const data = await ok(
-      c().rpc('verify_supervisor', { p_email: email, p_password: password }),
+      c().rpc('cc_verify_supervisor', { p_email: email, p_password: password }),
       'verify_supervisor',
     );
     return Array.isArray(data) ? (data[0] ?? null) : data;
@@ -63,14 +66,14 @@ export const catalogue = {
   // Returns full question with all sub-tables joined.
   async questionWithAll(questionId) {
     return ok(
-      c().from('questions').select(`
+      c().from('cc_questions').select(`
         *,
-        question_options(option_index, option_text),
-        question_items(item_index, item_text),
-        question_pairs(pair_index, left_text, right_text),
-        question_categories(category_index, category_id, category_label),
-        question_category_items(item_index, item_text, correct_category),
-        question_decision_steps(step_index, step_question, options)
+        cc_question_options(option_index, option_text),
+        cc_question_items(item_index, item_text),
+        cc_question_pairs(pair_index, left_text, right_text),
+        cc_question_categories(category_index, category_id, category_label),
+        cc_question_category_items(item_index, item_text, correct_category),
+        cc_question_decision_steps(step_index, step_question, options)
       `).eq('id', questionId).single(),
       'questionWithAll',
     );
@@ -79,7 +82,7 @@ export const catalogue = {
   // Returns all modules (active) for a level, ordered, with their questions.
   async modulesForLevel(level) {
     const modules = await ok(
-      c().from('modules')
+      c().from('cc_modules')
         .select('*')
         .eq('level', level)
         .eq('is_active', true)
@@ -90,14 +93,14 @@ export const catalogue = {
     if (!moduleIds.length) return [];
 
     const questions = await ok(
-      c().from('questions').select(`
+      c().from('cc_questions').select(`
         *,
-        question_options(option_index, option_text),
-        question_items(item_index, item_text),
-        question_pairs(pair_index, left_text, right_text),
-        question_categories(category_index, category_id, category_label),
-        question_category_items(item_index, item_text, correct_category),
-        question_decision_steps(step_index, step_question, options)
+        cc_question_options(option_index, option_text),
+        cc_question_items(item_index, item_text),
+        cc_question_pairs(pair_index, left_text, right_text),
+        cc_question_categories(category_index, category_id, category_label),
+        cc_question_category_items(item_index, item_text, correct_category),
+        cc_question_decision_steps(step_index, step_question, options)
       `).in('module_id', moduleIds).eq('is_active', true).eq('status', 'published')
         .order('display_order', { ascending: true }),
       'questionsForModules',
@@ -124,27 +127,27 @@ export const admin = {
   // Modules
   async listModules(level) {
     return ok(
-      c().from('modules').select('*')
+      c().from('cc_modules').select('*')
         .eq('level', level)
         .order('display_order', { ascending: true }),
       'admin.listModules',
     );
   },
   async upsertModule(m) {
-    return ok(c().from('modules').upsert(m).select().single(), 'admin.upsertModule');
+    return ok(c().from('cc_modules').upsert(m).select().single(), 'admin.upsertModule');
   },
   async deleteModule(id) {
-    return ok(c().from('modules').delete().eq('id', id), 'admin.deleteModule');
+    return ok(c().from('cc_modules').delete().eq('id', id), 'admin.deleteModule');
   },
   async toggleModuleActive(id, is_active) {
-    return ok(c().from('modules').update({ is_active }).eq('id', id), 'admin.toggleModuleActive');
+    return ok(c().from('cc_modules').update({ is_active }).eq('id', id), 'admin.toggleModuleActive');
   },
 
   // Questions
   async createQuestion(payload) {
     const { options, items, pairs, categories, category_items, decision_steps, ...row } = payload;
     const created = await ok(
-      c().from('questions').insert(row).select().single(),
+      c().from('cc_questions').insert(row).select().single(),
       'admin.createQuestion',
     );
     await this.replaceSubtables(created.id, payload);
@@ -154,7 +157,7 @@ export const admin = {
   async updateQuestion(id, patch) {
     const { options, items, pairs, categories, category_items, decision_steps, ...row } = patch;
     if (Object.keys(row).length) {
-      await ok(c().from('questions').update(row).eq('id', id), 'admin.updateQuestion');
+      await ok(c().from('cc_questions').update(row).eq('id', id), 'admin.updateQuestion');
     }
     if (options || items || pairs || categories || category_items || decision_steps) {
       await this.replaceSubtables(id, patch);
@@ -162,18 +165,18 @@ export const admin = {
   },
 
   async deleteQuestion(id) {
-    return ok(c().from('questions').delete().eq('id', id), 'admin.deleteQuestion');
+    return ok(c().from('cc_questions').delete().eq('id', id), 'admin.deleteQuestion');
   },
 
   // Replace all sub-tables for a question (delete + bulk insert).
   async replaceSubtables(questionId, payload) {
     const tables = [
-      ['question_options',        payload.options,        (o, i) => ({ option_index: i, option_text: o })],
-      ['question_items',          payload.items,          (it, i) => ({ item_index: i, item_text: it })],
-      ['question_pairs',          payload.pairs,          (p, i) => ({ pair_index: i, left_text: p.left ?? p.from ?? p[0], right_text: p.right ?? p.to ?? p[1] })],
-      ['question_categories',     payload.categories,     (cat, i) => ({ category_index: i, category_id: cat.id ?? `cat-${i}`, category_label: cat.label ?? String(cat) })],
-      ['question_category_items', payload.category_items, (it, i) => ({ item_index: i, item_text: it.text ?? String(it), correct_category: it.category })],
-      ['question_decision_steps', payload.decision_steps, (s, i) => ({ step_index: i, step_question: s.question ?? '', options: s.options ?? [] })],
+      ['cc_question_options',        payload.options,        (o, i) => ({ option_index: i, option_text: o })],
+      ['cc_question_items',          payload.items,          (it, i) => ({ item_index: i, item_text: it })],
+      ['cc_question_pairs',          payload.pairs,          (p, i) => ({ pair_index: i, left_text: p.left ?? p.from ?? p[0], right_text: p.right ?? p.to ?? p[1] })],
+      ['cc_question_categories',     payload.categories,     (cat, i) => ({ category_index: i, category_id: cat.id ?? `cat-${i}`, category_label: cat.label ?? String(cat) })],
+      ['cc_question_category_items', payload.category_items, (it, i) => ({ item_index: i, item_text: it.text ?? String(it), correct_category: it.category })],
+      ['cc_question_decision_steps', payload.decision_steps, (s, i) => ({ step_index: i, step_question: s.question ?? '', options: s.options ?? [] })],
     ];
     for (const [table, list, build] of tables) {
       if (!Array.isArray(list)) continue;
@@ -209,12 +212,12 @@ export const admin = {
 // Reshape a Supabase question row (with joined sub-tables) into the legacy
 // shape expected by the renderer (BOXES_LEVEL_X structure).
 export function reshapeQuestion(q) {
-  const opts  = sortBy(q.question_options,        'option_index').map(o => o.option_text);
-  const items = sortBy(q.question_items,          'item_index'  ).map(i => i.item_text);
-  const pairs = sortBy(q.question_pairs,          'pair_index'  ).map(p => ({ left: p.left_text, right: p.right_text }));
-  const cats  = sortBy(q.question_categories,     'category_index').map(c => ({ id: c.category_id, label: c.category_label }));
-  const cItems= sortBy(q.question_category_items, 'item_index'  ).map(i => ({ text: i.item_text, category: i.correct_category }));
-  const steps = sortBy(q.question_decision_steps, 'step_index'  ).map(s => ({ question: s.step_question, options: s.options }));
+  const opts  = sortBy(q.cc_question_options,        'option_index').map(o => o.option_text);
+  const items = sortBy(q.cc_question_items,          'item_index'  ).map(i => i.item_text);
+  const pairs = sortBy(q.cc_question_pairs,          'pair_index'  ).map(p => ({ left: p.left_text, right: p.right_text }));
+  const cats  = sortBy(q.cc_question_categories,     'category_index').map(c => ({ id: c.category_id, label: c.category_label }));
+  const cItems= sortBy(q.cc_question_category_items, 'item_index'  ).map(i => ({ text: i.item_text, category: i.correct_category }));
+  const steps = sortBy(q.cc_question_decision_steps, 'step_index'  ).map(s => ({ question: s.step_question, options: s.options }));
 
   // Only include fields that have a value, so the legacy admin form's
   // `if (game.sentence !== undefined)` checks behave correctly.
@@ -253,26 +256,26 @@ export function reshapeQuestion(q) {
 export const sessions = {
   async create(level, config = {}) {
     const data = await ok(
-      c().rpc('create_session', { p_level: level, p_config: config }),
+      c().rpc('cc_create_session', { p_level: level, p_config: config }),
       'create_session',
     );
     return Array.isArray(data) ? data[0] : data;
   },
   async getByCode(code) {
     return ok(
-      c().from('sessions').select('*').eq('session_code', code).maybeSingle(),
+      c().from('cc_sessions').select('*').eq('session_code', code).maybeSingle(),
       'sessions.getByCode',
     );
   },
   async getById(id) {
     return ok(
-      c().from('sessions').select('*').eq('id', id).maybeSingle(),
+      c().from('cc_sessions').select('*').eq('id', id).maybeSingle(),
       'sessions.getById',
     );
   },
   async update(id, patch) {
     return ok(
-      c().from('sessions').update(patch).eq('id', id),
+      c().from('cc_sessions').update(patch).eq('id', id),
       'sessions.update',
     );
   },
@@ -302,7 +305,7 @@ export const sessions = {
   },
   async reset(id) {
     // Cascade-deletes teams + team_answers (FK on delete cascade)
-    return ok(c().from('sessions').delete().eq('id', id), 'sessions.reset');
+    return ok(c().from('cc_sessions').delete().eq('id', id), 'sessions.reset');
   },
 
   // Realtime subscription on a single session row.
@@ -310,7 +313,7 @@ export const sessions = {
   subscribe(id, onChange) {
     const chan = c().channel(`session:${id}`)
       .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'sessions', filter: `id=eq.${id}` },
+          { event: '*', schema: 'public', table: 'cc_sessions', filter: `id=eq.${id}` },
           payload => onChange(payload.new ?? payload.old, payload))
       .subscribe();
     return chan;
@@ -324,38 +327,38 @@ export const sessions = {
 export const teams = {
   async list(sessionId) {
     return ok(
-      c().from('teams').select('*').eq('session_id', sessionId).order('joined_at'),
+      c().from('cc_teams').select('*').eq('session_id', sessionId).order('joined_at'),
       'teams.list',
     );
   },
   async join(sessionId, name, avatar = '👷') {
     return ok(
-      c().from('teams').insert({ session_id: sessionId, name, avatar })
+      c().from('cc_teams').insert({ session_id: sessionId, name, avatar })
         .select().single(),
       'teams.join',
     );
   },
   async update(id, patch) {
-    return ok(c().from('teams').update(patch).eq('id', id), 'teams.update');
+    return ok(c().from('cc_teams').update(patch).eq('id', id), 'teams.update');
   },
   async setOnline(id, online) {
     return this.update(id, { online, last_seen_at: new Date().toISOString() });
   },
   async resetAnswerFlags(sessionId) {
     return ok(
-      c().from('teams').update({ has_answered: false }).eq('session_id', sessionId),
+      c().from('cc_teams').update({ has_answered: false }).eq('session_id', sessionId),
       'teams.resetAnswerFlags',
     );
   },
   async remove(id) {
-    return ok(c().from('teams').delete().eq('id', id), 'teams.remove');
+    return ok(c().from('cc_teams').delete().eq('id', id), 'teams.remove');
   },
 
   // Realtime: subscribe to all teams in a session.
   subscribe(sessionId, onChange) {
     return c().channel(`teams:${sessionId}`)
       .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'teams', filter: `session_id=eq.${sessionId}` },
+          { event: '*', schema: 'public', table: 'cc_teams', filter: `session_id=eq.${sessionId}` },
           payload => onChange(payload))
       .subscribe();
   },
@@ -369,7 +372,7 @@ export const answers = {
   async submit({ session_id, team_id, question_id, module_id, q_idx, answer,
                  is_correct, answer_time_ms, base_points, speed_bonus, total_points }) {
     return ok(
-      c().from('team_answers').insert({
+      c().from('cc_team_answers').insert({
         session_id, team_id, question_id, module_id, q_idx, answer,
         is_correct, answer_time_ms, base_points, speed_bonus, total_points,
       }).select().single(),
@@ -377,7 +380,7 @@ export const answers = {
     );
   },
   async countForCurrent(sessionId, questionId) {
-    const { count, error } = await c().from('team_answers')
+    const { count, error } = await c().from('cc_team_answers')
       .select('*', { count: 'exact', head: true })
       .eq('session_id', sessionId)
       .eq('question_id', questionId);
@@ -387,7 +390,7 @@ export const answers = {
   subscribe(sessionId, onChange) {
     return c().channel(`answers:${sessionId}`)
       .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'team_answers', filter: `session_id=eq.${sessionId}` },
+          { event: '*', schema: 'public', table: 'cc_team_answers', filter: `session_id=eq.${sessionId}` },
           payload => onChange(payload))
       .subscribe();
   },
@@ -400,13 +403,13 @@ export const answers = {
 export const logs = {
   async push({ session_id, level = 'info', category, message, team_name, metadata = {} }) {
     return ok(
-      c().from('logs').insert({ session_id, level, category, message, team_name, metadata }),
+      c().from('cc_logs').insert({ session_id, level, category, message, team_name, metadata }),
       'logs.push',
     );
   },
   async list(sessionId, limit = 200) {
     return ok(
-      c().from('logs').select('*').eq('session_id', sessionId)
+      c().from('cc_logs').select('*').eq('session_id', sessionId)
         .order('created_at', { ascending: false }).limit(limit),
       'logs.list',
     );
