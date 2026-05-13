@@ -2,6 +2,15 @@
 -- Sub-tables (options / items / pairs / categories / decision steps)
 -- for the 26 hand-crafted challenge cc_questions ssiap2-hc-p1-q1..q26.
 -- Aligned with the existing cc_questions.explanation and correct_* values.
+--
+-- ⚠️ BLOQUÉ — gap connu (migration MIB Supabase 2026-05-13)
+-- Les questions parentes `ssiap2-hc-p1-q1..q26` n'ont jamais été commitées
+-- dans le repo (équivalent d'un fichier `1019a_cc_ssiap2_p1_questions.sql`
+-- manquant — toutes les autres parties SSIAP2/SSIAP3 ont leur paire a/b).
+-- Tenter d'appliquer ce fichier → FK violation sur cc_question_options.question_id.
+-- À reseeder depuis la Supabase source `challenge_cup_RPP_edf_V1` (table
+-- public.questions, rows hand-crafted partie1) via dump-handcrafted.mjs.
+-- En attendant, ssiap2-partie1 reste à 37 questions quiz, 0 challenge.
 begin;
 
 insert into public.cc_question_options (question_id, option_index, option_text) values
