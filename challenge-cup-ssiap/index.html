@@ -12,20 +12,12 @@
     <script>
       (function() {
         try {
-          // Bypass A : retour formateur depuis MIB (auth via localStorage)
-          var raw = localStorage.getItem('mib_cc_auth');
-          if (raw) {
-            var ccAuth = JSON.parse(raw);
-            if (ccAuth && (Date.now() - ccAuth.ts) < 120000) {
-              document.documentElement.classList.add('mib-cc-bypass');
-              return;
-            }
-          }
-          // Bypass B : arrivée stagiaire par QR code (?session=... dans l'URL)
-          // → cacher l'écran login formateur tout de suite pour éviter le flash
-          if (/[?&]session=/.test(location.search)) {
-            document.documentElement.classList.add('mib-cc-bypass');
-          }
+          // Challenge Cup SSIAP est intégré dans mib-platform-ssiap. L'auth
+          // formateur est gérée en amont par MIB (PIN). L'écran de login
+          // local de Challenge Cup ne sert plus → on cache TOUS les screens
+          // dès le <head> et le JS DOMContentLoaded décidera quel flow lancer
+          // (supervisor par défaut ; trainee si ?session=...).
+          document.documentElement.classList.add('mib-cc-bypass');
         } catch(e) {}
       })();
     </script>
@@ -2061,8 +2053,30 @@ window.addEventListener('DOMContentLoaded',()=>{
           showScreenSafe('trainee-login');
           showTraineeJoinPanel(sP);
         }
+        // Une fois la décision prise, dévoiler les screens
+        document.documentElement.classList.remove('mib-cc-bypass');
+        var loader=document.getElementById('mib-bypass-loader');
+        if(loader)loader.style.display='none';
       },200);
+      return;
     }
+
+    // ════════════════════════════════════════════════════════════════════
+    // ARRIVÉE DIRECTE FORMATEUR (pas de ?session=, pas de mib_cc_auth)
+    // L'écran de login local n'a plus de raison d'être : auto-init supervisor.
+    // L'auth est gérée en amont par MIB (PIN formateur).
+    // ════════════════════════════════════════════════════════════════════
+    const waitDBSup = setInterval(()=>{
+      if(!database||!window.supa)return;
+      clearInterval(waitDBSup);
+      userRole='supervisor';
+      sessionId='ssiap_'+generateUUID();
+      loadAdminSettings();
+      if(typeof initializeSupervisor==='function')initializeSupervisor();
+      document.documentElement.classList.remove('mib-cc-bypass');
+      var loader=document.getElementById('mib-bypass-loader');
+      if(loader)loader.style.display='none';
+    },100);
 });
 function updateTraineeLevelBadge(level){
   const b1=document.getElementById('trainee-level-badge');
