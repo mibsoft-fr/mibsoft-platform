@@ -12,12 +12,19 @@
     <script>
       (function() {
         try {
+          // Bypass A : retour formateur depuis MIB (auth via localStorage)
           var raw = localStorage.getItem('mib_cc_auth');
           if (raw) {
             var ccAuth = JSON.parse(raw);
             if (ccAuth && (Date.now() - ccAuth.ts) < 120000) {
               document.documentElement.classList.add('mib-cc-bypass');
+              return;
             }
+          }
+          // Bypass B : arrivée stagiaire par QR code (?session=... dans l'URL)
+          // → cacher l'écran login formateur tout de suite pour éviter le flash
+          if (/[?&]session=/.test(location.search)) {
+            document.documentElement.classList.add('mib-cc-bypass');
           }
         } catch(e) {}
       })();
@@ -1583,7 +1590,7 @@ window.openBox=function(boxIndex){
     const typesMap={};games.forEach(g=>{typesMap[g.type]=(typesMap[g.type]||0)+1;});
     const typesStr=Object.entries(typesMap).map(([t,n])=>`${n}×${getGameIcon(t)}`).join(' ');
     fireLog('info','MODULE',`Module ${boxIndex+1} "${BOXES_DATA[boxIndex].title}" — ${games.length}q — Types: ${typesStr}`,{boxIndex,level:SELECTED_SSIAP_LEVEL});
-    database.ref('sessions/'+sessionId).update({currentBox:boxIndex,currentGameIndex:0,gameStatus:'question',randomizedGames:games});
+    database.ref('sessions/'+sessionId).update({currentBox:boxIndex,currentGameIndex:0,gameStatus:'loading',randomizedGames:games});
     loadGame();
 };
 
@@ -1603,7 +1610,7 @@ function launchLibreMode(){
     const typesMap={};games.forEach(g=>{typesMap[g.type]=(typesMap[g.type]||0)+1;});
     const typesStr=Object.entries(typesMap).map(([t,n])=>`${n}×${getGameIcon(t)}`).join(' ');
     fireLog('info','LIBRE',`Mode libre : ${games.length}q sur ${pool.length} disponibles — Types: ${typesStr}`,{count:games.length,level:SELECTED_SSIAP_LEVEL});
-    database.ref('sessions/'+sessionId).update({currentBox:-1,currentGameIndex:0,gameStatus:'question',randomizedGames:games});
+    database.ref('sessions/'+sessionId).update({currentBox:-1,currentGameIndex:0,gameStatus:'loading',randomizedGames:games});
     loadGame();
 }
 
@@ -1626,7 +1633,7 @@ function launchTrainingMode(){
     const games=shuffle(pool).slice(0,count);
     currentBox=-1;currentGameIndex=0;
     fireLog('info','TRAINING',`Training Quiz : ${games.length}q sur ${pool.length} disponibles (pool=quiz)`,{count:games.length,level:SELECTED_SSIAP_LEVEL});
-    database.ref('sessions/'+sessionId).update({currentBox:-1,currentGameIndex:0,gameStatus:'question',randomizedGames:games});
+    database.ref('sessions/'+sessionId).update({currentBox:-1,currentGameIndex:0,gameStatus:'loading',randomizedGames:games});
     loadGame();
 }
 
