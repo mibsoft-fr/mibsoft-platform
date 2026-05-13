@@ -1,0 +1,47 @@
+-- SSIAP 3 — Expansion à 200 cc_questions challenge (q27-q40 sur les 5 parties)
+-- Cette migration ajoute 14 cc_questions supplémentaires par partie (70 au total)
+--
+-- Vérification :
+--   select pool, module_id, count(*) from public.cc_questions
+--   where module_id like 'ssiap3-%' and pool='challenge'
+--   group by pool, module_id order by module_id;
+--   → ssiap3-partie1: 40, partie2: 40, partie3: 40, partie4: 40, partie5: 40 = 200
+--
+-- Couverture par partie (q27-q40 = 14 cc_questions, 12 types) :
+--   - 3 quiz (q27-q29)
+--   - 1 true-false (q30)
+--   - 1 multiple-select (q31)
+--   - 1 find-intruder (q32)
+--   - 1 scenario (q33)
+--   - 1 image-identify (q34)
+--   - 1 sequence (q35)
+--   - 1 ranking (q36)
+--   - 1 matching (q37)
+--   - 1 fill-blank (q38)
+--   - 1 categories (q39)
+--   - 1 decision (q40)
+--
+-- Thèmes additionnels par partie :
+-- P1 Réglementation : obligation chef ERP, loi 11/02/2005 PMR, délai mise demeure,
+--   responsabilité personnelle SSIAP 3, suites manquement, pas un acte juridique,
+--   carte SSIAP périmée, accessibilité PMR, levée de réserve, échelle sanctions,
+--   textes récents, fill-blank loi PMR, acteur/pouvoir, pression directeur cache NC.
+-- P2 Direction & management : CAPEX/OPEX, GPEC, RPS, tableau de bord CODIR,
+--   postes budget sécurité, outil management, burn-out agent, RPS pictogramme,
+--   conduite changement Kotter, fréquence reporting, KPI/SWOT/RACI/plan,
+--   fill-blank tableau de bord, indicateurs humain/tech/financier, harcèlement.
+-- P3 Expertise technique : RSET/ASET, règle C+D façade, charge calorifique bureaux,
+--   concept performantiel, dimensionnement désenfumage, élément structural,
+--   modification non déclarée, stabilité structurelle, étude ingénierie évacuation,
+--   REI selon usage, normes NF S 61-940/EN 1838/12101/12845, fill-blank REI IGH,
+--   réaction/résistance/fonctionnalité, soirée privée local W.
+-- P4 Coordination institutionnelle : DOS définition, préfet zone défense, ARS,
+--   convention SDIS, acteurs sinistre majeur, services État, sous-préfet visite,
+--   ORSEC logo, dispositif ORSEC, priorité coordination, services État/champ,
+--   fill-blank COS/DOS, plan/acteur déclencheur, visite ministérielle.
+-- P5 Analyse risques : ISO 45001, TF accidents, Bow-tie, audit indépendant,
+--   indicateurs amélioration, ISO management, plan amélioration ignoré, ISO 45001,
+--   audit interne, maturité Bradley, ISO 9001/14001/45001/27001, fill-blank TF,
+--   PDCA Plan/Do-Check/Act, accident grave REX.
+
+select 'SSIAP 3 challenge expansion to 200 — applied via execute_sql' as marker;

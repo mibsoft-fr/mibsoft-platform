@@ -19,8 +19,11 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const SUPABASE_URL = 'https://uojhwuwplpodgnwvwvmm.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_D0J8NNAGuXqy0u1lQ2qqhg_WZrLAzWk';
+// Pointe maintenant vers la Supabase MIB (instance unique partagée).
+// Toutes les tables Challenge Cup sont préfixées `cc_` pour cohabiter avec
+// les tables MIB existantes (questions, sessions, teams, team_answers, logs).
+const SUPABASE_URL = 'https://ozfkmlokovxigfnwjeuk.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZmttbG9rb3Z4aWdmbndqZXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1ODUzODUsImV4cCI6MjA5MTE2MTM4NX0.zu5V20Nz7vO3dSYhOtr7mqS7VAMaUDVS2Ibs01xS9Fk';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false },
@@ -120,7 +123,7 @@ const codeToId = new Map();
 async function sessionUuidByCode(code) {
   if (!code) return null;
   if (codeToId.has(code)) return codeToId.get(code);
-  const { data } = await sb.from('sessions').select('id').eq('session_code', code).maybeSingle();
+  const { data } = await sb.from('cc_sessions').select('id').eq('session_code', code).maybeSingle();
   if (data?.id) codeToId.set(code, data.id);
   return data?.id ?? null;
 }
@@ -140,7 +143,7 @@ async function ensureSessionRow(code, payload) {
     opened_modules:  fields.opened_modules ?? [],
     answers_count:   fields.answers_count ?? 0,
   };
-  const { data, error } = await sb.from('sessions')
+  const { data, error } = await sb.from('cc_sessions')
     .upsert(row, { onConflict: 'session_code' })
     .select()
     .single();
@@ -241,7 +244,7 @@ async function subscribe(path, callback) {
 
   if (op.kind === 'teams') {
     reg.channel = sb.channel(`teams:${sessionUuid}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams', filter: `session_id=eq.${sessionUuid}` },
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cc_teams', filter: `session_id=eq.${sessionUuid}` },
         async () => {
           const v = await readPath(path);
           broadcast(path, v.value, v.exists);
@@ -249,7 +252,7 @@ async function subscribe(path, callback) {
       .subscribe();
   } else if (op.kind === 'team' || op.kind === 'team-field') {
     reg.channel = sb.channel(`team:${op.teamId}:${op.field || ''}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams', filter: `id=eq.${op.teamId}` },
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cc_teams', filter: `id=eq.${op.teamId}` },
         async () => {
           const v = await readPath(path);
           broadcast(path, v.value, v.exists);
@@ -257,7 +260,7 @@ async function subscribe(path, callback) {
       .subscribe();
   } else if (op.kind === 'session' || op.kind === 'session-field') {
     reg.channel = sb.channel(`session:${sessionUuid}:${op.field || ''}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sessions', filter: `id=eq.${sessionUuid}` },
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cc_sessions', filter: `id=eq.${sessionUuid}` },
         async () => {
           const v = await readPath(path);
           broadcast(path, v.value, v.exists);
@@ -285,17 +288,17 @@ async function readPath(path) {
   if (op.kind === 'unknown') return { value: null, exists: false };
 
   if (op.kind === 'session') {
-    const { data } = await sb.from('sessions').select('*').eq('session_code', op.code).maybeSingle();
+    const { data } = await sb.from('cc_sessions').select('*').eq('session_code', op.code).maybeSingle();
     if (!data) return { value: null, exists: false };
     const session = s2fSession(data);
     // Embed teams + logs to mimic Firebase tree
-    const { data: tRows } = await sb.from('teams').select('*').eq('session_id', data.id);
+    const { data: tRows } = await sb.from('cc_teams').select('*').eq('session_id', data.id);
     session.teams = Object.fromEntries((tRows ?? []).map(r => [r.id, s2fTeam(r)]));
     return { value: session, exists: true };
   }
   if (op.kind === 'session-field') {
     const col = SESSION_F2S[op.field] ?? op.field;
-    const { data } = await sb.from('sessions').select(col).eq('session_code', op.code).maybeSingle();
+    const { data } = await sb.from('cc_sessions').select(col).eq('session_code', op.code).maybeSingle();
     if (!data) return { value: null, exists: false };
     let v = data[col];
     if (op.field === 'questionTimestamp' && v) v = new Date(v).getTime();
@@ -304,24 +307,24 @@ async function readPath(path) {
   if (op.kind === 'teams') {
     const sid = await sessionUuidByCode(op.code);
     if (!sid) return { value: null, exists: false };
-    const { data } = await sb.from('teams').select('*').eq('session_id', sid);
+    const { data } = await sb.from('cc_teams').select('*').eq('session_id', sid);
     const tree = Object.fromEntries((data ?? []).map(r => [r.id, s2fTeam(r)]));
     return { value: tree, exists: !!Object.keys(tree).length };
   }
   if (op.kind === 'team') {
-    const { data } = await sb.from('teams').select('*').eq('id', op.teamId).maybeSingle();
+    const { data } = await sb.from('cc_teams').select('*').eq('id', op.teamId).maybeSingle();
     return { value: data ? s2fTeam(data) : null, exists: !!data };
   }
   if (op.kind === 'team-field') {
     const col = TEAM_F2S[op.field] ?? op.field;
-    const { data } = await sb.from('teams').select(col).eq('id', op.teamId).maybeSingle();
+    const { data } = await sb.from('cc_teams').select(col).eq('id', op.teamId).maybeSingle();
     if (!data) return { value: null, exists: false };
     return { value: data[col], exists: data[col] != null };
   }
   if (op.kind === 'logs') {
     const sid = await sessionUuidByCode(op.code);
     if (!sid) return { value: null, exists: false };
-    const { data } = await sb.from('logs').select('*').eq('session_id', sid).order('id');
+    const { data } = await sb.from('cc_logs').select('*').eq('session_id', sid).order('id');
     const tree = Object.fromEntries((data ?? []).map((r, i) => [`log${i}`, {
       ts: new Date(r.created_at).getTime(),
       time: new Date(r.created_at).toLocaleTimeString('fr-FR'),
@@ -340,7 +343,7 @@ async function writePath(path, value, mode /* 'set' | 'update' */) {
     if (mode === 'set') return ensureSessionRow(op.code, value);
     const sid = await sessionUuidByCode(op.code) ?? (await ensureSessionRow(op.code, value)).id;
     const fields = f2sSession(value);
-    if (Object.keys(fields).length) await sb.from('sessions').update(fields).eq('id', sid);
+    if (Object.keys(fields).length) await sb.from('cc_sessions').update(fields).eq('id', sid);
     return;
   }
   if (op.kind === 'session-field') {
@@ -349,19 +352,19 @@ async function writePath(path, value, mode /* 'set' | 'update' */) {
     const col = SESSION_F2S[op.field] ?? op.field;
     let v = value;
     if (op.field === 'questionTimestamp' && typeof v === 'number') v = new Date(v).toISOString();
-    await sb.from('sessions').update({ [col]: v }).eq('id', sid);
+    await sb.from('cc_sessions').update({ [col]: v }).eq('id', sid);
     return;
   }
   if (op.kind === 'teams' && mode === 'set') {
     const sid = await sessionUuidByCode(op.code);
     if (!sid) return;
     // Replace the whole teams subtree: delete + reinsert
-    await sb.from('teams').delete().eq('session_id', sid);
+    await sb.from('cc_teams').delete().eq('session_id', sid);
     if (value && typeof value === 'object') {
       const rows = Object.entries(value).map(([id, t]) => ({
         id, session_id: sid, ...f2sTeam(t),
       }));
-      if (rows.length) await sb.from('teams').insert(rows);
+      if (rows.length) await sb.from('cc_teams').insert(rows);
     }
     return;
   }
@@ -370,9 +373,9 @@ async function writePath(path, value, mode /* 'set' | 'update' */) {
     if (!sid) return;
     const fields = f2sTeam(value || {});
     if (mode === 'set') {
-      await sb.from('teams').upsert({ id: op.teamId, session_id: sid, ...fields });
+      await sb.from('cc_teams').upsert({ id: op.teamId, session_id: sid, ...fields });
     } else {
-      await sb.from('teams').update(fields).eq('id', op.teamId);
+      await sb.from('cc_teams').update(fields).eq('id', op.teamId);
     }
     return;
   }
@@ -381,7 +384,7 @@ async function writePath(path, value, mode /* 'set' | 'update' */) {
     if (!TEAM_COLUMNS.has(col)) return;  // drop unknown fields (e.g. legacy answerTime)
     let v = value;
     if (TEAM_TS_COLUMNS.has(col) && typeof v === 'number') v = new Date(v).toISOString();
-    await sb.from('teams').update({ [col]: v }).eq('id', op.teamId);
+    await sb.from('cc_teams').update({ [col]: v }).eq('id', op.teamId);
     return;
   }
   if (op.kind === 'log') {
@@ -390,7 +393,7 @@ async function writePath(path, value, mode /* 'set' | 'update' */) {
     const v = value || {};
     const ALLOWED_LEVELS = new Set(['info','warn','error','success','debug']);
     const level = ALLOWED_LEVELS.has(v.level) ? v.level : 'info';
-    await sb.from('logs').insert({
+    await sb.from('cc_logs').insert({
       session_id: sid, level, category: v.category, message: v.message,
       team_name: v.team || null, metadata: v,
     });
@@ -402,17 +405,17 @@ async function removePath(path) {
   const op = parsePath(path);
   if (op.kind === 'session') {
     const sid = await sessionUuidByCode(op.code);
-    if (sid) await sb.from('sessions').delete().eq('id', sid);
+    if (sid) await sb.from('cc_sessions').delete().eq('id', sid);
     codeToId.delete(op.code);
     return;
   }
   if (op.kind === 'team') {
-    await sb.from('teams').delete().eq('id', op.teamId);
+    await sb.from('cc_teams').delete().eq('id', op.teamId);
     return;
   }
   if (op.kind === 'logs') {
     const sid = await sessionUuidByCode(op.code);
-    if (sid) await sb.from('logs').delete().eq('session_id', sid);
+    if (sid) await sb.from('cc_logs').delete().eq('session_id', sid);
     return;
   }
 }
@@ -442,10 +445,10 @@ async function multiUpdate(updates) {
   // Run all updates in parallel for snappier transitions.
   await Promise.all([
     ...[...teams.entries()].map(([tid, info]) =>
-      sb.from('teams').update(info.fields).eq('id', tid)),
+      sb.from('cc_teams').update(info.fields).eq('id', tid)),
     ...[...sessions.entries()].map(async ([code, fields]) => {
       const sid = await sessionUuidByCode(code);
-      if (sid) return sb.from('sessions').update(fields).eq('id', sid);
+      if (sid) return sb.from('cc_sessions').update(fields).eq('id', sid);
     }),
   ]);
 }
@@ -457,9 +460,9 @@ async function incrementField(path, delta) {
     const sid = await sessionUuidByCode(op.code);
     if (!sid) return;
     const col = SESSION_F2S[op.field] ?? op.field;
-    const { data } = await sb.from('sessions').select(col).eq('id', sid).maybeSingle();
+    const { data } = await sb.from('cc_sessions').select(col).eq('id', sid).maybeSingle();
     const cur = (data?.[col] ?? 0) + delta;
-    await sb.from('sessions').update({ [col]: cur }).eq('id', sid);
+    await sb.from('cc_sessions').update({ [col]: cur }).eq('id', sid);
   }
 }
 

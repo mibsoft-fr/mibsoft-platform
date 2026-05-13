@@ -1,0 +1,51 @@
+-- SSIAP 2 — Expansion à 200 cc_questions challenge (q27-q50 sur les 4 parties)
+-- Cette migration ajoute 24 cc_questions supplémentaires par partie (96 au total)
+-- Les contenus sont chargés via execute_sql depuis le MCP Supabase.
+-- Pour reproduire à zéro, exécuter scripts/dump-handcrafted.mjs après seed initial.
+--
+-- Vérification :
+--   select pool, module_id, count(*) from public.cc_questions
+--   where module_id like 'ssiap2-%' and pool='challenge'
+--   group by pool, module_id order by module_id;
+--   → ssiap2-partie1: 50, partie2: 50, partie3: 50, partie4: 50 = 200 total
+--
+-- Couverture par partie (q27-q50 = 24 cc_questions, 12 types) :
+--   - 4 quiz (q27-q30)
+--   - 2 true-false (q31-q32)
+--   - 2 multiple-select (q33-q34)
+--   - 2 find-intruder (q35-q36)
+--   - 2 scenario (q37-q38)
+--   - 2 image-identify (q39-q40)
+--   - 2 sequence (q41-q42)
+--   - 2 ranking (q43-q44)
+--   - 2 matching (q45-q46)
+--   - 2 fill-blank (q47-q48)
+--   - 1 categories (q49)
+--   - 1 decision (q50)
+--
+-- Thèmes :
+-- P1 Le feu approfondi : composition air, inertage O2, vitesse propagation,
+--   pyrolyse, ATEX poussières, détecteur CO, gaz inertes, sources ignition,
+--   produits combustion, transferts thermiques, friteuse, gaz chaufferie,
+--   GHS04, GHS02, pyrolyse-flashover, feu élec, LIE par gaz, T° auto-inflammation,
+--   classes feu/extincteurs, gaz toxiques/source, PCI, CO mortel, ATEX décision.
+-- P2 Réglementation IGH/ERP : UP 0,60 m, PEI 100 m, 5e cat, permis de feu,
+--   effectif M, dispense 5e cat, plan prévention R.4512-6, dossier sécurité,
+--   types ERP, désenfumage obligatoire, issue cadenassée, soudure sans permis,
+--   W001/P003, ouverture ERP détail, permis feu étapes, catégories ERP croissant,
+--   UP par effectif, type ERP/activité, notion/définition, fill-blanks UP/PEI,
+--   secteur ERP, plan prévention chaufferie.
+-- P3 Installations techniques : SSI cat E, BAEH 5h, sprinkler 68°C, câble CR1,
+--   ZF mono-niveau, DAAF logement, composants SSI A, types désenfumage,
+--   sprinklers, câbles SSI, porte CF cale, sprinkler fuite, RIA, sortie escalier,
+--   maintenance SSI, test évacuation IGH, sprinklers performance, autonomie ESS,
+--   SSI/ERP type, câble/usage, fill-blanks sprinkler/CMSI, équipement/fonction,
+--   panne CMSI nuit.
+-- P4 Management équipe : convention 3196, carte CNAPS, astreinte 1/4, TMS,
+--   uniforme, cumul gardiennage, réunion mensuelle, compétences relationnelles,
+--   types ronde, EPI SSIAP, public agressif, retard chronique, CNAPS, agent radio,
+--   recadrage, transmission quarts, hiérarchie service, priorité radio,
+--   ronde/objectif, document/usage, fill-blanks recyclage/CNAPS et ronde IGH,
+--   action/moment, journaliste sinistre.
+
+select 'SSIAP 2 challenge expansion to 200 — applied via execute_sql' as marker;
