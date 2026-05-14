@@ -1773,6 +1773,10 @@ document.addEventListener('DOMContentLoaded',()=>{
         showAnsBtn.classList.add('hidden');
         const expl=document.getElementById('projector-explanation').textContent||'';
         if(expl && expl!=='Bonne réponse !') document.getElementById('projector-show-explanation-btn').classList.remove('hidden');
+        // Pousser un nouveau status pour que les téléphones stagiaires affichent
+        // leur verdict (bonne/mauvaise/temps écoulé) sans l'explication.
+        if(typeof sessionId==='string' && sessionId)
+            database.ref('sessions/'+sessionId+'/gameStatus').set('reveal');
     });
     if(showExplBtn) showExplBtn.addEventListener('click',()=>{
         document.getElementById('projector-explanation-block').classList.remove('hidden');
@@ -2324,7 +2328,23 @@ function listenForGameUpdatesTrainee(){
     gameStatusListener=snap=>{
         const status=snap.val();fireLog('debug','STATUS',`"${status}" → "${teamName||'?'}"`,{status});
         if(status==='question'){if(currentGameListener){database.ref('sessions/'+sessionId+'/currentGame').off('value');currentGameListener=null;}setTimeout(()=>{database.ref('sessions/'+sessionId+'/currentGame').once('value',s=>{const game=s.val();if(game&&game.question){fireLog('info','QUESTION',`[${game.type}] ${game.question.slice(0,60)}`,{gameType:game.type});showTraineeGame(game);currentGameListener=true;}else fireLog('warn','QUESTION',`currentGame vide pour "${teamName||'?'}"`,{teamId});});},SYNC_DELAY);}
-        else if(status==='correction'){if(currentGameListener){database.ref('sessions/'+sessionId+'/currentGame').off('value');currentGameListener=null;}showTraineeResult();}
+        else if(status==='correction'){
+            // Stage 1 sur le projecteur : le formateur voit le taux de réussite
+            // et a la main pour révéler la réponse. Le téléphone stagiaire
+            // reste en attente — pas de verdict tant que le formateur n'a
+            // pas cliqué « Voir la bonne réponse » (status='reveal').
+            if(currentGameListener){database.ref('sessions/'+sessionId+'/currentGame').off('value');currentGameListener=null;}
+            showScreenSafe('trainee-waiting-others');
+            const t=document.querySelector('#trainee-waiting-others h1');if(t)t.textContent='Réponse enregistrée !';
+            const p=document.querySelector('#trainee-waiting-others p');if(p)p.textContent='Le formateur va révéler la bonne réponse…';
+        }
+        else if(status==='reveal'){
+            // Stage 2 : le formateur a cliqué « Voir la bonne réponse » sur
+            // le projecteur. On affiche au stagiaire son verdict (bonne /
+            // mauvaise / temps écoulé) + ses points, sans l'explication.
+            if(currentGameListener){database.ref('sessions/'+sessionId+'/currentGame').off('value');currentGameListener=null;}
+            showTraineeResult();
+        }
         else if(status==='pause'||status==='boxes'){if(currentGameListener){database.ref('sessions/'+sessionId+'/currentGame').off('value');currentGameListener=null;}showScreenSafe('ranking-screen');displayRanking('ranking-list');}
         else if(status==='finished'){if(currentGameListener){database.ref('sessions/'+sessionId+'/currentGame').off('value');currentGameListener=null;}showPodiumTrainee();}
     };
@@ -2438,30 +2458,12 @@ function showTraineeResult(){
         else if(pts>0){icon.textContent='✓';title.textContent='Bonne réponse !';title.className='text-5xl md:text-6xl font-bold mb-6 text-green-600';earn.textContent='+'+pts;bText.textContent=bonus>0?`⚡ Bonus vitesse : +${bonus} pts`:''; }
         else{icon.textContent='✗';title.textContent='Mauvaise réponse';title.className='text-5xl md:text-6xl font-bold mb-6 text-red-600';earn.textContent='0';bText.textContent='';}
         document.getElementById('trainee-total-score').textContent=(team.score||0)+' pts';
-        // Détail de la correction (paires correctes pour matching, explanation pour les autres)
+        // Pas de bloc d'explication / correction détaillée sur le téléphone :
+        // l'explication est réservée au projecteur (à la demande du formateur).
         const corrEl=document.getElementById('trainee-result-correction');
         if(corrEl){
-            const lastGame=lastTraineeGame||null;
-            if(lastGame&&lastGame.type==='matching'&&Array.isArray(lastGame.pairs)){
-                const userPairs=(team.answer&&typeof team.answer==='object')?team.answer:{};
-                corrEl.classList.remove('hidden');
-                corrEl.innerHTML=`<div class="text-sm md:text-base font-bold text-gray-700 mb-3 text-center">🔗 Bonnes associations</div>`
-                  +`<div class="space-y-2">`
-                  +lastGame.pairs.map((p,i)=>{
-                      const userR=userPairs[i];
-                      const ok=(typeof userR!=='undefined'&&parseInt(userR)===i);
-                      const wrongRight=(typeof userR!=='undefined'&&parseInt(userR)!==i)?lastGame.pairs[parseInt(userR)]?.right:null;
-                      return `<div class="${ok?'bg-green-50 border-green-300':'bg-red-50 border-red-300'} border-2 rounded-xl p-3"><div class="font-bold ${ok?'text-green-800':'text-red-800'}">${ok?'✅':'❌'} ${p.left} <span class="opacity-70">→</span> ${p.right}</div>${!ok&&wrongRight?`<div class="text-xs text-red-600 mt-1">Ta réponse : ${wrongRight}</div>`:''}</div>`;
-                  }).join('')
-                  +`</div>`
-                  +(lastGame.explanation?`<div class="mt-4 bg-blue-50 border-2 border-blue-200 rounded-xl p-3 text-sm text-blue-900">💡 ${lastGame.explanation}</div>`:'');
-            } else if(lastGame&&lastGame.explanation){
-                corrEl.classList.remove('hidden');
-                corrEl.innerHTML=`<div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-3 text-sm text-blue-900">💡 ${lastGame.explanation}</div>`;
-            } else {
-                corrEl.classList.add('hidden');
-                corrEl.innerHTML='';
-            }
+            corrEl.classList.add('hidden');
+            corrEl.innerHTML='';
         }
     });
 }
