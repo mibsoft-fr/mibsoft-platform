@@ -20,12 +20,57 @@ const firebaseConfig={apiKey:"AIzaSyAV4UZ_j2M017lZoFdcbyuxe1oV7VxjWLs",authDomai
 
 let db=null;
 let firebaseInitialized=false;
+
+// ============================================================
+// MIGRATION FIREBASE → SUPABASE REALTIME (phase 6 — en cours)
+// ============================================================
+// Stratégie : remplacer le bus de messages Firebase Realtime DB par
+// un bus Supabase Realtime (channels broadcast). Les opérations couvertes :
+//   - sendMessage(type,data)         ── broadcast ephemeral
+//   - setupSessionListener(sessionId) ── subscribe au channel
+//   - sessions/${id}/messages         ── channel "session:<id>"
+//   - active_session                  ── ssi_sessions.status='en_cours'
+//   - session_logs/${id}              ── table ssi_session_logs (à créer)
+//
+// MibRT ci-dessous fournit l'API cible. Tant que USE_SUPABASE_RT=false,
+// l'app continue d'utiliser Firebase. Activer le flag pour basculer
+// (les deux peuvent cohabiter pendant la transition).
+//
+// TODO restant pour finaliser la phase 6 :
+//   [ ] Créer table public.ssi_session_logs + RLS (formateur own, stagiaire own)
+//   [ ] Migration côté DB : trainees référencés par stagiaire_id (FK)
+//   [ ] Remplacer chaque db.ref(...) par MibRT équivalent
+//   [ ] Retirer firebase SDK du <head> + firebaseConfig
+//   [ ] Supprimer le projet Firebase quand 0 trafic depuis 30 jours
+// ------------------------------------------------------------
+const USE_SUPABASE_RT = false; // flip to true after table + RLS deployed
+const MibRT = {
+  _channels: new Map(),
+  _channel(sessionId){
+    if(!window.supabase||!window.supabase.channel)return null;
+    let c=this._channels.get(sessionId);
+    if(!c){c=window.supabase.channel(`session:${sessionId}`,{config:{broadcast:{self:false}}});this._channels.set(sessionId,c);}
+    return c;
+  },
+  send(sessionId,type,data,sender){
+    const c=this._channel(sessionId);if(!c)return;
+    if(c.state!=='joined')c.subscribe();
+    c.send({type:'broadcast',event:type,payload:{data,sender,timestamp:Date.now()}});
+  },
+  on(sessionId,handler){
+    const c=this._channel(sessionId);if(!c)return ()=>{};
+    c.on('broadcast',{event:'*'},(msg)=>handler({type:msg.event,...msg.payload}));
+    if(c.state!=='joined')c.subscribe();
+    return ()=>{c.unsubscribe();this._channels.delete(sessionId);};
+  },
+};
+
 // FIX: Track Firebase listeners for cleanup
 let activeFirebaseListeners=[];
 
 window.addEventListener('load',()=>{
 try{
-if(typeof firebase!=='undefined'){firebase.initializeApp(firebaseConfig);db=firebase.database();firebaseInitialized=true;console.log('✓ Firebase initialized successfully');loadTraineesFromFirebase();loadSessionLogsFromFirebase();}
+if(typeof firebase!=='undefined'){firebase.initializeApp(firebaseConfig);db=firebase.database();firebaseInitialized=true;console.log('✓ Firebase initialized successfully');/* loadTraineesFromFirebase() retiré — stagiaires gérés depuis MIB (Supabase). */loadSessionLogsFromFirebase();}
 else{console.error('✗ Firebase library not loaded');}
 }catch(error){console.error('✗ Firebase initialization error:',error);}
 // Restore stored directory handle for video access
@@ -84,7 +129,7 @@ resetSdiToIdle();
 resetSmsiToIdle();
 }
 
-function sendMessage(type,data){if(!firebaseInitialized||!STATE.sessionId)return;const messageRef=db.ref(`sessions/${STATE.sessionId}/messages`).push();messageRef.set({type,data,sender:STATE.userType,timestamp:firebase.database.ServerValue.TIMESTAMP});}
+function sendMessage(type,data){if(!STATE.sessionId)return;if(firebaseInitialized){const messageRef=db.ref(`sessions/${STATE.sessionId}/messages`).push();messageRef.set({type,data,sender:STATE.userType,timestamp:firebase.database.ServerValue.TIMESTAMP});}if(USE_SUPABASE_RT){MibRT.send(STATE.sessionId,type,data,STATE.userType);}}
 
 function listenToSession(sessionId){
 if(!firebaseInitialized)return;
