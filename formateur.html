@@ -802,6 +802,24 @@ body {
 /* Supabase client partagé depuis ../supabase.js
    window.supabase = client créé par supabase.js
 ══════════════════════════════════════════════════ */
+
+// Extrait l'info d'une question échouée depuis qMap (table public.questions)
+// OU depuis la jsonb `reponse` (questions JSON statiques depuis PR #30).
+// La jsonb contient { question, choisie, bonne, niveau } depuis PR #38.
+function qInfoFor(rep, qMap) {
+  var fromDb = qMap && qMap[rep && rep.question_id];
+  if (fromDb && fromDb.question) return fromDb;
+  if (rep && rep.reponse && typeof rep.reponse === 'object' && rep.reponse.question) {
+    return {
+      id: rep.question_id,
+      question: rep.reponse.question,
+      explication: '',
+      niveau: rep.reponse.niveau || ''
+    };
+  }
+  return { id: rep && rep.question_id, question: '—', explication: '', niveau: '' };
+}
+
 // Alias local pour simplicité
 const sb = window.supabase;
 
@@ -1224,7 +1242,7 @@ async function showEchecs(stagId, sessId, nom) {
     const repMap = {};
     (repData || []).forEach(r => {
       if (!repMap[r.session_id]) repMap[r.session_id] = [];
-      repMap[r.session_id].push({ ...r, questions: echQMap[r.question_id] || {} });
+      repMap[r.session_id].push({ ...r, questions: qInfoFor(r, echQMap) });
     });
     entrSess.forEach(e => entr.push({ ...e, entrainement_reponses: repMap[e.id] || [] }));
   }
@@ -1321,7 +1339,7 @@ async function loadStatsSess(sessId) {
       const repByEntr = {};
       (repData || []).forEach(r => {
         if (!repByEntr[r.session_id]) repByEntr[r.session_id] = [];
-        repByEntr[r.session_id].push({ ...r, questions: questionsMap[r.question_id] || {} });
+        repByEntr[r.session_id].push({ ...r, questions: qInfoFor(r, questionsMap) });
       });
       entr = entr.map(e => ({ ...e, entrainement_reponses: repByEntr[e.id] || [] }));
     }
@@ -1445,7 +1463,7 @@ async function loadGlobalQ(niv) {
       // 2. Réponses incorrectes avec texte question
       const { data: repG } = await window.supabase
         .from('entrainement_reponses')
-        .select('session_id, question_id, est_correcte')
+        .select('session_id, question_id, est_correcte, reponse')
         .in('session_id', gIds)
         .eq('est_correcte', false);
       // Questions séparément
@@ -1459,7 +1477,7 @@ async function loadGlobalQ(niv) {
       const repGMap = {};
       (repG || []).forEach(r => {
         if (!repGMap[r.session_id]) repGMap[r.session_id] = [];
-        repGMap[r.session_id].push({ ...r, questions: gQMap[r.question_id] || {} });
+        repGMap[r.session_id].push({ ...r, questions: qInfoFor(r, gQMap) });
       });
       entr = sessGList.map(e => ({ ...e, entrainement_reponses: repGMap[e.id] || [] }));
     }
@@ -1627,7 +1645,7 @@ async function toggleInlineEchecs(rowId, stagId, sessId, tr) {
   const map = {};
   (repData||[]).forEach(r => {
     const id = r.question_id;
-    if (!map[id]) map[id] = { question: (qMap[id]||{}).question||'—', explication: (qMap[id]||{}).explication||'', niveau: (qMap[id]||{}).niveau||'', count: 0 };
+    if (!map[id]) { var qi = qInfoFor(r, qMap); map[id] = { question: qi.question, explication: qi.explication, niveau: qi.niveau, count: 0 }; }
     map[id].count++;
   });
 
