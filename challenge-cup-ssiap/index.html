@@ -616,6 +616,17 @@
         </div>
     </div>
 
+    <!-- MODALE : rappel "tu n'as pas donné la réponse" -->
+    <div id="reveal-reminder-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,.55);backdrop-filter:blur(6px);">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 md:p-8 text-center">
+            <div class="text-5xl md:text-6xl mb-3">⚠️</div>
+            <h3 class="text-xl md:text-2xl font-bold text-amber-700 mb-2">Vous n'avez pas donné la réponse</h3>
+            <p class="text-sm md:text-base text-gray-600 mb-5">Les stagiaires attendent la correction. Cliquez ci-dessous pour leur révéler la bonne réponse, puis passez à la suite.</p>
+            <button id="reveal-from-modal-btn" class="w-full ssiap-gradient text-white font-bold py-3 px-5 rounded-xl shadow-lg hover:scale-105 transition-all mb-2">👁️ Voir la bonne réponse</button>
+            <button id="skip-reveal-btn" class="w-full text-xs text-gray-400 hover:text-gray-600 mt-2">Passer quand même à la question suivante</button>
+        </div>
+    </div>
+
     <!-- PROJECTEUR CORRECTION (révélation progressive : stats → réponse → explication) -->
     <div id="projector-correction" class="hidden max-w-7xl mx-auto">
         <button class="btn-back-dashboard" onclick="goBackToDashboard()">🏠 Dashboard</button>
@@ -711,7 +722,7 @@
     <!-- PODIUM SUPERVISEUR -->
     <div id="podium-screen" class="hidden max-w-7xl mx-auto text-center px-4">
         <div class="glass-morphism rounded-3xl shadow-2xl p-5 md:p-12 bounce-in">
-            <div class="text-5xl md:text-8xl mb-4 md:mb-6">🏆</div>
+            <img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f3c6/512.png" alt="Trophée" class="mx-auto mb-4 md:mb-6 drop-shadow-2xl" style="width:88px;height:88px;" onerror="this.outerHTML='<div class=\'text-5xl md:text-8xl mb-4 md:mb-6\'>🏆</div>'" />
             <h1 class="text-2xl md:text-6xl font-bold text-primary neon-text mb-5 md:mb-8">🛡️ CHALLENGE TERMINÉ !</h1>
             <div id="podium-container" class="flex justify-center items-end gap-2 md:gap-4 mb-6 md:mb-12"></div>
             <div class="bg-white rounded-2xl p-4 md:p-8 mb-5 md:mb-8"><h3 class="text-lg md:text-2xl font-bold mb-3 md:mb-4">Classement Final</h3><div id="full-ranking-list"></div></div>
@@ -725,7 +736,7 @@
     <!-- PODIUM STAGIAIRE -->
     <div id="trainee-podium-screen" class="hidden max-w-2xl mx-auto text-center px-4">
         <div class="glass-morphism rounded-3xl shadow-2xl p-5 md:p-8 bounce-in">
-            <div class="text-5xl md:text-6xl mb-3 md:mb-4">🏆</div>
+            <img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f3c6/512.png" alt="Trophée" class="mx-auto mb-3 md:mb-4 drop-shadow-xl" style="width:72px;height:72px;" onerror="this.outerHTML='<div class=\'text-5xl md:text-6xl mb-3 md:mb-4\'>🏆</div>'" />
             <h1 class="text-2xl md:text-4xl font-bold text-primary neon-text mb-2">Challenge Terminé !</h1>
             <p class="text-sm md:text-base text-gray-600 mb-4 md:mb-6">Voici vos résultats</p>
             <div class="ssiap-gradient text-white rounded-2xl p-4 md:p-6 mb-4 md:mb-6 shadow-2xl">
@@ -1811,7 +1822,9 @@ function calculateAndUpdateScores(game){
 }
 
 /* ════ NAVIGATION ════ */
-document.getElementById('next-question-btn').addEventListener('click',()=>{
+// Avancer à la question suivante. Si la réponse n'a pas encore été
+// révélée (le formateur a oublié), on intercepte avec une modale.
+function advanceToNextQuestion(){
     currentGameIndex++;
     database.ref('sessions/'+sessionId+'/randomizedGames').once('value',snap=>{
         const games=snap.val();if(!games)return;
@@ -1828,6 +1841,36 @@ document.getElementById('next-question-btn').addEventListener('click',()=>{
             }
         }
         else loadGame();
+    });
+}
+document.getElementById('next-question-btn').addEventListener('click',async()=>{
+    // Vérifier si la bonne réponse a déjà été révélée (gameStatus='reveal').
+    // Sinon, ouvrir la modale de rappel.
+    let revealed=false;
+    try{
+        const snap=await database.ref('sessions/'+sessionId+'/gameStatus').once('value');
+        revealed=(snap.val()==='reveal');
+    }catch(e){}
+    if(revealed){
+        advanceToNextQuestion();
+    }else{
+        document.getElementById('reveal-reminder-modal').classList.remove('hidden');
+    }
+});
+// Modale : révéler la réponse depuis le rappel
+document.addEventListener('DOMContentLoaded',()=>{
+    const revealBtn=document.getElementById('reveal-from-modal-btn');
+    if(revealBtn) revealBtn.addEventListener('click',()=>{
+        document.getElementById('reveal-reminder-modal').classList.add('hidden');
+        // Simuler le clic sur « Voir la bonne réponse » du projecteur
+        const showAns=document.getElementById('projector-show-answer-btn');
+        if(showAns && !showAns.classList.contains('hidden')) showAns.click();
+        else if(sessionId) database.ref('sessions/'+sessionId+'/gameStatus').set('reveal');
+    });
+    const skipBtn=document.getElementById('skip-reveal-btn');
+    if(skipBtn) skipBtn.addEventListener('click',()=>{
+        document.getElementById('reveal-reminder-modal').classList.add('hidden');
+        advanceToNextQuestion();
     });
 });
 function showPauseScreen(){showScreenSafe('pause-screen');database.ref('sessions/'+sessionId+'/gameStatus').set('pause');document.getElementById('pause-box-number').textContent=currentBox+1;document.getElementById('next-box-number').textContent=currentBox+2;displayRanking('pause-ranking');}
@@ -1849,9 +1892,9 @@ function showPodiumSupervisor(){
         const teams=snap.val();if(!teams)return;
         const arr=Object.entries(teams).map(([id,t])=>({id,name:t?.name||'?',score:t?.score||0})).sort((a,b)=>b.score-a.score);
         const pc=document.getElementById('podium-container');pc.innerHTML='';
-        if(arr[1])pc.innerHTML+=`<div class="text-center"><div class="text-6xl mb-2">🥈</div><div class="bg-gradient-to-r from-gray-300 to-gray-400 text-white p-6 rounded-t-xl" style="height:200px;display:flex;flex-direction:column;justify-content:center"><div class="text-2xl font-bold">${arr[1].name}</div><div class="text-4xl font-bold">${arr[1].score} pts</div></div></div>`;
-        if(arr[0])pc.innerHTML+=`<div class="text-center"><div class="text-8xl mb-2">🥇</div><div class="ssiap-gradient text-white p-8 rounded-t-xl" style="height:300px;display:flex;flex-direction:column;justify-content:center"><div class="text-3xl font-bold">${arr[0].name}</div><div class="text-5xl font-bold">${arr[0].score} pts</div></div></div>`;
-        if(arr[2])pc.innerHTML+=`<div class="text-center"><div class="text-6xl mb-2">🥉</div><div class="bg-gradient-to-r from-cyan-400 to-teal-500 text-white p-4 rounded-t-xl" style="height:150px;display:flex;flex-direction:column;justify-content:center"><div class="text-xl font-bold">${arr[2].name}</div><div class="text-3xl font-bold">${arr[2].score} pts</div></div></div>`;
+        if(arr[1])pc.innerHTML+=`<div class="text-center"><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f948/512.png" alt="2e" class="mx-auto mb-2 drop-shadow-lg" style="width:64px;height:64px;" onerror="this.outerHTML='<div class=\\'text-6xl mb-2\\'>🥈</div>'" /><div class="bg-gradient-to-r from-gray-300 to-gray-400 text-white p-6 rounded-t-xl" style="height:200px;display:flex;flex-direction:column;justify-content:center"><div class="text-2xl font-bold">${arr[1].name}</div><div class="text-4xl font-bold">${arr[1].score} pts</div></div></div>`;
+        if(arr[0])pc.innerHTML+=`<div class="text-center"><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f947/512.png" alt="1er" class="mx-auto mb-2 drop-shadow-2xl" style="width:96px;height:96px;" onerror="this.outerHTML='<div class=\\'text-8xl mb-2\\'>🥇</div>'" /><div class="ssiap-gradient text-white p-8 rounded-t-xl" style="height:300px;display:flex;flex-direction:column;justify-content:center"><div class="text-3xl font-bold">${arr[0].name}</div><div class="text-5xl font-bold">${arr[0].score} pts</div></div></div>`;
+        if(arr[2])pc.innerHTML+=`<div class="text-center"><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f949/512.png" alt="3e" class="mx-auto mb-2 drop-shadow-lg" style="width:64px;height:64px;" onerror="this.outerHTML='<div class=\\'text-6xl mb-2\\'>🥉</div>'" /><div class="bg-gradient-to-r from-cyan-400 to-teal-500 text-white p-4 rounded-t-xl" style="height:150px;display:flex;flex-direction:column;justify-content:center"><div class="text-xl font-bold">${arr[2].name}</div><div class="text-3xl font-bold">${arr[2].score} pts</div></div></div>`;
         displayRanking('full-ranking-list');
     });
 }
