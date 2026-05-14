@@ -438,13 +438,17 @@ export const media = {
 // ---------------------------------------------------------------------
 
 export const bridge = {
-  async toEntrainements({ stagiaire_id, niveau, score, max_score, duree_secondes = 0 }) {
+  // Réplique une session Challenge Cup d'un stagiaire (équipe `mib_<uuid>`)
+  // vers entrainement_sessions + entrainement_reponses (questions échouées).
+  // La RPC lit elle-même cc_teams (score) et cc_team_answers (failed) côté
+  // serveur — le client n'a qu'à fournir les identifiants.
+  async toEntrainements({ stagiaire_id, niveau, cc_session_id, cc_team_id, duree_secondes = 0 }) {
     return ok(
       c().rpc('cc_bridge_to_entrainement', {
         p_stagiaire_id: stagiaire_id,
         p_niveau: niveau,
-        p_score: score,
-        p_max_score: max_score,
+        p_cc_session_id: cc_session_id,
+        p_cc_team_id: cc_team_id,
         p_duree_secondes: duree_secondes,
       }),
       'bridge.toEntrainements',
