@@ -771,7 +771,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
           <div class="kpi"><div class="kpi-icon">👨‍🏫</div><div class="kpi-val text-blue-600" id="kpi-f">—</div><div class="kpi-lbl">Formateurs</div></div>
           <div class="kpi"><div class="kpi-icon">👨‍🎓</div><div class="kpi-val text-green-600" id="kpi-s">—</div><div class="kpi-lbl">Stagiaires</div></div>
           <div class="kpi"><div class="kpi-icon">📋</div><div class="kpi-val text-purple-600" id="kpi-ses">—</div><div class="kpi-lbl">Sessions</div></div>
-          <div class="kpi"><div class="kpi-icon">🏆</div><div class="kpi-val text-orange-600" id="kpi-cup">—</div><div class="kpi-lbl">Challenge Cup</div></div>
+          <div class="kpi"><div class="kpi-icon">🏆</div><div class="kpi-val text-orange-600" id="kpi-cup">—</div><div class="kpi-lbl">Training Stagiaire</div></div>
         </div>
         <div class="plan-banner pb-starter mb-6">
           <div>
@@ -2108,8 +2108,8 @@ window.deleteSession = async function(id) {
 // ============================================================
 const MODULE_DEFS = [
   {key:'module_auto_entrainement',icon:'🎯',title:'Quiz auto-entraînement',desc:'Stagiaire s\'entraîne seul à la maison'},
-  {key:'module_quiz_salle',icon:'📡',title:'Quiz Salle',desc:'Formateur envoie un quiz en temps réel'},
-  {key:'module_challenge_cup',icon:'🏆',title:'Challenge Cup',desc:'Jeu gamifié avec équipes et classement'},
+  {key:'module_quiz_salle',icon:'📡',title:'Training Salle',desc:'Formateur lance un quiz en salle, équipes pseudo (QR libre)'},
+  {key:'module_challenge_cup',icon:'🏆',title:'Training Stagiaire',desc:'Stagiaires nominatifs (Qualiopi), classement par équipes'},
   {key:'module_ssi_supervise',icon:'🔴',title:'SSI Supervisé',desc:'Simulation panneau SSI supervisée'},
   {key:'module_ssi_autoformation',icon:'🟡',title:'SSI Auto-formation',desc:'Scénarios SSI guidés en autonomie'},
   {key:'module_patrol',icon:'🚶',title:'SSIAP Patrol',desc:'Gestion des rondes, matériels et consignes'},

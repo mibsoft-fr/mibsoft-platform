@@ -41,13 +41,13 @@ const STATS = {
       data: {
         labels: data.labels,
         datasets: [{
-          label: 'Sessions Quiz Salle',
+          label: 'Sessions Training Salle',
           data: data.quiz,
           borderColor: this.colors.purple.border,
           backgroundColor: this.colors.purple.bg,
           fill: true, tension: .4, pointRadius: 4,
         },{
-          label: 'Challenge Cup',
+          label: 'Training Stagiaire',
           data: data.challenge,
           borderColor: this.colors.orange.border,
           backgroundColor: this.colors.orange.bg,
@@ -79,7 +79,7 @@ const STATS = {
     return new Chart(ctx, {
       type: 'doughnut',
       data: {
-        labels: ['Quiz Auto', 'Quiz Salle', 'Challenge Cup', 'SSI Supervisé', 'SSI Auto'],
+        labels: ['Quiz Auto', 'Training Salle', 'Training Stagiaire', 'SSI Supervisé', 'SSI Auto'],
         datasets: [{
           data: [data.auto, data.quiz, data.challenge, data.ssi, data.ssi_auto],
           backgroundColor: [
