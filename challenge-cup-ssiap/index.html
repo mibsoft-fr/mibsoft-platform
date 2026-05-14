@@ -1892,26 +1892,29 @@ function displayRanking(cId){
 async function bridgeCcToEntrainements(){
     if(!sessionId||!window.supa||!window.supa.bridge) return;
     try{
+        // Récupérer l'UUID Supabase de la session (différent de session_code)
+        const ccSess=await window.supa.sessions.getByCode(sessionId);
+        if(!ccSess||!ccSess.id){console.warn('[cc-bridge] session introuvable en base');return;}
+        const ccSessionId=ccSess.id;
+        const level=ccSess.level||SELECTED_SSIAP_LEVEL||1;
+        const niveauStr='SSIAP'+level;
+
         const teamsSnap=await database.ref('sessions/'+sessionId+'/teams').once('value');
         const teams=teamsSnap.val()||{};
-        const lvlSnap=await database.ref('sessions/'+sessionId+'/ssiapLevel').once('value');
-        const level=lvlSnap.val()||SELECTED_SSIAP_LEVEL||1;
-        const niveauStr='SSIAP'+level;
         for(const [tid,t] of Object.entries(teams)){
             if(!tid||!tid.startsWith('mib_')) continue;
             const stagiaireId=tid.replace(/^mib_/,'');
             const totalAnswered=Number(t?.totalAnswered||0);
-            const totalCorrect=Number(t?.totalCorrect||0);
             if(totalAnswered===0) continue;
             try{
                 const newId=await window.supa.bridge.toEntrainements({
                     stagiaire_id: stagiaireId,
                     niveau: niveauStr,
-                    score: totalCorrect,
-                    max_score: totalAnswered,
+                    cc_session_id: ccSessionId,
+                    cc_team_id: tid,
                     duree_secondes: 0,
                 });
-                console.log('[cc-bridge] entrainement_sessions',stagiaireId,totalCorrect+'/'+totalAnswered,'→',newId);
+                console.log('[cc-bridge] entrainement_sessions',stagiaireId,'→',newId);
             }catch(e){console.error('[cc-bridge] rpc failed for',stagiaireId,e);}
         }
     }catch(e){console.error('[cc-bridge] sync failed',e);}
