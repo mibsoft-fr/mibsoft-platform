@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>SSI Supervisé — MIB Prévention</title>
+<title>SSI Formateur — MIB Prévention</title>
 <meta name="theme-color" content="#0b1226">
 <link rel="icon" href="/Logo MIB.png" type="image/png">
 <link rel="manifest" href="manifest.json">
@@ -22,7 +22,7 @@
 
 <style>
 /* =============================================================
-   SSI Supervisé — Refonte MIB Vigil
+   Interface Formateur SSI — Refonte MIB Vigil
    Cockpit technique (panneau SSI virtuel) — dark mode brand
    avec accents vert sauvetage + bleu pompier.
    ============================================================= */
@@ -383,14 +383,26 @@ html, body {
 <div id="scr-login" class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
   <div class="text-center mb-8">
     <div style="font-size:3.5rem;margin-bottom:12px;">🔴</div>
-    <div class="logo-t text-white" style="font-size:1.8rem;">SSI Supervisé</div>
+    <div class="logo-t text-white" style="font-size:1.8rem;">SSI Formateur</div>
     <div style="font-size:.78rem;color:#64748b;margin-top:6px;letter-spacing:.1em;text-transform:uppercase;">Simulation panneau · Formation SSIAP</div>
   </div>
   <div style="background:#1e293b;border:1px solid #334155;border-radius:18px;padding:28px;width:100%;max-width:380px;">
-    <div style="color:#94a3b8;font-size:.82rem;margin-bottom:14px;text-align:center;">Chargement de la session...</div>
+    <div id="login-status" style="color:#94a3b8;font-size:.82rem;margin-bottom:14px;text-align:center;">Chargement de la session...</div>
     <div id="login-err" style="display:none;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:10px;font-size:.82rem;color:#f87171;margin-bottom:14px;"></div>
     <button onclick="joinAsFormateur()" class="btn btn-red btn-lg" id="btn-form" style="width:100%;margin-bottom:10px;display:none;">🎓 Accès formateur</button>
     <button onclick="joinAsTrainee()" class="btn btn-orange btn-lg" id="btn-stag" style="width:100%;display:none;">👨‍🎓 Accès stagiaire</button>
+
+    <!-- PIN STAGIAIRE (caché par défaut, affiché si role=stagiaire sans auth) -->
+    <div id="stag-pin-block" style="display:none;">
+      <div style="color:#e2e8f0;font-size:.95rem;margin-bottom:12px;text-align:center;font-weight:600;">Connexion stagiaire</div>
+      <div style="color:#94a3b8;font-size:.78rem;margin-bottom:14px;text-align:center;">Saisis ton code PIN à 6 chiffres</div>
+      <input id="stag-pin-input" type="tel" inputmode="numeric" pattern="[0-9]{6}" maxlength="6"
+             autocomplete="one-time-code"
+             style="width:100%;text-align:center;letter-spacing:.5em;font-size:1.4rem;font-weight:700;background:#0f172a;border:2px solid #334155;color:#e2e8f0;border-radius:10px;padding:14px;margin-bottom:14px;font-variant-numeric:tabular-nums;"
+             placeholder="••••••" />
+      <button id="stag-pin-submit" class="btn btn-red btn-lg" style="width:100%;">Se connecter</button>
+      <div id="stag-pin-help" style="color:#64748b;font-size:.7rem;margin-top:10px;text-align:center;">PIN reçu lors de ton inscription à la formation.</div>
+    </div>
   </div>
 </div>
 
@@ -400,12 +412,13 @@ html, body {
     <div class="flex items-center gap-3">
       <span style="font-size:1.6rem;">🔴</span>
       <div>
-        <div class="logo-t text-white" style="font-size:1.1rem;">SSI Supervisé — Formateur</div>
+        <div class="logo-t text-white" style="font-size:1.1rem;">Interface Formateur SSI</div>
         <div style="font-size:.72rem;color:#64748b;" id="f-session-info">Session — SSIAP —</div>
       </div>
     </div>
     <div class="flex items-center gap-3">
       <div class="chrono" id="f-chrono">00:00</div>
+      <button onclick="copyStagiaireLink(this)" class="btn btn-orange btn-sm" title="Copier le lien stagiaire à ouvrir sur un autre PC">🔗 Lien stagiaire</button>
       <button onclick="endSession()" class="btn btn-gray btn-sm">⏹ Terminer</button>
       <button onclick="goBack()" class="btn btn-gray btn-sm">← Retour</button>
     </div>
@@ -525,7 +538,7 @@ html, body {
     <div class="flex items-center gap-3">
       <span style="font-size:1.4rem;">🔴</span>
       <div>
-        <div class="logo-t text-white" style="font-size:1rem;">SSI Supervisé</div>
+        <div class="logo-t text-white" style="font-size:1rem;">SSI Formation</div>
         <div style="font-size:.7rem;color:#64748b;" id="s-session-info">Stagiaire</div>
       </div>
     </div>
@@ -775,17 +788,109 @@ window.addEventListener('DOMContentLoaded', async () => {
     userRole = 'formateur';
     initFormateur();
   } else {
-    // Vérifier si stagiaire connecté
+    // Stagiaire : si déjà authentifié pour cette session → on entre direct.
+    // Sinon → on affiche l'écran PIN (6 chiffres) pour permettre l'accès
+    // depuis n'importe quel PC sans pré-login.
     const stagSession = SESSION.load('stagiaire');
     if (stagSession && stagSession.session_id === SESSION_ID) {
       STAG_DATA = stagSession;
       userRole = 'stagiaire';
       initStagiaire();
     } else {
-      showErr('Accès non autorisé. Saisissez votre PIN sur la page de connexion.');
+      showStagPinEntry();
     }
   }
 });
+
+// Copie dans le presse-papier le lien stagiaire SSI (à ouvrir sur un autre PC).
+// Le stagiaire arrivera sur l'écran PIN, saisira son code à 6 chiffres et sera
+// connecté à la session SSI ouverte par le formateur.
+window.copyStagiaireLink = async function(btn) {
+  const base = window.location.href.split('?')[0];
+  const url = `${base}?session=${SESSION_ID}&role=stagiaire`;
+  try {
+    await navigator.clipboard.writeText(url);
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copié !';
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1800);
+  } catch(e) {
+    // Fallback : prompt
+    window.prompt('Copiez le lien stagiaire :', url);
+  }
+};
+
+function showStagPinEntry() {
+  const statusEl = document.getElementById('login-status'); if (statusEl) statusEl.style.display = 'none';
+  document.getElementById('stag-pin-block').style.display = 'block';
+  const input = document.getElementById('stag-pin-input');
+  if (input) { setTimeout(() => { try { input.focus(); } catch(_){} }, 100); }
+  document.getElementById('stag-pin-submit').addEventListener('click', handleStagPinSubmit);
+  if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') handleStagPinSubmit(); });
+}
+
+async function handleStagPinSubmit() {
+  const errEl = document.getElementById('login-err');
+  const input = document.getElementById('stag-pin-input');
+  const btn = document.getElementById('stag-pin-submit');
+  errEl.style.display = 'none';
+  const pin = (input.value || '').replace(/\D/g, '');
+  if (pin.length !== 6) { errEl.textContent = '❌ Le PIN doit faire 6 chiffres.'; errEl.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = '… Vérification';
+  try {
+    // 1. Récupérer le center_id de la session SSI (via RPC sécurisée)
+    const { data: centerId, error: cErr } = await supabase.rpc('ssi_get_session_center', { p_session_id: SESSION_ID });
+    if (cErr || !centerId) throw new Error('Session SSI introuvable.');
+
+    // 2. Résoudre le PIN → email (login_pin_resolve)
+    try { await supabase.auth.signOut(); } catch(_) {}
+    const { data: rows, error: rpcErr } = await supabase.rpc('login_pin_resolve', {
+      p_center_id: centerId, p_role: 'stagiaire', p_pin: pin,
+    });
+    if (rpcErr) throw new Error('Erreur serveur.');
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    if (row?.locked) throw new Error('Compte temporairement verrouillé.');
+    if (!row?.email) {
+      await supabase.rpc('login_pin_fail', { p_center_id: centerId, p_role: 'stagiaire', p_pin: pin });
+      throw new Error('PIN invalide.');
+    }
+
+    // 3. Auth Supabase
+    const { error: authErr } = await supabase.auth.signInWithPassword({ email: row.email, password: pin });
+    if (authErr) {
+      await supabase.rpc('login_pin_fail', { p_center_id: centerId, p_role: 'stagiaire', p_pin: pin });
+      throw new Error('PIN invalide.');
+    }
+    try { await supabase.rpc('login_pin_success_reset'); } catch(_) {}
+
+    // 4. Charger le profil stagiaire + vérifier qu'il est bien inscrit à la session
+    const { data: stag } = await supabase.from('stagiaires')
+      .select('id, nom, prenom, niveau, center_id, centers(nom)')
+      .eq('auth_user_id', (await supabase.auth.getUser()).data.user.id).single();
+    if (!stag) throw new Error('Profil stagiaire introuvable.');
+    const { data: part } = await supabase.from('session_participants')
+      .select('id').eq('session_id', SESSION_ID).eq('stagiaire_id', stag.id).maybeSingle();
+    if (!part) throw new Error('Vous n\'êtes pas inscrit à cette session de formation.');
+
+    // 5. Sauvegarder la session + ré-essayer le chargement SSI
+    SESSION.save('stagiaire', {
+      stagiaire_id: stag.id,
+      stagiaire_nom: `${stag.prenom||''} ${stag.nom||''}`.trim(),
+      stagiaire_prenom: stag.prenom,
+      stagiaire_niveau: stag.niveau,
+      center_id: stag.center_id,
+      center_nom: stag.centers?.nom || '',
+      session_id: SESSION_ID,
+    });
+    STAG_DATA = SESSION.load('stagiaire');
+    userRole = 'stagiaire';
+    initStagiaire();
+  } catch (e) {
+    errEl.textContent = '❌ ' + (e.message || 'Échec de connexion');
+    errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Se connecter';
+  }
+}
 
 function showErr(msg) {
   const el = document.getElementById('login-err');
