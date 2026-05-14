@@ -1055,6 +1055,32 @@ render();setTimeout(()=>{STATE.smsi.compartmentZones.forEach(z=>z.ledGreen.on=fa
 
 function stopRelay(id){const relay=STATE.smsi.relayBoxes.find(r=>r.id===id);relay.stopped=!relay.stopped;addSmsiMessage(`Coffret ${id} ${relay.stopped?'arrêté':'redémarré'}`);logAction(`${relay.stopped?'Arrêt':'Redémarrage'} pompier coffret ${id}`);render();}
 
+// Auto-routing depuis la plateforme MIB. Le formateur est déjà authentifié
+// (localStorage.mib_formateur posé par login-formateur.html), donc on zappe
+// l'écran « Connexion Formateur ». Le stagiaire arrive directement sur
+// l'écran PIN sans passer par le choix Formateur/Stagiaire.
+function bootstrapFromMib(){
+  const p=new URLSearchParams(window.location.search);
+  const from=p.get('from');
+  const role=p.get('role');
+  const sessionId=p.get('session');
+  if(from==='mib'){
+    if(role==='stagiaire'){
+      if(sessionId)STATE.mibSessionId=sessionId;
+      STATE.currentView='trainee-login';
+      return;
+    }
+    let f=null;
+    try{const raw=localStorage.getItem('mib_formateur');f=raw?JSON.parse(raw):null;}catch{}
+    if(f&&f.formateur_id){
+      STATE.userType='formateur';
+      STATE.currentUser={nom:f.formateur_nom||'Formateur',prenom:'',niveau:'admin',id:f.formateur_id,center_id:f.center_id};
+      if(sessionId)STATE.mibSessionId=sessionId;
+      STATE.currentView='formateur-interface';
+    }
+  }
+}
+bootstrapFromMib();
 render();
 
 // Service Worker
