@@ -483,19 +483,19 @@
           <p class="greeting-sub" id="session-info">Chargement de vos sessions...</p>
         </div>
 
-        <!-- KPIs -->
+        <!-- KPIs entraînements stagiaire -->
         <div class="grid grid-cols-3 gap-3 fade-up-2" style="margin-bottom:var(--space-6);">
           <div class="stag-kpi">
-            <div class="stag-kpi-val" id="kpi-sessions">—</div>
-            <div class="stag-kpi-lbl">Sessions</div>
+            <div class="stag-kpi-val" id="kpi-entr">—</div>
+            <div class="stag-kpi-lbl">Entraînements</div>
           </div>
           <div class="stag-kpi">
-            <div class="stag-kpi-val" id="kpi-presences">—</div>
-            <div class="stag-kpi-lbl">Présences</div>
+            <div class="stag-kpi-val" id="kpi-moyenne">—</div>
+            <div class="stag-kpi-lbl">Moyenne</div>
           </div>
           <div class="stag-kpi">
-            <div class="stag-kpi-val" id="kpi-niveau" style="font-size:var(--text-base);padding-top:6px;">—</div>
-            <div class="stag-kpi-lbl">Niveau</div>
+            <div class="stag-kpi-val" id="kpi-reussis">—</div>
+            <div class="stag-kpi-lbl">Réussis ≥ 70%</div>
           </div>
         </div>
 
@@ -660,7 +660,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('top-centre').textContent = STAGIAIRE.center_nom || '—';
   document.getElementById('top-niveau').textContent = STAGIAIRE.niveau;
   document.getElementById('prenom-display').textContent = STAGIAIRE.prenom || STAGIAIRE.nom;
-  document.getElementById('kpi-niveau').textContent = STAGIAIRE.niveau;
 
   try {
     const { data: centre } = await supabase.from('centers').select('*').eq('id', STAGIAIRE.center_id).single();
@@ -689,10 +688,20 @@ window.addEventListener('DOMContentLoaded', async () => {
       .eq('stagiaire_id', STAGIAIRE.id);
 
     const parts = participations || [];
-    const presences = parts.filter(p => p.presence).length;
 
-    document.getElementById('kpi-sessions').textContent = parts.length;
-    document.getElementById('kpi-presences').textContent = presences;
+    // KPIs entraînements (auto-entraînement + Challenge Cup pontés)
+    const { data: entrData } = await supabase
+      .from('entrainement_sessions')
+      .select('score, max_score, status')
+      .eq('stagiaire_id', STAGIAIRE.id)
+      .eq('status', 'terminee');
+    const entr = entrData || [];
+    const pcts = entr.map(e => e.max_score > 0 ? Math.round((e.score||0)/e.max_score*100) : 0);
+    const avg = pcts.length ? Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length) : 0;
+    const reussis = pcts.filter(p => p >= 70).length;
+    document.getElementById('kpi-entr').textContent = entr.length;
+    document.getElementById('kpi-moyenne').textContent = entr.length ? avg + '%' : '—';
+    document.getElementById('kpi-reussis').textContent = entr.length ? reussis + '/' + entr.length : '—';
 
     const active = parts.find(p =>
       p.sessions_formation?.statut === 'en_cours' ||
