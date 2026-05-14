@@ -1885,9 +1885,42 @@ function displayRanking(cId){
 }
 
 /* ════ PODIUMS ════ */
+// Bridge : reflète les résultats Challenge Cup d'une équipe rattachée
+// à un stagiaire MIB (id 'mib_<uuid>') dans la table entrainement_sessions,
+// pour que le dashboard formateur (qui ne lit que cette table) affiche
+// les sessions Challenge Cup parmi les autres entraînements.
+async function bridgeCcToEntrainements(){
+    if(!sessionId||!window.supa||!window.supa.bridge) return;
+    try{
+        const teamsSnap=await database.ref('sessions/'+sessionId+'/teams').once('value');
+        const teams=teamsSnap.val()||{};
+        const lvlSnap=await database.ref('sessions/'+sessionId+'/ssiapLevel').once('value');
+        const level=lvlSnap.val()||SELECTED_SSIAP_LEVEL||1;
+        const niveauStr='SSIAP'+level;
+        for(const [tid,t] of Object.entries(teams)){
+            if(!tid||!tid.startsWith('mib_')) continue;
+            const stagiaireId=tid.replace(/^mib_/,'');
+            const totalAnswered=Number(t?.totalAnswered||0);
+            const totalCorrect=Number(t?.totalCorrect||0);
+            if(totalAnswered===0) continue;
+            try{
+                const newId=await window.supa.bridge.toEntrainements({
+                    stagiaire_id: stagiaireId,
+                    niveau: niveauStr,
+                    score: totalCorrect,
+                    max_score: totalAnswered,
+                    duree_secondes: 0,
+                });
+                console.log('[cc-bridge] entrainement_sessions',stagiaireId,totalCorrect+'/'+totalAnswered,'→',newId);
+            }catch(e){console.error('[cc-bridge] rpc failed for',stagiaireId,e);}
+        }
+    }catch(e){console.error('[cc-bridge] sync failed',e);}
+}
+
 function showPodiumSupervisor(){
     showScreenSafe('podium-screen');database.ref('sessions/'+sessionId+'/gameStatus').set('finished');createConfetti();
     playApplause();
+    bridgeCcToEntrainements(); // fire-and-forget — n'attend pas pour laisser le podium s'afficher
     database.ref('sessions/'+sessionId+'/teams').once('value',snap=>{
         const teams=snap.val();if(!teams)return;
         const arr=Object.entries(teams).map(([id,t])=>({id,name:t?.name||'?',score:t?.score||0})).sort((a,b)=>b.score-a.score);
