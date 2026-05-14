@@ -763,10 +763,55 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   try {
-    const { data } = await supabase.from('ssi_sessions').select('*').eq('id', SESSION_ID).single();
+    let { data } = await supabase.from('ssi_sessions').select('*').eq('id', SESSION_ID).maybeSingle();
+
+    // Auto-création si le formateur ouvre depuis le dashboard et qu'il n'y a
+    // pas encore de session SSI pour cette session_formation. Évite l'écran
+    // "Session SSI introuvable" — on partage l'UUID avec sessions_formation.
+    if (!data && role === 'formateur') {
+      const f = (typeof SESSION !== 'undefined' && SESSION.load) ? SESSION.load('formateur') : null;
+      if (!f?.formateur_id || !f?.center_id) {
+        showErr('Connectez-vous comme formateur (PIN) avant d\'ouvrir SSI Supervisé.');
+        return;
+      }
+      // Récupérer les infos de la session de formation (niveau + libellé)
+      let sessionNumber = null, niveauStr = null;
+      try {
+        const sf = await supabase.from('sessions_formation')
+          .select('type_formation, niveau, titre, date_debut')
+          .eq('id', SESSION_ID).maybeSingle();
+        if (sf.data) {
+          niveauStr = sf.data.niveau ? ('SSIAP' + String(sf.data.niveau).replace(/^SSIAP/i, '')) : null;
+          const dt = sf.data.date_debut ? sf.data.date_debut.slice(2).replace(/-/g, '') : '';
+          sessionNumber = `${sf.data.type_formation || ''}_${niveauStr || ''}${dt ? '.' + dt : ''}`;
+        }
+      } catch (e) { console.warn('[ssi] sessions_formation fetch failed', e); }
+
+      const ins = await supabase.from('ssi_sessions').insert({
+        id: SESSION_ID,
+        center_id: f.center_id,
+        formateur_id: f.formateur_id,
+        session_number: sessionNumber,
+        status: 'en_cours',
+        ssi_state: niveauStr ? { niveau: niveauStr } : null,
+        started_at: new Date().toISOString(),
+      }).select().single();
+
+      if (ins.error) {
+        console.error('[ssi-supervise] auto-create failed:', ins.error);
+        showErr('Création session SSI impossible : ' + (ins.error.message || 'erreur'));
+        return;
+      }
+      data = ins.data;
+      if (niveauStr) data.niveau = niveauStr;
+    }
+
     if (!data) throw new Error('Session introuvable');
     SESSION_DATA = data;
+    // Niveau injecté à la création OU récupéré depuis ssi_state pour ré-ouvertures
+    if (!SESSION_DATA.niveau && SESSION_DATA.ssi_state?.niveau) SESSION_DATA.niveau = SESSION_DATA.ssi_state.niveau;
   } catch (e) {
+    console.error('[ssi-supervise] lookup failed:', e);
     showErr('Session SSI introuvable.');
     return;
   }
