@@ -1068,7 +1068,7 @@ function handleGameTimeout() {
     window.CURRENT_SESSION_DATA.questions[currentIdx].userCorrect = false;
     window.CURRENT_SESSION_DATA.questions[currentIdx].timeoutReason = 'timeout';
   }
-  if (sessionId) supabase.from('entrainement_reponses').insert({session_id: sessionId, question_id: String(q.id), reponse: 'TIMEOUT', est_correcte: false}).then(function(){}, function(){});
+  if (sessionId) supabase.from('entrainement_reponses').insert({session_id: sessionId, question_id: String(q.id), reponse: 'TIMEOUT', est_correcte: false}).then(function(r){if(r&&r.error)console.error('[reponse insert TIMEOUT]',r.error);},function(e){console.error('[reponse insert TIMEOUT]',e);});
   updateTopScore();
   flyScore('+0', '#ef4444');
   setTimeout(function() {
@@ -1256,7 +1256,7 @@ function validerMulti() {
     window.CURRENT_SESSION_DATA.questions[currentIdx].userAnswer = userAnsText;
     window.CURRENT_SESSION_DATA.questions[currentIdx].userCorrect = isCorrect;
   }
-  if (sessionId) supabase.from('entrainement_reponses').insert({session_id: sessionId, question_id: String(q.id), reponse: bon, est_correcte: isCorrect}).then(function(){}, function(){});
+  if (sessionId) supabase.from('entrainement_reponses').insert({session_id: sessionId, question_id: String(q.id), reponse: bon, est_correcte: isCorrect}).then(function(r){if(r&&r.error)console.error('[reponse insert]',r.error);},function(e){console.error('[reponse insert]',e);});
   updateTopScore();
   if (isGame) flyScore(isCorrect ? '+1' : '+0', isCorrect ? '#10b981' : '#ef4444');
 
@@ -1327,7 +1327,7 @@ function selectAnswer(btn, isCorrect, q, choices) {
     window.CURRENT_SESSION_DATA.questions[currentIdx].userAnswer = btn.textContent;
     window.CURRENT_SESSION_DATA.questions[currentIdx].userCorrect = isCorrect;
   }
-  if (sessionId) supabase.from('entrainement_reponses').insert({session_id: sessionId, question_id: String(q.id), reponse: btn.textContent, est_correcte: isCorrect}).then(function(){}, function(){});
+  if (sessionId) supabase.from('entrainement_reponses').insert({session_id: sessionId, question_id: String(q.id), reponse: btn.textContent, est_correcte: isCorrect}).then(function(r){if(r&&r.error)console.error('[reponse insert]',r.error);},function(e){console.error('[reponse insert]',e);});
   updateTopScore();
   if (window.CURRENT_MODE === 'game') flyScore(isCorrect ? '+1' : '+0', isCorrect ? '#10b981' : '#ef4444');
   // Délai court pour voir le feedback en GAME
