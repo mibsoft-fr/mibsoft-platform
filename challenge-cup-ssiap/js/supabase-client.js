@@ -434,8 +434,27 @@ export const media = {
 };
 
 // ---------------------------------------------------------------------
+// BRIDGE — pont Challenge Cup → entrainement_sessions (dashboard formateur)
+// ---------------------------------------------------------------------
+
+export const bridge = {
+  async toEntrainements({ stagiaire_id, niveau, score, max_score, duree_secondes = 0 }) {
+    return ok(
+      c().rpc('cc_bridge_to_entrainement', {
+        p_stagiaire_id: stagiaire_id,
+        p_niveau: niveau,
+        p_score: score,
+        p_max_score: max_score,
+        p_duree_secondes: duree_secondes,
+      }),
+      'bridge.toEntrainements',
+    );
+  },
+};
+
+// ---------------------------------------------------------------------
 // AGGREGATE EXPORT
 // ---------------------------------------------------------------------
 
-export const supa = { auth, catalogue, sessions, teams, answers, logs, media, admin };
+export const supa = { auth, catalogue, sessions, teams, answers, logs, media, admin, bridge };
 export default supa;
