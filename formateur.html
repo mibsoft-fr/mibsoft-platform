@@ -381,7 +381,14 @@ body {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.9) inset,
     0 2px 8px -1px rgba(220, 38, 38, 0.08);
+  cursor: pointer;
+  transition: box-shadow .18s ease, transform .18s ease;
 }
+.q-card:hover { box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 6px 18px -3px rgba(220,38,38,.18); transform: translateY(-1px); }
+.q-card:not(.open) .q-details { display: none; }
+.q-card .q-toggle { font-size: .65rem; color: var(--text3); margin-top: 6px; user-select: none; display: inline-block; }
+.q-card:not(.open) .q-toggle::before { content: '▸ Cliquer pour voir la réponse et l\27 explication'; }
+.q-card.open .q-toggle::before { content: '▾ Masquer'; color: var(--rouge); }
 .q-card::before {
   content: '';
   position: absolute;
@@ -802,6 +809,25 @@ body {
 /* Supabase client partagé depuis ../supabase.js
    window.supabase = client créé par supabase.js
 ══════════════════════════════════════════════════ */
+
+// Extrait l'info d'une question échouée depuis qMap (table public.questions)
+// OU depuis la jsonb `reponse` (questions JSON statiques depuis PR #30).
+// La jsonb contient { question, choisie, bonne, explication, niveau } depuis PR #38/#39.
+function qInfoFor(rep, qMap) {
+  var fromDb = qMap && qMap[rep && rep.question_id];
+  if (fromDb && fromDb.question) return fromDb;
+  if (rep && rep.reponse && typeof rep.reponse === 'object' && rep.reponse.question) {
+    return {
+      id: rep.question_id,
+      question: rep.reponse.question,
+      explication: rep.reponse.explication || '',
+      bonne: rep.reponse.bonne || '',
+      niveau: rep.reponse.niveau || ''
+    };
+  }
+  return { id: rep && rep.question_id, question: '—', explication: '', bonne: '', niveau: '' };
+}
+
 // Alias local pour simplicité
 const sb = window.supabase;
 
@@ -1146,25 +1172,19 @@ function buildSessCard(sess, allStags, allEntr) {
            onmouseover="this.style.background='#16a34a';this.style.color='#fff'" onmouseout="this.style.background='#f0fdf4';this.style.color='#16a34a'">
            🚶 Patrol
         </a>
-        <a href="quiz-salle.html?session=${sess.id}&formateur=${FSESSION.formateurId||''}" target="_blank"
-           onclick="event.stopPropagation()"
-           class="shortcut-btn" style="background:#eff6ff;color:#2563eb;border-color:#bfdbfe;"
-           onmouseover="this.style.background='#2563eb';this.style.color='#fff'" onmouseout="this.style.background='#eff6ff';this.style.color='#2563eb'">
-           🎯 Quiz Salle
-        </a>
         <a href="javascript:void(0)"
            onclick="event.stopPropagation();openChallengeCupSSIAP('${sess.niveau||''}','${sess.id}', 'qr')"
-           class="shortcut-btn" style="background:#fff7ed;color:#d97706;border-color:#fed7aa;"
-           onmouseover="this.style.background='#d97706';this.style.color='#fff'" onmouseout="this.style.background='#fff7ed';this.style.color='#d97706'"
+           class="shortcut-btn" style="background:#eff6ff;color:#2563eb;border-color:#bfdbfe;"
+           onmouseover="this.style.background='#2563eb';this.style.color='#fff'" onmouseout="this.style.background='#eff6ff';this.style.color='#2563eb'"
            title="QR Code — stagiaires libres (pseudo)">
-           🏆 Challenge Cup (QR)
+           🎯 Training Salle (groupe)
         </a>
         <a href="javascript:void(0)"
            onclick="event.stopPropagation();openChallengeCupSSIAP('${sess.niveau||''}','${sess.id}', 'invitation')"
-           class="shortcut-btn" style="background:#f3e8ff;color:#7c3aed;border-color:#ddd6fe;"
-           onmouseover="this.style.background='#7c3aed';this.style.color='#fff'" onmouseout="this.style.background='#f3e8ff';this.style.color='#7c3aed'"
+           class="shortcut-btn" style="background:#ecfeff;color:#0891b2;border-color:#a5f3fc;"
+           onmouseover="this.style.background='#0891b2';this.style.color='#fff'" onmouseout="this.style.background='#ecfeff';this.style.color='#0891b2'"
            title="Invitation — stagiaires nominatifs (traçabilité Qualiopi)">
-           🎯 Challenge Cup (Invitation)
+           👤 Training Salle (stagiaire)
         </a>
         <span class="badge ${sess.statut==='actif'?'badge-green':'badge-gray'}">${sess.statut||'en cours'}</span>
         <span class="badge badge-blue">${stags.length} stag.</span>
@@ -1236,7 +1256,7 @@ async function showEchecs(stagId, sessId, nom) {
     const repMap = {};
     (repData || []).forEach(r => {
       if (!repMap[r.session_id]) repMap[r.session_id] = [];
-      repMap[r.session_id].push({ ...r, questions: echQMap[r.question_id] || {} });
+      repMap[r.session_id].push({ ...r, questions: qInfoFor(r, echQMap) });
     });
     entrSess.forEach(e => entr.push({ ...e, entrainement_reponses: repMap[e.id] || [] }));
   }
@@ -1333,7 +1353,7 @@ async function loadStatsSess(sessId) {
       const repByEntr = {};
       (repData || []).forEach(r => {
         if (!repByEntr[r.session_id]) repByEntr[r.session_id] = [];
-        repByEntr[r.session_id].push({ ...r, questions: questionsMap[r.question_id] || {} });
+        repByEntr[r.session_id].push({ ...r, questions: qInfoFor(r, questionsMap) });
       });
       entr = entr.map(e => ({ ...e, entrainement_reponses: repByEntr[e.id] || [] }));
     }
@@ -1393,9 +1413,9 @@ function buildStatsQ(entr) {
         const id = r.question_id || q.question;
         if (!map[id]) map[id] = {
           question: q.question || '—',
-          correct_answers: [],
+          correct_answers: q.bonne ? [q.bonne] : [],
           explanation: q.explication || '',
-          niveau: e.niveau || '',
+          niveau: e.niveau || q.niveau || '',
           count: 0, stags: new Set()
         };
         map[id].count++;
@@ -1414,24 +1434,7 @@ function renderStatsQ() {
   let data = statsQData;
   if (niv) data = data.filter(q => (q.niveau||'').toString() === niv);
   if (!data.length) { el.innerHTML = emptyState('✅','Aucune question échouée pour cette sélection !','padding:18px;'); return; }
-  el.innerHTML = data.slice(0,20).map((q,i) => {
-    const corrAnss = q.correct_answers_labels || q.correct_answers || [];
-    const expl = q.explanation || q.explication || '';
-    return `<div class="q-card">
-      <div class="q-top">
-        <div style="flex:1;">
-          <div class="q-num">Question ${i+1}${q.niveau?' · SSIAP '+q.niveau:''}</div>
-          <div class="q-text">${esc(q.question||'—')}</div>
-          <div class="q-sub">Échouée par ${q.stags.size} stagiaire${q.stags.size>1?'s':''} · ${q.count} fois au total</div>
-        </div>
-        <div class="q-pct">${q.pct}%</div>
-      </div>
-      ${corrAnss.length || expl ? `<div class="q-details">
-        ${corrAnss.length ? `<div class="q-box correct"><div class="q-box-lbl">✅ Bonne réponse</div>${esc(Array.isArray(corrAnss)?corrAnss.join(', '):corrAnss)}</div>` : ''}
-        ${expl ? `<div class="q-box expl"><div class="q-box-lbl">💡 À revoir en présentiel</div>${esc(expl)}</div>` : ''}
-      </div>` : ''}
-    </div>`;
-  }).join('');
+  el.innerHTML = data.slice(0,20).map((q,i) => renderQCard({...q, pct_override: q.pct}, i+1, q.count, 1)).join('');
 }
 
 /* ══════════════════════════════════════
@@ -1457,7 +1460,7 @@ async function loadGlobalQ(niv) {
       // 2. Réponses incorrectes avec texte question
       const { data: repG } = await window.supabase
         .from('entrainement_reponses')
-        .select('session_id, question_id, est_correcte')
+        .select('session_id, question_id, est_correcte, reponse')
         .in('session_id', gIds)
         .eq('est_correcte', false);
       // Questions séparément
@@ -1471,7 +1474,7 @@ async function loadGlobalQ(niv) {
       const repGMap = {};
       (repG || []).forEach(r => {
         if (!repGMap[r.session_id]) repGMap[r.session_id] = [];
-        repGMap[r.session_id].push({ ...r, questions: gQMap[r.question_id] || {} });
+        repGMap[r.session_id].push({ ...r, questions: qInfoFor(r, gQMap) });
       });
       entr = sessGList.map(e => ({ ...e, entrainement_reponses: repGMap[e.id] || [] }));
     }
@@ -1551,19 +1554,21 @@ async function loadProfil() {
 ══════════════════════════════════════ */
 function renderQCard(q, num, count, total) {
   const pct = q.pct_override ?? (total>0 ? Math.round(count/total*100) : 0);
-  const corrAnss = q.correct_answers_labels || q.correct_answers || [];
+  const corrAnss = q.correct_answers_labels || q.correct_answers || (q.bonne ? [q.bonne] : []);
   const userAnss = q.user_answers_labels || q.user_answers || [];
   const expl = q.explanation || q.explication || '';
-  return `<div class="q-card">
+  const hasDetails = userAnss.length || corrAnss.length || expl;
+  return `<div class="q-card" onclick="this.classList.toggle('open')">
     <div class="q-top">
       <div style="flex:1;">
         <div class="q-num">Question ${num}${q.niveau?' · SSIAP '+q.niveau:''}</div>
         <div class="q-text">${esc(q.question||'—')}</div>
         ${count>1?`<div class="q-sub">Échouée ${count} fois</div>`:''}
+        ${hasDetails ? `<div class="q-toggle"></div>` : ''}
       </div>
       <div class="q-pct">${pct}%</div>
     </div>
-    ${userAnss.length || corrAnss.length || expl ? `<div class="q-details">
+    ${hasDetails ? `<div class="q-details">
       ${userAnss.length ? `<div class="q-box" style="background:var(--rouge-bg);color:var(--rouge);border:1px solid #fecaca;"><div class="q-box-lbl">❌ Réponse donnée</div>${esc(Array.isArray(userAnss)?userAnss.join(', '):userAnss)}</div>` : ''}
       ${corrAnss.length ? `<div class="q-box correct"><div class="q-box-lbl">✅ Bonne réponse</div>${esc(Array.isArray(corrAnss)?corrAnss.join(', '):corrAnss)}</div>` : ''}
       ${expl ? `<div class="q-box expl"><div class="q-box-lbl">💡 Explication</div>${esc(expl)}</div>` : ''}
@@ -1639,7 +1644,7 @@ async function toggleInlineEchecs(rowId, stagId, sessId, tr) {
   const map = {};
   (repData||[]).forEach(r => {
     const id = r.question_id;
-    if (!map[id]) map[id] = { question: (qMap[id]||{}).question||'—', explication: (qMap[id]||{}).explication||'', niveau: (qMap[id]||{}).niveau||'', count: 0 };
+    if (!map[id]) { var qi = qInfoFor(r, qMap); map[id] = { question: qi.question, explication: qi.explication, bonne: qi.bonne||'', niveau: qi.niveau, count: 0 }; }
     map[id].count++;
   });
 
@@ -1676,17 +1681,7 @@ async function toggleInlineEchecs(rowId, stagId, sessId, tr) {
     + '<div style="font-size:.72rem;font-weight:700;color:var(--rouge);margin-bottom:4px;">'+echecs.length+' QUESTION'+(echecs.length>1?'S':'')+' ÉCHOUÉE'+(echecs.length>1?'S':'')+'</div>'
     + '<div style="font-size:.76rem;color:var(--text3);">Moyenne globale : <b style="color:var(--text);">'+avgScore+'%</b></div>'
     + '</div></div>'
-    + echecs.slice(0,8).map((q,i) => {
-        const pct = Math.round(q.count/totalEntr*100);
-        return '<div class="q-card" style="margin-bottom:8px;">'
-          + '<div class="q-top">'
-          + '<div style="flex:1;"><div class="q-num">Question '+(i+1)+(q.niveau?' · SSIAP '+q.niveau:'')+'</div>'
-          + '<div class="q-text">'+esc(q.question)+'</div>'
-          + '<div class="q-sub">Échouée '+q.count+' fois sur '+totalEntr+' entraînement'+(totalEntr>1?'s':'')+'</div></div>'
-          + '<div class="q-pct">'+pct+'%</div></div>'
-          + (q.explication?'<div class="q-details"><div class="q-box expl"><div class="q-box-lbl">💡 À revoir en présentiel</div>'+esc(q.explication)+'</div></div>':'')
-          + '</div>';
-      }).join('');
+    + echecs.slice(0,8).map((q,i) => renderQCard({...q, pct_override: Math.round(q.count/totalEntr*100)}, i+1, q.count, totalEntr)).join('');
 }
 
 /* ══════════════════════════════════════

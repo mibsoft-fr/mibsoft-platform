@@ -12,13 +12,12 @@
     <script>
       (function() {
         try {
-          var raw = localStorage.getItem('mib_cc_auth');
-          if (raw) {
-            var ccAuth = JSON.parse(raw);
-            if (ccAuth && (Date.now() - ccAuth.ts) < 120000) {
-              document.documentElement.classList.add('mib-cc-bypass');
-            }
-          }
+          // Challenge Cup SSIAP est intégré dans mib-platform-ssiap. L'auth
+          // formateur est gérée en amont par MIB (PIN). L'écran de login
+          // local de Challenge Cup ne sert plus → on cache TOUS les screens
+          // dès le <head> et le JS DOMContentLoaded décidera quel flow lancer
+          // (supervisor par défaut ; trainee si ?session=...).
+          document.documentElement.classList.add('mib-cc-bypass');
         } catch(e) {}
       })();
     </script>
@@ -114,7 +113,8 @@
         .matching-item{transition:all .3s;cursor:pointer;border:3px solid transparent}
         .matching-item:hover{transform:scale(1.04)}
         .matching-item.selected{border-color:#FFD700;box-shadow:0 0 20px rgba(255,215,0,.7);transform:scale(1.06);outline:2px solid #FFD700}
-        .matching-item.matched{opacity:.65;cursor:not-allowed;background:linear-gradient(135deg,rgba(16,185,129,.4),rgba(16,185,129,.25))!important;border-color:#10b981!important;transform:scale(1)!important}
+        .matching-item.matched{opacity:.85;cursor:pointer;background:linear-gradient(135deg,rgba(100,116,139,.55),rgba(71,85,105,.5))!important;border-color:#94a3b8!important;transform:scale(1)!important}
+        .matching-item.matched:hover{transform:scale(1.02)!important;opacity:1}
         .matching-item.wrong-flash{border-color:#ef4444!important;box-shadow:0 0 16px rgba(239,68,68,.7)!important}
         .word-bank-item{transition:all .3s;cursor:pointer;user-select:none}
         .word-bank-item:hover{transform:scale(1.05)}
@@ -616,14 +616,35 @@
         </div>
     </div>
 
-    <!-- PROJECTEUR CORRECTION -->
+    <!-- MODALE : rappel "tu n'as pas donné la réponse" -->
+    <div id="reveal-reminder-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background:rgba(0,0,0,.55);backdrop-filter:blur(6px);">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 md:p-8 text-center">
+            <div class="text-5xl md:text-6xl mb-3">⚠️</div>
+            <h3 class="text-xl md:text-2xl font-bold text-amber-700 mb-2">Vous n'avez pas donné la réponse</h3>
+            <p class="text-sm md:text-base text-gray-600 mb-5">Les stagiaires attendent la correction. Cliquez ci-dessous pour leur révéler la bonne réponse, puis passez à la suite.</p>
+            <button id="reveal-from-modal-btn" class="w-full ssiap-gradient text-white font-bold py-3 px-5 rounded-xl shadow-lg hover:scale-105 transition-all mb-2">👁️ Voir la bonne réponse</button>
+            <button id="skip-reveal-btn" class="w-full text-xs text-gray-400 hover:text-gray-600 mt-2">Passer quand même à la question suivante</button>
+        </div>
+    </div>
+
+    <!-- PROJECTEUR CORRECTION (révélation progressive : stats → réponse → explication) -->
     <div id="projector-correction" class="hidden max-w-7xl mx-auto">
         <button class="btn-back-dashboard" onclick="goBackToDashboard()">🏠 Dashboard</button>
         <div class="glass-morphism rounded-3xl shadow-2xl p-4 md:p-8 mb-6 text-center">
-            <div class="text-5xl md:text-8xl mb-4 md:mb-6">✅</div>
-            <h2 class="text-2xl md:text-5xl font-bold text-green-600 mb-4 md:mb-6">CORRECTION</h2>
-            <div id="projector-correction-content" class="mb-6 md:mb-8 text-left"></div>
-            <div class="bg-blue-50 rounded-2xl p-4 md:p-6 mb-4 md:mb-6">
+            <div class="text-5xl md:text-8xl mb-4 md:mb-6">📊</div>
+            <h2 class="text-2xl md:text-5xl font-bold text-blue-700 mb-4 md:mb-6" id="projector-correction-title">RÉSULTATS</h2>
+            <!-- Stage 1 : stats équipes (visible par défaut) -->
+            <div id="projector-stats-block" class="bg-blue-50 rounded-2xl p-4 md:p-8 mb-4 md:mb-6">
+                <div class="text-base md:text-xl font-bold text-gray-700 mb-2">Taux de réussite des équipes</div>
+                <div class="text-5xl md:text-7xl font-extrabold text-blue-700 mb-1" id="projector-success-pct">0%</div>
+                <div class="text-sm md:text-base text-gray-600" id="projector-success-detail">0 / 0 équipes</div>
+            </div>
+            <button id="projector-show-answer-btn" class="ssiap-gradient text-white text-base md:text-xl font-bold py-3 md:py-4 px-5 md:px-10 rounded-xl shadow-lg hover:scale-105 transition-all mb-4">👁️ Voir la bonne réponse</button>
+            <!-- Stage 2 : réponse correcte (caché par défaut) -->
+            <div id="projector-correction-content" class="hidden mb-6 md:mb-8 text-left"></div>
+            <button id="projector-show-explanation-btn" class="hidden ssiap-gradient text-white text-base md:text-xl font-bold py-3 md:py-4 px-5 md:px-10 rounded-xl shadow-lg hover:scale-105 transition-all mb-4">💡 Voir l'explication</button>
+            <!-- Stage 3 : explication (caché par défaut) -->
+            <div id="projector-explanation-block" class="hidden bg-blue-50 rounded-2xl p-4 md:p-6 mb-4 md:mb-6">
                 <div class="text-lg md:text-2xl font-bold text-gray-800 mb-2">💡 Explication</div>
                 <p class="text-base md:text-lg text-gray-700" id="projector-explanation">...</p>
             </div>
@@ -672,6 +693,8 @@
                 <div class="text-2xl md:text-4xl font-bold text-primary mb-1 md:mb-2" id="trainee-total-score">0</div>
                 <div class="text-base md:text-xl text-gray-600">Score total</div>
             </div>
+            <!-- Détail de la correction (rempli par showTraineeResult selon le type) -->
+            <div id="trainee-result-correction" class="hidden mt-5 md:mt-6 bg-white rounded-2xl p-4 md:p-6 text-left"></div>
         </div>
     </div>
 
@@ -699,7 +722,7 @@
     <!-- PODIUM SUPERVISEUR -->
     <div id="podium-screen" class="hidden max-w-7xl mx-auto text-center px-4">
         <div class="glass-morphism rounded-3xl shadow-2xl p-5 md:p-12 bounce-in">
-            <div class="text-5xl md:text-8xl mb-4 md:mb-6">🏆</div>
+            <img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f3c6/512.png" alt="Trophée" class="mx-auto mb-4 md:mb-6 drop-shadow-2xl" style="width:88px;height:88px;" onerror="this.outerHTML='<div class=\'text-5xl md:text-8xl mb-4 md:mb-6\'>🏆</div>'" />
             <h1 class="text-2xl md:text-6xl font-bold text-primary neon-text mb-5 md:mb-8">🛡️ CHALLENGE TERMINÉ !</h1>
             <div id="podium-container" class="flex justify-center items-end gap-2 md:gap-4 mb-6 md:mb-12"></div>
             <div class="bg-white rounded-2xl p-4 md:p-8 mb-5 md:mb-8"><h3 class="text-lg md:text-2xl font-bold mb-3 md:mb-4">Classement Final</h3><div id="full-ranking-list"></div></div>
@@ -713,7 +736,7 @@
     <!-- PODIUM STAGIAIRE -->
     <div id="trainee-podium-screen" class="hidden max-w-2xl mx-auto text-center px-4">
         <div class="glass-morphism rounded-3xl shadow-2xl p-5 md:p-8 bounce-in">
-            <div class="text-5xl md:text-6xl mb-3 md:mb-4">🏆</div>
+            <img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f3c6/512.png" alt="Trophée" class="mx-auto mb-3 md:mb-4 drop-shadow-xl" style="width:72px;height:72px;" onerror="this.outerHTML='<div class=\'text-5xl md:text-6xl mb-3 md:mb-4\'>🏆</div>'" />
             <h1 class="text-2xl md:text-4xl font-bold text-primary neon-text mb-2">Challenge Terminé !</h1>
             <p class="text-sm md:text-base text-gray-600 mb-4 md:mb-6">Voici vos résultats</p>
             <div class="ssiap-gradient text-white rounded-2xl p-4 md:p-6 mb-4 md:mb-6 shadow-2xl">
@@ -894,7 +917,7 @@ function renderAvatar(avatar,sizeClass='av-md'){
 let answersListener=null,timerInterval=null,timeRemaining=30;
 let gameStatusListener=null,currentGameListener=null,questionStartTime=null;
 let editingBox=-1,editingGame=-1,adminCurrentBox=0,adminCurrentLevel=1;
-let matchingLeft=null,matchingRight=null;
+let matchingLeft=null,matchingRight=null,matchingUserPairs={};
 let SELECTED_SSIAP_LEVEL=1;
 const LEVEL_LABELS={1:'🛡️ SSIAP 1 — Équipier de sécurité',2:'🛡️🛡️ SSIAP 2 — Chef d\'équipe',3:'🛡️🛡️🛡️ SSIAP 3 — Chef de service'};
 const LEVEL_SHORT={1:'SSIAP 1',2:'SSIAP 2',3:'SSIAP 3'};
@@ -1583,7 +1606,7 @@ window.openBox=function(boxIndex){
     const typesMap={};games.forEach(g=>{typesMap[g.type]=(typesMap[g.type]||0)+1;});
     const typesStr=Object.entries(typesMap).map(([t,n])=>`${n}×${getGameIcon(t)}`).join(' ');
     fireLog('info','MODULE',`Module ${boxIndex+1} "${BOXES_DATA[boxIndex].title}" — ${games.length}q — Types: ${typesStr}`,{boxIndex,level:SELECTED_SSIAP_LEVEL});
-    database.ref('sessions/'+sessionId).update({currentBox:boxIndex,currentGameIndex:0,gameStatus:'question',randomizedGames:games});
+    database.ref('sessions/'+sessionId).update({currentBox:boxIndex,currentGameIndex:0,gameStatus:'loading',randomizedGames:games});
     loadGame();
 };
 
@@ -1603,7 +1626,7 @@ function launchLibreMode(){
     const typesMap={};games.forEach(g=>{typesMap[g.type]=(typesMap[g.type]||0)+1;});
     const typesStr=Object.entries(typesMap).map(([t,n])=>`${n}×${getGameIcon(t)}`).join(' ');
     fireLog('info','LIBRE',`Mode libre : ${games.length}q sur ${pool.length} disponibles — Types: ${typesStr}`,{count:games.length,level:SELECTED_SSIAP_LEVEL});
-    database.ref('sessions/'+sessionId).update({currentBox:-1,currentGameIndex:0,gameStatus:'question',randomizedGames:games});
+    database.ref('sessions/'+sessionId).update({currentBox:-1,currentGameIndex:0,gameStatus:'loading',randomizedGames:games});
     loadGame();
 }
 
@@ -1626,7 +1649,7 @@ function launchTrainingMode(){
     const games=shuffle(pool).slice(0,count);
     currentBox=-1;currentGameIndex=0;
     fireLog('info','TRAINING',`Training Quiz : ${games.length}q sur ${pool.length} disponibles (pool=quiz)`,{count:games.length,level:SELECTED_SSIAP_LEVEL});
-    database.ref('sessions/'+sessionId).update({currentBox:-1,currentGameIndex:0,gameStatus:'question',randomizedGames:games});
+    database.ref('sessions/'+sessionId).update({currentBox:-1,currentGameIndex:0,gameStatus:'loading',randomizedGames:games});
     loadGame();
 }
 
@@ -1728,9 +1751,49 @@ function startAnswersCountListener(){
 function showCorrection(){
     database.ref('sessions/'+sessionId+'/currentGame').once('value',snap=>{
         const game=snap.val();if(!game)return;calculateAndUpdateScores(game);
-        setTimeout(()=>{database.ref('sessions/'+sessionId+'/gameStatus').set('correction').then(()=>{setTimeout(()=>{showScreenSafe('projector-correction');document.getElementById('projector-explanation').textContent=game.explanation||'Bonne réponse !';document.getElementById('projector-correction-content').innerHTML=renderUploadedMedia(game,'projector')+renderCorrection(game);},500);});},300);
+        setTimeout(()=>{database.ref('sessions/'+sessionId+'/gameStatus').set('correction').then(()=>{setTimeout(()=>{
+            showScreenSafe('projector-correction');
+            // Reset stages : seul le bloc stats + bouton "Voir la réponse" sont visibles
+            document.getElementById('projector-stats-block').classList.remove('hidden');
+            document.getElementById('projector-show-answer-btn').classList.remove('hidden');
+            document.getElementById('projector-correction-content').classList.add('hidden');
+            document.getElementById('projector-show-explanation-btn').classList.add('hidden');
+            document.getElementById('projector-explanation-block').classList.add('hidden');
+            // Préparer les contenus (cachés)
+            document.getElementById('projector-explanation').textContent=game.explanation||'Bonne réponse !';
+            document.getElementById('projector-correction-content').innerHTML=renderUploadedMedia(game,'projector')+renderCorrection(game);
+            // Calculer le % de réussite à partir des équipes
+            database.ref('sessions/'+sessionId+'/teams').once('value',tsnap=>{
+                const teams=tsnap.val()||{};
+                const arr=Object.values(teams);
+                const total=arr.length;
+                const ok=arr.filter(t=>t&&t.isCorrect).length;
+                const pct=total>0?Math.round(ok/total*100):0;
+                document.getElementById('projector-success-pct').textContent=pct+'%';
+                document.getElementById('projector-success-detail').textContent=ok+' / '+total+' équipe'+(total>1?'s':'')+' a'+(ok>1?'ont':'')+' bien répondu';
+            });
+        },500);});},300);
     });
 }
+// Stage handlers : révélation progressive
+document.addEventListener('DOMContentLoaded',()=>{
+    const showAnsBtn=document.getElementById('projector-show-answer-btn');
+    const showExplBtn=document.getElementById('projector-show-explanation-btn');
+    if(showAnsBtn) showAnsBtn.addEventListener('click',()=>{
+        document.getElementById('projector-correction-content').classList.remove('hidden');
+        showAnsBtn.classList.add('hidden');
+        const expl=document.getElementById('projector-explanation').textContent||'';
+        if(expl && expl!=='Bonne réponse !') document.getElementById('projector-show-explanation-btn').classList.remove('hidden');
+        // Pousser un nouveau status pour que les téléphones stagiaires affichent
+        // leur verdict (bonne/mauvaise/temps écoulé) sans l'explication.
+        if(typeof sessionId==='string' && sessionId)
+            database.ref('sessions/'+sessionId+'/gameStatus').set('reveal');
+    });
+    if(showExplBtn) showExplBtn.addEventListener('click',()=>{
+        document.getElementById('projector-explanation-block').classList.remove('hidden');
+        showExplBtn.classList.add('hidden');
+    });
+});
 function renderCorrection(game){
     const scen=game.scenario?`<div class="scenario-box mb-4"><div class="text-sm font-bold text-blue-700 mb-1">📋 Situation :</div><p class="text-gray-700 text-sm">${game.scenario}</p></div>`:'';
     if(['quiz','true-false','find-intruder','scenario'].includes(game.type))
@@ -1759,7 +1822,9 @@ function calculateAndUpdateScores(game){
 }
 
 /* ════ NAVIGATION ════ */
-document.getElementById('next-question-btn').addEventListener('click',()=>{
+// Avancer à la question suivante. Si la réponse n'a pas encore été
+// révélée (le formateur a oublié), on intercepte avec une modale.
+function advanceToNextQuestion(){
     currentGameIndex++;
     database.ref('sessions/'+sessionId+'/randomizedGames').once('value',snap=>{
         const games=snap.val();if(!games)return;
@@ -1777,6 +1842,36 @@ document.getElementById('next-question-btn').addEventListener('click',()=>{
         }
         else loadGame();
     });
+}
+document.getElementById('next-question-btn').addEventListener('click',async()=>{
+    // Vérifier si la bonne réponse a déjà été révélée (gameStatus='reveal').
+    // Sinon, ouvrir la modale de rappel.
+    let revealed=false;
+    try{
+        const snap=await database.ref('sessions/'+sessionId+'/gameStatus').once('value');
+        revealed=(snap.val()==='reveal');
+    }catch(e){}
+    if(revealed){
+        advanceToNextQuestion();
+    }else{
+        document.getElementById('reveal-reminder-modal').classList.remove('hidden');
+    }
+});
+// Modale : révéler la réponse depuis le rappel
+document.addEventListener('DOMContentLoaded',()=>{
+    const revealBtn=document.getElementById('reveal-from-modal-btn');
+    if(revealBtn) revealBtn.addEventListener('click',()=>{
+        document.getElementById('reveal-reminder-modal').classList.add('hidden');
+        // Simuler le clic sur « Voir la bonne réponse » du projecteur
+        const showAns=document.getElementById('projector-show-answer-btn');
+        if(showAns && !showAns.classList.contains('hidden')) showAns.click();
+        else if(sessionId) database.ref('sessions/'+sessionId+'/gameStatus').set('reveal');
+    });
+    const skipBtn=document.getElementById('skip-reveal-btn');
+    if(skipBtn) skipBtn.addEventListener('click',()=>{
+        document.getElementById('reveal-reminder-modal').classList.add('hidden');
+        advanceToNextQuestion();
+    });
 });
 function showPauseScreen(){showScreenSafe('pause-screen');database.ref('sessions/'+sessionId+'/gameStatus').set('pause');document.getElementById('pause-box-number').textContent=currentBox+1;document.getElementById('next-box-number').textContent=currentBox+2;displayRanking('pause-ranking');}
 document.getElementById('next-box-btn').addEventListener('click',()=>{database.ref('sessions/'+sessionId+'/gameStatus').set('boxes');showBoxesScreen();});
@@ -1790,16 +1885,52 @@ function displayRanking(cId){
 }
 
 /* ════ PODIUMS ════ */
+// Bridge : reflète les résultats Challenge Cup d'une équipe rattachée
+// à un stagiaire MIB (id 'mib_<uuid>') dans la table entrainement_sessions,
+// pour que le dashboard formateur (qui ne lit que cette table) affiche
+// les sessions Challenge Cup parmi les autres entraînements.
+async function bridgeCcToEntrainements(){
+    if(!sessionId||!window.supa||!window.supa.bridge) return;
+    try{
+        // Récupérer l'UUID Supabase de la session (différent de session_code)
+        const ccSess=await window.supa.sessions.getByCode(sessionId);
+        if(!ccSess||!ccSess.id){console.warn('[cc-bridge] session introuvable en base');return;}
+        const ccSessionId=ccSess.id;
+        const level=ccSess.level||SELECTED_SSIAP_LEVEL||1;
+        const niveauStr='SSIAP'+level;
+
+        const teamsSnap=await database.ref('sessions/'+sessionId+'/teams').once('value');
+        const teams=teamsSnap.val()||{};
+        for(const [tid,t] of Object.entries(teams)){
+            if(!tid||!tid.startsWith('mib_')) continue;
+            const stagiaireId=tid.replace(/^mib_/,'');
+            const totalAnswered=Number(t?.totalAnswered||0);
+            if(totalAnswered===0) continue;
+            try{
+                const newId=await window.supa.bridge.toEntrainements({
+                    stagiaire_id: stagiaireId,
+                    niveau: niveauStr,
+                    cc_session_id: ccSessionId,
+                    cc_team_id: tid,
+                    duree_secondes: 0,
+                });
+                console.log('[cc-bridge] entrainement_sessions',stagiaireId,'→',newId);
+            }catch(e){console.error('[cc-bridge] rpc failed for',stagiaireId,e);}
+        }
+    }catch(e){console.error('[cc-bridge] sync failed',e);}
+}
+
 function showPodiumSupervisor(){
     showScreenSafe('podium-screen');database.ref('sessions/'+sessionId+'/gameStatus').set('finished');createConfetti();
     playApplause();
+    bridgeCcToEntrainements(); // fire-and-forget — n'attend pas pour laisser le podium s'afficher
     database.ref('sessions/'+sessionId+'/teams').once('value',snap=>{
         const teams=snap.val();if(!teams)return;
         const arr=Object.entries(teams).map(([id,t])=>({id,name:t?.name||'?',score:t?.score||0})).sort((a,b)=>b.score-a.score);
         const pc=document.getElementById('podium-container');pc.innerHTML='';
-        if(arr[1])pc.innerHTML+=`<div class="text-center"><div class="text-6xl mb-2">🥈</div><div class="bg-gradient-to-r from-gray-300 to-gray-400 text-white p-6 rounded-t-xl" style="height:200px;display:flex;flex-direction:column;justify-content:center"><div class="text-2xl font-bold">${arr[1].name}</div><div class="text-4xl font-bold">${arr[1].score} pts</div></div></div>`;
-        if(arr[0])pc.innerHTML+=`<div class="text-center"><div class="text-8xl mb-2">🥇</div><div class="ssiap-gradient text-white p-8 rounded-t-xl" style="height:300px;display:flex;flex-direction:column;justify-content:center"><div class="text-3xl font-bold">${arr[0].name}</div><div class="text-5xl font-bold">${arr[0].score} pts</div></div></div>`;
-        if(arr[2])pc.innerHTML+=`<div class="text-center"><div class="text-6xl mb-2">🥉</div><div class="bg-gradient-to-r from-cyan-400 to-teal-500 text-white p-4 rounded-t-xl" style="height:150px;display:flex;flex-direction:column;justify-content:center"><div class="text-xl font-bold">${arr[2].name}</div><div class="text-3xl font-bold">${arr[2].score} pts</div></div></div>`;
+        if(arr[1])pc.innerHTML+=`<div class="text-center"><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f948/512.png" alt="2e" class="mx-auto mb-2 drop-shadow-lg" style="width:64px;height:64px;" onerror="this.outerHTML='<div class=\\'text-6xl mb-2\\'>🥈</div>'" /><div class="bg-gradient-to-r from-gray-300 to-gray-400 text-white p-6 rounded-t-xl" style="height:200px;display:flex;flex-direction:column;justify-content:center"><div class="text-2xl font-bold">${arr[1].name}</div><div class="text-4xl font-bold">${arr[1].score} pts</div></div></div>`;
+        if(arr[0])pc.innerHTML+=`<div class="text-center"><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f947/512.png" alt="1er" class="mx-auto mb-2 drop-shadow-2xl" style="width:96px;height:96px;" onerror="this.outerHTML='<div class=\\'text-8xl mb-2\\'>🥇</div>'" /><div class="ssiap-gradient text-white p-8 rounded-t-xl" style="height:300px;display:flex;flex-direction:column;justify-content:center"><div class="text-3xl font-bold">${arr[0].name}</div><div class="text-5xl font-bold">${arr[0].score} pts</div></div></div>`;
+        if(arr[2])pc.innerHTML+=`<div class="text-center"><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f949/512.png" alt="3e" class="mx-auto mb-2 drop-shadow-lg" style="width:64px;height:64px;" onerror="this.outerHTML='<div class=\\'text-6xl mb-2\\'>🥉</div>'" /><div class="bg-gradient-to-r from-cyan-400 to-teal-500 text-white p-4 rounded-t-xl" style="height:150px;display:flex;flex-direction:column;justify-content:center"><div class="text-xl font-bold">${arr[2].name}</div><div class="text-3xl font-bold">${arr[2].score} pts</div></div></div>`;
         displayRanking('full-ranking-list');
     });
 }
@@ -2054,8 +2185,30 @@ window.addEventListener('DOMContentLoaded',()=>{
           showScreenSafe('trainee-login');
           showTraineeJoinPanel(sP);
         }
+        // Une fois la décision prise, dévoiler les screens
+        document.documentElement.classList.remove('mib-cc-bypass');
+        var loader=document.getElementById('mib-bypass-loader');
+        if(loader)loader.style.display='none';
       },200);
+      return;
     }
+
+    // ════════════════════════════════════════════════════════════════════
+    // ARRIVÉE DIRECTE FORMATEUR (pas de ?session=, pas de mib_cc_auth)
+    // L'écran de login local n'a plus de raison d'être : auto-init supervisor.
+    // L'auth est gérée en amont par MIB (PIN formateur).
+    // ════════════════════════════════════════════════════════════════════
+    const waitDBSup = setInterval(()=>{
+      if(!database||!window.supa)return;
+      clearInterval(waitDBSup);
+      userRole='supervisor';
+      sessionId='ssiap_'+generateUUID();
+      loadAdminSettings();
+      if(typeof initializeSupervisor==='function')initializeSupervisor();
+      document.documentElement.classList.remove('mib-cc-bypass');
+      var loader=document.getElementById('mib-bypass-loader');
+      if(loader)loader.style.display='none';
+    },100);
 });
 function updateTraineeLevelBadge(level){
   const b1=document.getElementById('trainee-level-badge');
@@ -2254,7 +2407,23 @@ function listenForGameUpdatesTrainee(){
     gameStatusListener=snap=>{
         const status=snap.val();fireLog('debug','STATUS',`"${status}" → "${teamName||'?'}"`,{status});
         if(status==='question'){if(currentGameListener){database.ref('sessions/'+sessionId+'/currentGame').off('value');currentGameListener=null;}setTimeout(()=>{database.ref('sessions/'+sessionId+'/currentGame').once('value',s=>{const game=s.val();if(game&&game.question){fireLog('info','QUESTION',`[${game.type}] ${game.question.slice(0,60)}`,{gameType:game.type});showTraineeGame(game);currentGameListener=true;}else fireLog('warn','QUESTION',`currentGame vide pour "${teamName||'?'}"`,{teamId});});},SYNC_DELAY);}
-        else if(status==='correction'){if(currentGameListener){database.ref('sessions/'+sessionId+'/currentGame').off('value');currentGameListener=null;}showTraineeResult();}
+        else if(status==='correction'){
+            // Stage 1 sur le projecteur : le formateur voit le taux de réussite
+            // et a la main pour révéler la réponse. Le téléphone stagiaire
+            // reste en attente — pas de verdict tant que le formateur n'a
+            // pas cliqué « Voir la bonne réponse » (status='reveal').
+            if(currentGameListener){database.ref('sessions/'+sessionId+'/currentGame').off('value');currentGameListener=null;}
+            showScreenSafe('trainee-waiting-others');
+            const t=document.querySelector('#trainee-waiting-others h1');if(t)t.textContent='Réponse enregistrée !';
+            const p=document.querySelector('#trainee-waiting-others p');if(p)p.textContent='Le formateur va révéler la bonne réponse…';
+        }
+        else if(status==='reveal'){
+            // Stage 2 : le formateur a cliqué « Voir la bonne réponse » sur
+            // le projecteur. On affiche au stagiaire son verdict (bonne /
+            // mauvaise / temps écoulé) + ses points, sans l'explication.
+            if(currentGameListener){database.ref('sessions/'+sessionId+'/currentGame').off('value');currentGameListener=null;}
+            showTraineeResult();
+        }
         else if(status==='pause'||status==='boxes'){if(currentGameListener){database.ref('sessions/'+sessionId+'/currentGame').off('value');currentGameListener=null;}showScreenSafe('ranking-screen');displayRanking('ranking-list');}
         else if(status==='finished'){if(currentGameListener){database.ref('sessions/'+sessionId+'/currentGame').off('value');currentGameListener=null;}showPodiumTrainee();}
     };
@@ -2267,7 +2436,7 @@ function showTraineeGame(game){
     document.getElementById('trainee-team-display').innerHTML=`<span class="inline-flex items-center gap-2">${renderAvatar(selectedAvatar||'🛡️','av-md')} ${teamName}</span>`;
     database.ref('sessions/'+sessionId+'/teams/'+teamId+'/score').on('value',s=>{document.getElementById('trainee-score-display').textContent=(s.val()||0)+' pts';});
     document.getElementById('trainee-game-container').innerHTML=renderUploadedMedia(game,'trainee')+renderGameForTrainee(game);
-    selectedAnswer=null;selectedSequence=[];selectedMultiple=[];selectedRanking=[];fillBlankAnswers=[];categoriesAnswers={};decisionPath=[];selectedCatItem=null;matchingLeft=null;matchingRight=null;
+    selectedAnswer=null;selectedSequence=[];selectedMultiple=[];selectedRanking=[];fillBlankAnswers=[];categoriesAnswers={};decisionPath=[];selectedCatItem=null;matchingLeft=null;matchingRight=null;matchingUserPairs={};
     const btn=document.getElementById('trainee-validate-btn');btn.disabled=false;btn.textContent='✓ Valider ma réponse';btn.classList.remove('opacity-50','cursor-not-allowed');btn.onclick=()=>validateTraineeAnswer(game);
 }
 function renderGameForTrainee(game){
@@ -2284,7 +2453,7 @@ function renderGameForTrainee(game){
         return`<div class="text-center">${typeBadge}</div>${qHtml}<div class="grid grid-cols-1 gap-3">${(game.itemsWithIndex||[]).map(item=>`<div class="sequence-item bg-white p-5 rounded-xl shadow-lg text-center" data-original-index="${item.originalIndex}" onclick="selectSequenceItem(${item.originalIndex})"><span class="trainee-option-text text-gray-800">${item.text}</span></div>`).join('')}</div><div class="mt-4 p-4 bg-white rounded-xl shadow-lg"><div class="text-sm font-bold mb-1">Votre ordre :</div><div id="selected-sequence-display" class="text-gray-600 text-sm">Cliquez dans l'ordre...</div></div>`;
     if(game.type==='ranking')
         return`<div class="text-center">${typeBadge}</div>${qHtml}<div class="bg-blue-50 border-2 border-blue-300 rounded-xl p-3 mb-4 text-center text-sm font-bold text-blue-800">🏅 1er clic = priorité 1</div><div class="grid grid-cols-1 gap-3">${(game.itemsWithIndex||[]).map(item=>`<div class="ranking-drag bg-white p-5 rounded-xl shadow-lg text-center" data-original-index="${item.originalIndex}" onclick="selectRankingItem(${item.originalIndex})"><span class="trainee-option-text text-gray-800">${item.text}</span></div>`).join('')}</div><div class="mt-4 p-4 bg-white rounded-xl shadow-lg"><div class="text-sm font-bold mb-1">Votre classement :</div><div id="selected-ranking-display" class="text-gray-600 text-sm">Cliquez pour classer...</div></div>`;
-    if(game.type==='matching'){const total=(game.pairsLeft||[]).length;return`<div class="text-center">${typeBadge}</div>${qHtml}<div class="bg-blue-50 border-2 border-blue-300 rounded-xl p-3 mb-4 text-center text-sm font-bold text-blue-800">🔗 Gauche puis droite pour former une paire</div><div class="grid grid-cols-2 gap-4"><div class="space-y-3">${(game.pairsLeft||[]).map(item=>`<div class="matching-item bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4 rounded-xl text-sm font-bold text-center shadow-lg" data-side="left" data-index="${item.originalIndex}" onclick="selectMatchingItem('left',${item.originalIndex})">${item.text}</div>`).join('')}</div><div class="space-y-3">${(game.pairsRight||[]).map(item=>`<div class="matching-item bg-gradient-to-r from-cyan-500 to-teal-600 text-white p-4 rounded-xl text-sm font-bold text-center shadow-lg" data-side="right" data-index="${item.originalIndex}" onclick="selectMatchingItem('right',${item.originalIndex})">${item.text}</div>`).join('')}</div></div><div class="mt-3 p-3 bg-white rounded-xl shadow-lg text-center text-sm"><span class="font-bold">Paires trouvées : </span><span id="pairs-count" class="text-green-600 font-bold">0/${total}</span></div>`;}
+    if(game.type==='matching'){const total=(game.pairsLeft||[]).length;return`<div class="text-center">${typeBadge}</div>${qHtml}<div class="bg-blue-50 border-2 border-blue-300 rounded-xl p-3 mb-4 text-center text-sm font-bold text-blue-800">🔗 Gauche puis droite pour former une paire — re-cliquer sur une paire pour la défaire. Les bonnes/mauvaises associations seront révélées à la correction.</div><div class="grid grid-cols-2 gap-4"><div class="space-y-3">${(game.pairsLeft||[]).map(item=>`<div class="matching-item bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4 rounded-xl text-sm font-bold text-center shadow-lg" data-side="left" data-index="${item.originalIndex}" onclick="selectMatchingItem('left',${item.originalIndex})">${item.text}</div>`).join('')}</div><div class="space-y-3">${(game.pairsRight||[]).map(item=>`<div class="matching-item bg-gradient-to-r from-cyan-500 to-teal-600 text-white p-4 rounded-xl text-sm font-bold text-center shadow-lg" data-side="right" data-index="${item.originalIndex}" onclick="selectMatchingItem('right',${item.originalIndex})">${item.text}</div>`).join('')}</div></div><div class="mt-3 p-3 bg-white rounded-xl shadow-lg text-center text-sm"><span class="font-bold">Paires faites : </span><span id="pairs-count" class="text-blue-600 font-bold">0/${total}</span></div>`;}
     if(game.type==='fill-blank'){let sH=game.sentence;const bC=(game.sentence.match(/%\d+%/g)||[]).length;fillBlankAnswers=new Array(bC).fill(null);for(let i=1;i<=bC;i++)sH=sH.replace(`%${i}%`,`<span class="blank-slot" id="blank-${i}" onclick="clearBlank(${i})">___</span>`);return`<div class="text-center">${typeBadge}</div>${qHtml}<div class="bg-white p-6 rounded-xl shadow-lg text-xl text-center leading-loose mb-6">${sH}</div><div class="text-sm font-bold text-center text-gray-600 mb-3">Cliquez sur un mot :</div><div class="flex flex-wrap gap-3 justify-center">${(game.wordBankShuffled||game.wordBank||[]).map((w,i)=>`<button class="word-bank-item px-4 py-2 ssiap-gradient text-white rounded-xl font-bold text-sm shadow-lg" id="word-${i}" data-word="${w}" onclick="selectWord('${w}',${i})">${w}</button>`).join('')}</div>`;}
     if(game.type==='categories'){(game.categories||[]).forEach(cat=>{categoriesAnswers[cat.id]=[];});const items=game.itemsShuffled||game.items||[];return`<div class="text-center">${typeBadge}</div>${qHtml}<div class="grid grid-cols-${(game.categories||[]).length} gap-3 mb-4">${(game.categories||[]).map(cat=>`<div><div class="ssiap-gradient text-white p-3 rounded-t-xl text-center font-bold text-sm">${cat.label}</div><div class="cat-drop-zone p-2" id="cat-zone-${cat.id}" onclick="placeToCat('${cat.id}')"><div class="text-xs text-gray-400 text-center py-2" id="cat-empty-${cat.id}">Appuyez ici</div></div></div>`).join('')}</div><div class="bg-white rounded-xl p-4 shadow-lg"><div class="text-sm font-bold mb-3 text-gray-700">👆 Sélectionnez un élément puis une zone :</div><div class="flex flex-wrap gap-2" id="items-pool">${items.map((item,i)=>`<button class="cat-item px-3 py-2 border-2 border-blue-400 text-blue-800 bg-blue-50 rounded-lg font-bold text-sm" id="cat-item-${i}" onclick="selectCatItemFn(${i},'${item.text.replace(/'/g,"\\'")}')">${item.text}</button>`).join('')}</div></div>`;}
     if(game.type==='decision'){decisionPath=[];return`<div class="text-center">${typeBadge}</div><div class="scenario-box mb-5"><div class="text-sm font-bold text-blue-700 mb-2">📋 Situation :</div><p class="text-gray-800 text-sm leading-relaxed">${game.scenario||game.question}</p></div><div id="decision-container">${renderDecisionStepTrainee(game,0)}</div><div id="decision-path" class="hidden mt-4 p-4 bg-white rounded-xl shadow-lg"><div class="text-sm font-bold mb-2 text-gray-700">📍 Vos choix :</div><div id="decision-path-display" class="text-gray-600 text-sm space-y-1"></div></div>`;}
@@ -2299,12 +2468,33 @@ window.selectSequenceItem=function(idx){const pos=selectedSequence.indexOf(idx);
 window.selectRankingItem=function(idx){const pos=selectedRanking.indexOf(idx);if(pos!==-1)selectedRanking.splice(pos,1);else selectedRanking.push(idx);document.querySelectorAll('.ranking-drag').forEach(el=>{const i=parseInt(el.getAttribute('data-original-index'));const p=selectedRanking.indexOf(i);el.classList.remove('ranked');el.querySelector('.rank-badge')?.remove();if(p!==-1){el.classList.add('ranked');const d=document.createElement('div');d.className='rank-badge';d.textContent=p+1;el.appendChild(d);}});database.ref('sessions/'+sessionId+'/currentGame').once('value',s=>{const g=s.val();if(!g)return;const labels=selectedRanking.map(i=>g.itemsWithIndex.find(x=>x.originalIndex===i)?.text||'');const el=document.getElementById('selected-ranking-display');if(el)el.textContent=labels.map((l,i)=>`${i+1}. ${l}`).join(' | ')||'Cliquez pour classer...';});};
 window.selectMatchingItem=function(side,idx){
     const item=document.querySelector(`.matching-item[data-side="${side}"][data-index="${idx}"]`);
-    if(!item||item.classList.contains('matched'))return;
+    if(!item)return;
+    // Click on an already-locked pair → unpair it (l'utilisateur peut corriger)
+    if(item.classList.contains('matched')){
+        const pairedWith=parseInt(item.getAttribute('data-paired-with'));
+        if(!isNaN(pairedWith)){
+            const otherSide=side==='left'?'right':'left';
+            const other=document.querySelector(`.matching-item[data-side="${otherSide}"][data-index="${pairedWith}"]`);
+            [item,other].forEach(el=>{if(!el)return;el.classList.remove('matched');el.removeAttribute('data-paired-with');});
+            if(side==='left')delete matchingUserPairs[idx];
+            else{for(const [l,r] of Object.entries(matchingUserPairs)){if(parseInt(r)===idx){delete matchingUserPairs[l];break;}}}
+            const m=Object.keys(matchingUserPairs).length;const t=document.querySelectorAll('.matching-item[data-side="left"]').length;const cEl=document.getElementById('pairs-count');if(cEl)cEl.textContent=`${m}/${t}`;
+        }
+        return;
+    }
     if(side==='left'){if(matchingLeft!==null)document.querySelector(`.matching-item[data-side="left"][data-index="${matchingLeft}"]`)?.classList.remove('selected');if(matchingLeft===idx){matchingLeft=null;return;}matchingLeft=idx;item.classList.add('selected');}
     else{if(matchingRight!==null)document.querySelector(`.matching-item[data-side="right"][data-index="${matchingRight}"]`)?.classList.remove('selected');if(matchingRight===idx){matchingRight=null;return;}matchingRight=idx;item.classList.add('selected');}
     if(matchingLeft!==null&&matchingRight!==null){
-        if(matchingLeft===matchingRight){const lE=document.querySelector(`.matching-item[data-side="left"][data-index="${matchingLeft}"]`);const rE=document.querySelector(`.matching-item[data-side="right"][data-index="${matchingRight}"]`);lE?.classList.replace('selected','matched');rE?.classList.replace('selected','matched');matchingLeft=null;matchingRight=null;const matched=document.querySelectorAll('.matching-item.matched').length/2;const total=document.querySelectorAll('.matching-item[data-side="left"]').length;const cEl=document.getElementById('pairs-count');if(cEl)cEl.textContent=`${matched}/${total}`;}
-        else{const lE=document.querySelector(`.matching-item[data-side="left"][data-index="${matchingLeft}"]`);const rE=document.querySelector(`.matching-item[data-side="right"][data-index="${matchingRight}"]`);[lE,rE].forEach(el=>{if(!el)return;el.classList.add('wrong-flash','shake-wrong');setTimeout(()=>el.classList.remove('selected','wrong-flash','shake-wrong'),500);});matchingLeft=null;matchingRight=null;}
+        // Lock la paire (correcte OU incorrecte — la correction sera affichée après validation)
+        const lE=document.querySelector(`.matching-item[data-side="left"][data-index="${matchingLeft}"]`);
+        const rE=document.querySelector(`.matching-item[data-side="right"][data-index="${matchingRight}"]`);
+        matchingUserPairs[matchingLeft]=matchingRight;
+        lE?.classList.replace('selected','matched');
+        rE?.classList.replace('selected','matched');
+        lE?.setAttribute('data-paired-with',matchingRight);
+        rE?.setAttribute('data-paired-with',matchingLeft);
+        matchingLeft=null;matchingRight=null;
+        const m=Object.keys(matchingUserPairs).length;const t=document.querySelectorAll('.matching-item[data-side="left"]').length;const cEl=document.getElementById('pairs-count');if(cEl)cEl.textContent=`${m}/${t}`;
     }
 };
 window.selectWord=function(word,wordIdx){const nE=fillBlankAnswers.findIndex(b=>b===null);if(nE===-1)return;fillBlankAnswers[nE]=word;const slot=document.getElementById(`blank-${nE+1}`);if(slot){slot.textContent=word;slot.classList.add('filled');}const btn=document.getElementById(`word-${wordIdx}`);if(btn){btn.classList.add('used');btn.dataset.blankIndex=nE+1;}};
@@ -2322,7 +2512,7 @@ function validateTraineeAnswer(game){
     if(['quiz','true-false','find-intruder','scenario','image-identify'].includes(game.type)){answer=selectedAnswer;isCorrect=(selectedAnswer===game.correctAnswer);}
     else if(game.type==='multiple-select'){answer=[...selectedMultiple].sort();isCorrect=JSON.stringify(answer)===JSON.stringify([...(game.correctAnswers||[])].sort());}
     else if(game.type==='sequence'||game.type==='ranking'){answer=game.type==='ranking'?selectedRanking:selectedSequence;isCorrect=JSON.stringify(answer)===JSON.stringify(game.correctOrder);}
-    else if(game.type==='matching'){const mP=new Set();document.querySelectorAll('.matching-item.matched[data-side="left"]').forEach(el=>{mP.add(parseInt(el.getAttribute('data-index')));});isCorrect=mP.size===(game.pairsLeft||[]).length;answer=Array.from(mP);}
+    else if(game.type==='matching'){const total=(game.pairsLeft||[]).length;let correct=0;for(const [l,r] of Object.entries(matchingUserPairs)){if(parseInt(l)===parseInt(r))correct++;}isCorrect=correct===total&&Object.keys(matchingUserPairs).length===total;answer={...matchingUserPairs};}
     else if(game.type==='fill-blank'){answer=[...fillBlankAnswers];isCorrect=JSON.stringify(answer)===JSON.stringify(game.correctBlanks);}
     else if(game.type==='categories'){const items=game.itemsShuffled||game.items||[];answer=categoriesAnswers;let allOk=true;items.forEach((item,i)=>{if(!(categoriesAnswers[item.category]||[]).includes(i))allOk=false;});isCorrect=allOk;}
     else if(game.type==='decision'){answer=decisionPath.map(p=>p.choice);isCorrect=JSON.stringify(answer)===JSON.stringify(game.correctPath);}
@@ -2347,6 +2537,13 @@ function showTraineeResult(){
         else if(pts>0){icon.textContent='✓';title.textContent='Bonne réponse !';title.className='text-5xl md:text-6xl font-bold mb-6 text-green-600';earn.textContent='+'+pts;bText.textContent=bonus>0?`⚡ Bonus vitesse : +${bonus} pts`:''; }
         else{icon.textContent='✗';title.textContent='Mauvaise réponse';title.className='text-5xl md:text-6xl font-bold mb-6 text-red-600';earn.textContent='0';bText.textContent='';}
         document.getElementById('trainee-total-score').textContent=(team.score||0)+' pts';
+        // Pas de bloc d'explication / correction détaillée sur le téléphone :
+        // l'explication est réservée au projecteur (à la demande du formateur).
+        const corrEl=document.getElementById('trainee-result-correction');
+        if(corrEl){
+            corrEl.classList.add('hidden');
+            corrEl.innerHTML='';
+        }
     });
 }
 
