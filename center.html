@@ -2138,6 +2138,9 @@ window.renderModules = function() {
     }
     if (on && m.key === 'module_ssi_supervise' && CENTER.id) {
       window._ssiStagiaireUrl = base + 'ssi-formation/index.html?role=stagiaire&center=' + CENTER.id;
+      // HTML-escape pour l'affichage (sinon &c se fait parser en entité &cent; = ¢).
+      // Le presse-papier reçoit la valeur brute non échappée via copySsiStagiaireUrl().
+      const ssiUrlHtml = window._ssiStagiaireUrl.replace(/&/g, '&amp;');
       extra = '<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">'
         + '<button onclick="copySsiStagiaireUrl()" '
         + 'style="display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;'
@@ -2145,7 +2148,7 @@ window.renderModules = function() {
         + 'font-size:.78rem;font-weight:700;cursor:pointer;width:100%;">📋 Copier le lien Login Stagiaire SSI</button>'
         + '<div style="font-size:.62rem;color:var(--text3);text-align:center;word-break:break-all;padding:2px 4px;'
         + 'background:#f0fdf4;border-radius:7px;border:1px solid #bbf7d0;">'
-        + window._ssiStagiaireUrl + '</div>'
+        + ssiUrlHtml + '</div>'
         + '<div style="font-size:.6rem;color:var(--text3);text-align:center;font-style:italic;">'
         + '💡 À installer en raccourci sur chaque PC stagiaire</div>'
         + '</div>';
