@@ -230,18 +230,28 @@ const startTimeISO=now.toISOString();
 // 2 sessions SSI 'en_cours' sur la même SSIAP.
 let ssiSessionId=null;
 if(STATE.mibSessionId&&window.supabase?.rpc){
+  // Refresh proactif du JWT au cas où la session Supabase Auth est stale
+  // (cas vu en prod : token Supabase expiré pendant que le localStorage MIB
+  // garde "mib_formateur" valide → ssi_start_session échoue avec auth_required).
+  try{await supabase.auth.refreshSession();}catch(_){}
   try{
     const{data,error}=await supabase.rpc('ssi_start_session',{p_sessions_formation_id:STATE.mibSessionId,p_session_number:sessionId});
     if(error)throw error;
     ssiSessionId=data;
   }catch(e){
-    console.warn('ssi_start_session failed (fallback legacy singleton)',e);
-    showCustomAlert('⚠️ Bookkeeping Supabase échoué — mode legacy (un seul formateur à la fois).');
+    console.error('ssi_start_session failed',e);
+    // PAS de fallback legacy quand on est en mode MIB : ça créerait une session
+    // Firebase qui ne serait PAS retrouvable par les stagiaires via leur raccourci
+    // PC (qui passe par ssi_resolve_stagiaire = Supabase only). Mieux vaut bloquer
+    // proprement et demander à re-login.
+    showCustomAlert('❌ Impossible de démarrer la session côté Supabase : '+(e.message||e.code||'auth_required')+'\n\nVotre session a probablement expiré. Reconnectez-vous depuis le dashboard MIB et réessayez.');
+    return;
   }
 }
 const sessionData={id:sessionId,sessionNumber:sessionNumber,startTime:firebase.database.ServerValue.TIMESTAMP,startTimeISO:startTimeISO,endTime:null,active:true,formateur:STATE.currentUser||'Formateur',trainees:{}};
-// active_session = singleton Firebase, legacy. Conservé UNIQUEMENT si pas de bookkeeping Supabase
-// (mode hors MIB) — sinon les stagiaires multi-formateurs se trampleraient via ce singleton.
+// active_session = singleton Firebase, legacy. Conservé UNIQUEMENT en accès direct
+// (sans MIB context, donc sans bookkeeping Supabase). Pour les formateurs venant de MIB,
+// on a ssiSessionId — le singleton n'est jamais utilisé pour eux (multi-tenant safe).
 if(!ssiSessionId){db.ref(`active_session`).set(sessionId);}
 db.ref(`sessions/${sessionId}`).set(sessionData);
 STATE.sessionActive=true;
@@ -271,7 +281,7 @@ db.ref(`sessions/${sessionId}`).once('value',(sessionSnapshot)=>{
 const sessionData=sessionSnapshot.val();
 const startTimeISO=sessionData?.startTimeISO||STATE.sessionStartTime||new Date().toISOString();
 
-db.ref(`sessions/${sessionId}/trainees`).once('value',(traineesSnapshot)=>{
+db.ref(`sessions/${sessionId}/trainees`).once('value',async(traineesSnapshot)=>{
 const traineesData=traineesSnapshot.val();
 let traineeName='Inconnu';
 if(traineesData){
@@ -297,8 +307,17 @@ db.ref(`session_logs/${sessionId}`).set(sessionLog);
 db.ref(`sessions/${sessionId}`).update({endTime:firebase.database.ServerValue.TIMESTAMP,endTimeISO:endTimeISO,active:false});
 // Si on a bookkept côté Supabase au démarrage, on termine la session SSI proprement.
 // Sinon (mode legacy hors MIB), on retire le singleton Firebase comme avant.
+// IMPORTANT : on AWAIT le ssi_end_session pour s'assurer que la session est bien
+// marquée 'terminee' AVANT de redémarrer une nouvelle. Sinon, en cas d'échec
+// silencieux, la ligne reste 'en_cours' indéfiniment et le stagiaire qui re-PIN
+// retombe dessus (bug constaté en preview phase 2).
 if(STATE.ssiSessionId&&window.supabase?.rpc){
-  supabase.rpc('ssi_end_session',{p_ssi_session_id:STATE.ssiSessionId}).catch(e=>console.warn('ssi_end_session failed',e));
+  try{await supabase.auth.refreshSession();}catch(_){}
+  const{error:endErr}=await supabase.rpc('ssi_end_session',{p_ssi_session_id:STATE.ssiSessionId});
+  if(endErr){
+    console.error('ssi_end_session failed',endErr);
+    showCustomAlert('⚠️ Erreur lors de la fermeture côté Supabase : '+(endErr.message||endErr.code||'')+'\n\nLa session reste marquée active dans la base — un re-login sera nécessaire.');
+  }
 }else{
   db.ref(`active_session`).remove();
 }
