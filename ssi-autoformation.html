@@ -196,9 +196,21 @@ h1, h2, h3, .panel-title { font-family: var(--font-display); font-weight: var(--
 /* Les classes Tailwind bg-blue-600 / bg-green-500 etc. utilisées dans le JS render
    sont préservées (Tailwind CDN), mais on ré-aligne le ton "page" sur Vigil. */
 .bg-gray-100 { background-color: transparent !important; }
+/* Bandeau de consigne d'action physique (au-dessus du panneau SSI).
+   N'est PAS un modal : le stagiaire peut interagir avec le SSI pendant qu'il
+   est affiché. Sert à indiquer la prochaine action attendue (Phase 1 Découverte). */
+#action-banner{position:fixed;top:0;left:0;right:0;z-index:9000;background:linear-gradient(90deg,#f59e0b,#ea580c);color:#fff;padding:12px 16px;text-align:center;font-size:15px;font-weight:bold;box-shadow:0 4px 12px rgba(0,0,0,0.25);display:none;align-items:center;justify-content:center;gap:12px}
+#action-banner.show{display:flex;animation:bannerSlideDown .25s ease-out}
+#action-banner .pulse{display:inline-block;width:10px;height:10px;border-radius:50%;background:#fff;animation:bannerPulse 1s infinite}
+@keyframes bannerSlideDown{from{transform:translateY(-100%)}to{transform:translateY(0)}}
+@keyframes bannerPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(1.4)}}
+/* Surbrillance du bouton attendu — pulsation orange */
+.action-target{position:relative;animation:targetPulse 1.2s ease-in-out infinite;box-shadow:0 0 0 4px rgba(234,88,12,0.6),0 0 16px rgba(234,88,12,0.5)!important;z-index:50}
+@keyframes targetPulse{0%,100%{box-shadow:0 0 0 4px rgba(234,88,12,0.6),0 0 16px rgba(234,88,12,0.5)}50%{box-shadow:0 0 0 8px rgba(234,88,12,0.3),0 0 24px rgba(234,88,12,0.8)}}
 </style>
 </head>
 <body class="min-h-screen">
+<div id="action-banner"><span class="pulse"></span><span id="action-banner-text"></span></div>
 <div id="app"></div>
 
 <script>
@@ -274,11 +286,23 @@ function _beep(freq,dur,vol=0.25){
     o.start(c.currentTime); o.stop(c.currentTime+dur);
   } catch(e){}
 }
+// Oscillateur continu pour le signal sonore SDI (équivalent à ssi-formation,
+// au lieu d'un beep répétitif moins fidèle au son réel de l'ECS).
+let _alarmOsc=null;
 function playAlarmSound(){
   stopAlarmSound(true);
-  STATE.sdi.alarmSound=true; // remettre à true après le stop (stop remet à false)
-  _beep(970,0.2);
-  STATE.alarmBeepInterval = setInterval(()=>{ if(STATE.sdi.alarmSound) _beep(970,0.2); },600);
+  STATE.sdi.alarmSound=true;
+  try{
+    const c=_getCtx();
+    if(c.state==='suspended')c.resume();
+    _alarmOsc=c.createOscillator();
+    const g=c.createGain();
+    _alarmOsc.connect(g);g.connect(c.destination);
+    _alarmOsc.frequency.value=1000;
+    _alarmOsc.type='sine';
+    g.gain.value=0.3;
+    _alarmOsc.start();
+  }catch(e){}
 }
 function playGeneralAlarm(){
   stopGeneralAlarm();
@@ -300,6 +324,7 @@ function onArretSonore(){
 }
 function stopAlarmSound(skipRender){
   if(STATE.alarmBeepInterval){clearInterval(STATE.alarmBeepInterval);STATE.alarmBeepInterval=null;}
+  if(_alarmOsc){try{_alarmOsc.stop();}catch(e){}_alarmOsc=null;}
   STATE.sdi.alarmSound=false;
   if(!skipRender) render();
 }
@@ -409,6 +434,10 @@ function triggerGeneralAlarm(){
   playGeneralAlarm(STATE.uga.alarmType);
   addSmsiMessage('Alarme '+STATE.uga.alarmType+' déclenchée');
   logAction('Déclenchement alarme générale',STATE.uga.alarmType);
+  // Action physique « FORCÉ 3s » accomplie : on retire la consigne et le highlight.
+  if(STATE.scenarioState&&STATE.scenarioState.waitingFor==='force_alarm'){
+    clearActionInstruction();STATE.scenarioState.waitingFor=null;
+  }
   if(STATE.scenarioState.leveeResult==='feu_avere'&&!STATE.scenarioState.scenarioEnded){
     STATE.scenarioState.scenarioEnded=true;
     if(STATE.scenarioState.defautDas){
@@ -519,7 +548,21 @@ function commandZone(zt,id){
   let z;
   if(zt==='compartment'){z=STATE.smsi.compartmentZones.find(x=>x.id===id);addSmsiMessage('CMD fermeture '+z.zone+' - '+z.dasName);logAction('CMD fermeture '+z.zone,z.dasName);}
   else{z=STATE.smsi.smokeZones.find(x=>x.id===id);addSmsiMessage('CMD désenfumage '+z.zone+' - '+z.dasName);logAction('CMD désenfumage '+z.zone,z.dasName);}
-  z.commandActive=true;render();
+  z.commandActive=true;z.state='securite';updateZoneLeds(z);
+  // Scénario en attente d'un CMD sur le DAS en défaut → on valide si c'est
+  // bien la bonne zone, sinon on laisse passer (le stagiaire peut commander
+  // d'autres zones, ça ne plante pas l'exo).
+  const dd=STATE.scenarioState&&STATE.scenarioState.defautDas;
+  if(STATE.scenarioState&&STATE.scenarioState.waitingFor==='cmd_das'&&dd&&dd.type===zt&&dd.id===id){
+    clearActionInstruction();
+    STATE.scenarioState.waitingFor=null;
+    STATE.scenarioState.defautDas=null;
+    const dasName=dd.dasName;
+    render();
+    showScenarioEndModal('DAS corrigé - Scénario terminé!',dasName+' est maintenant en position de sécurité via la commande UCMC.<br><br>✅ Vous avez correctement traité le défaut de position de sécurité.');
+    return;
+  }
+  render();
 }
 function stopRelay(id){
   const r=STATE.smsi.relayBoxes.find(x=>x.id===id);r.stopped=!r.stopped;
@@ -863,7 +906,10 @@ if(choice==='alarm_manual'){
 logAction('Bonne réponse','Déclenchement alarme manuelle + appel secours');
 addSmsiMessage('→ Déclenchez l\'alarme générale: bouton 🚨 FORCÉ (3 secondes)');
 addSdiMessage('→ Appeler 18 ou 112');
-showSuccessModal('🎉 Bonne réponse!','En cas de feu avéré:<br>1. <strong>Déclencher l\'alarme générale manuellement</strong> (bouton FORCÉ 3s)<br>2. <strong>Appeler les secours</strong> (18 ou 112)<br>3. Guider l\'évacuation<br>4. Ne PAS réarmer le SSI<br><br>Utilisez maintenant le bouton 🚨 FORCÉ pour déclencher l\'alarme.');
+// Au clic « Continuer » sur le success modal, on pose la consigne d'action
+// physique sur le bouton FORCÉ et on attend que le stagiaire l'enfonce 3s.
+// Le scénario AVANCE quand triggerGeneralAlarm fire (donc bouton tenu 3s).
+showSuccessModal('🎉 Bonne réponse!','En cas de feu avéré:<br>1. <strong>Déclencher l\'alarme générale manuellement</strong> (bouton FORCÉ 3s)<br>2. <strong>Appeler les secours</strong> (18 ou 112)<br>3. Guider l\'évacuation<br>4. Ne PAS réarmer le SSI',()=>setActionInstruction('🚨 Maintenez 3 secondes le bouton FORCÉ pour déclencher l\'alarme générale','#forceAlarmBtn','force_alarm'));
 }else if(choice==='acquit'){
 showFailModal('❌ Dangereux!','Acquitter le processus sur un feu avéré est <strong>interdit</strong>. Il faut au contraire <strong>déclencher l\'alarme générale manuellement</strong> pour évacuer le bâtiment.');
 }else{
@@ -1058,12 +1104,16 @@ function defautDasAction(action){
 document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());
 const dd=STATE.scenarioState.defautDas;
 if(action==='cmd'){
-logAction('CMD forcée',dd.dasName);
-addSmsiMessage('Commande forcée: '+dd.dasName+' → position de sécurité');
-if(dd.type==='compartment'){const z=STATE.smsi.compartmentZones[dd.id-1];z.state='securite';z.commandActive=true;updateZoneLeds(z);}
-else{const z=STATE.smsi.smokeZones[dd.id-1];z.state='securite';z.commandActive=true;updateZoneLeds(z);}
-STATE.scenarioState.defautDas=null;render();
-showScenarioEndModal('DAS corrigé - Scénario terminé!',dd.dasName+' est maintenant en position de sécurité via la commande UCMC.<br><br>✅ Vous avez correctement traité le défaut de position de sécurité.');
+// AVANT : on activait z.commandActive=true automatiquement → le stagiaire ne
+// faisait aucun geste physique. Maintenant on pose la consigne et c'est le
+// clic sur le bouton CMD du UCMC (commandZone) qui valide.
+logAction('Choix : CMD UCMC',dd.dasName);
+addSmsiMessage('Procédure CMD : appuyez sur CMD '+dd.zone+' sur le panneau UCMC');
+const kind=dd.type==='compartment'?'compartment':'smoke';
+const label=kind==='compartment'?'fermer la porte coupe-feu':'activer le désenfumage';
+// Sélecteur du bouton CMD de la bonne zone — voir renderZones (lignes ~1374/1387).
+const sel=`button[onclick="commandZone('${kind}',${dd.id})"]`;
+setActionInstruction(`🎛️ Cliquez sur le bouton CMD de la ${dd.zone} sur le UCMC pour ${label} (niveau 2 SMSI requis)`,sel,'cmd_das');
 }else if(action==='manual'){
 logAction('Action manuelle',dd.dasName);
 addSmsiMessage('Action manuelle: '+dd.dasName+' → position de sécurité');
@@ -1162,6 +1212,41 @@ async function saveScenarioSession(){
 /* ===================== FLOW SCÉNARIO GUIDÉ ===================== */
 
 // Affiche une modal d'instruction (pas de choix) — le stagiaire doit agir sur le panneau
+// ─── Système de consigne d'action physique ─────────────────────────────────
+// Affiche un bandeau orange en haut avec le texte de l'action attendue + met
+// le bouton cible en surbrillance. Le scénario n'avance que quand le stagiaire
+// effectue effectivement l'action (clic sur le bouton highlight, ou action
+// physique équivalente détectée par les handlers existants).
+//
+// `targetSelector` : sélecteur CSS du bouton à surligner (optionnel).
+// `expectedAction` : clé stockée dans STATE.scenarioState.waitingFor pour que
+//   les handlers d'action sachent qu'ils débloquent l'étape suivante.
+function setActionInstruction(text,targetSelector,expectedAction){
+  const banner=document.getElementById('action-banner');
+  const txt=document.getElementById('action-banner-text');
+  if(!banner||!txt)return;
+  txt.textContent=text;
+  banner.classList.add('show');
+  // Décale légèrement le body pour éviter que le bandeau cache l'entête.
+  document.body.style.paddingTop=banner.offsetHeight+'px';
+  // Nettoie les anciennes surbrillances avant d'en poser une nouvelle.
+  document.querySelectorAll('.action-target').forEach(el=>el.classList.remove('action-target'));
+  if(targetSelector){
+    // Délai pour laisser le DOM se mettre à jour si on vient de render().
+    setTimeout(()=>{document.querySelectorAll(targetSelector).forEach(el=>el.classList.add('action-target'));},50);
+  }
+  if(expectedAction){
+    if(!STATE.scenarioState)STATE.scenarioState={};
+    STATE.scenarioState.waitingFor=expectedAction;
+  }
+}
+function clearActionInstruction(){
+  const banner=document.getElementById('action-banner');
+  if(banner)banner.classList.remove('show');
+  document.body.style.paddingTop='';
+  document.querySelectorAll('.action-target').forEach(el=>el.classList.remove('action-target'));
+}
+
 function showStepGuidance(title, msg){
   document.querySelectorAll('.step-guidance').forEach(function(m){m.remove();});
   var overlay=document.createElement('div');
@@ -1355,7 +1440,7 @@ h+='<div class="temporization-display">';
 if(STATE.uga.temporizationActive)h+='<div class="bg-yellow-600 text-white p-1 rounded mb-1 text-center font-bold text-xs">⏱️ '+Math.floor(STATE.uga.temporizationRemaining/60)+':'+String(STATE.uga.temporizationRemaining%60).padStart(2,'0')+'</div>';
 h+='</div>';
 h+='<div class="grid grid-cols-2 gap-1 mt-1">';
-h+='<button onmousedown="startForceAlarm()" onmouseup="cancelForceAlarm()" ontouchstart="startForceAlarm()" ontouchend="cancelForceAlarm()" class="py-2 bg-red-600 text-white rounded text-xs font-bold select-none">🚨 FORCÉ (3s)</button>';
+h+='<button id="forceAlarmBtn" onmousedown="startForceAlarm()" onmouseup="cancelForceAlarm()" ontouchstart="startForceAlarm()" ontouchend="cancelForceAlarm()" class="py-2 bg-red-600 text-white rounded text-xs font-bold select-none">🚨 FORCÉ (3s)</button>';
 h+='<button onclick="acquitProcess()" class="py-2 '+(STATE.uga.temporizationActive?'bg-yellow-600':'bg-gray-500 opacity-50')+' text-white rounded text-xs font-bold">✋ ACQUIT</button>';
 h+='</div>';
 if(STATE.uga.alarmActive)h+='<div class="mt-2 bg-red-600 text-white p-2 rounded text-center font-bold text-xs blink">🚨 ALARME GÉNÉRALE ACTIVE</div>';
