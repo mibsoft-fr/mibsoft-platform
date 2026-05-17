@@ -149,6 +149,7 @@ activeMibRTUnsubs=[];
 // FIX: Full session cleanup for trainee logout
 function cleanupSession(){
 cleanupRealtime();
+if(typeof stopSessionAliveCheck==='function')stopSessionAliveCheck();
 stopVideo();
 stopAlarmSound(true);
 stopGeneralAlarm();
@@ -199,6 +200,7 @@ if(STATE.userType!=='trainee'||!STATE.sessionActive)return;
 stopVideo();
 stopAlarmSound(true);
 stopGeneralAlarm();
+stopSessionAliveCheck();
 STATE.actionLog=[];
 STATE.sessionActive=false;
 STATE.sessionId=null;
@@ -212,23 +214,73 @@ showCustomAlert('La session a été fermée par le formateur.');
 render();
 // Auto-rejoin : écoute le canal formation pour qu'à la prochaine `_formation_session_started`
 // le stagiaire bascule automatiquement sur la nouvelle session SSI (chaînage d'exercices).
-watchForNextFormationSession();
+watchFormationChannel();
 }
+
+// ─── Polling « session alive » (filet de sécurité côté stagiaire) ────────────
+// Filet pour le cas où aucun broadcast `_session_ended`/`_formation_session_ended`
+// n'arrive jamais : formateur qui ferme l'onglet sans cliquer « Fin », perte
+// WebSocket persistante, etc. Toutes les 20s on vérifie l'état réel en DB :
+// si ssi_sessions.status !== 'en_cours' → on déclenche handleSessionEnded.
+let sessionAliveTimer=null;
+function startSessionAliveCheck(){
+stopSessionAliveCheck();
+if(STATE.userType!=='trainee')return;
+// On démarre l'interval même si STATE.ssiSessionId pas encore résolu :
+// la promise ssi_session_set_trainee se résout généralement en <500ms, le
+// premier tick à 20s aura toujours la valeur.
+sessionAliveTimer=setInterval(async()=>{
+if(!STATE.sessionActive){stopSessionAliveCheck();return;}
+// joinKnownSession positionne STATE.ssiSessionId via une promise async (RPC
+// ssi_session_set_trainee). Si pas encore résolu, on saute ce tick.
+if(!STATE.ssiSessionId)return;
+try{
+const sb=window.supabaseStagiaire||window.supabase;
+if(!sb||!sb.from)return;
+const{data,error}=await sb.from('ssi_sessions').select('status').eq('id',STATE.ssiSessionId).maybeSingle();
+if(error){console.warn('sessionAlive check failed',error);return;}
+// Pas de row visible (RLS / supprimée) OU status passé à terminee → on ferme côté stagiaire.
+if(!data||data.status!=='en_cours'){
+console.log('sessionAlive: row no longer en_cours, triggering handleSessionEnded');
+handleSessionEnded();
+}
+}catch(e){console.warn('sessionAlive threw',e);}
+},20000);
+}
+function stopSessionAliveCheck(){if(sessionAliveTimer){clearInterval(sessionAliveTimer);sessionAliveTimer=null;}}
 
 // Phase 3a+ : abonnement au canal formation:<mibSessionId> pour détecter le démarrage
 // d'une nouvelle session SSI dans la même session de formation et auto-rejoindre.
 // Remplace l'ancien watchForNewSession() Firebase (singleton active_session, retiré).
-function watchForNextFormationSession(){
+// Subscribe au canal formation: pour deux cas :
+//  - `_formation_session_started` → auto-rejoin chaînage d'exercices
+//  - `_formation_session_ended`   → fallback robuste si le canal session: a
+//    raté `_session_ended` (déconnexion RT, etc.). Sans ce fallback, le
+//    stagiaire reste bloqué sur « ✓ OUVERTE » alors que le formateur a fermé.
+// Idempotent : un seul abonnement formation: actif à la fois (cleanupRealtime
+// efface tout avant ré-abonnement dans joinKnownSession/autoRejoinSession).
+function watchFormationChannel(){
 if(STATE.userType!=='trainee'||!STATE.mibSessionId)return;
 const channelName=`formation:${STATE.mibSessionId}`;
 const unsub=MibRT.on(channelName,(message)=>{
 if(!message||message.sender===STATE.userType)return;
 if(message.type==='_formation_session_started'&&message.data&&message.data.sessionId){
+// Si on est déjà dans cette session (cas rare), ne rien faire.
+if(STATE.sessionActive&&STATE.sessionId===message.data.sessionId)return;
 autoRejoinSession(message.data.ssiSessionId,message.data.sessionId,message.data.sessionNumber);
+}else if(message.type==='_formation_session_ended'){
+// Filtrer : on ne réagit que si l'event concerne la session courante (ou si
+// le payload ne précise pas — broadcast générique).
+const eventSid=message.data&&message.data.sessionId;
+if(!STATE.sessionActive)return;
+if(eventSid&&eventSid!==STATE.sessionId)return;
+handleSessionEnded();
 }
 });
 if(unsub)activeMibRTUnsubs.push(unsub);
 }
+// Compat : ancien nom appelé depuis handleSessionEnded.
+function watchForNextFormationSession(){watchFormationChannel();}
 
 // sessionId = identifiant interne (epoch ms côté formateur) utilisé pour le canal RT
 // session:<id> et les ref Firebase. sessionNumber = timestamp humain « 20260517170937 »
@@ -251,6 +303,8 @@ try{
   const sb=window.supabaseStagiaire||window.supabase;
   if(sb&&sb.rpc)sb.rpc('ssi_session_set_trainee',{p_session_number:sessionId}).then(({error})=>{if(error)console.warn('set_trainee failed',error);});
 }catch(e){console.warn('set_trainee threw',e);}
+watchFormationChannel();
+startSessionAliveCheck();
 render();
 showCustomAlert('🎬 Nouvelle session démarrée. Vous êtes connecté !');
 }
@@ -392,7 +446,11 @@ db.ref(`session_logs/${sessionId}`).set(sessionLog);
 
 // Phase 3a : broadcast à tous les stagiaires connectés que la session se ferme.
 // Envoyé AVANT le cleanup pour que la WS ait le temps de flusher.
+// Doublé sur le canal formation: car le canal session: peut être tombé côté
+// stagiaire (déconnexion RT, perte réseau). Le formation: persiste sur toute
+// la durée de la cohorte donc plus robuste pour les notifications de fermeture.
 try{MibRT.send(`session:${sessionId}`,'_session_ended',{},STATE.userType);}catch(e){console.warn('_session_ended broadcast failed',e);}
+if(STATE.mibSessionId){try{MibRT.send(`formation:${STATE.mibSessionId}`,'_formation_session_ended',{sessionId},STATE.userType);}catch(e){console.warn('_formation_session_ended broadcast failed',e);}}
 
 db.ref(`sessions/${sessionId}`).update({endTime:firebase.database.ServerValue.TIMESTAMP,endTimeISO:endTimeISO,active:false});
 // Si on a bookkept côté Supabase au démarrage, on termine la session SSI proprement.
@@ -448,6 +506,8 @@ try{
   const sb=window.supabaseStagiaire||window.supabase;
   if(sb&&sb.rpc)sb.rpc('ssi_session_set_trainee',{p_session_number:sessionId}).then(({error,data})=>{if(error)console.warn('set_trainee failed',error);else if(data)STATE.ssiSessionId=data;});
 }catch(e){console.warn('set_trainee threw',e);}
+watchFormationChannel();
+startSessionAliveCheck();
 render();
 }else{
 showCustomAlert('La session du formateur n\'est pas (ou plus) active. Demandez au formateur de la redémarrer.');
