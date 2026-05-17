@@ -182,7 +182,11 @@ resetSdiToIdle();
 resetSmsiToIdle();
 showCustomAlert('La session a été fermée par le formateur.');
 render();
-watchForNewSession();
+// watchForNewSession() retiré : il écoute le singleton Firebase `active_session`
+// qui est obsolète dans le mode multi-tenant Supabase (PR #51). Il déclenchait
+// à tort « Vous avez été connecté à une nouvelle session ! » en lisant une valeur
+// stale du singleton. Le stagiaire qui veut rejoindre une nouvelle session
+// doit re-PIN (refresh ou re-saisir).
 }
 
 function watchForNewSession(){
