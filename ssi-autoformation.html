@@ -663,6 +663,11 @@ stopGeneralAlarm();try{stopAlarmSound(true);}catch(e){}
 }
 
 function startScenario(type){
+// Nettoyage défensif : si un scénario précédent a laissé un bandeau de
+// consigne, un highlight pulsant ou un modal résiduel ouvert (sortie via
+// la croix du navigateur ou un chemin non couvert), on repart propre.
+try{clearActionInstruction();}catch(_){}
+document.querySelectorAll('.modal-overlay,.step-guidance').forEach(m=>m.remove());
 resetSSI();STATE.activeScenario=type;STATE.scenarioState={};
 const rand=n=>Math.floor(Math.random()*n);
 const flip=()=>Math.random()>0.5;
@@ -680,7 +685,13 @@ else{const id=rand(3);STATE.smsi.compartmentZones[id].state='defaut-attente';upd
 }
 }
 else if(type==='declenchement_dai'){
-const daiId=rand(5)+1;const dai=STATE.sdi.detectors[daiId-1];
+// Les DAI ont des zones ZC1..ZC5 mais l'UCMC n'a que ZC1..ZC3 → un tirage
+// sur DAI 04/05 plantait silencieusement (compartmentZones[3]=undefined).
+// On ne tire que parmi les DAI dont la zone existe côté SMSI.
+const nbZones=STATE.smsi.compartmentZones.length;
+const validDais=STATE.sdi.detectors.filter(d=>{const zn=parseInt(d.zone.replace('ZC',''));return zn>=1&&zn<=nbZones;});
+const dai=validDais[rand(validDais.length)];
+const daiId=dai.id;
 const zn=parseInt(dai.zone.replace('ZC',''));
 const hasDefautDas=flip();
 let defautDasInfo=null;
@@ -1355,7 +1366,7 @@ h+='<div class="w-px h-5 bg-gray-300"></div>';
 h+='<div><h1 class="text-base font-bold text-gray-900">🔥 Simulateur SSI</h1>';
 h+='<p class="text-xs text-gray-500">'+(u?_userName(u):'Auto-entraînement')+'</p></div></div>';
 h+='<div class="flex items-center gap-2">';
-h+='<select onchange="if(this.value)startScenario(this.value);this.value=\'\'" class="px-3 py-1.5 bg-orange-500 text-white rounded-lg font-bold text-xs cursor-pointer border-0 outline-none"><option value="">🎯 Scénario...</option><option value="prise_de_poste">📋 Prise de poste</option><option value="declenchement_dai">🔍 Déclenchement DAI</option><option value="declenchement_dm">🚨 Déclenchement DM</option><option value="rearmement">🔄 Réarmement SSI</option><option value="mise_hs">🔒 Mise Hors Service</option><option value="remise_service">🔓 Remise en Service</option></select>';
+h+='<select onchange="const v=this.value;this.value=\'\';if(v)try{startScenario(v)}catch(e){console.error(\'startScenario failed:\',e);showCustomAlert(\'❌ Erreur au démarrage du scénario : \'+e.message);}" class="px-3 py-1.5 bg-orange-500 text-white rounded-lg font-bold text-xs cursor-pointer border-0 outline-none"><option value="">🎯 Scénario...</option><option value="prise_de_poste">📋 Prise de poste</option><option value="declenchement_dai">🔍 Déclenchement DAI</option><option value="declenchement_dm">🚨 Déclenchement DM</option><option value="rearmement">🔄 Réarmement SSI</option><option value="mise_hs">🔒 Mise Hors Service</option><option value="remise_service">🔓 Remise en Service</option></select>';
 if(sc)h+='<button onclick="showScenarioHelp()" class="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-xs">📖 Aide</button>';
 h+='</div></div>';
 // Scenario banner
