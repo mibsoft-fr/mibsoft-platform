@@ -8,8 +8,8 @@ const CACHE_URLS = [
   './',
   './index.html',
   './manifest.json',
-  './icons/icon-192x192.png',
-  './icons/icon-512x512.png',
+  './icons/icon-192x192.svg',
+  './icons/icon-512x512.svg',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/firebase@10.7.1/firebase-app-compat.js',
   'https://unpkg.com/firebase@10.7.1/firebase-database-compat.js'
@@ -22,7 +22,13 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('[SW] Mise en cache des ressources');
-        return cache.addAll(CACHE_URLS);
+        // Promise.allSettled au lieu de cache.addAll : un 404 sur une URL
+        // ne fait plus planter tout l'install. Plus robuste face aux CDN intermittents.
+        return Promise.allSettled(
+          CACHE_URLS.map(url => cache.add(url).catch(err => {
+            console.warn('[SW] Ressource non mise en cache:', url, err.message);
+          }))
+        );
       })
       .then(() => {
         console.log('[SW] Installation terminée');
