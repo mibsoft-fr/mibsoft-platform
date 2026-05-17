@@ -40,8 +40,9 @@ let firebaseInitialized=false;
 //   [x] Créer table public.ssi_session_logs + RLS — fait
 //   [x] Migration côté DB : stagiaires gérés depuis MIB (Supabase) — fait
 //   [x] Phase 1 dual-write Firebase + Supabase RT — fait (PR #53)
-//   [x] Phase 2 : reader sur MibRT.on, sendMessage cut Firebase — FAIT (cette PR)
-//   [ ] Phase 3 : migrer le listener `sessions/${id}` (état actif/fermé) + signaling WebRTC
+//   [x] Phase 2 : reader sur MibRT.on, sendMessage cut Firebase — fait (PR #54)
+//   [x] Phase 3a : listener `session_ended` migré sur broadcast `_session_ended` — FAIT (cette PR)
+//   [ ] Phase 3b : signaling WebRTC (sessions/${id}/video/*) sur broadcast
 //   [ ] Phase 4 : retirer Firebase SDK du <head> + firebaseConfig
 //   [ ] Phase 5 : supprimer le projet Firebase quand 0 trafic depuis 30 jours
 // ------------------------------------------------------------
@@ -150,46 +151,42 @@ function listenToSession(sessionId){
 cleanupRealtime();
 
 // Phase 2 : messages SDI/SMSI via Supabase Realtime broadcast.
+// Phase 3a : événement `_session_ended` (formateur ferme sa session) sur le même channel.
 // Plus de skip-existing : les broadcasts sont éphémères, seuls les nouveaux
 // événements (publiés APRÈS subscribe) arrivent au handler.
 const unsubRT=MibRT.on(sessionId,(message)=>{
 if(!message||message.sender===STATE.userType)return;
+// Events système (préfixe `_`) dispatchés à des handlers dédiés
+if(message.type==='_session_ended'){handleSessionEnded();return;}
 if(STATE.userType==='trainee'){handleFormateurCommand(message.type,message.data);}
 else if(STATE.userType==='formateur'){handleTraineeAction(message.type,message.data);}
 });
 if(unsubRT)activeMibRTUnsubs.push(unsubRT);
+}
 
-// L'état actif/fermé de la session reste sur Firebase pour le moment (phase 3).
-if(firebaseInitialized&&STATE.userType==='trainee'){
-const sessionRef=db.ref(`sessions/${sessionId}`);
-sessionRef.on('value',(snapshot)=>{
-const sessionData=snapshot.val();
-if(sessionData){
-const wasActive=STATE.sessionActive;
-STATE.sessionActive=sessionData.active;
-STATE.sessionNumber=sessionData.sessionNumber;
-// FIX: When session is closed by formateur, fully clean up trainee side
-if(wasActive&&!sessionData.active){
+// Phase 3a : déclenché côté stagiaire quand le formateur termine la session.
+// Auparavant fait par un listener Firebase sur `sessions/${id}/active` qui a été retiré.
+function handleSessionEnded(){
+if(STATE.userType!=='trainee'||!STATE.sessionActive)return;
 stopVideo();
 stopAlarmSound(true);
 stopGeneralAlarm();
 STATE.actionLog=[];
+STATE.sessionActive=false;
 STATE.sessionId=null;
 STATE.sessionNumber=null;
+STATE.ssiSessionId=null;
 STATE.accessLevel=1;
 STATE.smsiAccessLevel=1;
 resetSdiToIdle();
 resetSmsiToIdle();
 showCustomAlert('La session a été fermée par le formateur.');
 render();
-watchForNewSession();
-}else{
-render();
-}
-}
-});
-activeFirebaseListeners.push(sessionRef);
-}
+// watchForNewSession() retiré : il écoute le singleton Firebase `active_session`
+// qui est obsolète dans le mode multi-tenant Supabase (PR #51). Il déclenchait
+// à tort « Vous avez été connecté à une nouvelle session ! » en lisant une valeur
+// stale du singleton. Le stagiaire qui veut rejoindre une nouvelle session
+// doit re-PIN (refresh ou re-saisir).
 }
 
 function watchForNewSession(){
@@ -303,6 +300,10 @@ videoFilename:videoInfo?videoInfo.filename:(STATE.currentRecordingFilename||null
 };
 STATE.sessionLogs.push(sessionLog);
 db.ref(`session_logs/${sessionId}`).set(sessionLog);
+
+// Phase 3a : broadcast à tous les stagiaires connectés que la session se ferme.
+// Envoyé AVANT le cleanup pour que la WS ait le temps de flusher.
+try{MibRT.send(sessionId,'_session_ended',{},STATE.userType);}catch(e){console.warn('_session_ended broadcast failed',e);}
 
 db.ref(`sessions/${sessionId}`).update({endTime:firebase.database.ServerValue.TIMESTAMP,endTimeISO:endTimeISO,active:false});
 // Si on a bookkept côté Supabase au démarrage, on termine la session SSI proprement.
