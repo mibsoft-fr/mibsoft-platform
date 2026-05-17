@@ -215,24 +215,28 @@ if(STATE.userType!=='trainee'||!STATE.mibSessionId)return;
 const channelName=`formation:${STATE.mibSessionId}`;
 const unsub=MibRT.on(channelName,(message)=>{
 if(!message||message.sender===STATE.userType)return;
-if(message.type==='_formation_session_started'&&message.data&&message.data.sessionNumber){
-autoRejoinSession(message.data.ssiSessionId,message.data.sessionNumber);
+if(message.type==='_formation_session_started'&&message.data&&message.data.sessionId){
+autoRejoinSession(message.data.ssiSessionId,message.data.sessionId,message.data.sessionNumber);
 }
 });
 if(unsub)activeMibRTUnsubs.push(unsub);
 }
 
-function autoRejoinSession(ssiSessionId,sessionNumber){
-if(STATE.userType!=='trainee')return;
+// sessionId = identifiant interne (epoch ms côté formateur) utilisé pour le canal RT
+// session:<id> et les ref Firebase. sessionNumber = timestamp humain « 20260517170937 »
+// pour l'affichage. Les deux doivent être propagés au stagiaire pour qu'il rejoigne
+// le BON canal tout en affichant le bon numéro.
+function autoRejoinSession(ssiSessionId,sessionId,sessionNumber){
+if(STATE.userType!=='trainee'||!sessionId)return;
 cleanupRealtime();
-STATE.sessionId=sessionNumber;
+STATE.sessionId=sessionId;
 STATE.ssiSessionId=ssiSessionId||null;
-STATE.sessionNumber=sessionNumber;
+STATE.sessionNumber=sessionNumber||sessionId;
 STATE.sessionActive=true;
 STATE.actionLog=[];
 resetSdiToIdle();
 resetSmsiToIdle();
-listenToSession(sessionNumber);
+listenToSession(sessionId);
 render();
 showCustomAlert('🎬 Nouvelle session démarrée. Vous êtes connecté !');
 }
@@ -312,7 +316,7 @@ listenToSession(sessionId);
 // formation) qu'une nouvelle session vient de s'ouvrir → ils auto-rejoignent
 // sans refresh ni re-PIN. Cf. watchForNextFormationSession() côté trainee.
 if(STATE.mibSessionId){
-  try{MibRT.send(`formation:${STATE.mibSessionId}`,'_formation_session_started',{ssiSessionId,sessionNumber:sessionId},STATE.userType);}catch(e){console.warn('_formation_session_started broadcast failed',e);}
+  try{MibRT.send(`formation:${STATE.mibSessionId}`,'_formation_session_started',{ssiSessionId,sessionId,sessionNumber},STATE.userType);}catch(e){console.warn('_formation_session_started broadcast failed',e);}
 }
 render();
 showCustomAlert(`Session ${sessionNumber} démarrée avec succès!`);
