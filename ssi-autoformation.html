@@ -1041,10 +1041,13 @@ m.innerHTML='<div class="modal-content text-center" onclick="event.stopPropagati
 document.body.appendChild(m);
 m.querySelector('.success-continue-btn').onclick=closeAndContinue;
 }
-function showFailModal(title,msg){
-const m=document.createElement('div');m.className='modal-overlay';m.onclick=()=>m.remove();
-m.innerHTML='<div class="modal-content text-center" onclick="event.stopPropagation()"><div style="font-size:48px;margin-bottom:12px">❌</div><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#dc2626">'+title+'</h3><p style="font-size:14px;margin-bottom:16px;line-height:1.6">'+msg+'</p><button onclick="this.closest(\'.modal-overlay\').remove()" style="padding:12px 32px;background:#dc2626;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px">Réessayer</button></div>';
+function showFailModal(title,msg,onRetry){
+const m=document.createElement('div');m.className='modal-overlay';
+const closeAndRetry=()=>{m.remove();if(typeof onRetry==='function')onRetry();};
+m.onclick=(e)=>{if(e.target===m)closeAndRetry();};
+m.innerHTML='<div class="modal-content text-center" onclick="event.stopPropagation()"><div style="font-size:48px;margin-bottom:12px">❌</div><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#dc2626">'+title+'</h3><p style="font-size:14px;margin-bottom:16px;line-height:1.6">'+msg+'</p><button class="fail-retry-btn" style="padding:12px 32px;background:#dc2626;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px">Réessayer</button></div>';
 document.body.appendChild(m);
+m.querySelector('.fail-retry-btn').onclick=closeAndRetry;
 }
 function showScenarioEndModal(title,msg){
 document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());
@@ -1289,18 +1292,63 @@ function onScenarioAcquit(){
   if(STATE.uga.temporizationActive){clearInterval(temporizationTimer);STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;}
   addSmsiMessage('Processus alarme acquitté');
   logAction('Acquit processus alarme SMSI','Niveau '+STATE.smsiAccessLevel);
+  STATE.scenarioState.waitingFor=null;
   render();
-  // Étape suivante : réarmer SDI
-  STATE.scenarioState.waitingFor='rearm_sdi';
-  setTimeout(()=>{
-    document.querySelectorAll('.step-guidance').forEach(m=>m.remove());
-    showStepGuidance('✅ Processus acquitté — Réarmez le SDI',
-      '<strong>Action requise sur le SDI :</strong><br>'+
-      '1. Passez en niveau 2 SDI (code <strong>00000</strong> + ✓)<br>'+
-      '2. Appuyez sur 🔄 <strong>RÉARM</strong><br><br>'+
-      '<em>Vérifiez que tous les détecteurs sont bien réarmés physiquement.</em>'
-    );
-  },400);
+  // AVANT de pouvoir réarmer SDI/SMSI, les DAS doivent revenir en position
+  // d'attente. On pose un choix multiple pour éviter le clic instinctif sur
+  // RÉARM qui échouerait (et frustrerait le stagiaire sans explication).
+  setTimeout(()=>{showDasResetChoiceModal();},400);
+}
+
+// Modal de choix : après l'acquit, la bonne procédure est de remettre les DAS
+// en position d'attente. Les autres réponses sont punies par showFailModal qui
+// renvoie immédiatement sur le même modal pour réessayer.
+function showDasResetChoiceModal(){
+  const m=document.createElement('div');m.className='modal-overlay';m.id='das-reset-modal';
+  let html='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#2563eb">📋 Quelle est la prochaine action ?</h3>';
+  html+='<p style="font-size:14px;margin-bottom:16px">Le processus est acquitté. Mais les DAS sont toujours en position de sécurité (LED rouges). Que faites-vous avant de réarmer ?</p>';
+  html+='<div style="display:flex;flex-direction:column;gap:8px">';
+  html+='<button onclick="dasResetChoice(\'remettre_attente\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔄 Remettre les DAS en position d\'attente</button>';
+  html+='<button onclick="dasResetChoice(\'rearm_sdi\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔁 Réarmer directement le SDI</button>';
+  html+='<button onclick="dasResetChoice(\'rearm_smsi\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔁 Réarmer directement le SMSI</button>';
+  html+='<button onclick="dasResetChoice(\'hs\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">⚠️ Mettre les zones en défaut hors service</button>';
+  html+='</div></div>';
+  m.innerHTML=html;document.body.appendChild(m);
+}
+
+function dasResetChoice(choice){
+  document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());
+  if(choice==='remettre_attente'){
+    logAction('Bonne réponse','Remise des DAS en position d\'attente');
+    // Toutes les zones SMSI en 'securite' reviennent en 'attente' et leurs
+    // LED rouges s'éteignent (updateZoneLeds gère le bon état).
+    [...STATE.smsi.compartmentZones,...STATE.smsi.smokeZones].forEach(z=>{
+      if(z.state==='securite'||z.state==='defaut-securite'){
+        z.state='attente';z.commandActive=false;updateZoneLeds(z);
+      }
+    });
+    STATE.smsi.relayBoxes.forEach(r=>{
+      if(r.state==='securite'){r.state='attente';updateZoneLeds(r);}
+    });
+    addSmsiMessage('✅ DAS remis en position d\'attente');
+    render();
+    // On enchaîne sur le guide de réarmement SDI/SMSI via le callback du
+    // success modal, donc le stagiaire choisit son rythme.
+    showSuccessModal('🎉 Bonne procédure !','Les DAS sont remis en position d\'attente.<br>Vous pouvez maintenant <strong>réarmer le SDI puis le SMSI</strong>.',()=>{
+      STATE.scenarioState.waitingFor='rearm_sdi';
+      showStepGuidance('✅ Réarmez le SDI',
+        '<strong>Action requise sur le SDI :</strong><br>'+
+        '1. Passez en niveau 2 SDI (code <strong>00000</strong> + ✓)<br>'+
+        '2. Appuyez sur 🔄 <strong>RÉARM</strong>'
+      );
+    });
+  } else if(choice==='rearm_sdi'){
+    showFailModal('❌ Trop tôt !','Avant de réarmer le SDI, vous devez d\'abord <strong>remettre les DAS en position d\'attente</strong>. Sinon le SDI refusera le réarmement (DAS toujours en sécurité).',showDasResetChoiceModal);
+  } else if(choice==='rearm_smsi'){
+    showFailModal('❌ Trop tôt !','Avant de réarmer le SMSI, vous devez d\'abord <strong>remettre les DAS en position d\'attente</strong>. C\'est l\'étape préalable obligatoire.',showDasResetChoiceModal);
+  } else {
+    showFailModal('❌ Mauvaise procédure !','Sur une fausse alarme, on ne met <strong>JAMAIS</strong> les zones hors service. Il faut simplement remettre les DAS en position d\'attente.',showDasResetChoiceModal);
+  }
 }
 
 // Appelé quand le stagiaire réarme le SDI dans le flow
