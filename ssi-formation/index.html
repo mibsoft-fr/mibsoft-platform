@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><title>Formation SSI - SSIAP v2.1</title><!-- PWA Meta Tags --><meta name="description" content="Application de formation SSIAP - Système de Sécurité Incendie"><meta name="theme-color" content="#5D5CDE"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="SSI Formation"><meta name="mobile-web-app-capable" content="yes"><meta name="application-name" content="SSI Formation"><meta name="msapplication-TileColor" content="#5D5CDE"><meta name="msapplication-config" content="browserconfig.xml"><!-- PWA Manifest --><link rel="manifest" href="manifest.json"><!-- Fonts MIB Vigil --><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><!-- MIB Design System --><link rel="stylesheet" href="../design-tokens.css"><link rel="stylesheet" href="../mib-design.css"><!-- Icônes --><link rel="icon" type="image/svg+xml" href="icons/favicon.svg"><link rel="apple-touch-icon" href="icons/apple-touch-icon.svg"><link rel="icon" sizes="192x192" href="icons/icon-192x192.svg"><link rel="icon" sizes="512x512" href="icons/icon-512x512.svg"><!-- Splash Screen iOS --><meta name="apple-mobile-web-app-capable" content="yes"><link rel="apple-touch-startup-image" href="icons/icon-512x512.svg"><script src="https://cdn.tailwindcss.com"></script><!-- Firebase SDK via unpkg (autorisé par CSP) --><script src="https://unpkg.com/firebase@10.7.1/firebase-app-compat.js"></script><script src="https://unpkg.com/firebase@10.7.1/firebase-database-compat.js"></script><!-- Supabase SDK + config partagée MIB --><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script src="../supabase.js"></script><script>tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#5D5CDE',}}}}</script><style>@keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}.blink{animation:blink 1s infinite}.led-light{width:16px;height:16px;border-radius:50%;border:2px solid #333;display:inline-block;box-shadow:inset 0 0 5px rgba(0,0,0,0.5)}.led-green{background-color:#00ff00;box-shadow:0 0 10px #00ff00}.led-orange{background-color:#ff8800;box-shadow:0 0 10px #ff8800}.led-red{background-color:#ff0000;box-shadow:0 0 10px #ff0000}.led-off{background-color:#333;box-shadow:none}.ssi-panel{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 50%,#1e4d7a 100%);border:3px solid #a0b4c8;border-radius:8px;padding:20px;box-shadow:0 4px 6px rgba(0,0,0,0.3)}.ssi-button{padding:10px 20px;border:2px solid #333;border-radius:5px;cursor:pointer;font-weight:bold;transition:all 0.2s;text-align:center}.ssi-button:active{transform:scale(0.95)}.ssi-button-red{background-color:#c0392b;color:white}.ssi-button-green{background-color:#27ae60;color:white}.ssi-button-yellow{background-color:#f39c12;color:white}.ssi-screen{background-color:#000;color:#00ff00;font-family:monospace;padding:15px;border-radius:5px;min-height:100px;border:2px solid #333}.key-switch{width:35px;height:35px;border-radius:50%;border:3px solid #95a5a6;background:linear-gradient(135deg,#bdc3c7 0%,#ecf0f1 100%);cursor:pointer;transition:transform 0.3s;display:flex;align-items:center;justify-content:center;font-size:16px}.key-switch.active{transform:rotate(90deg);background:linear-gradient(135deg,#3498db 0%,#2980b9 100%)}.command-led{width:12px;height:12px;border-radius:50%;background-color:#333;border:1px solid #666}.command-led.active{background-color:#ff0000;box-shadow:0 0 8px #ff0000}.nav-btn{width:38px;height:38px;border-radius:50%;background:linear-gradient(180deg,#7ec8e3 0%,#4fa3c7 100%);color:#1a3a5c;font-size:16px;font-weight:bold;border:2px solid #a0d2e8;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:2px 2px 4px rgba(0,0,0,0.3);transition:all 0.1s}.nav-btn:active{transform:scale(0.9);box-shadow:0 0 2px rgba(0,0,0,0.3)}.kp-btn{width:28px;height:28px;border-radius:50%;background:linear-gradient(180deg,#7ec8e3 0%,#4fa3c7 100%);color:#1a3a5c;font-size:12px;font-weight:bold;border:2px solid #a0d2e8;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:1px 1px 3px rgba(0,0,0,0.3);transition:all 0.1s}.kp-btn:active{transform:scale(0.9)}.kp-red{background:linear-gradient(180deg,#f87171 0%,#dc2626 100%);border-color:#fca5a5;color:white}.kp-green{background:linear-gradient(180deg,#4ade80 0%,#16a34a 100%);border-color:#86efac;color:white}</style></head><body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen"><div id="app"></div><script>
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><title>Formation SSI - SSIAP v2.1</title><!-- PWA Meta Tags --><meta name="description" content="Application de formation SSIAP - Système de Sécurité Incendie"><meta name="theme-color" content="#5D5CDE"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="SSI Formation"><meta name="mobile-web-app-capable" content="yes"><meta name="application-name" content="SSI Formation"><meta name="msapplication-TileColor" content="#5D5CDE"><meta name="msapplication-config" content="browserconfig.xml"><!-- PWA Manifest --><link rel="manifest" href="manifest.json"><!-- Fonts MIB Vigil --><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><!-- MIB Design System --><link rel="stylesheet" href="../design-tokens.css"><link rel="stylesheet" href="../mib-design.css"><!-- Icônes --><link rel="icon" type="image/svg+xml" href="icons/favicon.svg"><link rel="apple-touch-icon" href="icons/apple-touch-icon.svg"><link rel="icon" sizes="192x192" href="icons/icon-192x192.svg"><link rel="icon" sizes="512x512" href="icons/icon-512x512.svg"><!-- Splash Screen iOS --><meta name="apple-mobile-web-app-capable" content="yes"><link rel="apple-touch-startup-image" href="icons/icon-512x512.svg"><script src="https://cdn.tailwindcss.com"></script><!-- Firebase SDK via unpkg (autorisé par CSP) --><script src="https://unpkg.com/firebase@10.7.1/firebase-app-compat.js"></script><script src="https://unpkg.com/firebase@10.7.1/firebase-database-compat.js"></script><!-- Supabase SDK + config partagée MIB --><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script>window._sbFactory=window.supabase;/* sauve createClient avant que supabase.js n'écrase window.supabase avec une instance */</script><script src="../supabase.js"></script><script>tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#5D5CDE',}}}}</script><style>@keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}.blink{animation:blink 1s infinite}.led-light{width:16px;height:16px;border-radius:50%;border:2px solid #333;display:inline-block;box-shadow:inset 0 0 5px rgba(0,0,0,0.5)}.led-green{background-color:#00ff00;box-shadow:0 0 10px #00ff00}.led-orange{background-color:#ff8800;box-shadow:0 0 10px #ff8800}.led-red{background-color:#ff0000;box-shadow:0 0 10px #ff0000}.led-off{background-color:#333;box-shadow:none}.ssi-panel{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 50%,#1e4d7a 100%);border:3px solid #a0b4c8;border-radius:8px;padding:20px;box-shadow:0 4px 6px rgba(0,0,0,0.3)}.ssi-button{padding:10px 20px;border:2px solid #333;border-radius:5px;cursor:pointer;font-weight:bold;transition:all 0.2s;text-align:center}.ssi-button:active{transform:scale(0.95)}.ssi-button-red{background-color:#c0392b;color:white}.ssi-button-green{background-color:#27ae60;color:white}.ssi-button-yellow{background-color:#f39c12;color:white}.ssi-screen{background-color:#000;color:#00ff00;font-family:monospace;padding:15px;border-radius:5px;min-height:100px;border:2px solid #333}.key-switch{width:35px;height:35px;border-radius:50%;border:3px solid #95a5a6;background:linear-gradient(135deg,#bdc3c7 0%,#ecf0f1 100%);cursor:pointer;transition:transform 0.3s;display:flex;align-items:center;justify-content:center;font-size:16px}.key-switch.active{transform:rotate(90deg);background:linear-gradient(135deg,#3498db 0%,#2980b9 100%)}.command-led{width:12px;height:12px;border-radius:50%;background-color:#333;border:1px solid #666}.command-led.active{background-color:#ff0000;box-shadow:0 0 8px #ff0000}.nav-btn{width:38px;height:38px;border-radius:50%;background:linear-gradient(180deg,#7ec8e3 0%,#4fa3c7 100%);color:#1a3a5c;font-size:16px;font-weight:bold;border:2px solid #a0d2e8;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:2px 2px 4px rgba(0,0,0,0.3);transition:all 0.1s}.nav-btn:active{transform:scale(0.9);box-shadow:0 0 2px rgba(0,0,0,0.3)}.kp-btn{width:28px;height:28px;border-radius:50%;background:linear-gradient(180deg,#7ec8e3 0%,#4fa3c7 100%);color:#1a3a5c;font-size:12px;font-weight:bold;border:2px solid #a0d2e8;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:1px 1px 3px rgba(0,0,0,0.3);transition:all 0.1s}.kp-btn:active{transform:scale(0.9)}.kp-red{background:linear-gradient(180deg,#f87171 0%,#dc2626 100%);border-color:#fca5a5;color:white}.kp-green{background:linear-gradient(180deg,#4ade80 0%,#16a34a 100%);border-color:#86efac;color:white}</style></head><body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen"><div id="app"></div><script>
 document.addEventListener('contextmenu',function(e){e.preventDefault();});
 document.addEventListener('keydown',function(e){if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&e.key==='I')||(e.ctrlKey&&e.key==='u')){e.preventDefault();}});
 
@@ -46,12 +46,29 @@ let firebaseInitialized=false;
 //   [ ] Phase 4 : retirer Firebase SDK du <head> + firebaseConfig
 //   [ ] Phase 5 : supprimer le projet Firebase quand 0 trafic depuis 30 jours
 // ------------------------------------------------------------
+// Client Supabase dédié au stagiaire — utilise sessionStorage (per-tab) avec
+// un storageKey distinct pour isoler complètement l'auth du stagiaire de celle
+// du formateur/dashboard MIB qui vivent dans localStorage. Empêche le bug
+// cross-tab où signOut() côté stagiaire éjectait le formateur d'un autre onglet
+// du même navigateur (via le BroadcastChannel Supabase sur le storageKey partagé).
+if(window._sbFactory&&window.supabase&&window.supabase.supabaseUrl){
+  window.supabaseStagiaire=window._sbFactory.createClient(
+    window.supabase.supabaseUrl,
+    window.supabase.supabaseKey,
+    {realtime:{params:{eventsPerSecond:10}},
+     auth:{storageKey:'sb-ssi-stagiaire-auth',storage:window.sessionStorage,persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}}
+  );
+}
+// Helper : le bon client selon le rôle courant (formateur=localStorage, stagiaire=sessionStorage)
+function sbForRole(){return STATE&&STATE.userType==='trainee'&&window.supabaseStagiaire?window.supabaseStagiaire:window.supabase;}
+
 const MibRT = {
   _channels: new Map(),
   _channel(sessionId){
-    if(!window.supabase||!window.supabase.channel)return null;
+    const sb=sbForRole();
+    if(!sb||!sb.channel)return null;
     let c=this._channels.get(sessionId);
-    if(!c){c=window.supabase.channel(`session:${sessionId}`,{config:{broadcast:{self:false}}});this._channels.set(sessionId,c);}
+    if(!c){c=sb.channel(`session:${sessionId}`,{config:{broadcast:{self:false}}});this._channels.set(sessionId,c);}
     return c;
   },
   send(sessionId,type,data,sender){
@@ -1074,6 +1091,11 @@ async function handleTraineePinLogin(event){
   errEl.style.display='none';errEl.textContent='';
   if(pin.length!==6){errEl.textContent='❌ Le PIN doit faire 6 chiffres.';errEl.style.display='flex';return;}
   if(!window.supabase||!window.supabase.rpc){errEl.textContent='❌ Supabase non disponible. Rechargez la page.';errEl.style.display='flex';return;}
+  // Toutes les opérations stagiaire (PIN, auth, RPC, from) passent par le client
+  // dédié `supabaseStagiaire` qui vit en sessionStorage. Garantit que signOut()
+  // et signInWithPassword() ne propagent rien aux autres onglets (dashboard MIB
+  // du formateur p.ex.) qui utilisent le client `supabase` par défaut (localStorage).
+  const sbStag=window.supabaseStagiaire||window.supabase;
   const sessionIdFromMib=STATE.mibSessionId||new URLSearchParams(window.location.search).get('session');
   const centerIdRaccourci=STATE.centerId||new URLSearchParams(window.location.search).get('center');
   if(!sessionIdFromMib&&!centerIdRaccourci){errEl.textContent='❌ Lien invalide. Demandez le lien au formateur ou au centre.';errEl.style.display='flex';return;}
@@ -1083,40 +1105,40 @@ async function handleTraineePinLogin(event){
     if(sessionIdFromMib){
       // ── Chemin A : flow MIB classique, session SSIAP connue ──
       sessionsFormationId=sessionIdFromMib;
-      const{data:cId,error:cErr}=await supabase.rpc('ssi_get_session_center',{p_session_id:sessionsFormationId});
+      const{data:cId,error:cErr}=await sbStag.rpc('ssi_get_session_center',{p_session_id:sessionsFormationId});
       if(cErr||!cId)throw new Error('Session SSI introuvable.');
       centerId=cId;
-      try{await supabase.auth.signOut();}catch(_){}
-      const{data:rows,error:rpcErr}=await supabase.rpc('login_pin_resolve',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});
+      try{await sbStag.auth.signOut();}catch(_){}
+      const{data:rows,error:rpcErr}=await sbStag.rpc('login_pin_resolve',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});
       if(rpcErr)throw new Error('Erreur serveur.');
       const row=Array.isArray(rows)?rows[0]:rows;
       if(row?.locked)throw new Error('Compte temporairement verrouillé.');
-      if(!row?.email){await supabase.rpc('login_pin_fail',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});throw new Error('PIN invalide.');}
+      if(!row?.email){await sbStag.rpc('login_pin_fail',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});throw new Error('PIN invalide.');}
       stagiaireEmail=row.email;
     }else{
       // ── Chemin B : raccourci PC centre, on résout via le PIN ──
       centerId=centerIdRaccourci;
-      try{await supabase.auth.signOut();}catch(_){}
-      const{data:rows,error:rpcErr}=await supabase.rpc('ssi_resolve_stagiaire',{p_center_id:centerId,p_pin:pin});
+      try{await sbStag.auth.signOut();}catch(_){}
+      const{data:rows,error:rpcErr}=await sbStag.rpc('ssi_resolve_stagiaire',{p_center_id:centerId,p_pin:pin});
       if(rpcErr)throw new Error('Erreur serveur.');
       const row=Array.isArray(rows)?rows[0]:rows;
       if(row?.locked)throw new Error('Compte temporairement verrouillé. Réessayez plus tard.');
-      if(!row?.stagiaire_email){await supabase.rpc('login_pin_fail',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});throw new Error('PIN invalide.');}
+      if(!row?.stagiaire_email){await sbStag.rpc('login_pin_fail',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});throw new Error('PIN invalide.');}
       if(row.no_active_session){throw new Error(`Bonjour ${row.stagiaire_prenom||''}, aucun formateur n'a démarré de session pour vous. Patientez un instant puis réessayez.`);}
       stagiaireEmail=row.stagiaire_email;
       sessionsFormationId=row.sessions_formation_id;
       firebaseSessionId=row.session_number;
       stagId=row.stagiaire_id;stagPrenom=row.stagiaire_prenom;stagNom=row.stagiaire_nom;
     }
-    const{error:authErr}=await supabase.auth.signInWithPassword({email:stagiaireEmail,password:pin});
-    if(authErr){await supabase.rpc('login_pin_fail',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});throw new Error('PIN invalide.');}
-    try{await supabase.rpc('login_pin_success_reset');}catch(_){}
+    const{error:authErr}=await sbStag.auth.signInWithPassword({email:stagiaireEmail,password:pin});
+    if(authErr){await sbStag.rpc('login_pin_fail',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});throw new Error('PIN invalide.');}
+    try{await sbStag.rpc('login_pin_success_reset');}catch(_){}
     if(!stagId){
-      const userId=(await supabase.auth.getUser()).data.user.id;
-      const{data:stag}=await supabase.from('stagiaires').select('id,nom,prenom,niveau,center_id').eq('auth_user_id',userId).single();
+      const userId=(await sbStag.auth.getUser()).data.user.id;
+      const{data:stag}=await sbStag.from('stagiaires').select('id,nom,prenom,niveau,center_id').eq('auth_user_id',userId).single();
       if(!stag)throw new Error('Profil stagiaire introuvable.');
       stagId=stag.id;stagPrenom=stag.prenom;stagNom=stag.nom;stagNiveau=stag.niveau;
-      const{data:part}=await supabase.from('session_participants').select('id').eq('session_id',sessionsFormationId).eq('stagiaire_id',stagId).maybeSingle();
+      const{data:part}=await sbStag.from('session_participants').select('id').eq('session_id',sessionsFormationId).eq('stagiaire_id',stagId).maybeSingle();
       if(!part)throw new Error('Vous n\'êtes pas inscrit à cette session de formation.');
     }
     STATE.centerId=centerId;
