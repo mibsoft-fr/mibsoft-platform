@@ -32,20 +32,19 @@ let firebaseInitialized=false;
 //   - active_session                  ── ssi_sessions.status='en_cours'
 //   - session_logs/${id}              ── table ssi_session_logs (à créer)
 //
-// MibRT ci-dessous fournit l'API cible. Tant que USE_SUPABASE_RT=false,
-// l'app continue d'utiliser Firebase. Activer le flag pour basculer
-// (les deux peuvent cohabiter pendant la transition).
+// MibRT est désormais le transport EXCLUSIF pour les messages SDI/SMSI
+// (phase 2 terminée). Firebase ne sert plus que pour l'état session
+// (`sessions/${id}` — active/fermé) et le signaling WebRTC (phase 3 à venir).
 //
 // TODO restant pour finaliser la phase 6 :
 //   [x] Créer table public.ssi_session_logs + RLS — fait
 //   [x] Migration côté DB : stagiaires gérés depuis MIB (Supabase) — fait
-//   [x] Activer dual-write Firebase + Supabase RT pour validation — FAIT (cette PR)
-//   [ ] Phase 2 : passer le READER (listenToSession) sur MibRT.on + dédup
-//   [ ] Phase 3 : migrer signaling WebRTC (sessions/${id}/video/*) sur broadcast
+//   [x] Phase 1 dual-write Firebase + Supabase RT — fait (PR #53)
+//   [x] Phase 2 : reader sur MibRT.on, sendMessage cut Firebase — FAIT (cette PR)
+//   [ ] Phase 3 : migrer le listener `sessions/${id}` (état actif/fermé) + signaling WebRTC
 //   [ ] Phase 4 : retirer Firebase SDK du <head> + firebaseConfig
 //   [ ] Phase 5 : supprimer le projet Firebase quand 0 trafic depuis 30 jours
 // ------------------------------------------------------------
-const USE_SUPABASE_RT = true; // Phase 1 : dual-write actif. Reader = Firebase pour l'instant.
 const MibRT = {
   _channels: new Map(),
   _channel(sessionId){
@@ -69,6 +68,8 @@ const MibRT = {
 
 // FIX: Track Firebase listeners for cleanup
 let activeFirebaseListeners=[];
+// Phase 2 : track des unsubs Supabase Realtime (renvoyés par MibRT.on)
+let activeMibRTUnsubs=[];
 
 window.addEventListener('load',()=>{
 try{
@@ -108,9 +109,17 @@ try{ref.off();}catch(e){console.log('Listener cleanup:',e);}
 activeFirebaseListeners=[];
 }
 
+// Phase 2 : cleanup combiné Firebase + Supabase RT. Appelé au début de listenToSession
+// et lors d'une fin de session pour repartir d'un état propre.
+function cleanupRealtime(){
+cleanupFirebaseListeners();
+activeMibRTUnsubs.forEach(u=>{try{u();}catch(e){console.log('MibRT cleanup:',e);}});
+activeMibRTUnsubs=[];
+}
+
 // FIX: Full session cleanup for trainee logout
 function cleanupSession(){
-cleanupFirebaseListeners();
+cleanupRealtime();
 stopVideo();
 stopAlarmSound(true);
 stopGeneralAlarm();
@@ -131,32 +140,27 @@ resetSdiToIdle();
 resetSmsiToIdle();
 }
 
-function sendMessage(type,data){if(!STATE.sessionId)return;if(firebaseInitialized){const messageRef=db.ref(`sessions/${STATE.sessionId}/messages`).push();messageRef.set({type,data,sender:STATE.userType,timestamp:firebase.database.ServerValue.TIMESTAMP});}if(USE_SUPABASE_RT){MibRT.send(STATE.sessionId,type,data,STATE.userType);}}
+// Phase 2 : transport exclusif via Supabase Realtime broadcast (channel `session:<id>`).
+// Firebase coupé pour les messages SDI/SMSI. L'état session (active/fermé) et le
+// signaling WebRTC restent sur Firebase pour le moment (phase 3).
+function sendMessage(type,data){if(!STATE.sessionId)return;MibRT.send(STATE.sessionId,type,data,STATE.userType);}
 
 function listenToSession(sessionId){
-if(!firebaseInitialized)return;
+// FIX: Clean previous listeners before setting up new ones (Firebase + Supabase RT)
+cleanupRealtime();
 
-// FIX: Clean previous listeners before setting up new ones
-cleanupFirebaseListeners();
-
-// FIX: Only listen for NEW messages, not existing ones (prevents replay on session change)
-const messagesRef=db.ref(`sessions/${sessionId}/messages`);
-// First, count existing messages to skip them
-messagesRef.once('value',(snapshot)=>{
-const existingCount=snapshot.numChildren();
-let skipped=0;
-messagesRef.on('child_added',(childSnapshot)=>{
-if(skipped<existingCount){skipped++;return;}
-const message=childSnapshot.val();
-if(!message)return;
-if(message.sender===STATE.userType)return;
+// Phase 2 : messages SDI/SMSI via Supabase Realtime broadcast.
+// Plus de skip-existing : les broadcasts sont éphémères, seuls les nouveaux
+// événements (publiés APRÈS subscribe) arrivent au handler.
+const unsubRT=MibRT.on(sessionId,(message)=>{
+if(!message||message.sender===STATE.userType)return;
 if(STATE.userType==='trainee'){handleFormateurCommand(message.type,message.data);}
 else if(STATE.userType==='formateur'){handleTraineeAction(message.type,message.data);}
 });
-activeFirebaseListeners.push(messagesRef);
-});
+if(unsubRT)activeMibRTUnsubs.push(unsubRT);
 
-if(STATE.userType==='trainee'){
+// L'état actif/fermé de la session reste sur Firebase pour le moment (phase 3).
+if(firebaseInitialized&&STATE.userType==='trainee'){
 const sessionRef=db.ref(`sessions/${sessionId}`);
 sessionRef.on('value',(snapshot)=>{
 const sessionData=snapshot.val();
@@ -298,7 +302,7 @@ if(STATE.ssiSessionId&&window.supabase?.rpc){
 }else{
   db.ref(`active_session`).remove();
 }
-cleanupFirebaseListeners();
+cleanupRealtime();
 STATE.sessionActive=false;
 STATE.sessionId=null;
 STATE.ssiSessionId=null;
