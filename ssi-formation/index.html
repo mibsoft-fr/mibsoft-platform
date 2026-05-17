@@ -37,13 +37,15 @@ let firebaseInitialized=false;
 // (les deux peuvent cohabiter pendant la transition).
 //
 // TODO restant pour finaliser la phase 6 :
-//   [ ] Créer table public.ssi_session_logs + RLS (formateur own, stagiaire own)
-//   [ ] Migration côté DB : trainees référencés par stagiaire_id (FK)
-//   [ ] Remplacer chaque db.ref(...) par MibRT équivalent
-//   [ ] Retirer firebase SDK du <head> + firebaseConfig
-//   [ ] Supprimer le projet Firebase quand 0 trafic depuis 30 jours
+//   [x] Créer table public.ssi_session_logs + RLS — fait
+//   [x] Migration côté DB : stagiaires gérés depuis MIB (Supabase) — fait
+//   [x] Activer dual-write Firebase + Supabase RT pour validation — FAIT (cette PR)
+//   [ ] Phase 2 : passer le READER (listenToSession) sur MibRT.on + dédup
+//   [ ] Phase 3 : migrer signaling WebRTC (sessions/${id}/video/*) sur broadcast
+//   [ ] Phase 4 : retirer Firebase SDK du <head> + firebaseConfig
+//   [ ] Phase 5 : supprimer le projet Firebase quand 0 trafic depuis 30 jours
 // ------------------------------------------------------------
-const USE_SUPABASE_RT = false; // flip to true after table + RLS deployed
+const USE_SUPABASE_RT = true; // Phase 1 : dual-write actif. Reader = Firebase pour l'instant.
 const MibRT = {
   _channels: new Map(),
   _channel(sessionId){

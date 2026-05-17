@@ -1154,12 +1154,6 @@ function buildSessCard(sess, allStags, allEntr) {
         <div class="sess-meta">${sess.niveau||''} · ${fmtDate(sess.date_debut||sess.created_at)}</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
-        <a href="ssi-supervise.html?session=${sess.id}&role=formateur" target="_blank"
-           onclick="event.stopPropagation()"
-           class="shortcut-btn" style="background:#fef2f2;color:#dc2626;border-color:#fecaca;"
-           onmouseover="this.style.background='#dc2626';this.style.color='#fff'" onmouseout="this.style.background='#fef2f2';this.style.color='#dc2626'">
-           🛡️ SSI Formateur
-        </a>
         <a href="ssi-formation/index.html?from=mib&role=formateur&session=${sess.id}" target="_blank"
            onclick="event.stopPropagation()"
            class="shortcut-btn" style="background:#fff7ed;color:#ea580c;border-color:#fed7aa;"
