@@ -123,7 +123,11 @@ formationInfo:null,
 // Map sessionNumber (epoch ms) → {ssiSessionId, rapport:{validation, commentaire}}
 // Alimenté par showFormationLogs depuis Supabase ssi_sessions, utilisé par
 // renderSessionLogs + printSessionLog pour validation Qualiopi.
-rapportMap:{}
+rapportMap:{},
+// Modal Jury examen (visible uniquement dans la vue session-logs).
+// Le draft est édité localement puis persisté via sessions_formation_set_jury.
+juryModalOpen:false,
+juryDraft:[]
 };
 
 // FIX: Proper cleanup of Firebase listeners
@@ -1255,7 +1259,7 @@ function changeDetectorZone(type,id,zone){const detectorArray=type==='DAI'?STATE
 async function showFormationLogs(){
 if(STATE.mibSessionId&&window.supabase&&window.supabase.from){
 try{
-const{data:f}=await supabase.from('sessions_formation').select('titre,date_debut,date_fin,type_formation,niveau').eq('id',STATE.mibSessionId).single();
+const{data:f}=await supabase.from('sessions_formation').select('titre,date_debut,date_fin,type_formation,niveau,jury').eq('id',STATE.mibSessionId).single();
 if(f)STATE.formationInfo=f;
 }catch(e){console.warn('formation info fetch failed',e);}
 // Pré-charge id+rapport+stagiaire pour toutes les ssi_sessions de la cohorte.
@@ -1286,6 +1290,33 @@ if(error){console.warn('ssi_set_rapport failed',error);showCustomAlert('❌ Éch
 function setRapportValidation(sessionId,value){updateRapport(sessionId,{validation:value});render();}
 function setRapportCommentaire(sessionId,value){updateRapport(sessionId,{commentaire:value});}
 
+// ─── Jury d'examen (modal éditable depuis la vue Journaux) ────────────────────
+// Le draft est cloné depuis STATE.formationInfo.jury à l'ouverture, modifié en
+// mémoire, puis poussé en DB via sessions_formation_set_jury au clic Enregistrer.
+function openJuryModal(){
+const current=(STATE.formationInfo&&Array.isArray(STATE.formationInfo.jury))?STATE.formationInfo.jury:[];
+STATE.juryDraft=current.length?JSON.parse(JSON.stringify(current)):[{id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),nom:'',titre:'',actif:true}];
+STATE.juryModalOpen=true;render();
+}
+function closeJuryModal(){STATE.juryModalOpen=false;STATE.juryDraft=[];render();}
+function juryAddRow(){STATE.juryDraft.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random(),nom:'',titre:'',actif:true});render();}
+function juryRemoveRow(id){STATE.juryDraft=STATE.juryDraft.filter(r=>r.id!==id);render();}
+function juryUpdateField(id,field,value){const row=STATE.juryDraft.find(r=>r.id===id);if(!row)return;row[field]=value;}
+function juryToggleActif(id){const row=STATE.juryDraft.find(r=>r.id===id);if(!row)return;row.actif=!row.actif;render();}
+async function juryPersist(){
+// Filtre les lignes vides (nom et titre tous deux vides) avant persistance.
+const clean=STATE.juryDraft.filter(r=>(r.nom||'').trim()||(r.titre||'').trim()).map(r=>({id:r.id,nom:(r.nom||'').trim(),titre:(r.titre||'').trim(),actif:r.actif!==false}));
+if(!STATE.mibSessionId){showCustomAlert('❌ Pas de cohorte associée.');return;}
+try{
+const{error}=await supabase.rpc('sessions_formation_set_jury',{p_id:STATE.mibSessionId,p_jury:clean});
+if(error){console.warn('set_jury failed',error);showCustomAlert('❌ Échec sauvegarde jury : '+(error.message||'erreur'));return;}
+if(!STATE.formationInfo)STATE.formationInfo={};
+STATE.formationInfo.jury=clean;
+STATE.juryModalOpen=false;STATE.juryDraft=[];render();
+showCustomAlert('✅ Jury enregistré ('+clean.filter(r=>r.actif).length+' membre(s) actif(s) sur l\'impression).');
+}catch(e){console.warn('set_jury threw',e);showCustomAlert('❌ Erreur réseau.');}
+}
+
 function renderSessionLogs(){
 // Filtre les journaux par session de formation courante. Les logs créés avant
 // l'introduction de sessionsFormationId (legacy) restent visibles côté formateur
@@ -1299,7 +1330,16 @@ const filteredLogs=query?sortedLogs.filter(log=>{const dateStr=new Date(log.star
 const f=STATE.formationInfo;
 const formationTitle=f?`${(f.type_formation||'').toUpperCase()} ${f.niveau||''}${f.titre?' — '+f.titre:''}`.trim():'';
 const formationDates=f&&f.date_debut&&f.date_fin?`du ${new Date(f.date_debut).toLocaleDateString('fr-FR')} au ${new Date(f.date_fin).toLocaleDateString('fr-FR')}`:'';
-return `<div class="min-h-screen p-4 bg-gray-100 dark:bg-gray-900"><div class="max-w-7xl mx-auto"><div class="flex justify-between items-center mb-6"><div><h2 class="text-3xl font-bold">📚 Journal des exercices SSI</h2>${formationTitle?`<p class="text-sm text-gray-600 dark:text-gray-400 mt-1"><span class="font-semibold">${formationTitle}</span>${formationDates?' <span class="opacity-75">'+formationDates+'</span>':''}</p>`:''}</div><button onclick="navigate('formateur-interface')" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition">← Retour</button></div><div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg mb-6"><div class="relative"><input type="text" id="search-input" value="${STATE.searchQuery}" oninput="updateSearchQuery(this.value)" placeholder="🔍 Rechercher par date, nom ou numéro de session..." class="w-full px-4 py-3 text-base border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">${STATE.searchQuery?`<button onclick="clearSearch()" class="absolute right-3 top-3 text-gray-500 hover:text-gray-700">✕</button>`:''}</div><div class="mt-2 text-sm text-gray-600 dark:text-gray-400">${filteredLogs.length} session(s) trouvée(s)</div></div>${filteredLogs.length===0?`<div class="bg-white dark:bg-gray-800 p-12 rounded-xl shadow-lg text-center"><p class="text-gray-500 text-lg">Aucune session enregistrée</p></div>`:`<div class="grid gap-6">${filteredLogs.map(renderLogCard).join('')}</div>`}</div></div>`;
+const juryArr=(f&&Array.isArray(f.jury))?f.jury:[];
+const juryCount=juryArr.filter(j=>j.actif!==false&&((j.nom||'').trim()||(j.titre||'').trim())).length;
+return `<div class="min-h-screen p-4 bg-gray-100 dark:bg-gray-900"><div class="max-w-7xl mx-auto"><div class="flex justify-between items-center mb-6"><div><h2 class="text-3xl font-bold">📚 Journal des exercices SSI</h2>${formationTitle?`<p class="text-sm text-gray-600 dark:text-gray-400 mt-1"><span class="font-semibold">${formationTitle}</span>${formationDates?' <span class="opacity-75">'+formationDates+'</span>':''}${juryCount?' <span class="ml-2 px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 text-xs font-semibold">👥 Jury : '+juryCount+'</span>':''}</p>`:''}</div><div class="flex gap-2"><button onclick="openJuryModal()" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition">👥 Jury examen</button><button onclick="navigate('formateur-interface')" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition">← Retour</button></div></div>${renderJuryModal()}<div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg mb-6"><div class="relative"><input type="text" id="search-input" value="${STATE.searchQuery}" oninput="updateSearchQuery(this.value)" placeholder="🔍 Rechercher par date, nom ou numéro de session..." class="w-full px-4 py-3 text-base border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">${STATE.searchQuery?`<button onclick="clearSearch()" class="absolute right-3 top-3 text-gray-500 hover:text-gray-700">✕</button>`:''}</div><div class="mt-2 text-sm text-gray-600 dark:text-gray-400">${filteredLogs.length} session(s) trouvée(s)</div></div>${filteredLogs.length===0?`<div class="bg-white dark:bg-gray-800 p-12 rounded-xl shadow-lg text-center"><p class="text-gray-500 text-lg">Aucune session enregistrée</p></div>`:`<div class="grid gap-6">${filteredLogs.map(renderLogCard).join('')}</div>`}</div></div>`;
+}
+
+function renderJuryModal(){
+if(!STATE.juryModalOpen)return '';
+const escAttr=(s)=>String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const rows=(STATE.juryDraft||[]).map((r,idx)=>`<div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600"><label class="flex items-center gap-2 sm:w-auto"><input type="checkbox" ${r.actif!==false?'checked':''} onchange="juryToggleActif('${r.id}')" class="w-5 h-5 accent-indigo-600" title="Si coché, apparaît sur l'impression"><span class="text-xs text-gray-600 dark:text-gray-300 sm:hidden">Imprimer</span></label><input type="text" value="${escAttr(r.nom)}" oninput="juryUpdateField('${r.id}','nom',this.value)" placeholder="Nom Prénom (ex. DUPONT Jean)" class="flex-1 px-3 py-2 border rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"><input type="text" value="${escAttr(r.titre)}" oninput="juryUpdateField('${r.id}','titre',this.value)" placeholder="Titre / fonction (ex. Président SDIS 31)" class="flex-1 px-3 py-2 border rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"><button onclick="juryRemoveRow('${r.id}')" class="px-3 py-2 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-900 text-sm" title="Supprimer cette ligne">🗑️</button></div>`).join('');
+return `<div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onclick="if(event.target===this)closeJuryModal()"><div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col"><div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-start"><div><h3 class="text-xl font-bold">👥 Jury d'examen</h3><p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Membres du jury de cette cohorte. Cochez ceux qui doivent apparaître sur le rapport imprimé (Qualiopi).</p></div><button onclick="closeJuryModal()" class="text-2xl text-gray-500 hover:text-gray-700 leading-none">✕</button></div><div class="p-5 overflow-y-auto flex-1 space-y-2">${rows||'<p class="text-sm text-gray-500 italic text-center py-4">Aucun membre. Cliquez « + Ajouter » ci-dessous.</p>'}<button onclick="juryAddRow()" class="mt-3 w-full px-4 py-2 border-2 border-dashed border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-sm font-semibold">+ Ajouter un membre du jury</button></div><div class="p-5 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2"><button onclick="closeJuryModal()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600">Annuler</button><button onclick="juryPersist()" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-bold">Enregistrer</button></div></div></div>`;
 }
 
 function renderLogCard(log){
@@ -1336,10 +1376,14 @@ const valLabels={valide:'✅ VALIDÉ',non_valide:'❌ NON VALIDÉ',a_revoir:'�
 const valColors={valide:'#16a34a',non_valide:'#dc2626',a_revoir:'#ea580c'};
 const valHtml=rap.validation?'<div class="valid-badge" style="background:'+valColors[rap.validation]+'">'+valLabels[rap.validation]+'</div>':'<div class="valid-badge" style="background:#9ca3af">— Non noté —</div>';
 const commentHtml=rap.commentaire?'<div class="commentaire"><div class="commentaire-h">Commentaire du formateur</div><div class="commentaire-b">'+String(rap.commentaire).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>')+'</div></div>':'';
+// Jury examen : uniquement les membres cochés actifs et non vides.
+const juryActifs=(f&&Array.isArray(f.jury))?f.jury.filter(j=>j&&j.actif!==false&&((j.nom||'').trim()||(j.titre||'').trim())):[];
+const escHtml=(s)=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const juryHtml=juryActifs.length?'<div class="jury"><div class="jury-h">Jury d\'examen</div><table class="jury-t"><tbody>'+juryActifs.map(j=>'<tr><td class="jury-nom">'+escHtml(j.nom||'')+'</td><td class="jury-titre">'+escHtml(j.titre||'')+'</td><td class="jury-sig">Signature : ____________________</td></tr>').join('')+'</tbody></table></div>':'';
 const trainee=(entry&&entry.stagiaireNom)||log.trainee||'Inconnu';
 const printWindow=window.open('','','width=1000,height=800');
-const css='body{font-family:Arial;padding:20px;font-size:12px}h1{color:#333;border-bottom:2px solid #5D5CDE;padding-bottom:10px}.formation{background:#eef2ff;border-left:4px solid #5D5CDE;padding:10px 15px;margin-bottom:12px;font-size:13px}.formation .l1{font-weight:700;color:#1e1b4b}.formation .l2{color:#475569;font-size:11px;margin-top:2px}.meta{background:#f5f5f5;padding:15px;margin:8px 0 12px;border-radius:5px}.valid-badge{display:inline-block;padding:6px 14px;color:#fff;font-weight:700;border-radius:4px;font-size:13px;margin:8px 0 4px}.commentaire{margin:10px 0 16px;border:1px solid #e5e7eb;border-radius:5px;overflow:hidden}.commentaire-h{background:#5D5CDE;color:#fff;padding:6px 12px;font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase}.commentaire-b{padding:10px 12px;background:#fff;white-space:pre-wrap;line-height:1.5}table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#5D5CDE;color:white;padding:10px;text-align:left}td{border:1px solid #ddd;padding:8px;vertical-align:top}.scenario-col{background:#fff8e1}.trainee-col{background:#e3f2fd}.timestamp{color:#666;font-size:0.85em;font-weight:bold}.details{color:#888;font-style:italic}@media print{button{display:none}}';
-const html='<!DOCTYPE html><html><head><title>Session '+log.sessionNumber+'</title><style>'+css+'</style></head><body><h1>📋 Journal Session SSI-SSIAP</h1>'+(formationLine?'<div class="formation"><div class="l1">'+formationLine+'</div>'+(formationDates?'<div class="l2">'+formationDates+'</div>':'')+'</div>':'')+'<div class="meta"><div><strong>Session '+log.sessionNumber+'</strong></div><div>📅 '+new Date(log.startTime).toLocaleDateString('fr-FR')+'</div><div>🕐 '+new Date(log.startTime).toLocaleTimeString('fr-FR')+' - '+new Date(log.endTime).toLocaleTimeString('fr-FR')+'</div><div>👤 '+trainee+'</div><div>👨‍🏫 '+supName+'</div><div>📊 '+log.actions.length+' actions</div></div>'+valHtml+commentHtml+'<table><thead><tr><th>🎬 SCÉNARIO</th><th>👤 STAGIAIRE</th></tr></thead><tbody>'+rowsHtml+'</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>';
+const css='body{font-family:Arial;padding:20px;font-size:12px}h1{color:#333;border-bottom:2px solid #5D5CDE;padding-bottom:10px}.formation{background:#eef2ff;border-left:4px solid #5D5CDE;padding:10px 15px;margin-bottom:12px;font-size:13px}.formation .l1{font-weight:700;color:#1e1b4b}.formation .l2{color:#475569;font-size:11px;margin-top:2px}.meta{background:#f5f5f5;padding:15px;margin:8px 0 12px;border-radius:5px}.valid-badge{display:inline-block;padding:6px 14px;color:#fff;font-weight:700;border-radius:4px;font-size:13px;margin:8px 0 4px}.commentaire{margin:10px 0 16px;border:1px solid #e5e7eb;border-radius:5px;overflow:hidden}.commentaire-h{background:#5D5CDE;color:#fff;padding:6px 12px;font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase}.commentaire-b{padding:10px 12px;background:#fff;white-space:pre-wrap;line-height:1.5}.jury{margin:14px 0 18px;border:1px solid #c7d2fe;border-radius:5px;overflow:hidden;page-break-inside:avoid}.jury-h{background:#4f46e5;color:#fff;padding:6px 12px;font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase}.jury-t{width:100%;border-collapse:collapse;margin:0}.jury-t td{border:none;border-bottom:1px solid #eef2ff;padding:8px 12px;font-size:11px;vertical-align:middle;background:#fff}.jury-t tr:last-child td{border-bottom:none}.jury-nom{font-weight:700;color:#1e1b4b;width:35%}.jury-titre{color:#475569;font-style:italic;width:35%}.jury-sig{color:#94a3b8;font-size:10px;text-align:right;width:30%}table.actions-t{width:100%;border-collapse:collapse;margin-top:10px}th{background:#5D5CDE;color:white;padding:10px;text-align:left}.actions-t td{border:1px solid #ddd;padding:8px;vertical-align:top}.scenario-col{background:#fff8e1}.trainee-col{background:#e3f2fd}.timestamp{color:#666;font-size:0.85em;font-weight:bold}.details{color:#888;font-style:italic}@media print{button{display:none}}';
+const html='<!DOCTYPE html><html><head><title>Session '+log.sessionNumber+'</title><style>'+css+'</style></head><body><h1>📋 Journal Session SSI-SSIAP</h1>'+(formationLine?'<div class="formation"><div class="l1">'+formationLine+'</div>'+(formationDates?'<div class="l2">'+formationDates+'</div>':'')+'</div>':'')+'<div class="meta"><div><strong>Session '+log.sessionNumber+'</strong></div><div>📅 '+new Date(log.startTime).toLocaleDateString('fr-FR')+'</div><div>🕐 '+new Date(log.startTime).toLocaleTimeString('fr-FR')+' - '+new Date(log.endTime).toLocaleTimeString('fr-FR')+'</div><div>👤 '+trainee+'</div><div>👨‍🏫 '+supName+'</div><div>📊 '+log.actions.length+' actions</div></div>'+valHtml+commentHtml+juryHtml+'<table class="actions-t"><thead><tr><th>🎬 SCÉNARIO</th><th>👤 STAGIAIRE</th></tr></thead><tbody>'+rowsHtml+'</tbody></table><script>window.onload=function(){window.print();}<\/script></body></html>';
 printWindow.document.write(html);
 printWindow.document.close();
 }
