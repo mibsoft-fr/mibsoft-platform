@@ -77,7 +77,7 @@ else{console.error('✗ Firebase library not loaded');}
 restoreDirHandleFromIDB().then(()=>{if(STATE.storageDirName)console.log('✓ Dossier vidéo restauré:',STATE.storageDirName);}).catch(e=>console.log('Pas de dossier vidéo sauvegardé'));
 });
 
-const STATE={currentView:'home',currentUser:null,userType:null,trainees:[],currentSession:null,sessionActive:false,sessionId:null,accessLevel:1,smsiAccessLevel:1,
+const STATE={currentView:'home',currentUser:null,userType:null,trainees:[],currentSession:null,sessionActive:false,sessionId:null,centerId:null,mibSessionId:null,accessLevel:1,smsiAccessLevel:1,
 sdi:{systemState:'service',batteryState:'service',powerState:'secteur',alarms:[],
 detectors:Array(9).fill().map((_,i)=>({id:i+1,type:'DAI',zone:`ZC${Math.floor(i/3)+1}`,address:`DAI ${Math.floor(i/3)+1}-${(i%3)+1}`,state:'service',triggered:false,outOfService:false})),
 manualAlarms:Array(9).fill().map((_,i)=>({id:i+1,type:'DM',zone:`ZC${Math.floor(i/3)+1}`,address:`DM ${Math.floor(i/3)+1}-${(i%3)+1}`,state:'service',triggered:false,outOfService:false})),
@@ -1142,15 +1142,22 @@ render();setTimeout(()=>{STATE.smsi.compartmentZones.forEach(z=>z.ledGreen.on=fa
 
 function stopRelay(id){const relay=STATE.smsi.relayBoxes.find(r=>r.id===id);relay.stopped=!relay.stopped;addSmsiMessage(`Coffret ${id} ${relay.stopped?'arrêté':'redémarré'}`);logAction(`${relay.stopped?'Arrêt':'Redémarrage'} pompier coffret ${id}`);render();}
 
-// Auto-routing depuis la plateforme MIB. Le formateur est déjà authentifié
-// (localStorage.mib_formateur posé par login-formateur.html), donc on zappe
-// l'écran « Connexion Formateur ». Le stagiaire arrive directement sur
-// l'écran PIN sans passer par le choix Formateur/Stagiaire.
+// Auto-routing depuis la plateforme MIB ou depuis un raccourci PC stagiaire
+// posé par le centre (URL ?role=stagiaire&center=<UUID> copiée depuis la page
+// « Mes modules » du dashboard centre). Dans les deux cas on saute la home
+// Formateur/Stagiaire et on atterrit direct sur l'écran PIN ou l'interface
+// formateur, selon le contexte.
 function bootstrapFromMib(){
   const p=new URLSearchParams(window.location.search);
   const from=p.get('from');
   const role=p.get('role');
   const sessionId=p.get('session');
+  const centerId=p.get('center');
+  if(centerId)STATE.centerId=centerId;
+  if(role==='stagiaire'&&centerId&&!from){
+    STATE.currentView='trainee-login';
+    return;
+  }
   if(from==='mib'){
     if(role==='stagiaire'){
       if(sessionId)STATE.mibSessionId=sessionId;
