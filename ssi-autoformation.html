@@ -412,8 +412,7 @@ function triggerGeneralAlarm(){
   if(STATE.scenarioState.leveeResult==='feu_avere'&&!STATE.scenarioState.scenarioEnded){
     STATE.scenarioState.scenarioEnded=true;
     if(STATE.scenarioState.defautDas){
-      setTimeout(()=>{showSuccessModal('🚨 Alarme déclenchée!','L\'alarme générale est active. Mais un <strong>DAS est en défaut de position de sécurité</strong>. Vous devez le traiter!');
-      setTimeout(()=>{showDefautDasModal();},2000);},1500);
+      setTimeout(()=>{showSuccessModal('🚨 Alarme déclenchée!','L\'alarme générale est active. Mais un <strong>DAS est en défaut de position de sécurité</strong>. Vous devez le traiter!',showDefautDasModal);},1500);
     } else {
       setTimeout(()=>{showScenarioEndModal('🚒 Alarme générale déclenchée!','L\'alarme générale a été déclenchée manuellement.<br><br>En situation réelle:<br>• Les secours sont en route (18/112)<br>• L\'évacuation est en cours<br>• Les DAS sont en position de sécurité<br>• Ne réarmez PAS le SSI avant l\'accord des pompiers');},1500);
     }
@@ -936,8 +935,7 @@ logAction('Réponse correcte',type);
 if(type==='defect_report'||type==='nominal'){showScenarioEndModal('Prise de poste terminée!',getSuccessMessage(type));return;}
 if(type==='fausse_alarme'){
 if(STATE.scenarioState.defautDas){
-showSuccessModal('🎉 Bonne procédure!','Avant de réarmer, vous devez traiter le <strong>défaut de position de sécurité</strong> détecté sur un DAS.');
-setTimeout(()=>{showDefautDasModal();},2000);
+showSuccessModal('🎉 Bonne procédure!','Avant de réarmer, vous devez traiter le <strong>défaut de position de sécurité</strong> détecté sur un DAS.',showDefautDasModal);
 }else{
 // Flow guidé : le stagiaire doit effectuer les actions sur le panneau
 STATE.scenarioState.waitingFor='acquit_smsi';
@@ -975,10 +973,16 @@ case 'feu_avere':return 'En cas de feu avéré: <strong>appeler immédiatement l
 default:return 'Essayez encore.';
 }
 }
-function showSuccessModal(title,msg){
-const m=document.createElement('div');m.className='modal-overlay';m.onclick=()=>m.remove();
-m.innerHTML='<div class="modal-content text-center" onclick="event.stopPropagation()"><div style="font-size:48px;margin-bottom:12px">✅</div><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#16a34a">'+title+'</h3><p style="font-size:14px;margin-bottom:16px;line-height:1.6">'+msg+'</p><button onclick="this.closest(\'.modal-overlay\').remove()" style="padding:12px 32px;background:#16a34a;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px">Continuer</button></div>';
+function showSuccessModal(title,msg,onContinue){
+const m=document.createElement('div');m.className='modal-overlay';
+// onContinue : permet d'enchaîner sur un autre modal SEULEMENT au clic « Continuer »,
+// au lieu d'un setTimeout qui ferait apparaître le modal suivant par-dessus avant
+// que le stagiaire ait fini de lire (bug remonté en formation).
+const closeAndContinue=()=>{m.remove();if(typeof onContinue==='function')onContinue();};
+m.onclick=(e)=>{if(e.target===m)closeAndContinue();};
+m.innerHTML='<div class="modal-content text-center" onclick="event.stopPropagation()"><div style="font-size:48px;margin-bottom:12px">✅</div><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#16a34a">'+title+'</h3><p style="font-size:14px;margin-bottom:16px;line-height:1.6">'+msg+'</p><button class="success-continue-btn" style="padding:12px 32px;background:#16a34a;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px">Continuer</button></div>';
 document.body.appendChild(m);
+m.querySelector('.success-continue-btn').onclick=closeAndContinue;
 }
 function showFailModal(title,msg){
 const m=document.createElement('div');m.className='modal-overlay';m.onclick=()=>m.remove();
