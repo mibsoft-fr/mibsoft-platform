@@ -1160,7 +1160,7 @@ function buildSessCard(sess, allStags, allEntr) {
            onmouseover="this.style.background='#dc2626';this.style.color='#fff'" onmouseout="this.style.background='#fef2f2';this.style.color='#dc2626'">
            🛡️ SSI Formateur
         </a>
-        <a href="ssi-formation/index.html?from=mib&session=${sess.id}" target="_blank"
+        <a href="ssi-formation/index.html?from=mib&role=formateur&session=${sess.id}" target="_blank"
            onclick="event.stopPropagation()"
            class="shortcut-btn" style="background:#fff7ed;color:#ea580c;border-color:#fed7aa;"
            onmouseover="this.style.background='#ea580c';this.style.color='#fff'" onmouseout="this.style.background='#fff7ed';this.style.color='#ea580c'">
@@ -1292,6 +1292,7 @@ async function showEchecs(stagId, sessId, nom) {
 ══════════════════════════════════════ */
 function populateStatsSel(sessions) {
   const sel = document.getElementById('stats-sel');
+  if (!sel) return; // l'élément n'existe que sur la page Stats — loadAll est appelée depuis n'importe quelle page
   sessions.forEach(s => {
     const o = document.createElement('option');
     o.value = s.id;
