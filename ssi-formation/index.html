@@ -77,7 +77,7 @@ else{console.error('✗ Firebase library not loaded');}
 restoreDirHandleFromIDB().then(()=>{if(STATE.storageDirName)console.log('✓ Dossier vidéo restauré:',STATE.storageDirName);}).catch(e=>console.log('Pas de dossier vidéo sauvegardé'));
 });
 
-const STATE={currentView:'home',currentUser:null,userType:null,trainees:[],currentSession:null,sessionActive:false,sessionId:null,centerId:null,mibSessionId:null,accessLevel:1,smsiAccessLevel:1,
+const STATE={currentView:'home',currentUser:null,userType:null,trainees:[],currentSession:null,sessionActive:false,sessionId:null,centerId:null,mibSessionId:null,ssiSessionId:null,accessLevel:1,smsiAccessLevel:1,
 sdi:{systemState:'service',batteryState:'service',powerState:'secteur',alarms:[],
 detectors:Array(9).fill().map((_,i)=>({id:i+1,type:'DAI',zone:`ZC${Math.floor(i/3)+1}`,address:`DAI ${Math.floor(i/3)+1}-${(i%3)+1}`,state:'service',triggered:false,outOfService:false})),
 manualAlarms:Array(9).fill().map((_,i)=>({id:i+1,type:'DM',zone:`ZC${Math.floor(i/3)+1}`,address:`DM ${Math.floor(i/3)+1}-${(i%3)+1}`,state:'service',triggered:false,outOfService:false})),
@@ -209,20 +209,38 @@ render();
 activeFirebaseListeners.push(activeSessionRef);
 }
 
-function createSession(){
+async function createSession(){
 if(!firebaseInitialized){showCustomAlert('Erreur: Firebase non disponible');return;}
 const now=new Date();
 const year=now.getFullYear();const month=String(now.getMonth()+1).padStart(2,'0');const day=String(now.getDate()).padStart(2,'0');
 const hours=String(now.getHours()).padStart(2,'0');const minutes=String(now.getMinutes()).padStart(2,'0');const seconds=String(now.getSeconds()).padStart(2,'0');
 const sessionNumber=`${year}${month}${day}${hours}${minutes}${seconds}`;
 const sessionId=Date.now().toString();
-// FIX: Store actual start time
 const startTimeISO=now.toISOString();
+// Si on est arrivé depuis MIB avec un sessions_formation_id, on enregistre la session
+// SSI côté Supabase pour que les stagiaires (sur leur raccourci PC) puissent la retrouver
+// via ssi_resolve_stagiaire(center_id, pin). Isole les formateurs entre eux : chaque
+// session SSI est désormais liée à UNE session SSIAP, et l'index unique partial empêche
+// 2 sessions SSI 'en_cours' sur la même SSIAP.
+let ssiSessionId=null;
+if(STATE.mibSessionId&&window.supabase?.rpc){
+  try{
+    const{data,error}=await supabase.rpc('ssi_start_session',{p_sessions_formation_id:STATE.mibSessionId,p_session_number:sessionId});
+    if(error)throw error;
+    ssiSessionId=data;
+  }catch(e){
+    console.warn('ssi_start_session failed (fallback legacy singleton)',e);
+    showCustomAlert('⚠️ Bookkeeping Supabase échoué — mode legacy (un seul formateur à la fois).');
+  }
+}
 const sessionData={id:sessionId,sessionNumber:sessionNumber,startTime:firebase.database.ServerValue.TIMESTAMP,startTimeISO:startTimeISO,endTime:null,active:true,formateur:STATE.currentUser||'Formateur',trainees:{}};
-db.ref(`active_session`).set(sessionId);
+// active_session = singleton Firebase, legacy. Conservé UNIQUEMENT si pas de bookkeeping Supabase
+// (mode hors MIB) — sinon les stagiaires multi-formateurs se trampleraient via ce singleton.
+if(!ssiSessionId){db.ref(`active_session`).set(sessionId);}
 db.ref(`sessions/${sessionId}`).set(sessionData);
 STATE.sessionActive=true;
 STATE.sessionId=sessionId;
+STATE.ssiSessionId=ssiSessionId;
 STATE.currentSessionNumber=sessionNumber;
 STATE.sessionStartTime=startTimeISO;
 STATE.actionLog=[];
@@ -230,7 +248,6 @@ resetSdiToIdle();
 resetSmsiToIdle();
 listenToSession(sessionId);
 render();
-// FIX: Don't auto-start video connection - let it happen when trainee activates camera
 showCustomAlert(`Session ${sessionNumber} démarrée avec succès!`);
 }
 
@@ -272,11 +289,17 @@ STATE.sessionLogs.push(sessionLog);
 db.ref(`session_logs/${sessionId}`).set(sessionLog);
 
 db.ref(`sessions/${sessionId}`).update({endTime:firebase.database.ServerValue.TIMESTAMP,endTimeISO:endTimeISO,active:false});
-db.ref(`active_session`).remove();
-// FIX: Clean up Firebase listeners from old session FIRST
+// Si on a bookkept côté Supabase au démarrage, on termine la session SSI proprement.
+// Sinon (mode legacy hors MIB), on retire le singleton Firebase comme avant.
+if(STATE.ssiSessionId&&window.supabase?.rpc){
+  supabase.rpc('ssi_end_session',{p_ssi_session_id:STATE.ssiSessionId}).catch(e=>console.warn('ssi_end_session failed',e));
+}else{
+  db.ref(`active_session`).remove();
+}
 cleanupFirebaseListeners();
 STATE.sessionActive=false;
 STATE.sessionId=null;
+STATE.ssiSessionId=null;
 STATE.currentSessionNumber=null;
 STATE.sessionStartTime=null;
 STATE.actionLog=[];
@@ -287,6 +310,32 @@ render();
 showCustomAlert(`Session ${sessionNumber} terminée. Journal sauvegardé (${sessionLog.actions.length} actions).`);
 });
 });
+});
+}
+
+// Rejoint une session Firebase connue (sessionId déjà résolu via ssi_resolve_stagiaire).
+// Évite le singleton `active_session` qui empêche le multi-formateurs.
+function joinKnownSession(sessionId){
+if(!firebaseInitialized||!sessionId)return;
+db.ref(`sessions/${sessionId}`).once('value',(sessionSnapshot)=>{
+const sessionData=sessionSnapshot.val();
+if(sessionData&&sessionData.active===true){
+STATE.sessionId=sessionId;
+STATE.sessionActive=true;
+STATE.sessionNumber=sessionData.sessionNumber;
+STATE.actionLog=[];
+if(STATE.currentUser){
+db.ref(`sessions/${sessionId}/trainees/${STATE.currentUser.id}`).set({nom:STATE.currentUser.nom,prenom:STATE.currentUser.prenom,niveau:STATE.currentUser.niveau,joinedAt:firebase.database.ServerValue.TIMESTAMP});
+}
+listenToSession(sessionId);
+render();
+}else{
+showCustomAlert('La session du formateur n\'est pas (ou plus) active. Demandez au formateur de la redémarrer.');
+STATE.sessionActive=false;
+STATE.sessionId=null;
+STATE.sessionNumber=null;
+render();
+}
 });
 }
 
@@ -984,6 +1033,13 @@ function renderTraineeInterface(){return `<div class="min-h-screen p-2 bg-gray-1
 
 async function handleFormateurLogin(event){event.preventDefault();if(SECURITY.isLocked()){const remaining=SECURITY.getRemainingLockTime();const minutes=Math.floor(remaining/60);const seconds=remaining%60;showCustomAlert(`Compte bloqué. Réessayez dans ${minutes}m ${seconds}s`);return;}const code=document.getElementById('formateur-code').value;const hashedCode=await SECURITY.hashPassword(code);if(hashedCode===SECURITY.formateurPasswordHash){SECURITY.resetAttempts();navigate('formateur-interface',{userType:'formateur',user:{nom:'Formateur',prenom:'',niveau:'admin',id:'formateur'}});}else{const locked=SECURITY.recordFailedAttempt();if(locked){showCustomAlert(`Trop de tentatives. Compte bloqué 5 minutes.`);}else{const remaining=SECURITY.maxLoginAttempts-SECURITY.loginAttempts;showCustomAlert(`Code incorrect. ${remaining} tentative(s) restante(s).`);}}}
 
+// Deux chemins d'arrivée stagiaire :
+//   A) `?from=mib&role=stagiaire&session=<sessions_formation_id>` (flow MIB classique)
+//      → on connaît déjà la session SSIAP, on lookup center_id puis on auth PIN
+//   B) `?role=stagiaire&center=<center_id>` (raccourci PC posé par le centre)
+//      → on connaît seulement le centre. ssi_resolve_stagiaire(center, pin) trouve
+//        la session SSI active du formateur pour ce stagiaire. C'est ce qui isole
+//        les formateurs entre eux (chaque stagiaire rejoint la session de SON formateur).
 async function handleTraineePinLogin(event){
   event.preventDefault();
   const errEl=document.getElementById('trainee-pin-err');
@@ -992,35 +1048,64 @@ async function handleTraineePinLogin(event){
   errEl.style.display='none';errEl.textContent='';
   if(pin.length!==6){errEl.textContent='❌ Le PIN doit faire 6 chiffres.';errEl.style.display='flex';return;}
   if(!window.supabase||!window.supabase.rpc){errEl.textContent='❌ Supabase non disponible. Rechargez la page.';errEl.style.display='flex';return;}
-  const sessionId=STATE.mibSessionId||new URLSearchParams(window.location.search).get('session');
-  if(!sessionId){errEl.textContent='❌ Aucune session SSI active. Demandez le lien au formateur.';errEl.style.display='flex';return;}
+  const sessionIdFromMib=STATE.mibSessionId||new URLSearchParams(window.location.search).get('session');
+  const centerIdRaccourci=STATE.centerId||new URLSearchParams(window.location.search).get('center');
+  if(!sessionIdFromMib&&!centerIdRaccourci){errEl.textContent='❌ Lien invalide. Demandez le lien au formateur ou au centre.';errEl.style.display='flex';return;}
   btn.disabled=true;btn.textContent='… Vérification';
   try{
-    // 1. center_id de la session SSI (RPC sécurisée, anon)
-    const{data:centerId,error:cErr}=await supabase.rpc('ssi_get_session_center',{p_session_id:sessionId});
-    if(cErr||!centerId)throw new Error('Session SSI introuvable.');
-    // 2. PIN → email
-    try{await supabase.auth.signOut();}catch(_){}
-    const{data:rows,error:rpcErr}=await supabase.rpc('login_pin_resolve',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});
-    if(rpcErr)throw new Error('Erreur serveur.');
-    const row=Array.isArray(rows)?rows[0]:rows;
-    if(row?.locked)throw new Error('Compte temporairement verrouillé.');
-    if(!row?.email){await supabase.rpc('login_pin_fail',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});throw new Error('PIN invalide.');}
-    // 3. Auth
-    const{error:authErr}=await supabase.auth.signInWithPassword({email:row.email,password:pin});
+    let centerId,sessionsFormationId,firebaseSessionId,stagiaireEmail,stagId,stagNom,stagPrenom,stagNiveau;
+    if(sessionIdFromMib){
+      // ── Chemin A : flow MIB classique, session SSIAP connue ──
+      sessionsFormationId=sessionIdFromMib;
+      const{data:cId,error:cErr}=await supabase.rpc('ssi_get_session_center',{p_session_id:sessionsFormationId});
+      if(cErr||!cId)throw new Error('Session SSI introuvable.');
+      centerId=cId;
+      try{await supabase.auth.signOut();}catch(_){}
+      const{data:rows,error:rpcErr}=await supabase.rpc('login_pin_resolve',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});
+      if(rpcErr)throw new Error('Erreur serveur.');
+      const row=Array.isArray(rows)?rows[0]:rows;
+      if(row?.locked)throw new Error('Compte temporairement verrouillé.');
+      if(!row?.email){await supabase.rpc('login_pin_fail',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});throw new Error('PIN invalide.');}
+      stagiaireEmail=row.email;
+    }else{
+      // ── Chemin B : raccourci PC centre, on résout via le PIN ──
+      centerId=centerIdRaccourci;
+      try{await supabase.auth.signOut();}catch(_){}
+      const{data:rows,error:rpcErr}=await supabase.rpc('ssi_resolve_stagiaire',{p_center_id:centerId,p_pin:pin});
+      if(rpcErr)throw new Error('Erreur serveur.');
+      const row=Array.isArray(rows)?rows[0]:rows;
+      if(row?.locked)throw new Error('Compte temporairement verrouillé. Réessayez plus tard.');
+      if(!row?.stagiaire_email){await supabase.rpc('login_pin_fail',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});throw new Error('PIN invalide.');}
+      if(row.no_active_session){throw new Error(`Bonjour ${row.stagiaire_prenom||''}, aucun formateur n'a démarré de session pour vous. Patientez un instant puis réessayez.`);}
+      stagiaireEmail=row.stagiaire_email;
+      sessionsFormationId=row.sessions_formation_id;
+      firebaseSessionId=row.session_number;
+      stagId=row.stagiaire_id;stagPrenom=row.stagiaire_prenom;stagNom=row.stagiaire_nom;
+    }
+    const{error:authErr}=await supabase.auth.signInWithPassword({email:stagiaireEmail,password:pin});
     if(authErr){await supabase.rpc('login_pin_fail',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});throw new Error('PIN invalide.');}
     try{await supabase.rpc('login_pin_success_reset');}catch(_){}
-    // 4. Profil + vérif session_participants
-    const userId=(await supabase.auth.getUser()).data.user.id;
-    const{data:stag}=await supabase.from('stagiaires').select('id,nom,prenom,niveau,center_id').eq('auth_user_id',userId).single();
-    if(!stag)throw new Error('Profil stagiaire introuvable.');
-    const{data:part}=await supabase.from('session_participants').select('id').eq('session_id',sessionId).eq('stagiaire_id',stag.id).maybeSingle();
-    if(!part)throw new Error('Vous n\'êtes pas inscrit à cette session de formation.');
-    // 5. Hydrate STATE et bascule sur trainee-interface
-    const trainee={id:stag.id,nom:stag.nom,prenom:stag.prenom,niveau:String(stag.niveau||'1'),pin:pin,sessionId:sessionId};
-    if(window.SESSION&&SESSION.save){SESSION.save('stagiaire',{stagiaire_id:stag.id,stagiaire_nom:`${stag.prenom||''} ${stag.nom||''}`.trim(),stagiaire_prenom:stag.prenom,stagiaire_niveau:stag.niveau,center_id:stag.center_id,session_id:sessionId});}
+    if(!stagId){
+      const userId=(await supabase.auth.getUser()).data.user.id;
+      const{data:stag}=await supabase.from('stagiaires').select('id,nom,prenom,niveau,center_id').eq('auth_user_id',userId).single();
+      if(!stag)throw new Error('Profil stagiaire introuvable.');
+      stagId=stag.id;stagPrenom=stag.prenom;stagNom=stag.nom;stagNiveau=stag.niveau;
+      const{data:part}=await supabase.from('session_participants').select('id').eq('session_id',sessionsFormationId).eq('stagiaire_id',stagId).maybeSingle();
+      if(!part)throw new Error('Vous n\'êtes pas inscrit à cette session de formation.');
+    }
+    STATE.centerId=centerId;
+    STATE.mibSessionId=sessionsFormationId;
+    const trainee={id:stagId,nom:stagNom,prenom:stagPrenom,niveau:String(stagNiveau||'1'),pin:pin,sessionId:sessionsFormationId};
+    if(window.SESSION&&SESSION.save){SESSION.save('stagiaire',{stagiaire_id:stagId,stagiaire_nom:`${stagPrenom||''} ${stagNom||''}`.trim(),stagiaire_prenom:stagPrenom,stagiaire_niveau:stagNiveau,center_id:centerId,session_id:sessionsFormationId});}
     navigate('trainee-interface',{user:trainee,userType:'trainee'});
-    setTimeout(()=>{try{joinActiveSession();}catch(e){console.warn('joinActiveSession failed',e);}},500);
+    // Chemin B : on connaît déjà le Firebase room id → join direct sans relire active_session
+    // Chemin A : fallback legacy via active_session singleton
+    setTimeout(()=>{
+      try{
+        if(firebaseSessionId){joinKnownSession(firebaseSessionId);}
+        else{joinActiveSession();}
+      }catch(e){console.warn('join session failed',e);}
+    },500);
   }catch(e){
     errEl.textContent='❌ '+(e.message||'Échec de connexion');
     errEl.style.display='flex';
