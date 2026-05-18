@@ -479,7 +479,15 @@ function canResetSdiSystem(){
   // réarmement physique sur le mur (clé carrée) AVANT de pouvoir réarmer le SDI,
   // sinon l'ECS reverrouille immédiatement la boucle. Donc on n'exige plus que
   // les DAI soient pré-réarmés — c'est le rôle du RÉARM lui-même.
-  return STATE.accessLevel===2&&STATE.sdi.manualAlarms.every(d=>!d.triggered);
+  const lvlOk=STATE.accessLevel===2;
+  const dmOk=STATE.sdi.manualAlarms.every(d=>!d.triggered);
+  if(!lvlOk||!dmOk){
+    // Debug : surfacer pourquoi le RÉARM est bloqué dans la console (utile en
+    // formation pour identifier si c'est un bug de la sim ou une vraie raison).
+    try{console.log('[canResetSdi] lvl2:',lvlOk,'/ DMs réarmés:',dmOk,'/ DAIs triggered:',STATE.sdi.detectors.filter(d=>d.triggered).map(d=>d.address));}catch(_){}
+    return false;
+  }
+  return true;
 }
 function canResetSmsiSystem(){
   return STATE.smsiAccessLevel>=2&&[...STATE.smsi.compartmentZones,...STATE.smsi.smokeZones].every(z=>z.state==='attente');
@@ -803,7 +811,7 @@ render();
 /* ===================== GUIDANCE ===================== */
 function showGuidance(type){
 const g={
-erreur_rearm_sdi:'<div style="background:#fee2e2;padding:12px;border-radius:8px;border-left:4px solid #ef4444;margin:6px 0">❌ Réarmement SDI impossible</div><div style="background:#dbeafe;padding:12px;border-radius:8px;border-left:4px solid #3b82f6;margin:6px 0">📋 Conditions:<br>1. Passer en niveau 2 (🔑 + code 00000)<br>2. Tous les DM réarmés<br>3. Aucun DAI en alarme</div>',
+erreur_rearm_sdi:'<div style="background:#fee2e2;padding:12px;border-radius:8px;border-left:4px solid #ef4444;margin:6px 0">❌ Réarmement SDI impossible</div><div style="background:#dbeafe;padding:12px;border-radius:8px;border-left:4px solid #3b82f6;margin:6px 0">📋 Conditions:<br>1. Passer en niveau 2 SDI (🔑 + code 00000)<br>2. Tous les DM réarmés physiquement sur le mur (clé carrée)<br><br><em>Les DAI optique-fumée sont eux effacés par le RÉARM lui-même — pas besoin de les remettre en service au préalable.</em></div>',
 erreur_rearm_smsi:'<div style="background:#fee2e2;padding:12px;border-radius:8px;border-left:4px solid #ef4444;margin:6px 0">❌ Réarmement SMSI impossible</div><div style="background:#dbeafe;padding:12px;border-radius:8px;border-left:4px solid #3b82f6;margin:6px 0">📋 Conditions:<br>1. Niveau 2+ via la clé 🔑<br>2. Tous les DAS en attente</div>',
 procedure_dai:'<div style="background:#dbeafe;padding:12px;border-radius:8px;border-left:4px solid #3b82f6;margin:6px 0">📋 Procédure DAI:<br>1. Lire ECS → identifier DAI et zone<br>2. Acquitter signal sonore SDI<br>3. Temporisation: acquitter ou attendre<br>4. Lever de doute<br>5. Fausse alarme: réarmer SDI puis SMSI<br>6. Feu confirmé: appeler secours</div>',
 procedure_dm:'<div style="background:#dbeafe;padding:12px;border-radius:8px;border-left:4px solid #3b82f6;margin:6px 0">📋 Procédure DM:<br>1. Lire ECS → identifier DM<br>2. Acquitter signal sonore<br>3. DM = réarmement physique<br>4. Vérifier zone<br>5. Réarmer SDI puis SMSI</div>',
