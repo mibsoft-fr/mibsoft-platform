@@ -1347,6 +1347,59 @@ function dasResetChoice(choice){
     // On enchaîne sur le guide de réarmement SDI/SMSI via le callback du
     // success modal, donc le stagiaire choisit son rythme.
     showSuccessModal('🎉 Bonne procédure !','Les DAS sont remis en position d\'attente.<br>Vous pouvez maintenant <strong>réarmer le SDI puis le SMSI</strong>.',()=>{
+      // Cas spécifique DM : si le scénario est un déclenchement de DM, il faut
+      // d'abord aller réarmer le DM sur le mur avec la clé carrée (sinon le
+      // SDI reverrouille la boucle au RÉARM). On insère un modal de choix
+      // dédié avant de passer aux guidance SDI/SMSI.
+      const dmTriggered=STATE.sdi.manualAlarms.some(d=>d.triggered);
+      if(dmTriggered){
+        showDmResetModal();
+      } else {
+        STATE.scenarioState.waitingFor='rearm_sdi';
+        showStepGuidance('✅ Réarmez le SDI',
+          '<strong>Action requise sur le SDI :</strong><br>'+
+          '1. Passez en niveau 2 SDI (code <strong>00000</strong> + ✓)<br>'+
+          '2. Appuyez sur 🔄 <strong>RÉARM</strong>'
+        );
+      }
+    });
+  } else if(choice==='rearm_sdi'){
+    showFailModal('❌ Trop tôt !','Avant de réarmer le SDI, vous devez d\'abord <strong>remettre les DAS en position d\'attente</strong>. Sinon le SDI refusera le réarmement (DAS toujours en sécurité).',showDasResetChoiceModal);
+  } else if(choice==='rearm_smsi'){
+    showFailModal('❌ Trop tôt !','Avant de réarmer le SMSI, vous devez d\'abord <strong>remettre les DAS en position d\'attente</strong>. C\'est l\'étape préalable obligatoire.',showDasResetChoiceModal);
+  } else {
+    showFailModal('❌ Mauvaise procédure !','Sur une fausse alarme, on ne met <strong>JAMAIS</strong> les zones hors service. Il faut simplement remettre les DAS en position d\'attente.',showDasResetChoiceModal);
+  }
+}
+
+// Modal de choix pour le réarmement du DM (déclencheur manuel).
+// Affiché si, après reset des DAS, il reste un DM en alarme. Le DM est un
+// contact mécanique à bris de glace : il reste latché tant qu'on n'utilise
+// pas la clé carrée sur le mur. Si on RÉARM le SDI sans avoir réarmé le DM,
+// la boucle se reverrouille immédiatement et le réarmement est inutile.
+function showDmResetModal(){
+  const triggered=STATE.sdi.manualAlarms.filter(d=>d.triggered);
+  const dmList=triggered.map(d=>d.address+(d.location?' - '+d.location:'')).join(', ');
+  const m=document.createElement('div');m.className='modal-overlay';m.id='dm-reset-modal';
+  let html='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#2563eb">🔧 Réarmement du déclencheur manuel</h3>';
+  html+='<p style="font-size:14px;margin-bottom:12px">Un déclencheur manuel est encore en alarme : <strong>'+dmList+'</strong>.</p>';
+  html+='<p style="font-size:14px;margin-bottom:16px">Que faites-vous avant de réarmer le SDI ?</p>';
+  html+='<div style="display:flex;flex-direction:column;gap:8px">';
+  html+='<button onclick="dmResetChoice(\'physical\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔑 Aller réarmer le DM sur le mur avec la clé carrée</button>';
+  html+='<button onclick="dmResetChoice(\'rearm_sdi\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔁 Réarmer le SDI directement (sans toucher au DM)</button>';
+  html+='<button onclick="dmResetChoice(\'hs\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">⚠️ Mettre le DM hors service</button>';
+  html+='</div></div>';
+  m.innerHTML=html;document.body.appendChild(m);
+}
+
+function dmResetChoice(choice){
+  document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());
+  if(choice==='physical'){
+    logAction('Bonne réponse','Réarmement physique du DM (clé carrée)');
+    STATE.sdi.manualAlarms.forEach(d=>{if(d.triggered)d.triggered=false;});
+    addSdiMessage('✅ DM réarmé physiquement (clé carrée)');
+    render();
+    showSuccessModal('🎉 Bonne procédure !','Le DM est réarmé sur le mur. Vous pouvez maintenant <strong>réarmer le SDI</strong>.',()=>{
       STATE.scenarioState.waitingFor='rearm_sdi';
       showStepGuidance('✅ Réarmez le SDI',
         '<strong>Action requise sur le SDI :</strong><br>'+
@@ -1355,11 +1408,9 @@ function dasResetChoice(choice){
       );
     });
   } else if(choice==='rearm_sdi'){
-    showFailModal('❌ Trop tôt !','Avant de réarmer le SDI, vous devez d\'abord <strong>remettre les DAS en position d\'attente</strong>. Sinon le SDI refusera le réarmement (DAS toujours en sécurité).',showDasResetChoiceModal);
-  } else if(choice==='rearm_smsi'){
-    showFailModal('❌ Trop tôt !','Avant de réarmer le SMSI, vous devez d\'abord <strong>remettre les DAS en position d\'attente</strong>. C\'est l\'étape préalable obligatoire.',showDasResetChoiceModal);
+    showFailModal('❌ Impossible !','Si vous réarmez le SDI sans avoir réarmé le DM physiquement, l\'ECS reverrouille immédiatement la boucle (le contact est toujours ouvert). Il faut d\'abord <strong>aller réarmer le DM sur le mur avec la clé carrée</strong>.',showDmResetModal);
   } else {
-    showFailModal('❌ Mauvaise procédure !','Sur une fausse alarme, on ne met <strong>JAMAIS</strong> les zones hors service. Il faut simplement remettre les DAS en position d\'attente.',showDasResetChoiceModal);
+    showFailModal('❌ Mauvaise procédure !','Sur une fausse alarme DM, on ne met <strong>JAMAIS</strong> le déclencheur hors service. Il faut le réarmer physiquement sur le mur.',showDmResetModal);
   }
 }
 
