@@ -221,10 +221,15 @@ const STATE = {
   activeScenario: null,
   scenarioState: {},
   // Phase d'apprentissage progressive (persisté en localStorage) :
-  //   debutant → bandeau de consigne + surbrillance du bouton à utiliser
-  //   confirme → bandeau de consigne seul (texte), pas de surbrillance
-  //   expert   → aucune indication, le stagiaire doit savoir quoi faire
-  learningPhase: (function(){try{return localStorage.getItem('ssi-autof-phase')||'debutant';}catch(_){return 'debutant';}})(),
+  //   debutant      → bandeau de consigne + surbrillance du bouton à utiliser
+  //   intermediaire → bandeau de consigne seul (texte), pas de surbrillance
+  //   confirme      → aucune indication, le stagiaire doit savoir quoi faire
+  // Clé v2 utilisée pour invalider l'ancien réglage (où 'confirme' était la
+  // phase intermédiaire). Pas de migration : reset implicite à 'debutant'.
+  learningPhase: (function(){try{
+    const raw=localStorage.getItem('ssi-autof-phase-v2');
+    return ['debutant','intermediaire','confirme'].includes(raw)?raw:'debutant';
+  }catch(_){return 'debutant';}})(),
   accessLevel: 1,
   smsiAccessLevel: 1,
   outOfService: [],
@@ -1267,15 +1272,15 @@ function setActionInstruction(text,targetSelector,expectedAction){
   // L'état `expectedAction` reste toujours posé sur STATE.scenarioState.waitingFor
   // (peu importe la phase) — c'est lui qui débloque la suite quand l'action
   // physique attendue est effectuée. Seul l'AFFICHAGE varie selon la phase :
-  //   debutant : bandeau orange + surbrillance pulsante du bouton attendu
-  //   confirme : bandeau orange seul (texte de consigne, pas de surbrillance)
-  //   expert   : ni bandeau ni surbrillance, le stagiaire doit savoir quoi faire
+  //   debutant      : bandeau orange + surbrillance pulsante du bouton attendu
+  //   intermediaire : bandeau orange seul (texte de consigne, pas de surbrillance)
+  //   confirme      : ni bandeau ni surbrillance, le stagiaire doit savoir quoi faire
   if(expectedAction){
     if(!STATE.scenarioState)STATE.scenarioState={};
     STATE.scenarioState.waitingFor=expectedAction;
   }
   const phase=STATE.learningPhase||'debutant';
-  if(phase==='expert')return;
+  if(phase==='confirme')return;
   const banner=document.getElementById('action-banner');
   const txt=document.getElementById('action-banner-text');
   if(!banner||!txt)return;
@@ -1289,13 +1294,14 @@ function setActionInstruction(text,targetSelector,expectedAction){
 }
 
 function setLearningPhase(p){
-  if(p!=='debutant'&&p!=='confirme'&&p!=='expert')return;
+  if(!['debutant','intermediaire','confirme'].includes(p))return;
   STATE.learningPhase=p;
-  try{localStorage.setItem('ssi-autof-phase',p);}catch(_){}
+  try{localStorage.setItem('ssi-autof-phase-v2',p);}catch(_){}
   // Si une consigne est active, on la re-rend selon la nouvelle phase
-  // (sinon le banner reste affiché en confirme mais le highlight disparaît).
+  // (sinon le banner reste affiché en intermédiaire mais le highlight disparaît,
+  // et en confirmé on retire bandeau + highlight ensemble).
   const visible=document.getElementById('action-banner');
-  if(visible&&visible.classList.contains('show')&&p==='expert'){clearActionInstruction();}
+  if(visible&&visible.classList.contains('show')&&p==='confirme'){clearActionInstruction();}
   if(p!=='debutant'){document.querySelectorAll('.action-target').forEach(el=>el.classList.remove('action-target'));}
   render();
 }
@@ -1529,13 +1535,13 @@ h+='<div class="flex items-center gap-2">';
 // debutant: bandeau + highlight bouton attendu | confirme: bandeau seul
 // (texte de consigne sans highlight) | expert: rien, le stagiaire agit sans aide.
 const phases=[
-  {key:'debutant',label:'🌱 Débutant',bg:'bg-emerald-500'},
-  {key:'confirme',label:'🎓 Confirmé',bg:'bg-blue-500'},
-  {key:'expert',label:'🏆 Expert',bg:'bg-purple-600'}
+  {key:'debutant',label:'🌱 Débutant',bg:'bg-emerald-500',title:'Bandeau + bouton en surbrillance'},
+  {key:'intermediaire',label:'🎓 Intermédiaire',bg:'bg-blue-500',title:'Bandeau seul, sans surbrillance'},
+  {key:'confirme',label:'🏆 Confirmé',bg:'bg-purple-600',title:'Aucune indication'}
 ];
 phases.forEach(p=>{
   const active=STATE.learningPhase===p.key;
-  h+='<button onclick="setLearningPhase(\''+p.key+'\')" class="px-2 py-1.5 rounded-lg font-bold text-xs text-white '+(active?p.bg+' shadow-md':'bg-gray-400 opacity-60 hover:opacity-90')+'" title="'+(p.key==='debutant'?'Bandeau + bouton en surbrillance':p.key==='confirme'?'Bandeau seul, sans surbrillance':'Aucune indication')+'">'+p.label+'</button>';
+  h+='<button onclick="setLearningPhase(\''+p.key+'\')" class="px-2 py-1.5 rounded-lg font-bold text-xs text-white '+(active?p.bg+' shadow-md':'bg-gray-400 opacity-60 hover:opacity-90')+'" title="'+p.title+'">'+p.label+'</button>';
 });
 h+='<select onchange="const v=this.value;this.value=\'\';if(v)try{startScenario(v)}catch(e){console.error(\'startScenario failed:\',e);showCustomAlert(\'❌ Erreur au démarrage du scénario : \'+e.message);}" class="px-3 py-1.5 bg-orange-500 text-white rounded-lg font-bold text-xs cursor-pointer border-0 outline-none"><option value="">🎯 Scénario...</option><option value="prise_de_poste">📋 Prise de poste</option><option value="declenchement_dai">🔍 Déclenchement DAI</option><option value="declenchement_dm">🚨 Déclenchement DM</option><option value="rearmement">🔄 Réarmement SSI</option><option value="mise_hs">🔒 Mise Hors Service</option><option value="remise_service">🔓 Remise en Service</option></select>';
 if(sc)h+='<button onclick="showScenarioHelp()" class="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-xs">📖 Aide</button>';
