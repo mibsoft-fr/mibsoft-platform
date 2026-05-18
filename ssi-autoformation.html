@@ -769,21 +769,20 @@ setZoneState('compartment',zn,'securite');setZoneState('smoke',zn,'securite');se
 updateAllLeds();playAlarmSound();
 }
 else if(type==='mise_hs'){
-const choices=['dai','dm','zone'];
-const what=choices[rand(3)];
+// Les MHS/RS dans le simulateur ne ciblent que des DAI ou DM — c'est ce que le
+// stagiaire peut réellement mettre HS depuis l'ECS niveau 2 SDI (touches MHS/RS).
+// Les zones UCMC/UCMF se gèrent côté SMSI et ne rentrent pas dans ce scénario.
+const choices=['dai','dm'];
+const what=choices[rand(2)];
 STATE.scenarioState.mhsType=what;
 if(what==='dai'){
 const id=rand(5)+1;const d=STATE.sdi.detectors[id-1];
 STATE.scenarioState.mhsTarget={type:'DAI',id:id,address:d.address,location:d.location};
 setTimeout(()=>{showMhsInstructionModal('DAI',d.address+' - '+d.location);},500);
-}else if(what==='dm'){
+}else{
 const id=rand(3)+1;const d=STATE.sdi.manualAlarms[id-1];
 STATE.scenarioState.mhsTarget={type:'DM',id:id,address:d.address,location:d.location};
 setTimeout(()=>{showMhsInstructionModal('DM',d.address+' - '+d.location);},500);
-}else{
-const id=rand(3);const z=STATE.smsi.compartmentZones[id];
-STATE.scenarioState.mhsTarget={type:'ZONE',id:id+1,address:z.address,zone:z.zone};
-setTimeout(()=>{showMhsInstructionModal('Zone',z.address+' ('+z.zone+')');},500);
 }
 }
 else if(type==='remise_service'){
