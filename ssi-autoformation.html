@@ -1562,12 +1562,34 @@ h+='</div></div></div>';
 return h;
 }
 
+// Affiche un bandeau d'état (État / Alimentation secteur / Alimentation
+// batterie / Alarme) avec plusieurs LEDs visibles en permanence — celle
+// qui correspond à l'état courant s'allume, les autres restent éteintes.
+// Permet au stagiaire de voir d'un coup d'œil la sémantique de chaque voyant.
+function statusBar(label,leds){
+  const ledHtml=leds.map(l=>{
+    const cls=l.on?('led-'+l.color+(l.blink?' blink':'')):'led-off';
+    return '<span class="led-light '+cls+'" title="'+l.color+'"></span>';
+  }).join('');
+  return '<div class="bg-gray-800 px-1.5 py-1 rounded flex flex-col items-center gap-1"><span class="text-white text-[10px] font-medium leading-tight text-center">'+label+'</span><div class="flex gap-1">'+ledHtml+'</div></div>';
+}
+
 function renderSdiPanel(){
 let h='<div class="ssi-panel"><h3 class="text-base font-bold mb-2 text-white">🔥 SDI — Système de Détection Incendie</h3>';
 h+='<div class="grid grid-cols-3 gap-1.5 mb-2">';
-h+='<div class="bg-gray-800 px-2 py-1.5 rounded flex items-center justify-between"><span class="text-white text-xs">État</span><span class="led-light '+(STATE.sdi.systemState==='service'?'led-green':'led-off')+'"></span></div>';
-h+='<div class="bg-gray-800 px-2 py-1.5 rounded flex items-center justify-between"><span class="text-white text-xs">Alim.</span><span class="led-light '+(STATE.sdi.powerState==='secteur'?'led-green':'led-orange blink')+'"></span></div>';
-h+='<div class="bg-gray-800 px-2 py-1.5 rounded flex items-center justify-between"><span class="text-white text-xs">Batt.</span><span class="led-light '+(STATE.sdi.batteryState==='service'?'led-green':'led-orange blink')+'"></span></div>';
+h+=statusBar('État',[
+  {color:'green',on:STATE.sdi.systemState==='service'},
+  {color:'red',on:STATE.sdi.systemState==='hors-service'}
+]);
+h+=statusBar('Alimentation secteur',[
+  {color:'green',on:STATE.sdi.powerState==='secteur'},
+  {color:'red',on:STATE.sdi.powerState!=='secteur'}
+]);
+h+=statusBar('Alimentation batterie',[
+  {color:'green',on:STATE.sdi.batteryState==='service'&&STATE.sdi.powerState==='secteur'},
+  {color:'orange',on:STATE.sdi.batteryState==='service'&&STATE.sdi.powerState==='batterie',blink:true},
+  {color:'red',on:STATE.sdi.batteryState==='hors-service'}
+]);
 h+='</div>';
 h+='<div class="mb-2"><p class="text-white text-xs font-bold mb-1">📟 ECS — État du système</p>';
 h+='<div id="sdi-screen" class="ssi-screen text-xs" style="max-height:140px;overflow-y:auto">';
@@ -1607,10 +1629,23 @@ return h;
 function renderSmsiPanel(){
 let h='<div class="ssi-panel"><h3 class="text-base font-bold mb-2 text-white">🛡️ SMSI — Système de Mise en Sécurité</h3>';
 h+='<div class="grid grid-cols-4 gap-1 mb-2">';
-h+='<div class="bg-gray-800 px-1 py-1.5 rounded flex items-center justify-between"><span class="text-white text-xs">État</span><span class="led-light '+(STATE.smsi.systemState==='service'?'led-green':'led-off')+'"></span></div>';
-h+='<div class="bg-gray-800 px-1 py-1.5 rounded flex items-center justify-between"><span class="text-white text-xs">Alim.</span><span class="led-light '+(STATE.smsi.powerState==='secteur'?'led-green':'led-orange blink')+'"></span></div>';
-h+='<div class="bg-gray-800 px-1 py-1.5 rounded flex items-center justify-between"><span class="text-white text-xs">Batt.</span><span class="led-light '+(STATE.smsi.batteryState==='service'?'led-green':'led-orange blink')+'"></span></div>';
-h+='<div class="bg-gray-800 px-1 py-1.5 rounded flex items-center justify-between"><span class="text-white text-xs">Alm</span><div class="flex gap-0.5"><span class="led-light '+(STATE.smsi.alarmState==='service'&&!STATE.uga.alarmActive?'led-green':'led-off')+'"></span><span class="led-light '+(STATE.uga.alarmActive?'led-red blink':'led-off')+'"></span></div></div>';
+h+=statusBar('État',[
+  {color:'green',on:STATE.smsi.systemState==='service'},
+  {color:'red',on:STATE.smsi.systemState==='hors-service'}
+]);
+h+=statusBar('Alimentation secteur',[
+  {color:'green',on:STATE.smsi.powerState==='secteur'},
+  {color:'red',on:STATE.smsi.powerState!=='secteur'}
+]);
+h+=statusBar('Alimentation batterie',[
+  {color:'green',on:STATE.smsi.batteryState==='service'&&STATE.smsi.powerState==='secteur'},
+  {color:'orange',on:STATE.smsi.batteryState==='service'&&STATE.smsi.powerState==='batterie',blink:true},
+  {color:'red',on:STATE.smsi.batteryState==='hors-service'}
+]);
+h+=statusBar('Alarme',[
+  {color:'green',on:STATE.smsi.alarmState==='service'&&!STATE.uga.alarmActive},
+  {color:'red',on:STATE.uga.alarmActive,blink:true}
+]);
 h+='</div>';
 h+='<div class="mb-2"><p class="text-white text-xs font-bold mb-1">📟 SMSI — Messages</p>';
 h+='<div id="smsi-screen" class="ssi-screen text-xs" style="max-height:120px;overflow-y:auto">';
