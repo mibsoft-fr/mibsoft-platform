@@ -609,21 +609,50 @@ function stopRelay(id){
   const r=STATE.smsi.relayBoxes.find(x=>x.id===id);r.stopped=!r.stopped;
   addSmsiMessage('Coffret '+id+(r.stopped?' arrêté':' redémarré'));logAction((r.stopped?'Arrêt':'Redémarrage')+' coffret '+id);render();
 }
+// Test signalisation : allume tous les voyants d'un côté (SDI ou SMSI) pendant
+// 3s pour vérifier qu'aucune LED n'est défectueuse. Sauve l'état réel et le
+// restaure ensuite. Le flag `testSignalActive` côté SDI/SMSI est utilisé par
+// statusBar et le rendu des DAI/DM pour forcer l'affichage en mode test.
+
 function testSignalization(){
-  addSmsiMessage('Test signalisation en cours...');logAction('Test signalisation');
+  // Test côté SMSI uniquement (compat avec l'ancien nom appelé depuis le bouton).
+  testSmsiSignalization();
+}
+function testSmsiSignalization(){
+  addSmsiMessage('Test signalisation SMSI en cours...');logAction('Test signalisation SMSI');
   const savedZC=STATE.smsi.compartmentZones.map(z=>({r:{...z.ledRed},o:{...z.ledOrange},g:{...z.ledGreen}}));
   const savedZF=STATE.smsi.smokeZones.map(z=>({r:{...z.ledRed},o:{...z.ledOrange},g:{...z.ledGreen}}));
   const savedCR=STATE.smsi.relayBoxes.map(r=>({r:{...r.ledRed},o:{...r.ledOrange},g:{...r.ledGreen}}));
   STATE.smsi.compartmentZones.forEach(z=>{z.ledRed={on:true,blink:false};z.ledOrange={on:true,blink:false};z.ledGreen={on:true,blink:false};});
   STATE.smsi.smokeZones.forEach(z=>{z.ledRed={on:true,blink:false};z.ledOrange={on:true,blink:false};z.ledGreen={on:true,blink:false};});
   STATE.smsi.relayBoxes.forEach(r=>{r.ledRed={on:true,blink:false};r.ledOrange={on:true,blink:false};r.ledGreen={on:true,blink:false};});
-  STATE.testSignalActive=true;render();
+  STATE.smsi.testSignalActive=true;STATE.testSignalActive=true;render();
   setTimeout(()=>{
     STATE.smsi.compartmentZones.forEach((z,i)=>{z.ledRed=savedZC[i].r;z.ledOrange=savedZC[i].o;z.ledGreen=savedZC[i].g;});
     STATE.smsi.smokeZones.forEach((z,i)=>{z.ledRed=savedZF[i].r;z.ledOrange=savedZF[i].o;z.ledGreen=savedZF[i].g;});
     STATE.smsi.relayBoxes.forEach((r,i)=>{r.ledRed=savedCR[i].r;r.ledOrange=savedCR[i].o;r.ledGreen=savedCR[i].g;});
-    STATE.testSignalActive=false;
-    addSmsiMessage('Test signalisation OK - Tous voyants fonctionnels');render();
+    STATE.smsi.testSignalActive=false;STATE.testSignalActive=false;
+    addSmsiMessage('Test signalisation SMSI OK - Tous voyants fonctionnels');render();
+  },3000);
+}
+// Test côté SDI : on force visuellement les LEDs (État, Alim, Batt, ALARME
+// FEU, DAI/DM en alarme) le temps du test. statusBar regarde sdi.testSignalActive
+// pour forcer toutes ses LEDs ON.
+function testSdiSignalization(){
+  addSdiMessage('Test signalisation SDI en cours...');logAction('Test signalisation SDI');
+  const savedDai=STATE.sdi.detectors.map(d=>d.triggered);
+  const savedDm=STATE.sdi.manualAlarms.map(d=>d.triggered);
+  const savedFireAlarm=STATE.sdi.fireAlarmActive;
+  STATE.sdi.detectors.forEach(d=>{d.triggered=true;});
+  STATE.sdi.manualAlarms.forEach(d=>{d.triggered=true;});
+  STATE.sdi.fireAlarmActive=true;
+  STATE.sdi.testSignalActive=true;render();
+  setTimeout(()=>{
+    STATE.sdi.detectors.forEach((d,i)=>{d.triggered=savedDai[i];});
+    STATE.sdi.manualAlarms.forEach((d,i)=>{d.triggered=savedDm[i];});
+    STATE.sdi.fireAlarmActive=savedFireAlarm;
+    STATE.sdi.testSignalActive=false;
+    addSdiMessage('Test signalisation SDI OK - Tous voyants fonctionnels');render();
   },3000);
 }
 function bilanSystem(){
@@ -1562,13 +1591,33 @@ h+='</div></div></div>';
 return h;
 }
 
+// Calcule s'il y a un défaut système (matériel HS, défaut sur une zone DAS,
+// secteur coupé, batterie HS). Sert à allumer le voyant orange « défaut
+// système » du bandeau État côté SDI / SMSI.
+function hasSdiFault(){
+  return STATE.sdi.detectors.some(d=>d.outOfService||d.state==='hors-service')
+      || STATE.sdi.manualAlarms.some(d=>d.outOfService||d.state==='hors-service')
+      || STATE.sdi.batteryState==='hors-service'
+      || STATE.sdi.powerState!=='secteur';
+}
+function hasSmsiFault(){
+  const fault=z=>typeof z.state==='string'&&z.state.indexOf('defaut')===0;
+  return STATE.smsi.compartmentZones.some(fault)
+      || STATE.smsi.smokeZones.some(fault)
+      || STATE.smsi.relayBoxes.some(fault)
+      || STATE.smsi.batteryState==='hors-service'
+      || STATE.smsi.powerState!=='secteur';
+}
+
 // Affiche un bandeau d'état (État / Alimentation secteur / Alimentation
 // batterie / Alarme) avec plusieurs LEDs visibles en permanence — celle
 // qui correspond à l'état courant s'allume, les autres restent éteintes.
 // Permet au stagiaire de voir d'un coup d'œil la sémantique de chaque voyant.
-function statusBar(label,leds){
+// `testActive` : si true (mode test signalisation), toutes les LEDs s'allument.
+function statusBar(label,leds,testActive){
   const ledHtml=leds.map(l=>{
-    const cls=l.on?('led-'+l.color+(l.blink?' blink':'')):'led-off';
+    const on=testActive||l.on;
+    const cls=on?('led-'+l.color+(l.blink&&!testActive?' blink':'')):'led-off';
     return '<span class="led-light '+cls+'" title="'+l.color+'"></span>';
   }).join('');
   return '<div class="bg-gray-800 px-1.5 py-1 rounded flex flex-col items-center gap-1"><span class="text-white text-[10px] font-medium leading-tight text-center">'+label+'</span><div class="flex gap-1">'+ledHtml+'</div></div>';
@@ -1576,20 +1625,22 @@ function statusBar(label,leds){
 
 function renderSdiPanel(){
 let h='<div class="ssi-panel"><h3 class="text-base font-bold mb-2 text-white">🔥 SDI — Système de Détection Incendie</h3>';
+const sdiTest=!!STATE.sdi.testSignalActive;
 h+='<div class="grid grid-cols-3 gap-1.5 mb-2">';
 h+=statusBar('État',[
-  {color:'green',on:STATE.sdi.systemState==='service'},
+  {color:'green',on:STATE.sdi.systemState==='service'&&!hasSdiFault()},
+  {color:'orange',on:STATE.sdi.systemState==='service'&&hasSdiFault()},
   {color:'red',on:STATE.sdi.systemState==='hors-service'}
-]);
+],sdiTest);
 h+=statusBar('Alimentation secteur',[
   {color:'green',on:STATE.sdi.powerState==='secteur'},
   {color:'red',on:STATE.sdi.powerState!=='secteur'}
-]);
+],sdiTest);
 h+=statusBar('Alimentation batterie',[
   {color:'green',on:STATE.sdi.batteryState==='service'&&STATE.sdi.powerState==='secteur'},
   {color:'orange',on:STATE.sdi.batteryState==='service'&&STATE.sdi.powerState==='batterie',blink:true},
   {color:'red',on:STATE.sdi.batteryState==='hors-service'}
-]);
+],sdiTest);
 h+='</div>';
 h+='<div class="mb-2"><p class="text-white text-xs font-bold mb-1">📟 ECS — État du système</p>';
 h+='<div id="sdi-screen" class="ssi-screen text-xs" style="max-height:140px;overflow-y:auto">';
@@ -1620,6 +1671,9 @@ h+='<button onclick="keypadPress(\'C\')" class="kp-btn kp-red">C</button>';
 h+='<button onclick="keypadPress(\'0\')" class="kp-btn">0</button>';
 h+='<button onclick="keypadValidate()" class="kp-btn kp-green">✓</button>';
 h+='</div></div>';
+// Bouton test signalisation côté SDI : équivalent du TEST VOYANTS du SMSI.
+// Allume tous les voyants de l'ECS pendant 3s pour contrôle visuel.
+h+='<button onclick="testSdiSignalization()" class="w-full py-2 bg-yellow-600 text-white rounded text-xs font-bold mb-2">🧪 TEST VOYANTS</button>';
 const hsItems=[...STATE.sdi.detectors,...STATE.sdi.manualAlarms].filter(d=>d.outOfService);
 if(hsItems.length>0)h+='<div class="bg-orange-900 px-2 py-1.5 rounded text-xs text-orange-200"><strong>HS:</strong> '+hsItems.map(d=>d.address).join(', ')+'</div>';
 h+='</div>';
@@ -1628,24 +1682,26 @@ return h;
 
 function renderSmsiPanel(){
 let h='<div class="ssi-panel"><h3 class="text-base font-bold mb-2 text-white">🛡️ SMSI — Système de Mise en Sécurité</h3>';
+const smsiTest=!!STATE.smsi.testSignalActive;
 h+='<div class="grid grid-cols-4 gap-1 mb-2">';
 h+=statusBar('État',[
-  {color:'green',on:STATE.smsi.systemState==='service'},
+  {color:'green',on:STATE.smsi.systemState==='service'&&!hasSmsiFault()},
+  {color:'orange',on:STATE.smsi.systemState==='service'&&hasSmsiFault()},
   {color:'red',on:STATE.smsi.systemState==='hors-service'}
-]);
+],smsiTest);
 h+=statusBar('Alimentation secteur',[
   {color:'green',on:STATE.smsi.powerState==='secteur'},
   {color:'red',on:STATE.smsi.powerState!=='secteur'}
-]);
+],smsiTest);
 h+=statusBar('Alimentation batterie',[
   {color:'green',on:STATE.smsi.batteryState==='service'&&STATE.smsi.powerState==='secteur'},
   {color:'orange',on:STATE.smsi.batteryState==='service'&&STATE.smsi.powerState==='batterie',blink:true},
   {color:'red',on:STATE.smsi.batteryState==='hors-service'}
-]);
+],smsiTest);
 h+=statusBar('Alarme',[
   {color:'green',on:STATE.smsi.alarmState==='service'&&!STATE.uga.alarmActive},
   {color:'red',on:STATE.uga.alarmActive,blink:true}
-]);
+],smsiTest);
 h+='</div>';
 h+='<div class="mb-2"><p class="text-white text-xs font-bold mb-1">📟 SMSI — Messages</p>';
 h+='<div id="smsi-screen" class="ssi-screen text-xs" style="max-height:120px;overflow-y:auto">';
