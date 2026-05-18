@@ -71,33 +71,15 @@ h1, h2, h3, .panel-title { font-family: var(--font-display); font-weight: var(--
 
 /* ============ PANNEAU SSI (simulation centrale) ============ */
 .ssi-panel {
-  position: relative; overflow: hidden;
-  /* Look « métal brossé » bleu ardoise discret — désaturé pour rester en
-     retrait et laisser le contenu (LEDs, écrans LCD, boutons) ressortir.
-     Légèrement plus bleu que la teinte teal précédente, sans devenir saturé. */
-  background:
-    repeating-linear-gradient(90deg,
-      rgba(255,255,255,0.03) 0px,
-      rgba(255,255,255,0.03) 1px,
-      transparent 1px,
-      transparent 3px),
-    linear-gradient(180deg, #4f5d72 0%, #424f63 50%, #364252 100%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.14) inset,
-    0 -1px 0 rgba(0, 0, 0, 0.22) inset,
-    0 6px 16px -6px rgba(0, 0, 0, 0.28),
-    0 2px 6px -2px rgba(0, 0, 0, 0.16);
+  /* Repris à l'identique de ssi-formation/index.html : panneau ECS bleu
+     diagonal classique avec bordure gris-perle. Cohérence visuelle entre
+     les deux apps (autoformation et formation) au lieu d'un look différent. */
+  background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 50%, #1e4d7a 100%);
+  border: 3px solid #a0b4c8;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
   color: #fff;
-}
-.ssi-panel::before {
-  content: ''; position: absolute;
-  top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.08), rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.08));
-  z-index: 1;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 /* Écran LCD vert phosphorescent (préservé pour réalisme) */
