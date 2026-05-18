@@ -474,7 +474,12 @@ function acquitProcess(){
   }
 }
 function canResetSdiSystem(){
-  return STATE.accessLevel===2&&STATE.sdi.manualAlarms.every(d=>!d.triggered)&&STATE.sdi.detectors.every(d=>!d.triggered);
+  // Le RÉARM SDI au niveau 2 efface lui-même les DAI déclenchés (alarmes optique
+  // fumée latchées sur l'ECS). En revanche les DM à bris de glace nécessitent un
+  // réarmement physique sur le mur (clé carrée) AVANT de pouvoir réarmer le SDI,
+  // sinon l'ECS reverrouille immédiatement la boucle. Donc on n'exige plus que
+  // les DAI soient pré-réarmés — c'est le rôle du RÉARM lui-même.
+  return STATE.accessLevel===2&&STATE.sdi.manualAlarms.every(d=>!d.triggered);
 }
 function canResetSmsiSystem(){
   return STATE.smsiAccessLevel>=2&&[...STATE.smsi.compartmentZones,...STATE.smsi.smokeZones].every(z=>z.state==='attente');
