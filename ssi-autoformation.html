@@ -72,31 +72,30 @@ h1, h2, h3, .panel-title { font-family: var(--font-display); font-weight: var(--
 /* ============ PANNEAU SSI (simulation centrale) ============ */
 .ssi-panel {
   position: relative; overflow: hidden;
-  /* Look « métal brossé » acier bleuté : gradient sombre vertical + fines stries
-     horizontales semi-transparentes pour simuler le grain du brossage métallique.
-     Moins flashy que l'ancien bleu marine saturé, plus proche d'un panneau ECS réel. */
+  /* Look « métal brossé » teinte bleu-vert acier discret — moins sombre que
+     l'acier pur, légère nuance teal/patiné pour rappeler les panneaux ECS
+     industriels sans tomber dans le noir total. */
   background:
     repeating-linear-gradient(90deg,
-      rgba(255,255,255,0.025) 0px,
-      rgba(255,255,255,0.025) 1px,
+      rgba(255,255,255,0.04) 0px,
+      rgba(255,255,255,0.04) 1px,
       transparent 1px,
       transparent 3px),
-    linear-gradient(180deg, #3d4b5e 0%, #2a3645 45%, #1f2a36 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+    linear-gradient(180deg, #5d7a82 0%, #486870 45%, #3a565d 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-lg);
   padding: 16px;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.12) inset,
-    0 -1px 0 rgba(0, 0, 0, 0.4) inset,
-    0 12px 28px -8px rgba(0, 0, 0, 0.55),
-    0 4px 10px -2px rgba(0, 0, 0, 0.30);
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.25) inset,
+    0 8px 20px -6px rgba(0, 0, 0, 0.35),
+    0 3px 8px -2px rgba(0, 0, 0, 0.20);
   color: #fff;
 }
 .ssi-panel::before {
   content: ''; position: absolute;
   top: 0; left: 0; right: 0; height: 2px;
-  /* fine ligne de chrome en bordure haute pour l'effet « rebord poli » */
-  background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.05));
+  background: linear-gradient(90deg, rgba(255,255,255,0.10), rgba(255,255,255,0.45) 50%, rgba(255,255,255,0.10));
   z-index: 1;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
