@@ -18,6 +18,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="supabase.js"></script>
+<script src="alarm-sounds.js"></script>
 
 <style>
 /* =============================================================
@@ -219,6 +220,11 @@ const STATE = {
   currentUser: null,
   activeScenario: null,
   scenarioState: {},
+  // Phase d'apprentissage progressive (persisté en localStorage) :
+  //   debutant → bandeau de consigne + surbrillance du bouton à utiliser
+  //   confirme → bandeau de consigne seul (texte), pas de surbrillance
+  //   expert   → aucune indication, le stagiaire doit savoir quoi faire
+  learningPhase: (function(){try{return localStorage.getItem('ssi-autof-phase')||'debutant';}catch(_){return 'debutant';}})(),
   accessLevel: 1,
   smsiAccessLevel: 1,
   outOfService: [],
@@ -304,8 +310,24 @@ function playAlarmSound(){
     _alarmOsc.start();
   }catch(e){}
 }
+// Alarme générale : utilise les vrais sons AFNOR (alarme générale ou AGS
+// alarme générale sélective) embarqués dans alarm-sounds.js, fallback sur
+// l'oscillateur synthétique si l'audio MP3/OGG n'est pas dispo.
+let _generalAlarmAudio=null;
 function playGeneralAlarm(){
   stopGeneralAlarm();
+  const type=STATE.uga.alarmType||'generale';
+  const uri=window.ALARM_SOUNDS_B64&&window.ALARM_SOUNDS_B64[type];
+  if(uri){
+    try{
+      _generalAlarmAudio=new Audio(uri);
+      _generalAlarmAudio.volume=0.85;
+      _generalAlarmAudio.loop=true;
+      _generalAlarmAudio.play().catch(e=>console.warn('Alarme audio play() rejetée:',e));
+      return;
+    }catch(e){console.warn('Alarme audio fail, fallback osc:',e);}
+  }
+  // Fallback : oscillateur synthétique (legacy).
   try{
     const c=_getCtx(); const o=c.createOscillator(); const g=c.createGain();
     o.connect(g); g.connect(c.destination);
@@ -330,6 +352,7 @@ function stopAlarmSound(skipRender){
 }
 function stopGeneralAlarm(){
   if(STATE.generalAlarmOsc){try{STATE.generalAlarmOsc.stop();}catch(e){} STATE.generalAlarmOsc=null;}
+  if(_generalAlarmAudio){try{_generalAlarmAudio.pause();_generalAlarmAudio.currentTime=0;_generalAlarmAudio.src='';}catch(e){}_generalAlarmAudio=null;}
 }
 
 /* ===================== NAVIGATION ===================== */
@@ -682,6 +705,11 @@ function startScenario(type){
 try{clearActionInstruction();}catch(_){}
 document.querySelectorAll('.modal-overlay,.step-guidance').forEach(m=>m.remove());
 resetSSI();STATE.activeScenario=type;STATE.scenarioState={};
+// Alterne entre Alarme Générale (NF S 32-001, ERP standard) et AGS
+// (Alarme Générale Sélective, hôpitaux / EHPAD avec évacuation différée)
+// pour exposer le stagiaire aux deux sons réels AFNOR.
+const alarmTypes=['generale','generale-selective'];
+STATE.uga.alarmType=alarmTypes[Math.floor(Math.random()*alarmTypes.length)];
 const rand=n=>Math.floor(Math.random()*n);
 const flip=()=>Math.random()>0.5;
 
@@ -832,41 +860,45 @@ showGuidance(g[STATE.activeScenario]||'procedure_prise_poste');
 /* ===================== MODALS INTERACTIVES ===================== */
 function showDefectAnalysisModal(defects){
 const m=document.createElement('div');m.className='modal-overlay';
-let html='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#dc2626">⚠️ Défauts détectés</h3>';
-html+='<p style="margin-bottom:12px;font-size:14px">Le bilan a révélé <strong>'+defects.length+' anomalie(s)</strong>. Que devez-vous faire?</p>';
-html+='<div style="display:flex;flex-direction:column;gap:8px">';
-html+='<button onclick="checkAnswer(\'defect_report\',true)" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">📝 Consigner les défauts dans la main courante et prévenir le PC sécurité</button>';
-html+='<button onclick="checkAnswer(\'defect_report\',false)" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔧 Tenter de réparer les défauts moi-même</button>';
-html+='<button onclick="checkAnswer(\'defect_report\',false)" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">❌ Ignorer les défauts et continuer la ronde</button>';
-html+='<button onclick="checkAnswer(\'defect_report\',false)" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔄 Réarmer le système pour effacer les défauts</button>';
-html+='</div></div>';
-m.innerHTML=html;document.body.appendChild(m);
+// Note : on encode l'arg booléen comme string 'true'/'false' pour passer par
+// renderChoicesShuffled. checkAnswerBool ci-dessous fait la conversion.
+const choices=[
+  {fn:'checkAnswerBool',arg:'defect_report|true',label:'📝 Consigner les défauts dans la main courante et prévenir le PC sécurité'},
+  {fn:'checkAnswerBool',arg:'defect_report|false_repair',label:'🔧 Tenter de réparer les défauts moi-même'},
+  {fn:'checkAnswerBool',arg:'defect_report|false_ignore',label:'❌ Ignorer les défauts et continuer la ronde'},
+  {fn:'checkAnswerBool',arg:'defect_report|false_rearm',label:'🔄 Réarmer le système pour effacer les défauts'}
+];
+m.innerHTML='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#dc2626">⚠️ Défauts détectés</h3><p style="margin-bottom:12px;font-size:14px">Le bilan a révélé <strong>'+defects.length+' anomalie(s)</strong>. Que devez-vous faire?</p><div style="display:flex;flex-direction:column;gap:8px">'+renderChoicesShuffled(choices)+'</div></div>';
+document.body.appendChild(m);
 }
 function showNominalModal(){
 const m=document.createElement('div');m.className='modal-overlay';
-let html='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#16a34a">✅ Système nominal</h3>';
-html+='<p style="margin-bottom:12px;font-size:14px">Le bilan ne montre aucun défaut. Quelle est la conduite à tenir?</p>';
-html+='<div style="display:flex;flex-direction:column;gap:8px">';
-html+='<button onclick="checkAnswer(\'nominal\',true)" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">📝 Consigner la prise de poste dans la main courante - RAS</button>';
-html+='<button onclick="checkAnswer(\'nominal\',false)" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔄 Réarmer le système par précaution</button>';
-html+='<button onclick="checkAnswer(\'nominal\',false)" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">⚠️ Mettre le système hors service pour vérification</button>';
-html+='</div></div>';
-m.innerHTML=html;document.body.appendChild(m);
+const choices=[
+  {fn:'checkAnswerBool',arg:'nominal|true',label:'📝 Consigner la prise de poste dans la main courante - RAS'},
+  {fn:'checkAnswerBool',arg:'nominal|false_rearm',label:'🔄 Réarmer le système par précaution'},
+  {fn:'checkAnswerBool',arg:'nominal|false_hs',label:'⚠️ Mettre le système hors service pour vérification'}
+];
+m.innerHTML='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#16a34a">✅ Système nominal</h3><p style="margin-bottom:12px;font-size:14px">Le bilan ne montre aucun défaut. Quelle est la conduite à tenir?</p><div style="display:flex;flex-direction:column;gap:8px">'+renderChoicesShuffled(choices)+'</div></div>';
+document.body.appendChild(m);
+}
+// Wrapper pour passer (type, correct) via renderChoicesShuffled qui ne gère
+// qu'un seul argument string. Format: "type|true" ou "type|false_X".
+function checkAnswerBool(arg){
+  const [type,verdict]=arg.split('|');
+  checkAnswer(type,verdict==='true');
 }
 function showConduiteATenirModal(){
 const m=document.createElement('div');m.className='modal-overlay';m.id='conduite-modal';
 const det=STATE.scenarioState.detectorType==='DAI'?STATE.sdi.detectors.find(d=>d.id===STATE.scenarioState.detectorId):STATE.sdi.manualAlarms.find(d=>d.id===STATE.scenarioState.detectorId);
 const detInfo=det?(det.address+' - '+det.location+' ('+det.zone+')'):'Détecteur inconnu';
-let html='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#ea580c">🚨 Alarme détectée!</h3>';
-html+='<p style="margin-bottom:8px;font-size:14px"><strong>'+detInfo+'</strong></p>';
-html+='<p style="margin-bottom:16px;font-size:14px">Signal sonore acquitté. Quelle est la conduite à tenir?</p>';
-html+='<div style="display:flex;flex-direction:column;gap:8px">';
-html+='<button onclick="conduiteChoice(\'levee_doute\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔍 Effectuer une levée de doute sur la zone</button>';
-html+='<button onclick="conduiteChoice(\'appeler_pompiers\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🚒 Appeler immédiatement les pompiers</button>';
-html+='<button onclick="conduiteChoice(\'rearmer\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔄 Réarmer le SSI directement</button>';
-html+='<button onclick="conduiteChoice(\'ignorer\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">⏳ Attendre la fin de la temporisation sans rien faire</button>';
-html+='</div></div>';
-m.innerHTML=html;document.body.appendChild(m);
+const choices=[
+  {fn:'conduiteChoice',arg:'levee_doute',label:'🔍 Effectuer une levée de doute sur la zone'},
+  {fn:'conduiteChoice',arg:'appeler_pompiers',label:'🚒 Appeler immédiatement les pompiers'},
+  {fn:'conduiteChoice',arg:'rearmer',label:'🔄 Réarmer le SSI directement'},
+  {fn:'conduiteChoice',arg:'ignorer',label:'⏳ Attendre la fin de la temporisation sans rien faire'}
+];
+m.innerHTML='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#ea580c">🚨 Alarme détectée!</h3><p style="margin-bottom:8px;font-size:14px"><strong>'+detInfo+'</strong></p><p style="margin-bottom:16px;font-size:14px">Signal sonore acquitté. Quelle est la conduite à tenir?</p><div style="display:flex;flex-direction:column;gap:8px">'+renderChoicesShuffled(choices)+'</div></div>';
+document.body.appendChild(m);
 }
 function conduiteChoice(choice){
 document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());
@@ -889,28 +921,22 @@ const m=document.createElement('div');m.className='modal-overlay';m.id='levee-re
 const det=STATE.scenarioState.detectorType==='DAI'?STATE.sdi.detectors.find(d=>d.id===STATE.scenarioState.detectorId):STATE.sdi.manualAlarms.find(d=>d.id===STATE.scenarioState.detectorId);
 const loc=det?det.location:'zone';
 if(result==='fausse_alarme'){
-let html='<div class="modal-content text-center" onclick="event.stopPropagation()"><div style="font-size:48px;margin-bottom:12px">✅</div>';
-html+='<h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#16a34a">Fausse alarme</h3>';
-html+='<p style="font-size:14px;margin-bottom:16px">La levée de doute dans <strong>'+loc+'</strong> ne révèle aucun sinistre. Quelle est la procédure?</p>';
-html+='<div style="display:flex;flex-direction:column;gap:8px">';
-html+='<button onclick="fausseAlarmeChoice(\'rearmer\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔄 Acquitter le processus, réarmer SDI (niv.2) puis SMSI (niv.2) et consigner dans la main courante</button>';
-html+='<button onclick="fausseAlarmeChoice(\'pompiers\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🚒 Appeler les pompiers quand même</button>';
-html+='<button onclick="fausseAlarmeChoice(\'hs\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">⚠️ Mettre le détecteur hors service</button>';
-html+='</div></div>';
-m.innerHTML=html;
+const choices=[
+  {fn:'fausseAlarmeChoice',arg:'rearmer',label:'🔄 Acquitter le processus, réarmer SDI (niv.2) puis SMSI (niv.2) et consigner dans la main courante'},
+  {fn:'fausseAlarmeChoice',arg:'pompiers',label:'🚒 Appeler les pompiers quand même'},
+  {fn:'fausseAlarmeChoice',arg:'hs',label:'⚠️ Mettre le détecteur hors service'}
+];
+m.innerHTML='<div class="modal-content text-center" onclick="event.stopPropagation()"><div style="font-size:48px;margin-bottom:12px">✅</div><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#16a34a">Fausse alarme</h3><p style="font-size:14px;margin-bottom:16px">La levée de doute dans <strong>'+loc+'</strong> ne révèle aucun sinistre. Quelle est la procédure?</p><div style="display:flex;flex-direction:column;gap:8px">'+renderChoicesShuffled(choices)+'</div></div>';
 logAction('Levée de doute','Fausse alarme à '+loc);
 addSdiMessage('✅ Fausse alarme - '+loc);
 addSmsiMessage('Fausse alarme confirmée');
 }else{
-let html='<div class="modal-content text-center" onclick="event.stopPropagation()"><div style="font-size:48px;margin-bottom:12px">🔥</div>';
-html+='<h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#dc2626">FEU AVÉRÉ!</h3>';
-html+='<p style="font-size:14px;margin-bottom:16px">Un départ de feu est confirmé dans <strong>'+loc+'</strong>! Quelle est la conduite immédiate?</p>';
-html+='<div style="display:flex;flex-direction:column;gap:8px">';
-html+='<button onclick="feuAvereChoice(\'alarm_manual\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🚨 Déclencher l\'alarme générale manuellement et appeler les secours (18/112)</button>';
-html+='<button onclick="feuAvereChoice(\'acquit\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">✋ Acquitter le processus et attendre</button>';
-html+='<button onclick="feuAvereChoice(\'rearmer\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔄 Réarmer le SSI pour couper l\'alarme</button>';
-html+='</div></div>';
-m.innerHTML=html;
+const choices=[
+  {fn:'feuAvereChoice',arg:'alarm_manual',label:'🚨 Déclencher l\'alarme générale manuellement et appeler les secours (18/112)'},
+  {fn:'feuAvereChoice',arg:'acquit',label:'✋ Acquitter le processus et attendre'},
+  {fn:'feuAvereChoice',arg:'rearmer',label:'🔄 Réarmer le SSI pour couper l\'alarme'}
+];
+m.innerHTML='<div class="modal-content text-center" onclick="event.stopPropagation()"><div style="font-size:48px;margin-bottom:12px">🔥</div><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#dc2626">FEU AVÉRÉ!</h3><p style="font-size:14px;margin-bottom:16px">Un départ de feu est confirmé dans <strong>'+loc+'</strong>! Quelle est la conduite immédiate?</p><div style="display:flex;flex-direction:column;gap:8px">'+renderChoicesShuffled(choices)+'</div></div>';
 logAction('Levée de doute','Feu avéré à '+loc);
 addSdiMessage('🔥 FEU AVÉRÉ - '+loc);
 addSmsiMessage('🔥 FEU AVÉRÉ - '+loc);
@@ -1081,18 +1107,13 @@ function showDefautDasModal(){
 const dd=STATE.scenarioState.defautDas;
 if(!dd)return;
 const m=document.createElement('div');m.className='modal-overlay';m.id='defaut-das-modal';
-let html='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#ea580c">⚠️ Défaut de position de sécurité</h3>';
-html+='<div style="background:#fef3c7;padding:14px;border-radius:8px;border-left:4px solid #f59e0b;margin-bottom:16px">';
-html+='<p style="font-size:14px;font-weight:bold;margin-bottom:4px">'+dd.dasName+' - '+dd.dasLocation+'</p>';
-html+='<p style="font-size:13px;color:#92400e">'+dd.zone+' en défaut de position de sécurité</p>';
-html+='</div>';
-html+='<p style="font-size:14px;margin-bottom:16px">Ce DAS n\'a pas atteint sa position de sécurité. Quelle est la conduite à tenir?</p>';
-html+='<div style="display:flex;flex-direction:column;gap:8px">';
-html+='<button onclick="defautDasChoice(\'levee_doute\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔍 Effectuer une levée de doute sur le DAS et le mettre en position de sécurité (CMD ou manuellement)</button>';
-html+='<button onclick="defautDasChoice(\'ignorer\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">❌ Ignorer le défaut et continuer</button>';
-html+='<button onclick="defautDasChoice(\'rearmer\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔄 Réarmer le SMSI pour effacer le défaut</button>';
-html+='</div></div>';
-m.innerHTML=html;document.body.appendChild(m);
+const choices=[
+  {fn:'defautDasChoice',arg:'levee_doute',label:'🔍 Effectuer une levée de doute sur le DAS et le mettre en position de sécurité (CMD ou manuellement)'},
+  {fn:'defautDasChoice',arg:'ignorer',label:'❌ Ignorer le défaut et continuer'},
+  {fn:'defautDasChoice',arg:'rearmer',label:'🔄 Réarmer le SMSI pour effacer le défaut'}
+];
+m.innerHTML='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#ea580c">⚠️ Défaut de position de sécurité</h3><div style="background:#fef3c7;padding:14px;border-radius:8px;border-left:4px solid #f59e0b;margin-bottom:16px"><p style="font-size:14px;font-weight:bold;margin-bottom:4px">'+dd.dasName+' - '+dd.dasLocation+'</p><p style="font-size:13px;color:#92400e">'+dd.zone+' en défaut de position de sécurité</p></div><p style="font-size:14px;margin-bottom:16px">Ce DAS n\'a pas atteint sa position de sécurité. Quelle est la conduite à tenir?</p><div style="display:flex;flex-direction:column;gap:8px">'+renderChoicesShuffled(choices)+'</div></div>';
+document.body.appendChild(m);
 }
 function defautDasChoice(choice){
 document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());
@@ -1111,20 +1132,15 @@ function showDefautDasActionModal(){
 const dd=STATE.scenarioState.defautDas;
 const isZC=dd.type==='compartment';
 const m=document.createElement('div');m.className='modal-overlay';m.id='das-action-modal';
-let html='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#2563eb">🔧 Mise en position de sécurité</h3>';
-html+='<p style="font-size:14px;margin-bottom:12px"><strong>'+dd.dasName+' - '+dd.dasLocation+'</strong></p>';
-html+='<p style="font-size:14px;margin-bottom:16px">Comment mettre ce DAS en position de sécurité?</p>';
-html+='<div style="display:flex;flex-direction:column;gap:8px">';
-if(isZC){
-html+='<button onclick="defautDasAction(\'cmd\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🎛️ Forcer la commande CMD sur le UCMC ('+dd.zone+') pour fermer la porte CF</button>';
-html+='<button onclick="defautDasAction(\'manual\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🚪 Aller fermer la porte CF manuellement sur place</button>';
-}else{
-html+='<button onclick="defautDasAction(\'cmd\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🎛️ Forcer la commande CMD sur le UCMC ('+dd.zone+') pour activer le désenfumage</button>';
-html+='<button onclick="defautDasAction(\'manual\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔧 Aller ouvrir le clapet/volet manuellement sur place</button>';
-}
-html+='<button onclick="defautDasAction(\'wrong\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">⚠️ Mettre la zone hors service</button>';
-html+='</div></div>';
-m.innerHTML=html;document.body.appendChild(m);
+const cmdLabel=isZC?'🎛️ Forcer la commande CMD sur le UCMC ('+dd.zone+') pour fermer la porte CF':'🎛️ Forcer la commande CMD sur le UCMC ('+dd.zone+') pour activer le désenfumage';
+const manualLabel=isZC?'🚪 Aller fermer la porte CF manuellement sur place':'🔧 Aller ouvrir le clapet/volet manuellement sur place';
+const choices=[
+  {fn:'defautDasAction',arg:'cmd',label:cmdLabel},
+  {fn:'defautDasAction',arg:'manual',label:manualLabel},
+  {fn:'defautDasAction',arg:'wrong',label:'⚠️ Mettre la zone hors service'}
+];
+m.innerHTML='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#2563eb">🔧 Mise en position de sécurité</h3><p style="font-size:14px;margin-bottom:12px"><strong>'+dd.dasName+' - '+dd.dasLocation+'</strong></p><p style="font-size:14px;margin-bottom:16px">Comment mettre ce DAS en position de sécurité?</p><div style="display:flex;flex-direction:column;gap:8px">'+renderChoicesShuffled(choices)+'</div></div>';
+document.body.appendChild(m);
 }
 function defautDasAction(action){
 document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());
@@ -1248,24 +1264,59 @@ async function saveScenarioSession(){
 // `expectedAction` : clé stockée dans STATE.scenarioState.waitingFor pour que
 //   les handlers d'action sachent qu'ils débloquent l'étape suivante.
 function setActionInstruction(text,targetSelector,expectedAction){
+  // L'état `expectedAction` reste toujours posé sur STATE.scenarioState.waitingFor
+  // (peu importe la phase) — c'est lui qui débloque la suite quand l'action
+  // physique attendue est effectuée. Seul l'AFFICHAGE varie selon la phase :
+  //   debutant : bandeau orange + surbrillance pulsante du bouton attendu
+  //   confirme : bandeau orange seul (texte de consigne, pas de surbrillance)
+  //   expert   : ni bandeau ni surbrillance, le stagiaire doit savoir quoi faire
+  if(expectedAction){
+    if(!STATE.scenarioState)STATE.scenarioState={};
+    STATE.scenarioState.waitingFor=expectedAction;
+  }
+  const phase=STATE.learningPhase||'debutant';
+  if(phase==='expert')return;
   const banner=document.getElementById('action-banner');
   const txt=document.getElementById('action-banner-text');
   if(!banner||!txt)return;
   txt.textContent=text;
   banner.classList.add('show');
-  // Décale légèrement le body pour éviter que le bandeau cache l'entête.
   document.body.style.paddingTop=banner.offsetHeight+'px';
-  // Nettoie les anciennes surbrillances avant d'en poser une nouvelle.
   document.querySelectorAll('.action-target').forEach(el=>el.classList.remove('action-target'));
-  if(targetSelector){
-    // Délai pour laisser le DOM se mettre à jour si on vient de render().
+  if(targetSelector&&phase==='debutant'){
     setTimeout(()=>{document.querySelectorAll(targetSelector).forEach(el=>el.classList.add('action-target'));},50);
   }
-  if(expectedAction){
-    if(!STATE.scenarioState)STATE.scenarioState={};
-    STATE.scenarioState.waitingFor=expectedAction;
-  }
 }
+
+function setLearningPhase(p){
+  if(p!=='debutant'&&p!=='confirme'&&p!=='expert')return;
+  STATE.learningPhase=p;
+  try{localStorage.setItem('ssi-autof-phase',p);}catch(_){}
+  // Si une consigne est active, on la re-rend selon la nouvelle phase
+  // (sinon le banner reste affiché en confirme mais le highlight disparaît).
+  const visible=document.getElementById('action-banner');
+  if(visible&&visible.classList.contains('show')&&p==='expert'){clearActionInstruction();}
+  if(p!=='debutant'){document.querySelectorAll('.action-target').forEach(el=>el.classList.remove('action-target'));}
+  render();
+}
+// Mélange un tableau en place (Fisher-Yates) pour randomiser l'ordre des
+// réponses dans les modaux de choix — empêche le stagiaire de cliquer
+// systématiquement la 1ère option sans lire les autres (pénalité pédagogique).
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+// Helper : prend un tableau de {fn,arg,label} où `fn` est le nom de la
+// fonction handler et `arg` la valeur passée, génère les boutons mélangés.
+function renderChoicesShuffled(choices){
+  return shuffle([...choices]).map(c=>
+    `<button onclick="${c.fn}('${c.arg}')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">${c.label}</button>`
+  ).join('');
+}
+
 function clearActionInstruction(){
   const banner=document.getElementById('action-banner');
   if(banner)banner.classList.remove('show');
@@ -1317,15 +1368,14 @@ function onScenarioAcquit(){
 // renvoie immédiatement sur le même modal pour réessayer.
 function showDasResetChoiceModal(){
   const m=document.createElement('div');m.className='modal-overlay';m.id='das-reset-modal';
-  let html='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#2563eb">📋 Quelle est la prochaine action ?</h3>';
-  html+='<p style="font-size:14px;margin-bottom:16px">Le processus est acquitté. Mais les DAS sont toujours en position de sécurité (LED rouges). Que faites-vous avant de réarmer ?</p>';
-  html+='<div style="display:flex;flex-direction:column;gap:8px">';
-  html+='<button onclick="dasResetChoice(\'remettre_attente\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔄 Remettre les DAS en position d\'attente</button>';
-  html+='<button onclick="dasResetChoice(\'rearm_sdi\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔁 Réarmer directement le SDI</button>';
-  html+='<button onclick="dasResetChoice(\'rearm_smsi\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔁 Réarmer directement le SMSI</button>';
-  html+='<button onclick="dasResetChoice(\'hs\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">⚠️ Mettre les zones en défaut hors service</button>';
-  html+='</div></div>';
-  m.innerHTML=html;document.body.appendChild(m);
+  const choices=[
+    {fn:'dasResetChoice',arg:'remettre_attente',label:'🔄 Remettre les DAS en position d\'attente'},
+    {fn:'dasResetChoice',arg:'rearm_sdi',label:'🔁 Réarmer directement le SDI'},
+    {fn:'dasResetChoice',arg:'rearm_smsi',label:'🔁 Réarmer directement le SMSI'},
+    {fn:'dasResetChoice',arg:'hs',label:'⚠️ Mettre les zones en défaut hors service'}
+  ];
+  m.innerHTML='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#2563eb">📋 Quelle est la prochaine action ?</h3><p style="font-size:14px;margin-bottom:16px">Le processus est acquitté. Mais les DAS sont toujours en position de sécurité (LED rouges). Que faites-vous avant de réarmer ?</p><div style="display:flex;flex-direction:column;gap:8px">'+renderChoicesShuffled(choices)+'</div></div>';
+  document.body.appendChild(m);
 }
 
 function dasResetChoice(choice){
@@ -1381,15 +1431,13 @@ function showDmResetModal(){
   const triggered=STATE.sdi.manualAlarms.filter(d=>d.triggered);
   const dmList=triggered.map(d=>d.address+(d.location?' - '+d.location:'')).join(', ');
   const m=document.createElement('div');m.className='modal-overlay';m.id='dm-reset-modal';
-  let html='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#2563eb">🔧 Réarmement du déclencheur manuel</h3>';
-  html+='<p style="font-size:14px;margin-bottom:12px">Un déclencheur manuel est encore en alarme : <strong>'+dmList+'</strong>.</p>';
-  html+='<p style="font-size:14px;margin-bottom:16px">Que faites-vous avant de réarmer le SDI ?</p>';
-  html+='<div style="display:flex;flex-direction:column;gap:8px">';
-  html+='<button onclick="dmResetChoice(\'physical\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔑 Aller réarmer le DM sur le mur avec la clé carrée</button>';
-  html+='<button onclick="dmResetChoice(\'rearm_sdi\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">🔁 Réarmer le SDI directement (sans toucher au DM)</button>';
-  html+='<button onclick="dmResetChoice(\'hs\')" style="padding:12px;border-radius:8px;border:2px solid #ddd;background:white;cursor:pointer;text-align:left;font-size:13px">⚠️ Mettre le DM hors service</button>';
-  html+='</div></div>';
-  m.innerHTML=html;document.body.appendChild(m);
+  const choices=[
+    {fn:'dmResetChoice',arg:'physical',label:'🔑 Aller réarmer le DM sur le mur avec la clé carrée'},
+    {fn:'dmResetChoice',arg:'rearm_sdi',label:'🔁 Réarmer le SDI directement (sans toucher au DM)'},
+    {fn:'dmResetChoice',arg:'hs',label:'⚠️ Mettre le DM hors service'}
+  ];
+  m.innerHTML='<div class="modal-content" onclick="event.stopPropagation()"><h3 style="font-size:18px;font-weight:bold;margin-bottom:12px;color:#2563eb">🔧 Réarmement du déclencheur manuel</h3><p style="font-size:14px;margin-bottom:12px">Un déclencheur manuel est encore en alarme : <strong>'+dmList+'</strong>.</p><p style="font-size:14px;margin-bottom:16px">Que faites-vous avant de réarmer le SDI ?</p><div style="display:flex;flex-direction:column;gap:8px">'+renderChoicesShuffled(choices)+'</div></div>';
+  document.body.appendChild(m);
 }
 
 function dmResetChoice(choice){
@@ -1477,6 +1525,18 @@ h+='<div class="w-px h-5 bg-gray-300"></div>';
 h+='<div><h1 class="text-base font-bold text-gray-900">🔥 Simulateur SSI</h1>';
 h+='<p class="text-xs text-gray-500">'+(u?_userName(u):'Auto-entraînement')+'</p></div></div>';
 h+='<div class="flex items-center gap-2">';
+// Sélecteur de phase d'apprentissage à GAUCHE du bouton scénario.
+// debutant: bandeau + highlight bouton attendu | confirme: bandeau seul
+// (texte de consigne sans highlight) | expert: rien, le stagiaire agit sans aide.
+const phases=[
+  {key:'debutant',label:'🌱 Débutant',bg:'bg-emerald-500'},
+  {key:'confirme',label:'🎓 Confirmé',bg:'bg-blue-500'},
+  {key:'expert',label:'🏆 Expert',bg:'bg-purple-600'}
+];
+phases.forEach(p=>{
+  const active=STATE.learningPhase===p.key;
+  h+='<button onclick="setLearningPhase(\''+p.key+'\')" class="px-2 py-1.5 rounded-lg font-bold text-xs text-white '+(active?p.bg+' shadow-md':'bg-gray-400 opacity-60 hover:opacity-90')+'" title="'+(p.key==='debutant'?'Bandeau + bouton en surbrillance':p.key==='confirme'?'Bandeau seul, sans surbrillance':'Aucune indication')+'">'+p.label+'</button>';
+});
 h+='<select onchange="const v=this.value;this.value=\'\';if(v)try{startScenario(v)}catch(e){console.error(\'startScenario failed:\',e);showCustomAlert(\'❌ Erreur au démarrage du scénario : \'+e.message);}" class="px-3 py-1.5 bg-orange-500 text-white rounded-lg font-bold text-xs cursor-pointer border-0 outline-none"><option value="">🎯 Scénario...</option><option value="prise_de_poste">📋 Prise de poste</option><option value="declenchement_dai">🔍 Déclenchement DAI</option><option value="declenchement_dm">🚨 Déclenchement DM</option><option value="rearmement">🔄 Réarmement SSI</option><option value="mise_hs">🔒 Mise Hors Service</option><option value="remise_service">🔓 Remise en Service</option></select>';
 if(sc)h+='<button onclick="showScenarioHelp()" class="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-xs">📖 Aide</button>';
 h+='</div></div>';
