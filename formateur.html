@@ -13,11 +13,15 @@
 
 <link rel="stylesheet" href="design-tokens.css">
 <link rel="stylesheet" href="mib-design.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css">
+<link rel="stylesheet" href="tour.css">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js"></script>
 <script src="config.js"></script>
 <script src="supabase.js"></script>
+<script src="tour-formateur.js" defer></script>
 
 <style>
 /* =============================================================
@@ -679,6 +683,7 @@ body {
       </div>
     </nav>
     <div class="sb-footer">
+      <button id="tour-help-anchor" class="btn-logout" onclick="window.startFormateurTour && startFormateurTour(true)" style="margin-bottom:8px;">❓ Revoir le tutoriel</button>
       <button class="btn-logout" onclick="logout()">🚪 Déconnexion</button>
     </div>
   </aside>
@@ -689,7 +694,7 @@ body {
     <!-- ─── OVERVIEW ─── -->
     <div id="page-overview" class="page active">
       <h2 class="page-title">Tableau de bord</h2>
-      <div class="kpi-grid">
+      <div id="kpi-grid" class="kpi-grid">
         <div class="kpi-card"><div class="kpi-icon">📋</div><div class="kpi-val" id="kpi-sessions">—</div><div class="kpi-lbl">Sessions</div></div>
         <div class="kpi-card"><div class="kpi-icon">👥</div><div class="kpi-val" id="kpi-stagiaires">—</div><div class="kpi-lbl">Stagiaires</div></div>
         <div class="kpi-card"><div class="kpi-icon">🎯</div><div class="kpi-val" id="kpi-entr">—</div><div class="kpi-lbl">Entraînements</div></div>
