@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>FAQ — Foire aux questions — MIB Prévention</title>
+<meta name="theme-color" content="#F8FAFC">
+<meta name="description" content="Questions fréquentes sur la plateforme SSIAP MIB Prévention : comptes, formation, paiement, données et aspects techniques.">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/Logo MIB.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design-tokens.css">
+<link rel="stylesheet" href="mib-design.css">
+<link rel="stylesheet" href="legal/legal.css">
+
+<style>
+  /* ─── FAQ : navigation par catégories ─── */
+  .faq-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin: var(--space-6) 0 var(--space-8);
+  }
+  .faq-nav a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: var(--radius-pill, 999px);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    color: var(--text-2);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    text-decoration: none;
+    transition: all .15s ease;
+  }
+  .faq-nav a:hover {
+    border-color: var(--vigil-500);
+    color: var(--vigil-700);
+    transform: translateY(-1px);
+  }
+
+  /* ─── Sections ─── */
+  .faq-section { margin-bottom: var(--space-8); scroll-margin-top: 80px; }
+  .faq-section > h2 {
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-extrabold);
+    color: var(--text-1);
+    letter-spacing: var(--tracking-tight);
+    margin-bottom: var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .faq-section > h2 .em { font-size: 1.1em; }
+
+  /* ─── Item accordéon (details/summary) ─── */
+  .faq-item {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-3);
+    overflow: hidden;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .faq-item[open] {
+    border-color: var(--vigil-300);
+    box-shadow: 0 6px 24px -12px rgba(16,185,129,.35);
+  }
+  .faq-item > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: var(--space-4) var(--space-5);
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    color: var(--text-1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+  .faq-item > summary::-webkit-details-marker { display: none; }
+  .faq-item > summary:hover { color: var(--vigil-700); }
+  .faq-item > summary .chev {
+    flex-shrink: 0;
+    transition: transform .2s ease;
+    color: var(--vigil-600);
+  }
+  .faq-item[open] > summary .chev { transform: rotate(180deg); }
+  .faq-answer {
+    padding: 0 var(--space-5) var(--space-5);
+    color: var(--text-2);
+    font-size: var(--text-sm);
+    line-height: 1.65;
+  }
+  .faq-answer p { margin: 0 0 var(--space-3); }
+  .faq-answer p:last-child { margin-bottom: 0; }
+  .faq-answer ul { margin: 0 0 var(--space-3); padding-left: 1.25rem; }
+  .faq-answer li { margin-bottom: 6px; }
+  .faq-answer a { color: var(--vigil-700); font-weight: var(--weight-semibold); }
+  .faq-answer strong { color: var(--text-1); font-weight: var(--weight-semibold); }
+
+  /* ─── Encart contact ─── */
+  .faq-contact {
+    margin-top: var(--space-10);
+    background: var(--gradient-primary-soft);
+    border: 1px solid var(--vigil-200);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    text-align: center;
+  }
+  .faq-contact h3 {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: var(--weight-extrabold);
+    color: var(--text-1);
+    margin-bottom: var(--space-2);
+  }
+  .faq-contact p { color: var(--text-2); font-size: var(--text-sm); margin-bottom: var(--space-4); }
+  .faq-contact a.faq-contact-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 22px;
+    border-radius: var(--radius-md, 10px);
+    background: var(--gradient-primary);
+    color: #fff;
+    font-weight: var(--weight-bold);
+    font-size: var(--text-sm);
+    text-decoration: none;
+  }
+  .faq-contact a.faq-contact-btn:hover { background: var(--gradient-primary-hover); }
+</style>
+</head>
+<body>
+
+<div class="legal-topbar">
+  <a href="index.html" class="legal-back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"></line>
+      <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    Retour à la plateforme
+  </a>
+  <h1>FAQ</h1>
+</div>
+
+<div class="legal-wrap">
+
+  <div class="legal-hero">
+    <div class="eyebrow">MIB Prévention · Centre d'aide</div>
+    <h1>Foire aux questions</h1>
+    <p class="lead">
+      Retrouvez les réponses aux questions les plus fréquentes sur la plateforme de formation
+      <strong>SSIAP</strong> MIB Prévention, selon votre profil et votre usage.
+    </p>
+  </div>
+
+  <nav class="faq-nav" aria-label="Catégories de la FAQ">
+    <a href="#general">Général &amp; compte</a>
+    <a href="#centre">Responsable de centre</a>
+    <a href="#formateur">Formateur</a>
+    <a href="#stagiaire">Stagiaire</a>
+    <a href="#paiement">Paiement &amp; abonnement</a>
+    <a href="#technique">Technique &amp; données</a>
+  </nav>
+
+  <!-- ════════ GÉNÉRAL ════════ -->
+  <section class="faq-section" id="general">
+    <h2><span class="em">❓</span> Général &amp; compte</h2>
+
+    <details class="faq-item">
+      <summary>Qu'est-ce que la plateforme MIB Prévention ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>MIB Prévention est une plateforme dédiée à la formation <strong>SSIAP 1, 2 et 3</strong> (Service de Sécurité Incendie et d'Assistance à Personnes). Elle réunit en un seul endroit le suivi des centres de formation, les outils des formateurs et les entraînements des stagiaires : quiz, exercices interactifs, outils de calcul réglementaire et suivi de progression.</p>
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Quels sont les différents types de comptes ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Il existe trois profils, chacun avec son espace dédié :</p>
+        <ul>
+          <li><strong>Responsable de centre</strong> — gère le centre, les licences, les formateurs et les statistiques.</li>
+          <li><strong>Formateur</strong> — anime les sessions, suit les stagiaires et leur progression.</li>
+          <li><strong>Stagiaire</strong> — accède aux quiz, à l'auto-entraînement et au suivi de sa formation.</li>
+        </ul>
+        <p>Chaque profil dispose de son propre écran de connexion depuis la page d'accueil.</p>
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Comment me connecter à mon espace ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Depuis la <a href="index.html">page d'accueil</a>, sélectionnez la carte correspondant à votre profil (Responsable de centre, Formateur ou Stagiaire), puis saisissez vos identifiants. Vos accès vous sont communiqués par votre centre de formation lors de votre inscription.</p>
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>J'ai oublié mon mot de passe, que faire ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Utilisez le lien « Mot de passe oublié » présent sur votre écran de connexion pour recevoir un lien de réinitialisation par e-mail. Si vous ne recevez rien, vérifiez vos courriers indésirables ou contactez votre centre de formation.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ════════ CENTRE ════════ -->
+  <section class="faq-section" id="centre">
+    <h2><span class="em">🏢</span> Responsable de centre</h2>
+
+    <details class="faq-item">
+      <summary>Comment ajouter des formateurs et des stagiaires ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Depuis votre espace centre, accédez à la gestion des comptes pour inviter vos formateurs et inscrire vos stagiaires. Chaque personne reçoit ses identifiants et est automatiquement rattachée à votre centre.</p>
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Comment fonctionnent les licences ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Les licences déterminent le nombre de comptes actifs (formateurs et stagiaires) que votre centre peut gérer simultanément. Vous suivez votre consommation depuis votre espace et pouvez ajuster votre formule selon vos besoins. Voir la page <a href="pricing.html">Tarifs</a> pour le détail des formules.</p>
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Quelles statistiques sont disponibles ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Votre tableau de bord regroupe les indicateurs clés de votre centre : progression des stagiaires, taux de réussite aux quiz, activité des sessions et suivi par formateur. Ces données vous aident à piloter la qualité de vos formations.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ════════ FORMATEUR ════════ -->
+  <section class="faq-section" id="formateur">
+    <h2><span class="em">👨‍🏫</span> Formateur</h2>
+
+    <details class="faq-item">
+      <summary>Comment gérer mes sessions de formation ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Depuis votre espace formateur, vous créez et organisez vos sessions, rattachez vos stagiaires et suivez leur avancement en temps réel. Vous gardez une vue d'ensemble sur la progression de chaque groupe.</p>
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Qu'est-ce que le quiz en salle ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Le quiz en salle permet d'animer une session collective en direct : vous lancez un questionnaire et les stagiaires y répondent depuis leur appareil. C'est un format idéal pour réviser en groupe et dynamiser vos cours.</p>
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Quels outils pédagogiques sont à ma disposition ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>La plateforme propose plusieurs outils interactifs alignés sur le référentiel SSIAP :</p>
+        <ul>
+          <li><strong>Calcul des dégagements</strong> — dimensionnement des sorties et unités de passage.</li>
+          <li><strong>Désenfumage</strong> — principes et calculs de désenfumage.</li>
+          <li><strong>Calcul d'effectif</strong> — détermination de l'effectif admissible.</li>
+        </ul>
+        <p>Ces outils servent autant à la démonstration en cours qu'à l'entraînement individuel des stagiaires.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ════════ STAGIAIRE ════════ -->
+  <section class="faq-section" id="stagiaire">
+    <h2><span class="em">🎓</span> Stagiaire</h2>
+
+    <details class="faq-item">
+      <summary>Comment m'entraîner avec les quiz ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Depuis votre espace stagiaire, lancez les quiz et l'auto-entraînement à votre rythme. Chaque réponse est corrigée pour vous permettre de comprendre vos erreurs et de progresser sur les notions du référentiel SSIAP.</p>
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Comment suivre ma progression ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Votre espace affiche votre avancement, vos scores et les thèmes à retravailler. Votre formateur dispose également de cette vue afin de vous accompagner sur vos points faibles.</p>
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Puis-je m'entraîner depuis mon téléphone ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Oui. La plateforme est une application web progressive (PWA) : elle s'utilise sur ordinateur, tablette et smartphone, et peut être ajoutée à l'écran d'accueil de votre appareil pour un accès rapide.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ════════ PAIEMENT ════════ -->
+  <section class="faq-section" id="paiement">
+    <h2><span class="em">💳</span> Paiement &amp; abonnement</h2>
+
+    <details class="faq-item">
+      <summary>Quels sont les tarifs ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Le détail des formules et de leurs fonctionnalités est disponible sur la page <a href="pricing.html">Tarifs</a>. Les abonnements sont pensés pour les centres de formation et dimensionnés selon le nombre de comptes.</p>
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Le paiement est-il sécurisé ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Oui. Les paiements sont traités par <strong>Stripe</strong>, un prestataire certifié PCI-DSS. Vos données bancaires ne transitent jamais en clair par nos serveurs et ne sont pas stockées par MIB Prévention.</p>
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Comment résilier ou modifier mon abonnement ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Les conditions de modification et de résiliation sont précisées dans nos <a href="legal/cgv.html">Conditions Générales de Vente</a>. Pour toute demande, contactez-nous depuis l'encart ci-dessous.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ════════ TECHNIQUE ════════ -->
+  <section class="faq-section" id="technique">
+    <h2><span class="em">🔒</span> Technique &amp; données</h2>
+
+    <details class="faq-item">
+      <summary>Où sont hébergées mes données ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Vos données sont hébergées en Europe (Union européenne), dans le respect du <strong>RGPD</strong>. Pour en savoir plus, consultez notre <a href="legal/politique-confidentialite.html">Politique de confidentialité</a>.</p>
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>La plateforme fonctionne-t-elle hors connexion ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>En tant qu'application web progressive (PWA), certaines pages déjà consultées restent accessibles hors connexion. Une connexion internet reste toutefois nécessaire pour synchroniser votre progression et accéder aux contenus à jour.</p>
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Quels navigateurs et appareils sont compatibles ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>La plateforme fonctionne sur les navigateurs récents (Chrome, Firefox, Safari, Edge), sur ordinateur, tablette et smartphone. Pour une expérience optimale, maintenez votre navigateur à jour.</p>
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Comment gérer mes cookies et mes données personnelles ?
+        <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="faq-answer">
+        <p>Consultez notre <a href="legal/politique-cookies.html">Politique cookies</a> et notre <a href="legal/politique-confidentialite.html">Politique de confidentialité</a>. Vous y trouverez les informations sur les traceurs utilisés et la marche à suivre pour exercer vos droits (accès, rectification, suppression).</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ════════ CONTACT ════════ -->
+  <div class="faq-contact">
+    <h3>Vous n'avez pas trouvé votre réponse ?</h3>
+    <p>Votre centre de formation reste votre premier interlocuteur. Pour toute autre question, l'équipe MIB Prévention est à votre disposition.</p>
+    <a class="faq-contact-btn" href="mailto:contact@mib-prevention.fr">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+      Nous contacter
+    </a>
+  </div>
+
+</div>
+
+</body>
+</html>
