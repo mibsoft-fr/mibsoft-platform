@@ -418,6 +418,31 @@
     line-height: 1;
   }
   .star-rating span:hover { transform: scale(1.15); }
+
+  /* FAQ accordéon (modale) */
+  .faq-acc details {
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md, 10px);
+    margin-bottom: 8px;
+    overflow: hidden;
+    background: var(--bg-surface);
+  }
+  .faq-acc details[open] { border-color: var(--vigil-300); }
+  .faq-acc summary {
+    list-style: none; cursor: pointer;
+    padding: 12px 14px;
+    font-weight: 700; font-size: .9rem;
+    color: var(--text-1);
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .faq-acc summary::-webkit-details-marker { display: none; }
+  .faq-acc summary::after { content: '⌄'; color: var(--vigil-600); font-size: 1.1rem; line-height: 1; transition: transform .2s; }
+  .faq-acc details[open] summary::after { transform: rotate(180deg); }
+  .faq-acc .a { padding: 0 14px 14px; font-size: .85rem; line-height: 1.6; color: var(--text-2); }
+  .faq-acc .a a { color: var(--vigil-700); font-weight: 600; }
+  .faq-acc .a strong { color: var(--text-1); }
+  .faq-cat { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); margin: 18px 0 8px; }
+  .faq-cat:first-child { margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -465,13 +490,13 @@
         </svg>
         Aide
       </button>
-      <a href="faq.html" class="topbar-logout" aria-label="Consulter la FAQ" title="Consulter la FAQ" style="text-decoration:none;">
+      <button onclick="openFaqModal()" class="topbar-logout" aria-label="Consulter la FAQ" title="Consulter la FAQ">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
           <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
         </svg>
         FAQ
-      </a>
+      </button>
       <button onclick="logout()" class="topbar-logout" aria-label="Se déconnecter">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -655,6 +680,55 @@
           </div>
         </div>
 
+        <!-- MODAL FAQ — Stagiaire -->
+        <div id="modal-faq-stag" class="mib-modal-backdrop hidden" style="display:none;">
+          <div class="mib-modal" style="max-width:480px;">
+            <div class="flex items-center justify-between" style="margin-bottom:var(--space-5);">
+              <h3 style="font-family:var(--font-display);font-size:var(--text-lg);font-weight:var(--weight-bold);color:var(--text-1);margin:0;">📖 FAQ — Stagiaire</h3>
+              <button onclick="closeFaqModal()" aria-label="Fermer" style="width:32px;height:32px;border-radius:50%;background:var(--neutral-100);border:none;cursor:pointer;font-size:0.9rem;color:var(--text-3);">✕</button>
+            </div>
+
+            <div class="faq-acc" style="max-height:60vh;overflow-y:auto;">
+
+              <p class="faq-cat">Compte &amp; connexion</p>
+              <details>
+                <summary>Comment me connecter à mon espace ?</summary>
+                <div class="a"><p>Depuis la <a href="index.html">page d'accueil</a>, sélectionnez la carte « Stagiaire » puis saisissez vos identifiants. Vos accès vous sont communiqués par votre centre de formation lors de votre inscription.</p></div>
+              </details>
+              <details>
+                <summary>J'ai oublié mon mot de passe, que faire ?</summary>
+                <div class="a"><p>Utilisez le lien « Mot de passe oublié » sur l'écran de connexion pour recevoir un lien de réinitialisation par e-mail. Si vous ne recevez rien, contactez votre centre.</p></div>
+              </details>
+
+              <p class="faq-cat">Mon entraînement</p>
+              <details>
+                <summary>Comment m'entraîner avec les quiz ?</summary>
+                <div class="a"><p>Lancez les quiz et l'auto-entraînement à votre rythme. Chaque réponse est corrigée pour comprendre vos erreurs et progresser sur les notions du référentiel SSIAP.</p></div>
+              </details>
+              <details>
+                <summary>Comment suivre ma progression ?</summary>
+                <div class="a"><p>Votre espace affiche votre avancement, vos scores et les thèmes à retravailler. Votre formateur dispose aussi de cette vue pour vous accompagner sur vos points faibles.</p></div>
+              </details>
+              <details>
+                <summary>Puis-je m'entraîner depuis mon téléphone ?</summary>
+                <div class="a"><p>Oui. La plateforme est une application web progressive (PWA) : elle s'utilise sur ordinateur, tablette et smartphone, et peut être ajoutée à l'écran d'accueil pour un accès rapide.</p></div>
+              </details>
+
+              <p class="faq-cat">Technique</p>
+              <details>
+                <summary>La plateforme fonctionne-t-elle hors connexion ?</summary>
+                <div class="a"><p>Certaines pages déjà consultées restent accessibles hors ligne. Une connexion reste nécessaire pour synchroniser votre progression et accéder aux contenus à jour.</p></div>
+              </details>
+
+            </div>
+
+            <div class="flex gap-3" style="margin-top:var(--space-5);">
+              <a href="faq.html" class="mib-btn mib-btn-ghost" style="flex:1;text-align:center;text-decoration:none;justify-content:center;">FAQ complète</a>
+              <button onclick="closeFaqModal()" class="mib-btn mib-btn-warning" style="flex:1;justify-content:center;">Fermer</button>
+            </div>
+          </div>
+        </div>
+
         <!-- MODULE DÉSACTIVÉ MESSAGE -->
         <div id="module-disabled" class="module-disabled hidden">
           <p>⚠️ Ce module n'est pas activé sur votre centre.</p>
@@ -780,6 +854,17 @@ window.logout = function() {
   if (window.SESSION) SESSION.clear('stagiaire');
   localStorage.removeItem('mib_stagiaire');
   window.location.href = 'login-stagiaire.html';
+};
+
+window.openFaqModal = function() {
+  const m = document.getElementById('modal-faq-stag');
+  m.style.display = 'flex';
+  m.classList.remove('hidden');
+};
+window.closeFaqModal = function() {
+  const m = document.getElementById('modal-faq-stag');
+  m.style.display = 'none';
+  m.classList.add('hidden');
 };
 
 let currentNote = 0;
