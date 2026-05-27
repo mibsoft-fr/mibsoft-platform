@@ -447,7 +447,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
           <div style="font-size:0.72rem;color:var(--text-3);" id="topbar-sub">Vue d'ensemble plateforme</div>
         </div>
       </div>
-      <button onclick="loadAll()" class="btn btn-blue btn-sm" aria-label="Actualiser">
+      <button onclick="loadAll(this)" class="btn btn-blue btn-sm" aria-label="Actualiser">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="23 4 23 10 17 10"></polyline>
           <polyline points="1 20 1 14 7 14"></polyline>
@@ -740,8 +740,8 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
           <p style="font-size:.82rem;color:var(--text2);margin-top:2px;">Vérifications horaires automatiques · Alertes critiques par email</p>
         </div>
         <div style="display:flex;gap:8px;">
-          <button onclick="runHealthCheck()" class="btn btn-green btn-sm">▶ Lancer une vérification</button>
-          <button onclick="loadMonitoring()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
+          <button onclick="runHealthCheck(this)" class="btn btn-green btn-sm">▶ Lancer une vérification</button>
+          <button onclick="loadMonitoring(this)" class="btn btn-blue btn-sm">🔄 Actualiser</button>
         </div>
       </div>
 
@@ -1312,7 +1312,15 @@ document.addEventListener('click', (e) => {
 // ============================================================
 // DONNÉES
 // ============================================================
-async function loadAll(){
+async function withSpin(btn, fn){
+  if(!btn) return await fn();
+  const orig=btn.innerHTML, wasDisabled=btn.disabled;
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
+  try{ return await fn(); }
+  finally{ btn.disabled=wasDisabled; btn.innerHTML=orig; }
+}
+async function loadAll(btn){ return withSpin(btn, loadAllCore); }
+async function loadAllCore(){
   // KPIs
   try{
     const[{count:nc},{count:nl},{count:ns},{count:nses}]=await Promise.all([
@@ -2012,7 +2020,8 @@ async function purgeLogs(){
 // ════════════════════════════════════════════════════════════
 // MONITORING
 // ════════════════════════════════════════════════════════════
-async function loadMonitoring(){
+async function loadMonitoring(btn){ return withSpin(btn, loadMonitoringCore); }
+async function loadMonitoringCore(){
   // Alertes ouvertes par sévérité
   const { data: alerts } = await supabase.from('monitoring_alerts').select('*').eq('resolved', false).order('ts', { ascending: false }).limit(100);
   const all = alerts || [];
@@ -2091,16 +2100,18 @@ async function resolveAlert(id){
   loadMonitoring();
 }
 
-async function runHealthCheck(){
-  const url = `${supabase.supabaseUrl}/functions/v1/health-monitor`;
-  try {
-    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type':'application/json', 'apikey': supabase.supabaseKey } });
-    const body = await r.json();
-    if (!r.ok) { alert('Erreur : ' + (body.error || r.status)); return; }
-    setTimeout(loadMonitoring, 500);
-  } catch (e) {
-    alert('Erreur réseau : ' + e.message);
-  }
+async function runHealthCheck(btn){
+  return withSpin(btn, async () => {
+    const url = `${supabase.supabaseUrl}/functions/v1/health-monitor`;
+    try {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type':'application/json', 'apikey': supabase.supabaseKey } });
+      const body = await r.json();
+      if (!r.ok) { alert('Erreur : ' + (body.error || r.status)); return; }
+      await loadMonitoring();
+    } catch (e) {
+      alert('Erreur réseau : ' + e.message);
+    }
+  });
 }
 
 // ============================================================
