@@ -339,9 +339,40 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
         </div>
       </div>
       <div id="login-err" class="alert-err hidden"></div>
+      <div id="login-ok" class="alert-ok hidden"></div>
       <button class="btn-login" onclick="doLogin()">Accéder au panneau →</button>
+      <p style="text-align:center;margin-top:4px;">
+        <a href="#" onclick="event.preventDefault();askPasswordReset()" style="font-size:.8rem;color:var(--vigil-700);font-weight:600;text-decoration:none;">Mot de passe oublié ?</a>
+      </p>
     </div>
     <p style="margin-top:20px;font-size:.7rem;color:var(--text3);text-align:center;">Accès réservé aux super-administrateurs MIB Prévention</p>
+  </div>
+</div>
+
+<!-- ═══════════ PAGE RÉINITIALISATION MOT DE PASSE ═══════════ -->
+<div id="page-recovery" class="hidden relative z-10 min-h-screen flex items-center justify-center p-4">
+  <div class="login-card w-full p-8" style="max-width:400px;">
+    <div class="flex items-center gap-3 mb-7">
+      <div class="logo-icon">🔑</div>
+      <div>
+        <div class="logo-t text-gray-900" style="font-size:1.4rem;">Nouveau mot de passe</div>
+        <div style="font-size:.7rem;color:var(--text2);letter-spacing:.1em;text-transform:uppercase;margin-top:2px;">Réinitialisation</div>
+      </div>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="lbl">Nouveau mot de passe</label>
+        <input type="password" id="rec-pwd" class="inp" placeholder="••••••••••••">
+      </div>
+      <div>
+        <label class="lbl">Confirmer le mot de passe</label>
+        <input type="password" id="rec-pwd2" class="inp" placeholder="••••••••••••"
+          onkeydown="if(event.key==='Enter')submitRecovery()">
+      </div>
+      <div id="rec-err" class="alert-err hidden"></div>
+      <div id="rec-ok" class="alert-ok hidden"></div>
+      <button class="btn-login" onclick="submitRecovery()">Définir le mot de passe →</button>
+    </div>
   </div>
 </div>
 
@@ -393,6 +424,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
 
     <div style="margin-top:auto;padding-top:40px;">
       <div class="sep"></div>
+      <button onclick="openModal('modal-change-pwd')" class="btn btn-gray btn-sm w-full" style="margin-bottom:8px;">🔑 Changer mon mot de passe</button>
       <button onclick="logout()" class="btn btn-gray btn-sm w-full">🚪 Déconnexion</button>
     </div>
   </div>
@@ -1065,14 +1097,47 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
   </div>
 </div>
 
+<!-- ═══════════ MODALE — Changer mon mot de passe ═══════════ -->
+<div id="modal-change-pwd" class="modal-bg hidden">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="flex justify-between items-center mb-5">
+      <h3 style="font-size:1.1rem;font-weight:800;">🔑 Changer mon mot de passe</h3>
+      <button onclick="closeModal('modal-change-pwd')" style="width:32px;height:32px;border-radius:50%;background:#f3f4f6;border:none;cursor:pointer;font-size:1rem;">✕</button>
+    </div>
+    <div class="space-y-3">
+      <div><label class="lbl">Nouveau mot de passe</label><input type="password" id="cp-pwd" class="inp" placeholder="Au moins 8 caractères"></div>
+      <div><label class="lbl">Confirmer le mot de passe</label><input type="password" id="cp-pwd2" class="inp" placeholder="••••••••••••" onkeydown="if(event.key==='Enter')changeMyPassword()"></div>
+      <div id="cp-msg" class="hidden"></div>
+      <div class="flex gap-3 mt-1">
+        <button onclick="closeModal('modal-change-pwd')" class="btn btn-gray flex-1">Annuler</button>
+        <button onclick="changeMyPassword()" class="btn btn-blue flex-1" id="btn-cp">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // AUTH
 // ============================================================
 let allCentres=[];
 
+// Détecte le retour d'un lien de réinitialisation (e-mail "mot de passe oublié")
+let __recoveryMode = false;
+supabase.auth.onAuthStateChange((event) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    __recoveryMode = true;
+    showRecovery();
+  }
+});
+
 // Vérifie la session Supabase au chargement
 window.addEventListener('DOMContentLoaded', async () => {
+  if (__recoveryMode || /type=recovery/.test(window.location.hash)) {
+    __recoveryMode = true;
+    showRecovery();
+    return;
+  }
   const { data: { session } } = await supabase.auth.getSession();
   if (session && isSuperAdminFromToken(session.access_token)) {
     showApp();
@@ -1091,6 +1156,7 @@ async function doLogin(){
   const pwd = document.getElementById('login-pwd').value;
   const err = document.getElementById('login-err');
   err.classList.add('hidden');
+  document.getElementById('login-ok').classList.add('hidden');
   if (!email || !pwd) { err.textContent='❌ Remplissez email et mot de passe.'; err.classList.remove('hidden'); return; }
   try { await supabase.auth.signOut(); } catch(_){}
   const { data, error } = await supabase.auth.signInWithPassword({ email, password: pwd });
@@ -1106,6 +1172,68 @@ async function doLogin(){
     return;
   }
   showApp();
+}
+
+// Envoie l'e-mail de réinitialisation (lien "Mot de passe oublié")
+async function askPasswordReset(){
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const err = document.getElementById('login-err');
+  const ok  = document.getElementById('login-ok');
+  err.classList.add('hidden'); ok.classList.add('hidden');
+  if (!email) { err.textContent='❌ Saisissez d\'abord votre email, puis cliquez sur « Mot de passe oublié ».'; err.classList.remove('hidden'); return; }
+  const redirectTo = window.location.href.split('#')[0].split('?')[0];
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) { err.textContent='❌ '+error.message; err.classList.remove('hidden'); return; }
+  ok.textContent = '✅ Si un compte existe pour '+email+', un e-mail de réinitialisation vient d\'être envoyé. Ouvrez le lien reçu pour définir un nouveau mot de passe.';
+  ok.classList.remove('hidden');
+}
+
+// Affiche l'écran "définir un nouveau mot de passe" (retour du lien e-mail)
+function showRecovery(){
+  document.getElementById('page-login').classList.add('hidden');
+  document.getElementById('page-app').classList.add('hidden');
+  document.getElementById('page-recovery').classList.remove('hidden');
+}
+
+// Valide le nouveau mot de passe issu du lien de récupération
+async function submitRecovery(){
+  const p1 = document.getElementById('rec-pwd').value;
+  const p2 = document.getElementById('rec-pwd2').value;
+  const err = document.getElementById('rec-err');
+  const ok  = document.getElementById('rec-ok');
+  err.classList.add('hidden'); ok.classList.add('hidden');
+  if (p1.length < 8) { err.textContent='❌ Le mot de passe doit faire au moins 8 caractères.'; err.classList.remove('hidden'); return; }
+  if (p1 !== p2)     { err.textContent='❌ Les deux mots de passe ne correspondent pas.'; err.classList.remove('hidden'); return; }
+  const { error } = await supabase.auth.updateUser({ password: p1 });
+  if (error) { err.textContent='❌ '+error.message; err.classList.remove('hidden'); return; }
+  ok.textContent = '✅ Mot de passe mis à jour. Connexion en cours…';
+  ok.classList.remove('hidden');
+  __recoveryMode = false;
+  history.replaceState(null, '', window.location.pathname);
+  setTimeout(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    document.getElementById('page-recovery').classList.add('hidden');
+    if (session && isSuperAdminFromToken(session.access_token)) showApp();
+    else document.getElementById('page-login').classList.remove('hidden');
+  }, 1200);
+}
+
+// Change le mot de passe depuis l'admin (utilisateur déjà connecté)
+async function changeMyPassword(){
+  const p1 = document.getElementById('cp-pwd').value;
+  const p2 = document.getElementById('cp-pwd2').value;
+  const msg = document.getElementById('cp-msg');
+  const btn = document.getElementById('btn-cp');
+  msg.classList.add('hidden');
+  if (p1.length < 8) { msg.innerHTML='<div class="alert-err">❌ Le mot de passe doit faire au moins 8 caractères.</div>'; msg.classList.remove('hidden'); return; }
+  if (p1 !== p2)     { msg.innerHTML='<div class="alert-err">❌ Les deux mots de passe ne correspondent pas.</div>'; msg.classList.remove('hidden'); return; }
+  btn.disabled = true;
+  const { error } = await supabase.auth.updateUser({ password: p1 });
+  btn.disabled = false;
+  if (error) { msg.innerHTML='<div class="alert-err">❌ '+error.message+'</div>'; msg.classList.remove('hidden'); return; }
+  msg.innerHTML='<div class="alert-ok">✅ Mot de passe modifié.</div>'; msg.classList.remove('hidden');
+  document.getElementById('cp-pwd').value=''; document.getElementById('cp-pwd2').value='';
+  setTimeout(()=>{ closeModal('modal-change-pwd'); msg.classList.add('hidden'); }, 1300);
 }
 
 function togglePwd(){const i=document.getElementById('login-pwd');i.type=i.type==='password'?'text':'password';}
@@ -1975,6 +2103,7 @@ async function runHealthCheck(){
 // INIT
 // ============================================================
 window.addEventListener('DOMContentLoaded',()=>{
+  if(__recoveryMode || /type=recovery/.test(window.location.hash)) return;
   if(SESSION.load('admin'))showApp();
 });
 </script>
