@@ -1,0 +1,47 @@
+/* =============================================================================
+   MIB Prévention — Habillage brand des tutoriels interactifs (Driver.js)
+   Partagé par les espaces stagiaire, formateur et centre.
+   ============================================================================= */
+
+.driver-popover.mib-tour {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px -20px rgba(15, 23, 42, 0.45);
+  font-family: var(--font-body);
+  background: var(--bg-surface);
+}
+.driver-popover.mib-tour .driver-popover-title {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: var(--weight-extrabold);
+  color: var(--text-1);
+}
+.driver-popover.mib-tour .driver-popover-description {
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  line-height: 1.55;
+}
+.driver-popover.mib-tour .driver-popover-progress-text {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  font-weight: var(--weight-semibold);
+}
+.driver-popover.mib-tour .driver-popover-footer button {
+  text-shadow: none;
+  border-radius: var(--radius-md, 10px);
+  font-family: var(--font-body);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+  padding: 7px 14px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-2);
+}
+.driver-popover.mib-tour .driver-popover-footer .driver-popover-next-btn {
+  background: var(--gradient-primary);
+  border-color: transparent;
+  color: #fff;
+}
+.driver-popover.mib-tour .driver-popover-footer .driver-popover-next-btn:hover {
+  background: var(--gradient-primary-hover);
+}
+.driver-popover.mib-tour .driver-popover-arrow { color: var(--bg-surface); }

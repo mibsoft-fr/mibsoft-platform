@@ -13,11 +13,15 @@
 
 <link rel="stylesheet" href="design-tokens.css">
 <link rel="stylesheet" href="mib-design.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css">
+<link rel="stylesheet" href="tour.css">
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js"></script>
 <script src="config.js"></script>
 <script src="supabase.js"></script>
+<script src="tour-centre.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="statistiques.js"></script>
@@ -731,6 +735,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
     </nav>
     <div style="margin-top:auto;padding-top:30px;">
       <div class="sep"></div>
+      <button id="tour-help-anchor" onclick="window.startCentreTour && startCentreTour(true)" class="btn btn-gray btn-sm" style="width:100%;margin-bottom:8px;">❓ Revoir le tutoriel</button>
       <button onclick="logout()" class="btn btn-gray btn-sm" style="width:100%;">🚪 Déconnexion</button>
     </div>
   </div>
@@ -767,7 +772,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
 
       <!-- DASHBOARD -->
       <div id="tab-dashboard">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div id="kpi-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div class="kpi"><div class="kpi-icon">👨‍🏫</div><div class="kpi-val text-blue-600" id="kpi-f">—</div><div class="kpi-lbl">Formateurs</div></div>
           <div class="kpi"><div class="kpi-icon">👨‍🎓</div><div class="kpi-val text-green-600" id="kpi-s">—</div><div class="kpi-lbl">Stagiaires</div></div>
           <div class="kpi"><div class="kpi-icon">📋</div><div class="kpi-val text-purple-600" id="kpi-ses">—</div><div class="kpi-lbl">Sessions</div></div>
