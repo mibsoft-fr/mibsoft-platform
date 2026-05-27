@@ -746,7 +746,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
       </div>
 
       <div id="mon-email-config" class="hidden" style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:14px 18px;margin-bottom:16px;font-size:.82rem;color:#9a3412;">
-        ⚠️ <strong>Email d'alerte non configuré.</strong> Pour recevoir les alertes critiques par email, ajoutez les variables d'environnement <code>RESEND_API_KEY</code> et <code>ALERT_EMAIL</code> dans Supabase Dashboard → Edge Functions → Secrets.
+        ⚠️ <strong>Email d'alerte non configuré.</strong> <span id="mon-email-missing"></span> Ajoutez le(s) secret(s) manquant(s) dans Supabase Dashboard → Edge Functions → Secrets (nom exact, sensible à la casse — ex. <code>ALERT_EMAIL</code>).
       </div>
 
       <div class="grid grid-cols-4 gap-4 mb-6" id="mon-kpis"></div>
@@ -2024,10 +2024,14 @@ async function loadMonitoring(){
   // Dernier run
   const { data: lastRun } = await supabase.from('monitoring_runs').select('*').order('started_at', { ascending: false }).limit(1).maybeSingle();
 
-  // Vérifier si email config visible dans le dernier run
+  // Bandeau "email non configuré" — basé sur le rapport explicite du dernier run
   const emailCfg = lastRun?.checks?.email;
-  const noEmail = emailCfg && emailCfg.reason && (emailCfg.reason === 'no_resend_key' || emailCfg.reason === 'no_alert_email');
-  document.getElementById('mon-email-config').classList.toggle('hidden', !noEmail && (lastRun?.checks?.email?.sent !== false || !lastRun));
+  const noEmail = emailCfg ? emailCfg.configured === false : false;
+  document.getElementById('mon-email-config').classList.toggle('hidden', !noEmail);
+  if (noEmail) {
+    const miss = Array.isArray(emailCfg.missing) ? emailCfg.missing : [];
+    document.getElementById('mon-email-missing').textContent = miss.length ? ('Secret(s) manquant(s) : ' + miss.join(', ') + '.') : '';
+  }
 
   // KPIs
   const statusBadge2 = (s) => ({ok:'<span style="color:var(--green);">✓ OK</span>', degraded:'<span style="color:var(--orange);">⚠ Dégradé</span>', failed:'<span style="color:var(--red);">✗ Échec</span>', running:'<span style="color:var(--text3);">⏳ En cours</span>'})[s] || s;
