@@ -844,8 +844,8 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
         <div class="card p-5">
           <div class="overflow-x-auto">
             <table class="tbl">
-              <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>PIN</th><th>Statut</th><th>Actions</th></tr></thead>
-              <tbody id="body-formateurs"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">Chargement...</td></tr></tbody>
+              <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Niveau</th><th>Recyclage</th><th>PIN</th><th>Statut</th><th>Actions</th></tr></thead>
+              <tbody id="body-formateurs"><tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px;">Chargement...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1081,6 +1081,9 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
             <option value="SSIAP3">SSIAP 3 — Chef de service</option>
           </select>
         </div>
+      </div>
+      <div><label class="lbl">Date du dernier recyclage <span style="color:var(--text3);font-weight:400;">(recyclage SSIAP tous les 3 ans)</span></label>
+        <input type="date" id="f-recyclage" class="inp">
       </div>
       <div style="background:linear-gradient(145deg,#eff6ff,#dbeafe);border-radius:12px;padding:12px;text-align:center;">
         <div style="font-size:.7rem;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.07em;">🔐 Code PIN</div>
@@ -1529,25 +1532,47 @@ function eligibleFormateurs(sessionNiveau) {
   return allFormateurs.filter(f => f.actif !== false && canFormateurTeach(f.niveau, sessionNiveau));
 }
 
+// Statut du recyclage SSIAP : 3 ans entre deux recyclages, alerte 6 mois avant.
+// Retourne { state: 'ok'|'soon'|'expired'|'unknown', dueDate: Date|null, label: string, badge: string }
+function recyclageStatus(dateStr) {
+  if (!dateStr) return { state:'unknown', dueDate:null, label:'Non renseigné', badge:'b-gray' };
+  const last = new Date(dateStr);
+  if (isNaN(last)) return { state:'unknown', dueDate:null, label:'Date invalide', badge:'b-gray' };
+  const due = new Date(last); due.setFullYear(due.getFullYear() + 3);
+  const now = new Date();
+  const ms6m = 1000*60*60*24*30*6;
+  const dueStr = due.toLocaleDateString('fr-FR');
+  if (now >= due) return { state:'expired', dueDate:due, label:'Expiré (échéance ' + dueStr + ')', badge:'b-red' };
+  if (due - now <= ms6m) return { state:'soon', dueDate:due, label:'À recycler avant le ' + dueStr, badge:'b-orange' };
+  return { state:'ok', dueDate:due, label:'Valide jusqu\'au ' + dueStr, badge:'b-green' };
+}
+
 window.loadFormateurs = async function() {
   if (!CENTER) return;
   try {
     const { data } = await supabase.from('formateurs').select('*').eq('center_id', CENTER.id).order('nom');
     allFormateurs = data || [];
     const tbody = document.getElementById('body-formateurs');
-    if (!allFormateurs.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">Aucun formateur</td></tr>'; return; }
-    tbody.innerHTML = allFormateurs.map(f =>
-      '<tr><td><strong>' + f.prenom + ' ' + f.nom + '</strong></td>'
+    if (!allFormateurs.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px;">Aucun formateur</td></tr>'; return; }
+    tbody.innerHTML = allFormateurs.map(f => {
+      const rc = recyclageStatus(f.date_dernier_recyclage);
+      const niveauBadge = f.niveau
+        ? '<span class="badge ' + (f.niveau==='SSIAP1'?'b-blue':f.niveau==='SSIAP2'?'b-orange':'b-red') + '">' + f.niveau + '</span>'
+        : '<span class="badge b-gray">—</span>';
+      const icon = rc.state==='expired' ? '⚠️ ' : rc.state==='soon' ? '⏰ ' : rc.state==='ok' ? '✅ ' : '';
+      return '<tr><td><strong>' + f.prenom + ' ' + f.nom + '</strong></td>'
       + '<td style="font-size:.8rem;color:var(--text2);">' + (f.email||'—') + '</td>'
       + '<td><span class="badge ' + (f.role==='responsable'?'b-blue':'b-gray') + '">' + f.role + '</span></td>'
+      + '<td>' + niveauBadge + '</td>'
+      + '<td><span class="badge ' + rc.badge + '" title="' + rc.label + '">' + icon + rc.label + '</span></td>'
       + '<td style="font-size:.8rem;color:var(--text2);">●●●●●●</td>'
       + '<td><span class="badge ' + (f.actif?'b-green':'b-red') + '">' + (f.actif?'Actif':'Inactif') + '</span></td>'
       + '<td><div style="display:flex;gap:5px;">'
       + '<button onclick="editFormateur(\'' + f.id + '\')" class="btn btn-blue btn-xs">✏️</button>'
       + '<button onclick="toggleFormateur(\'' + f.id + '\',' + f.actif + ')" class="btn ' + (f.actif?'btn-orange':'btn-green') + ' btn-xs">' + (f.actif?'⏸':'▶') + '</button>'
       + '<button onclick="deleteFormateur(\'' + f.id + '\')" class="btn btn-red btn-xs">🗑️</button>'
-      + '</div></td></tr>'
-    ).join('');
+      + '</div></td></tr>';
+    }).join('');
   } catch(e) { console.error(e); }
 };
 
@@ -1557,6 +1582,7 @@ window.saveFormateur = async function() {
   const email = document.getElementById('f-email').value.trim().toLowerCase();
   const role = document.getElementById('f-role').value;
   const niveauForm = document.getElementById('f-niveau-form')?.value || '';
+  const recyclage = document.getElementById('f-recyclage')?.value || null;
   const msgEl = document.getElementById('f-msg');
   msgEl.classList.add('hidden');
   if (!prenom || !nom) { msgEl.innerHTML = '<div class="alert-err">❌ Prénom et nom obligatoires.</div>'; msgEl.classList.remove('hidden'); return; }
@@ -1564,7 +1590,7 @@ window.saveFormateur = async function() {
   btnEl.disabled = true; btnEl.innerHTML = '<span class="spin"></span>';
   try {
     if (editingFormateurId) {
-      await supabase.from('formateurs').update({ prenom, nom, email: email||null, role, niveau: niveauForm||null }).eq('id', editingFormateurId);
+      await supabase.from('formateurs').update({ prenom, nom, email: email||null, role, niveau: niveauForm||null, date_dernier_recyclage: recyclage }).eq('id', editingFormateurId);
       msgEl.innerHTML = '<div class="alert-ok">✅ Formateur modifié.</div>'; msgEl.classList.remove('hidden');
       loadFormateurs(); loadAll();
       setTimeout(() => closeModal('modal-add-formateur'), 1500);
@@ -1577,7 +1603,7 @@ window.saveFormateur = async function() {
         if (!ex || !ex.length) { pin = c; pinHash = ph; break; }
       }
       if (!pin) throw new Error('Impossible de générer un PIN unique');
-      const { error } = await supabase.from('formateurs').insert({ prenom, nom, email: email||null, role, niveau: niveauForm||null, pin_hash: pinHash, pin_clair: pin, center_id: CENTER.id, actif: true });
+      const { error } = await supabase.from('formateurs').insert({ prenom, nom, email: email||null, role, niveau: niveauForm||null, date_dernier_recyclage: recyclage, pin_hash: pinHash, pin_clair: pin, center_id: CENTER.id, actif: true });
       if (error) throw error;
       const base = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
       const loginUrl = base + 'login-formateur.html?center=' + CENTER.id;
@@ -1605,6 +1631,7 @@ window.editFormateur = async function(id) {
   document.getElementById('f-email').value = data.email || '';
   document.getElementById('f-role').value = data.role;
   if(document.getElementById('f-niveau-form')) document.getElementById('f-niveau-form').value = data.niveau || '';
+  if(document.getElementById('f-recyclage')) document.getElementById('f-recyclage').value = data.date_dernier_recyclage || '';
   document.getElementById('f-msg').classList.add('hidden');
   document.getElementById('f-result').classList.add('hidden');
   document.getElementById('f-form-actions').classList.remove('hidden');
@@ -1620,6 +1647,7 @@ function resetFormateurModal() {
   ['f-prenom','f-nom','f-email'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
   document.getElementById('f-role').value = 'formateur';
   if(document.getElementById('f-niveau-form')) document.getElementById('f-niveau-form').value = '';
+  if(document.getElementById('f-recyclage')) document.getElementById('f-recyclage').value = '';
   document.getElementById('f-result').classList.add('hidden');
   document.getElementById('f-form-actions').classList.remove('hidden');
   document.getElementById('f-msg').classList.add('hidden');
