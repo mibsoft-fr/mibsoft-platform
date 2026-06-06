@@ -1516,6 +1516,19 @@ window.loadAll = async function() {
 // ============================================================
 // FORMATEURS
 // ============================================================
+// Hiérarchie : un formateur de niveau N peut animer toutes les sessions de
+// niveau ≤ N. SSIAP3 → 1,2,3 ; SSIAP2 → 1,2 ; SSIAP1 → 1.
+const NIVEAU_RANK = { SSIAP1: 1, SSIAP2: 2, SSIAP3: 3 };
+function canFormateurTeach(formateurNiveau, sessionNiveau) {
+  const fr = NIVEAU_RANK[formateurNiveau] || 0;
+  const sr = NIVEAU_RANK[sessionNiveau] || 0;
+  return fr > 0 && sr > 0 && fr >= sr;
+}
+function eligibleFormateurs(sessionNiveau) {
+  if (!sessionNiveau) return allFormateurs.filter(f => f.actif !== false);
+  return allFormateurs.filter(f => f.actif !== false && canFormateurTeach(f.niveau, sessionNiveau));
+}
+
 window.loadFormateurs = async function() {
   if (!CENTER) return;
   try {
@@ -2061,6 +2074,14 @@ window.saveSession = async function() {
   const date_fin = document.getElementById('sess-fin').value || null;
   const notes = document.getElementById('sess-notes').value.trim() || null;
   const msgEl = document.getElementById('sess-msg'); msgEl.classList.add('hidden');
+  if (formateur_id) {
+    const f = allFormateurs.find(x => x.id === formateur_id);
+    if (f && !canFormateurTeach(f.niveau, niveau)) {
+      msgEl.innerHTML = '<div class="alert-err">❌ ' + f.prenom + ' ' + f.nom + ' (' + (f.niveau||'niveau non défini') + ') n\'est pas habilité(e) à animer une session ' + niveau + '.</div>';
+      msgEl.classList.remove('hidden');
+      return;
+    }
+  }
   const btnEl = document.getElementById('btn-save-sess'); btnEl.disabled=true; btnEl.innerHTML='<span class="spin"></span>';
   try {
     const { data, error } = await supabase.from('sessions_formation').insert({
@@ -2175,6 +2196,16 @@ window.addSelectedParticipants = async function() {
 
 window.assignFormateur = async function() {
   const formateur_id = document.getElementById('assign-formateur-select').value || null;
+  const assignMsg = document.getElementById('assign-f-msg');
+  assignMsg.classList.add('hidden');
+  if (formateur_id && currentSession) {
+    const f = allFormateurs.find(x => x.id === formateur_id);
+    if (f && !canFormateurTeach(f.niveau, currentSession.niveau)) {
+      assignMsg.innerHTML = '<div class="alert-err">❌ ' + f.prenom + ' ' + f.nom + ' (' + (f.niveau||'niveau non défini') + ') n\'est pas habilité(e) à animer une session ' + currentSession.niveau + '.</div>';
+      assignMsg.classList.remove('hidden');
+      return;
+    }
+  }
   try {
     await supabase.from('sessions_formation').update({formateur_id}).eq('id', currentSession.id);
     currentSession.formateur_id = formateur_id;
@@ -2410,9 +2441,24 @@ window.openModal = function(id) {
     ['sess-debut','sess-fin','sess-notes'].forEach(i => { const el=document.getElementById(i); if(el) el.value=''; });
     const fillSess = () => {
       const sel = document.getElementById('sess-formateur');
+      const niveau = document.getElementById('sess-niveau').value;
+      const eligibles = eligibleFormateurs(niveau);
       sel.innerHTML = '<option value="">— Sélectionner —</option>';
-      allFormateurs.forEach(f => { const opt=document.createElement('option'); opt.value=f.id; opt.textContent=f.prenom+' '+f.nom; sel.appendChild(opt); });
+      eligibles.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.prenom + ' ' + f.nom + (f.niveau ? ' (' + f.niveau + ')' : '');
+        sel.appendChild(opt);
+      });
+      if (!eligibles.length) {
+        const opt = document.createElement('option');
+        opt.value = ''; opt.disabled = true;
+        opt.textContent = 'Aucun formateur habilité pour ' + niveau;
+        sel.appendChild(opt);
+      }
     };
+    const nivSel = document.getElementById('sess-niveau');
+    nivSel.onchange = fillSess;
     if (!allFormateurs.length) {
       supabase.from('formateurs').select('*').eq('center_id',CENTER.id).eq('actif',true).order('nom').then(({data}) => { allFormateurs=data||[]; fillSess(); });
     } else { fillSess(); }
@@ -2426,8 +2472,22 @@ window.openModal = function(id) {
     document.getElementById('assign-f-msg').classList.add('hidden');
     const fillAssign = () => {
       const sel = document.getElementById('assign-formateur-select');
+      const sessNiveau = currentSession && currentSession.niveau;
+      const eligibles = eligibleFormateurs(sessNiveau);
       sel.innerHTML = '<option value="">— Aucun formateur —</option>';
-      allFormateurs.forEach(f => { const opt=document.createElement('option'); opt.value=f.id; opt.textContent=f.prenom+' '+f.nom; if(currentSession&&currentSession.formateur_id===f.id) opt.selected=true; sel.appendChild(opt); });
+      eligibles.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.prenom + ' ' + f.nom + (f.niveau ? ' (' + f.niveau + ')' : '');
+        if (currentSession && currentSession.formateur_id === f.id) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      if (!eligibles.length && sessNiveau) {
+        const opt = document.createElement('option');
+        opt.value = ''; opt.disabled = true;
+        opt.textContent = 'Aucun formateur habilité pour ' + sessNiveau;
+        sel.appendChild(opt);
+      }
     };
     if (!allFormateurs.length) {
       supabase.from('formateurs').select('*').eq('center_id',CENTER.id).eq('actif',true).order('nom').then(({data}) => { allFormateurs=data||[]; fillAssign(); });
