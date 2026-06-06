@@ -844,8 +844,8 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
         <div class="card p-5">
           <div class="overflow-x-auto">
             <table class="tbl">
-              <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>PIN</th><th>Statut</th><th>Actions</th></tr></thead>
-              <tbody id="body-formateurs"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">Chargement...</td></tr></tbody>
+              <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Niveau</th><th>Recyclage</th><th>PIN</th><th>Statut</th><th>Actions</th></tr></thead>
+              <tbody id="body-formateurs"><tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px;">Chargement...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1081,6 +1081,9 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
             <option value="SSIAP3">SSIAP 3 — Chef de service</option>
           </select>
         </div>
+      </div>
+      <div><label class="lbl">Date du dernier recyclage <span style="color:var(--text3);font-weight:400;">(recyclage SSIAP tous les 3 ans)</span></label>
+        <input type="date" id="f-recyclage" class="inp">
       </div>
       <div style="background:linear-gradient(145deg,#eff6ff,#dbeafe);border-radius:12px;padding:12px;text-align:center;">
         <div style="font-size:.7rem;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.07em;">🔐 Code PIN</div>
@@ -1516,25 +1519,60 @@ window.loadAll = async function() {
 // ============================================================
 // FORMATEURS
 // ============================================================
+// Hiérarchie : un formateur de niveau N peut animer toutes les sessions de
+// niveau ≤ N. SSIAP3 → 1,2,3 ; SSIAP2 → 1,2 ; SSIAP1 → 1.
+const NIVEAU_RANK = { SSIAP1: 1, SSIAP2: 2, SSIAP3: 3 };
+function canFormateurTeach(formateurNiveau, sessionNiveau) {
+  const fr = NIVEAU_RANK[formateurNiveau] || 0;
+  const sr = NIVEAU_RANK[sessionNiveau] || 0;
+  return fr > 0 && sr > 0 && fr >= sr;
+}
+function eligibleFormateurs(sessionNiveau) {
+  if (!sessionNiveau) return allFormateurs.filter(f => f.actif !== false);
+  return allFormateurs.filter(f => f.actif !== false && canFormateurTeach(f.niveau, sessionNiveau));
+}
+
+// Statut du recyclage SSIAP : 3 ans entre deux recyclages, alerte 6 mois avant.
+// Retourne { state: 'ok'|'soon'|'expired'|'unknown', dueDate: Date|null, label: string, badge: string }
+function recyclageStatus(dateStr) {
+  if (!dateStr) return { state:'unknown', dueDate:null, label:'Non renseigné', badge:'b-gray' };
+  const last = new Date(dateStr);
+  if (isNaN(last)) return { state:'unknown', dueDate:null, label:'Date invalide', badge:'b-gray' };
+  const due = new Date(last); due.setFullYear(due.getFullYear() + 3);
+  const now = new Date();
+  const ms6m = 1000*60*60*24*30*6;
+  const dueStr = due.toLocaleDateString('fr-FR');
+  if (now >= due) return { state:'expired', dueDate:due, label:'Expiré (échéance ' + dueStr + ')', badge:'b-red' };
+  if (due - now <= ms6m) return { state:'soon', dueDate:due, label:'À recycler avant le ' + dueStr, badge:'b-orange' };
+  return { state:'ok', dueDate:due, label:'Valide jusqu\'au ' + dueStr, badge:'b-green' };
+}
+
 window.loadFormateurs = async function() {
   if (!CENTER) return;
   try {
     const { data } = await supabase.from('formateurs').select('*').eq('center_id', CENTER.id).order('nom');
     allFormateurs = data || [];
     const tbody = document.getElementById('body-formateurs');
-    if (!allFormateurs.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">Aucun formateur</td></tr>'; return; }
-    tbody.innerHTML = allFormateurs.map(f =>
-      '<tr><td><strong>' + f.prenom + ' ' + f.nom + '</strong></td>'
+    if (!allFormateurs.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px;">Aucun formateur</td></tr>'; return; }
+    tbody.innerHTML = allFormateurs.map(f => {
+      const rc = recyclageStatus(f.date_dernier_recyclage);
+      const niveauBadge = f.niveau
+        ? '<span class="badge ' + (f.niveau==='SSIAP1'?'b-blue':f.niveau==='SSIAP2'?'b-orange':'b-red') + '">' + f.niveau + '</span>'
+        : '<span class="badge b-gray">—</span>';
+      const icon = rc.state==='expired' ? '⚠️ ' : rc.state==='soon' ? '⏰ ' : rc.state==='ok' ? '✅ ' : '';
+      return '<tr><td><strong>' + f.prenom + ' ' + f.nom + '</strong></td>'
       + '<td style="font-size:.8rem;color:var(--text2);">' + (f.email||'—') + '</td>'
       + '<td><span class="badge ' + (f.role==='responsable'?'b-blue':'b-gray') + '">' + f.role + '</span></td>'
+      + '<td>' + niveauBadge + '</td>'
+      + '<td><span class="badge ' + rc.badge + '" title="' + rc.label + '">' + icon + rc.label + '</span></td>'
       + '<td style="font-size:.8rem;color:var(--text2);">●●●●●●</td>'
       + '<td><span class="badge ' + (f.actif?'b-green':'b-red') + '">' + (f.actif?'Actif':'Inactif') + '</span></td>'
       + '<td><div style="display:flex;gap:5px;">'
       + '<button onclick="editFormateur(\'' + f.id + '\')" class="btn btn-blue btn-xs">✏️</button>'
       + '<button onclick="toggleFormateur(\'' + f.id + '\',' + f.actif + ')" class="btn ' + (f.actif?'btn-orange':'btn-green') + ' btn-xs">' + (f.actif?'⏸':'▶') + '</button>'
       + '<button onclick="deleteFormateur(\'' + f.id + '\')" class="btn btn-red btn-xs">🗑️</button>'
-      + '</div></td></tr>'
-    ).join('');
+      + '</div></td></tr>';
+    }).join('');
   } catch(e) { console.error(e); }
 };
 
@@ -1544,6 +1582,7 @@ window.saveFormateur = async function() {
   const email = document.getElementById('f-email').value.trim().toLowerCase();
   const role = document.getElementById('f-role').value;
   const niveauForm = document.getElementById('f-niveau-form')?.value || '';
+  const recyclage = document.getElementById('f-recyclage')?.value || null;
   const msgEl = document.getElementById('f-msg');
   msgEl.classList.add('hidden');
   if (!prenom || !nom) { msgEl.innerHTML = '<div class="alert-err">❌ Prénom et nom obligatoires.</div>'; msgEl.classList.remove('hidden'); return; }
@@ -1551,7 +1590,7 @@ window.saveFormateur = async function() {
   btnEl.disabled = true; btnEl.innerHTML = '<span class="spin"></span>';
   try {
     if (editingFormateurId) {
-      await supabase.from('formateurs').update({ prenom, nom, email: email||null, role, niveau: niveauForm||null }).eq('id', editingFormateurId);
+      await supabase.from('formateurs').update({ prenom, nom, email: email||null, role, niveau: niveauForm||null, date_dernier_recyclage: recyclage }).eq('id', editingFormateurId);
       msgEl.innerHTML = '<div class="alert-ok">✅ Formateur modifié.</div>'; msgEl.classList.remove('hidden');
       loadFormateurs(); loadAll();
       setTimeout(() => closeModal('modal-add-formateur'), 1500);
@@ -1564,7 +1603,7 @@ window.saveFormateur = async function() {
         if (!ex || !ex.length) { pin = c; pinHash = ph; break; }
       }
       if (!pin) throw new Error('Impossible de générer un PIN unique');
-      const { error } = await supabase.from('formateurs').insert({ prenom, nom, email: email||null, role, niveau: niveauForm||null, pin_hash: pinHash, pin_clair: pin, center_id: CENTER.id, actif: true });
+      const { error } = await supabase.from('formateurs').insert({ prenom, nom, email: email||null, role, niveau: niveauForm||null, date_dernier_recyclage: recyclage, pin_hash: pinHash, pin_clair: pin, center_id: CENTER.id, actif: true });
       if (error) throw error;
       const base = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
       const loginUrl = base + 'login-formateur.html?center=' + CENTER.id;
@@ -1592,6 +1631,7 @@ window.editFormateur = async function(id) {
   document.getElementById('f-email').value = data.email || '';
   document.getElementById('f-role').value = data.role;
   if(document.getElementById('f-niveau-form')) document.getElementById('f-niveau-form').value = data.niveau || '';
+  if(document.getElementById('f-recyclage')) document.getElementById('f-recyclage').value = data.date_dernier_recyclage || '';
   document.getElementById('f-msg').classList.add('hidden');
   document.getElementById('f-result').classList.add('hidden');
   document.getElementById('f-form-actions').classList.remove('hidden');
@@ -1607,6 +1647,7 @@ function resetFormateurModal() {
   ['f-prenom','f-nom','f-email'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
   document.getElementById('f-role').value = 'formateur';
   if(document.getElementById('f-niveau-form')) document.getElementById('f-niveau-form').value = '';
+  if(document.getElementById('f-recyclage')) document.getElementById('f-recyclage').value = '';
   document.getElementById('f-result').classList.add('hidden');
   document.getElementById('f-form-actions').classList.remove('hidden');
   document.getElementById('f-msg').classList.add('hidden');
@@ -2061,6 +2102,14 @@ window.saveSession = async function() {
   const date_fin = document.getElementById('sess-fin').value || null;
   const notes = document.getElementById('sess-notes').value.trim() || null;
   const msgEl = document.getElementById('sess-msg'); msgEl.classList.add('hidden');
+  if (formateur_id) {
+    const f = allFormateurs.find(x => x.id === formateur_id);
+    if (f && !canFormateurTeach(f.niveau, niveau)) {
+      msgEl.innerHTML = '<div class="alert-err">❌ ' + f.prenom + ' ' + f.nom + ' (' + (f.niveau||'niveau non défini') + ') n\'est pas habilité(e) à animer une session ' + niveau + '.</div>';
+      msgEl.classList.remove('hidden');
+      return;
+    }
+  }
   const btnEl = document.getElementById('btn-save-sess'); btnEl.disabled=true; btnEl.innerHTML='<span class="spin"></span>';
   try {
     const { data, error } = await supabase.from('sessions_formation').insert({
@@ -2175,6 +2224,16 @@ window.addSelectedParticipants = async function() {
 
 window.assignFormateur = async function() {
   const formateur_id = document.getElementById('assign-formateur-select').value || null;
+  const assignMsg = document.getElementById('assign-f-msg');
+  assignMsg.classList.add('hidden');
+  if (formateur_id && currentSession) {
+    const f = allFormateurs.find(x => x.id === formateur_id);
+    if (f && !canFormateurTeach(f.niveau, currentSession.niveau)) {
+      assignMsg.innerHTML = '<div class="alert-err">❌ ' + f.prenom + ' ' + f.nom + ' (' + (f.niveau||'niveau non défini') + ') n\'est pas habilité(e) à animer une session ' + currentSession.niveau + '.</div>';
+      assignMsg.classList.remove('hidden');
+      return;
+    }
+  }
   try {
     await supabase.from('sessions_formation').update({formateur_id}).eq('id', currentSession.id);
     currentSession.formateur_id = formateur_id;
@@ -2410,9 +2469,24 @@ window.openModal = function(id) {
     ['sess-debut','sess-fin','sess-notes'].forEach(i => { const el=document.getElementById(i); if(el) el.value=''; });
     const fillSess = () => {
       const sel = document.getElementById('sess-formateur');
+      const niveau = document.getElementById('sess-niveau').value;
+      const eligibles = eligibleFormateurs(niveau);
       sel.innerHTML = '<option value="">— Sélectionner —</option>';
-      allFormateurs.forEach(f => { const opt=document.createElement('option'); opt.value=f.id; opt.textContent=f.prenom+' '+f.nom; sel.appendChild(opt); });
+      eligibles.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.prenom + ' ' + f.nom + (f.niveau ? ' (' + f.niveau + ')' : '');
+        sel.appendChild(opt);
+      });
+      if (!eligibles.length) {
+        const opt = document.createElement('option');
+        opt.value = ''; opt.disabled = true;
+        opt.textContent = 'Aucun formateur habilité pour ' + niveau;
+        sel.appendChild(opt);
+      }
     };
+    const nivSel = document.getElementById('sess-niveau');
+    nivSel.onchange = fillSess;
     if (!allFormateurs.length) {
       supabase.from('formateurs').select('*').eq('center_id',CENTER.id).eq('actif',true).order('nom').then(({data}) => { allFormateurs=data||[]; fillSess(); });
     } else { fillSess(); }
@@ -2426,8 +2500,22 @@ window.openModal = function(id) {
     document.getElementById('assign-f-msg').classList.add('hidden');
     const fillAssign = () => {
       const sel = document.getElementById('assign-formateur-select');
+      const sessNiveau = currentSession && currentSession.niveau;
+      const eligibles = eligibleFormateurs(sessNiveau);
       sel.innerHTML = '<option value="">— Aucun formateur —</option>';
-      allFormateurs.forEach(f => { const opt=document.createElement('option'); opt.value=f.id; opt.textContent=f.prenom+' '+f.nom; if(currentSession&&currentSession.formateur_id===f.id) opt.selected=true; sel.appendChild(opt); });
+      eligibles.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.prenom + ' ' + f.nom + (f.niveau ? ' (' + f.niveau + ')' : '');
+        if (currentSession && currentSession.formateur_id === f.id) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      if (!eligibles.length && sessNiveau) {
+        const opt = document.createElement('option');
+        opt.value = ''; opt.disabled = true;
+        opt.textContent = 'Aucun formateur habilité pour ' + sessNiveau;
+        sel.appendChild(opt);
+      }
     };
     if (!allFormateurs.length) {
       supabase.from('formateurs').select('*').eq('center_id',CENTER.id).eq('actif',true).order('nom').then(({data}) => { allFormateurs=data||[]; fillAssign(); });
