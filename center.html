@@ -1610,10 +1610,9 @@ window.saveFormateur = async function() {
         if (existing.some(e => e.center_id === CENTER.id)) {
           throw new Error('Ce formateur (même email) est déjà présent dans votre centre.');
         }
-        const centresList = existing.map(e => e.center_nom).join(', ');
         const linkConfirm = confirm(
-          `Cet email est déjà utilisé par ${ex.prenom} ${ex.nom}, inscrit(e) dans ${existing.length} centre(s) : ${centresList}.\n\n` +
-          `Cliquez sur OK pour LIER ce formateur à votre centre (même code PIN partout).\n` +
+          `Cet email est déjà utilisé par ${ex.prenom} ${ex.nom}.\n\n` +
+          `Cliquez sur OK pour LIER ce formateur à votre centre.\n` +
           `Cliquez sur Annuler pour ne rien faire — utilisez un autre email si c'est une personne différente.`
         );
         if (!linkConfirm) {
