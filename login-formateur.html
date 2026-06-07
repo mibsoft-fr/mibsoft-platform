@@ -364,6 +364,46 @@
       <span class="spin"></span>
       Recherche en cours...
     </div>
+
+    <button type="button" id="link-forgot" onclick="openForgot()"
+      style="display:block;margin:var(--space-4) auto 0;background:transparent;border:none;cursor:pointer;
+             font-size:var(--text-sm);font-weight:var(--weight-semibold);color:var(--vigil-700);
+             text-decoration:underline;text-underline-offset:3px;">
+      PIN oublié ?
+    </button>
+  </div>
+
+  <!-- ══ ÉTAPE PIN OUBLIÉ ══ -->
+  <div id="step-forgot" class="hidden">
+    <button onclick="closeForgot()" class="back-step-btn" type="button">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+      Retour
+    </button>
+    <div class="auth-prompt">
+      <div class="title">PIN oublié ?</div>
+      <div class="desc">Entrez votre email — nous générons un nouveau PIN et vous l'envoyons.</div>
+    </div>
+
+    <div style="margin-bottom:var(--space-3);">
+      <label for="forgot-email" style="display:block;font-size:var(--text-sm);font-weight:var(--weight-semibold);color:var(--text-2);margin-bottom:6px;">Email</label>
+      <input id="forgot-email" type="email" autocomplete="email"
+        placeholder="prenom.nom@centre.fr"
+        style="width:100%;padding:var(--space-3) var(--space-4);min-height:48px;
+               border-radius:var(--radius-md);border:1px solid var(--border-default);
+               font-size:var(--text-sm);background:#fff;">
+    </div>
+
+    <div id="forgot-err" class="alert-err hidden" style="margin-bottom:var(--space-3);"></div>
+    <div id="forgot-ok" class="hidden" style="margin-bottom:var(--space-3);background:var(--vigil-50);border:1px solid var(--vigil-300);border-left:4px solid var(--vigil-500);border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);font-size:var(--text-sm);color:var(--vigil-800);font-weight:var(--weight-semibold);"></div>
+
+    <button class="btn-primary" id="btn-forgot" onclick="submitForgot()">
+      <span id="btn-forgot-label">Envoyer un nouveau PIN</span>
+    </button>
+    <p style="font-size:var(--text-xs);color:var(--text-3);text-align:center;margin-top:var(--space-3);">
+      ⚠️ Votre ancien PIN sera invalidé.
+    </p>
   </div>
 
   <!-- ══ ÉTAPE 2 : CHOIX CENTRE ══ -->
@@ -422,6 +462,8 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'Enter' && pin.length === 6) verifyPin();
 });
 
+let currentPinStr = '';
+
 async function verifyPin() {
   if (pin.length !== 6) return;
   const errEl = document.getElementById('pin-err');
@@ -430,46 +472,38 @@ async function verifyPin() {
   document.getElementById('key-ok').disabled = true;
 
   const pinStr = pin.join('');
+  currentPinStr = pinStr;
   const centerId = window.preCentreId || null;
 
   try {
     try { await supabase.auth.signOut(); } catch (_) {}
 
-    const { data: rows, error: rpcErr } = await supabase.rpc('login_pin_resolve', {
+    const { data: rows, error: rpcErr } = await supabase.rpc('login_pin_resolve_multi', {
       p_center_id: centerId,
       p_role: 'formateur',
       p_pin: pinStr,
     });
     if (rpcErr) throw new Error('Erreur de connexion au serveur.');
 
-    const row = Array.isArray(rows) ? rows[0] : rows;
-    if (row?.locked) throw new Error('Compte temporairement verrouillé. Réessayez dans 5 minutes.');
-    if (!row?.email) {
+    const matches = (rows || []).filter(r => r && r.email);
+    if (matches.length === 0) {
       await supabase.rpc('login_pin_fail', { p_center_id: centerId, p_role: 'formateur', p_pin: pinStr });
       throw new Error('PIN incorrect ou compte désactivé.');
     }
 
-    const { error: authErr } = await supabase.auth.signInWithPassword({
-      email: row.email,
-      password: pinStr,
-    });
-    if (authErr) {
-      await supabase.rpc('login_pin_fail', { p_center_id: centerId, p_role: 'formateur', p_pin: pinStr });
-      throw new Error('PIN incorrect ou compte désactivé.');
+    const unlocked = matches.filter(r => !r.locked);
+    if (unlocked.length === 0) {
+      throw new Error('Compte temporairement verrouillé. Réessayez dans 5 minutes.');
     }
-
-    try { await supabase.rpc('login_pin_success_reset'); } catch (_) {}
-
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: formateur, error: selErr } = await supabase
-      .from('formateurs')
-      .select('*, centers(id, nom, plan, module_auto_entrainement, module_quiz_salle, module_challenge_cup, module_ssi_supervise, module_ssi_autoformation)')
-      .eq('auth_user_id', user.id)
-      .single();
-    if (selErr || !formateur) throw new Error('Profil formateur introuvable.');
 
     document.getElementById('pin-loading').classList.add('hidden');
-    doLogin(formateur);
+    foundFormateurs = unlocked;
+
+    if (unlocked.length === 1) {
+      await signInAndLoad(unlocked[0]);
+    } else {
+      showCentreStep(unlocked);
+    }
   } catch(e) {
     document.getElementById('pin-loading').classList.add('hidden');
     errEl.textContent = '❌ ' + (e.message || 'PIN incorrect ou compte désactivé.');
@@ -479,24 +513,38 @@ async function verifyPin() {
   }
 }
 
-function showCentreStep(formateurs) {
-  document.getElementById('step-pin').classList.add('hidden');
-  document.getElementById('step-centre').classList.remove('hidden');
-  document.getElementById('dot-1').classList.remove('active');
-  document.getElementById('dot-2').classList.add('active');
+async function signInAndLoad(row) {
+  const errEl = document.getElementById('centre-err');
+  if (errEl) errEl.classList.add('hidden');
+  try {
+    const { error: authErr } = await supabase.auth.signInWithPassword({
+      email: row.email,
+      password: currentPinStr,
+    });
+    if (authErr) {
+      await supabase.rpc('login_pin_fail', { p_center_id: row.center_id, p_role: 'formateur', p_pin: currentPinStr });
+      throw new Error('PIN incorrect ou compte désactivé.');
+    }
+    try { await supabase.rpc('login_pin_success_reset'); } catch (_) {}
 
-  const nom = formateurs[0].prenom + ' ' + formateurs[0].nom;
-  document.getElementById('step2-subtitle').textContent = `Bonjour ${nom} ! Choisissez votre centre :`;
-
-  const list = document.getElementById('centres-list');
-  list.innerHTML = formateurs.map((f, i) => `
-    <div class="centre-item" id="centre-item-${i}" onclick="selectCentre(${i})">
-      <div class="centre-icon">🏢</div>
-      <div>
-        <div class="centre-nom">${f.centers?.nom || '—'}</div>
-        <div class="centre-meta">Plan ${f.centers?.plan || '—'} · ${f.role}</div>
-      </div>
-    </div>`).join('');
+    const { data: formateur, error: selErr } = await supabase
+      .from('formateurs')
+      .select('*, centers(id, nom, plan, module_auto_entrainement, module_quiz_salle, module_challenge_cup, module_ssi_supervise, module_ssi_autoformation)')
+      .eq('id', row.formateur_id)
+      .single();
+    if (selErr || !formateur) throw new Error('Profil formateur introuvable.');
+    doLogin(formateur);
+  } catch (e) {
+    // Affiche l'erreur sur l'étape courante (step-centre si visible, sinon step-pin)
+    const onCentre = !document.getElementById('step-centre').classList.contains('hidden');
+    const target = onCentre ? document.getElementById('centre-err') : document.getElementById('pin-err');
+    target.textContent = '❌ ' + (e.message || 'Erreur lors de la connexion.');
+    target.classList.remove('hidden');
+    if (onCentre) {
+      document.getElementById('btn-confirm').disabled = false;
+      document.getElementById('btn-confirm-label').textContent = 'Accéder à mon espace →';
+    }
+  }
 }
 
 function selectCentre(idx) {
@@ -513,7 +561,76 @@ async function confirmCentre() {
   btnEl.disabled = true;
   document.getElementById('btn-confirm-label').innerHTML = '<span class="spin"></span>';
   document.getElementById('centre-err').classList.add('hidden');
-  doLogin(selectedFormateur);
+  await signInAndLoad(selectedFormateur);
+}
+
+function showCentreStep(rows) {
+  document.getElementById('step-pin').classList.add('hidden');
+  document.getElementById('step-centre').classList.remove('hidden');
+  document.getElementById('dot-1').classList.remove('active');
+  document.getElementById('dot-2').classList.add('active');
+  document.getElementById('step2-subtitle').textContent = 'Plusieurs centres correspondent à ce PIN. Choisissez :';
+
+  const list = document.getElementById('centres-list');
+  list.innerHTML = rows.map((r, i) => `
+    <div class="centre-item" id="centre-item-${i}" onclick="selectCentre(${i})">
+      <div class="centre-icon">🏢</div>
+      <div>
+        <div class="centre-nom">${escapeHtml(r.center_nom || '—')}</div>
+        <div class="centre-meta">Plan ${escapeHtml(r.center_plan || '—')}${r.niveau ? ' · ' + escapeHtml(r.niveau) : ''}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('btn-confirm').disabled = true;
+  document.getElementById('btn-confirm-label').textContent = 'Accéder à mon espace →';
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ══ PIN oublié ══
+function openForgot() {
+  document.getElementById('step-pin').classList.add('hidden');
+  document.getElementById('step-forgot').classList.remove('hidden');
+  document.getElementById('forgot-err').classList.add('hidden');
+  document.getElementById('forgot-ok').classList.add('hidden');
+  document.getElementById('forgot-email').value = '';
+  setTimeout(() => document.getElementById('forgot-email').focus(), 50);
+}
+function closeForgot() {
+  document.getElementById('step-forgot').classList.add('hidden');
+  document.getElementById('step-pin').classList.remove('hidden');
+}
+async function submitForgot() {
+  const email = document.getElementById('forgot-email').value.trim().toLowerCase();
+  const errEl = document.getElementById('forgot-err');
+  const okEl = document.getElementById('forgot-ok');
+  const btnEl = document.getElementById('btn-forgot');
+  const lblEl = document.getElementById('btn-forgot-label');
+  errEl.classList.add('hidden');
+  okEl.classList.add('hidden');
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    errEl.textContent = '❌ Email invalide.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  btnEl.disabled = true;
+  lblEl.innerHTML = '<span class="spin"></span>';
+  try {
+    const { data, error } = await supabase.functions.invoke('formateur-pin-reminder', {
+      body: { email }
+    });
+    if (error) throw new Error('Erreur de connexion au serveur. Réessayez.');
+    okEl.textContent = '✅ ' + (data?.message || "Si cet email correspond à un formateur, un nouveau PIN vient d'être envoyé.");
+    okEl.classList.remove('hidden');
+    lblEl.textContent = 'Renvoyer';
+  } catch (e) {
+    errEl.textContent = '❌ ' + (e.message || 'Erreur inattendue.');
+    errEl.classList.remove('hidden');
+    lblEl.textContent = 'Envoyer un nouveau PIN';
+  } finally {
+    btnEl.disabled = false;
+  }
 }
 
 function doLogin(formateur) {
