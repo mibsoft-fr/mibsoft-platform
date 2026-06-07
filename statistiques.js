@@ -1,5 +1,5 @@
 // ============================================================
-// statistiques.js — Module graphiques MIB Prévention
+// statistiques.js — Module graphiques MIBsoft
 // Utilise Chart.js (chargé via CDN dans le HTML)
 // <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 // <script src="statistiques.js"></script>

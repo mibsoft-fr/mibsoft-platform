@@ -1,5 +1,5 @@
 // =============================================================================
-// MIB Prévention — Tutoriel interactif de l'espace stagiaire (Driver.js)
+// MIBsoft — Tutoriel interactif de l'espace stagiaire (Driver.js)
 // - Démarre automatiquement au premier passage, puis accessible via le bouton « Aide »
 // - Saute les étapes dont l'élément cible est absent ou masqué
 // =============================================================================

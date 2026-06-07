@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>MIB — Tableau de bord Centre</title>
 <meta name="theme-color" content="#F8FAFC">
-<link rel="icon" href="/Logo MIB.png" type="image/png">
+<link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -995,7 +995,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="grid-modules"></div>
         <div style="margin-top:24px;padding:16px 20px;border-radius:14px;background:linear-gradient(145deg,#fff7ed,#ffedd5);border:1.5px solid #fed7aa;">
           <p style="font-size:.82rem;color:#c2410c;font-weight:600;">💡 Vous souhaitez activer d'autres modules ?</p>
-          <p style="font-size:.78rem;color:#92400e;margin-top:4px;">Contactez MIB Prévention pour faire évoluer votre plan.</p>
+          <p style="font-size:.78rem;color:#92400e;margin-top:4px;">Contactez MIBsoft pour faire évoluer votre plan.</p>
         </div>
       </div>
 
@@ -1341,11 +1341,11 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
       <p class="faq-cat">Paiement &amp; abonnement</p>
       <details>
         <summary>Le paiement est-il sécurisé ?</summary>
-        <div class="a"><p>Oui. Les paiements sont traités par <strong>Stripe</strong> (certifié PCI-DSS). Vos données bancaires ne transitent jamais en clair par nos serveurs et ne sont pas stockées par MIB Prévention.</p></div>
+        <div class="a"><p>Oui. Les paiements sont traités par <strong>Stripe</strong> (certifié PCI-DSS). Vos données bancaires ne transitent jamais en clair par nos serveurs et ne sont pas stockées par MIBsoft.</p></div>
       </details>
       <details>
         <summary>Comment résilier ou modifier mon abonnement ?</summary>
-        <div class="a"><p>Les conditions sont précisées dans nos <a href="legal/cgv.html">Conditions Générales de Vente</a>. Pour toute demande, contactez l'équipe à <a href="mailto:contact@mib-prevention.fr">contact@mib-prevention.fr</a>.</p></div>
+        <div class="a"><p>Les conditions sont précisées dans nos <a href="legal/cgv.html">Conditions Générales de Vente</a>. Pour toute demande, contactez l'équipe à <a href="mailto:contact@mibsoft.fr">contact@mibsoft.fr</a>.</p></div>
       </details>
 
       <p class="faq-cat">Technique &amp; données</p>
@@ -1709,7 +1709,7 @@ function buildFormateurCard(prenom, nom, pin, url, role) {
     + '<div style="font-size:.7rem;font-weight:700;color:#1d4ed8;text-transform:uppercase;margin-bottom:6px;">Code PIN</div>'
     + '<div style="font-size:2.2rem;font-weight:900;letter-spacing:.35em;color:#1d4ed8;">' + pin + '</div>'
     + '</div><div style="font-size:.68rem;color:#374151;word-break:break-all;">' + url + '</div>'
-    + '<div style="font-size:.65rem;color:#9ca3af;margin-top:12px;">MIB Prévention © 2026</div></div>';
+    + '<div style="font-size:.65rem;color:#9ca3af;margin-top:12px;">MIBsoft © 2026</div></div>';
 }
 
 window.printFormateurCard = function() { window.print(); };
@@ -1830,7 +1830,7 @@ function buildStagiaireCard(prenom, nom, pin, url, niveau) {
     + '<div style="font-size:.7rem;font-weight:700;color:#065f46;text-transform:uppercase;margin-bottom:6px;">Code PIN stagiaire</div>'
     + '<div style="font-size:2.5rem;font-weight:900;letter-spacing:.4em;color:#059669;">' + pin + '</div>'
     + '</div><div style="font-size:.68rem;color:#374151;word-break:break-all;">' + url + '</div>'
-    + '<div style="font-size:.65rem;color:#9ca3af;margin-top:12px;">MIB Prévention © 2026</div></div>';
+    + '<div style="font-size:.65rem;color:#9ca3af;margin-top:12px;">MIBsoft © 2026</div></div>';
 }
 
 window.printStagiaireCard = function() { window.print(); };
@@ -2002,7 +2002,7 @@ window.sendMailStagiaire = async function(p) {
     + '<a href="' + loginUrl + '" style="display:inline-block;background:#059669;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:1rem;">Se connecter →</a>'
     + '<p style="margin-top:20px;font-size:.8rem;color:#6b7280;">Ou copiez ce lien : <a href="' + loginUrl + '" style="color:#059669;">' + loginUrl + '</a></p>'
     + '<hr style="margin:20px 0;border-color:#d1fae5;">'
-    + '<p style="font-size:.75rem;color:#9ca3af;">Envoyé par ' + CENTER.nom + ' via MIB Prévention</p>'
+    + '<p style="font-size:.75rem;color:#9ca3af;">Envoyé par ' + CENTER.nom + ' via MIBsoft</p>'
     + '</div>';
 
   // Envoyer via Supabase Edge Function (clé Mailgun sécurisée côté serveur)

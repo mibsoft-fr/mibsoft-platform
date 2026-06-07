@@ -1,5 +1,5 @@
 // =============================================================================
-// MIB Prévention — Tutoriel interactif de l'espace responsable de centre
+// MIBsoft — Tutoriel interactif de l'espace responsable de centre
 // - Démarre au premier passage (flag localStorage), rejouable via « Revoir le tutoriel »
 // - Saute les étapes dont l'élément cible est absent ou masqué
 // =============================================================================

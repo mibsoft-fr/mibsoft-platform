@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>MIB — Connexion Centre</title>
 <meta name="theme-color" content="#F8FAFC">
-<link rel="icon" href="/Logo MIB.png" type="image/png">
+<link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.json">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40,6 +40,7 @@
   .back-link:hover { color: var(--vigil-700); }
 
   .logo-wrap { text-align: center; margin-bottom: var(--space-6); }
+  .brand-logo { display:block; width:200px; max-width:72%; height:auto; margin:0 auto var(--space-4); }
   .logo-icon {
     width: 64px; height: 64px;
     border-radius: var(--radius-lg);
@@ -262,9 +263,10 @@
 </a>
 
 <div class="logo-wrap">
+  <img src="/logo/logo-web-transparent.png" alt="MIBsoft" class="brand-logo">
   <div class="logo-icon" aria-hidden="true">🏢</div>
   <div class="logo-title">Espace Centre</div>
-  <div class="logo-sub">MIB Prévention — Formation Incendie</div>
+  <div class="logo-sub">MIBsoft — Formation Incendie</div>
 </div>
 
 <div class="auth-card">
@@ -302,7 +304,7 @@
   <!-- ══ PREMIÈRE CONNEXION ══ -->
   <div class="panel" id="p-first">
     <div class="alert-info" style="margin-bottom: var(--space-4);">
-      🔑 Première connexion : saisissez votre email et la clé de licence fournie par MIB Prévention. Vous créerez ensuite votre mot de passe.
+      🔑 Première connexion : saisissez votre email et la clé de licence fournie par MIBsoft. Vous créerez ensuite votre mot de passe.
     </div>
     <div class="space-y-4">
       <div>
@@ -438,7 +440,7 @@ async function doLogin(){
     SESSION.save('centre',{center_id:data.id,center_nom:data.nom,plan:data.plan,role:'centre'});
     window.location.href='center.html';
   }catch(e){
-    const msgs={notfound:'❌ Centre introuvable.',expired:'❌ Licence expirée. Contactez MIB Prévention.',badpwd:'❌ Email ou mot de passe incorrect.'};
+    const msgs={notfound:'❌ Centre introuvable.',expired:'❌ Licence expirée. Contactez MIBsoft.',badpwd:'❌ Email ou mot de passe incorrect.'};
     showErr(errEl,msgs[e.message]||'❌ Erreur de connexion.');
     setLoad('btn-login',false,'Se connecter →');
   }
@@ -476,8 +478,8 @@ async function doFirst(){
       if(!res.ok || json.error){
         const msgs={
           not_found:'❌ Email ou clé de licence incorrects.',
-          inactive:'❌ Licence inactive. Contactez MIB Prévention.',
-          expired:'❌ Licence expirée. Contactez MIB Prévention.',
+          inactive:'❌ Licence inactive. Contactez MIBsoft.',
+          expired:'❌ Licence expirée. Contactez MIBsoft.',
           already:'⚠️ Un mot de passe existe déjà — utilisez la connexion normale.',
           weak:'❌ Mot de passe trop court (min 8 caractères).'
         };
