@@ -186,8 +186,12 @@ cleanupRealtime();
 // événements (publiés APRÈS subscribe) arrivent au handler.
 const unsubRT=MibRT.on(`session:${sessionId}`,(message)=>{
 if(!message||message.sender===STATE.userType)return;
-// Events système (préfixe `_`) dispatchés à des handlers dédiés
-if(message.type==='_session_ended'){handleSessionEnded();return;}
+// Events système (préfixe `_`) dispatchés à des handlers dédiés.
+// On vérifie que le `_session_ended` concerne bien la session courante : lors
+// d'un enchaînement (Fin puis Début de session), le `_session_ended` de
+// l'ANCIENNE session peut arriver APRÈS que le stagiaire a basculé sur la
+// nouvelle (course inter-canaux Realtime) et la fermerait à tort.
+if(message.type==='_session_ended'){if(message.data&&message.data.sessionId&&STATE.sessionId&&message.data.sessionId!==STATE.sessionId)return;handleSessionEnded();return;}
 if(STATE.userType==='trainee'){handleFormateurCommand(message.type,message.data);}
 else if(STATE.userType==='formateur'){handleTraineeAction(message.type,message.data);}
 });
@@ -242,12 +246,17 @@ const sb=window.supabaseStagiaire||window.supabase;
 if(!sb||!sb.from)return;
 const{data,error}=await sb.from('ssi_sessions').select('status,started_at').eq('id',STATE.ssiSessionId).maybeSingle();
 if(error){console.warn('sessionAlive check failed',error);return;}
-// Pas de row visible (RLS / supprimée) OU status passé à terminee → on ferme côté stagiaire.
-if(!data||data.status!=='en_cours'){
-console.log('sessionAlive: row no longer en_cours, triggering handleSessionEnded');
+// On ne ferme QUE sur un statut terminal explicite (ex. 'terminee'). Une lecture
+// vide (data null) peut être transitoire : latence RLS juste après une bascule de
+// session (stagiaire_id pas encore positionné) ou micro-coupure réseau. Fermer sur
+// ce cas éjectait le stagiaire d'une session pourtant active → on l'ignore et on
+// retentera au prochain tick.
+if(data&&data.status&&data.status!=='en_cours'){
+console.log('sessionAlive: status terminal détecté, triggering handleSessionEnded');
 handleSessionEnded();
 return;
 }
+if(!data)return;
 // Session > 2h : on suppose que le formateur a fermé l'onglet sans cliquer
 // « Fin de session » (le serveur la nettoiera automatiquement au prochain
 // PIN-login d'un stagiaire, mais nous on n'attend pas).
@@ -503,7 +512,7 @@ db.ref(`session_logs/${sessionId}`).set(sessionLog);
 // Doublé sur le canal formation: car le canal session: peut être tombé côté
 // stagiaire (déconnexion RT, perte réseau). Le formation: persiste sur toute
 // la durée de la cohorte donc plus robuste pour les notifications de fermeture.
-try{MibRT.send(`session:${sessionId}`,'_session_ended',{},STATE.userType);}catch(e){console.warn('_session_ended broadcast failed',e);}
+try{MibRT.send(`session:${sessionId}`,'_session_ended',{sessionId},STATE.userType);}catch(e){console.warn('_session_ended broadcast failed',e);}
 if(STATE.mibSessionId){try{MibRT.send(`formation:${STATE.mibSessionId}`,'_formation_session_ended',{sessionId},STATE.userType);}catch(e){console.warn('_formation_session_ended broadcast failed',e);}}
 
 db.ref(`sessions/${sessionId}`).update({endTime:firebase.database.ServerValue.TIMESTAMP,endTimeISO:endTimeISO,active:false});
