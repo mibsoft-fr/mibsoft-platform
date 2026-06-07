@@ -3,7 +3,7 @@
  * Permet le fonctionnement hors-ligne et la mise en cache
  */
 
-const CACHE_NAME = 'ssi-formation-v1.0.0';
+const CACHE_NAME = 'ssi-formation-v1.1.0';
 const CACHE_URLS = [
   './',
   './index.html',
@@ -73,6 +73,27 @@ self.addEventListener('fetch', (event) => {
   // Ignore les requêtes Firebase (besoin du réseau)
   if (event.request.url.includes('firebaseio.com') ||
       event.request.url.includes('googleapis.com')) {
+    return;
+  }
+
+  // App shell (document HTML) : NETWORK-FIRST.
+  // L'ancienne stratégie stale-while-revalidate servait l'index.html en cache
+  // (donc l'ANCIENNE version) immédiatement après un déploiement, ne mettant le
+  // cache à jour qu'en arrière-plan. Conséquence : les correctifs n'apparaissaient
+  // pas tant que le SW servait le HTML périmé. On va désormais chercher la dernière
+  // version sur le réseau et ne retomber sur le cache qu'en cas d'absence de réseau.
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((c) => c || caches.match('./index.html')))
+    );
     return;
   }
 
