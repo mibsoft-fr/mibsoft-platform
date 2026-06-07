@@ -1715,7 +1715,7 @@ if(STATE.uga.temporizationActive)h+='<div class="bg-yellow-600 text-white p-1 ro
 h+='</div>';
 h+='<div class="grid grid-cols-2 gap-1 mt-1">';
 h+='<button id="forceAlarmBtn" onmousedown="startForceAlarm()" onmouseup="cancelForceAlarm()" ontouchstart="startForceAlarm()" ontouchend="cancelForceAlarm()" class="py-2 bg-red-600 text-white rounded text-xs font-bold select-none">🚨 FORCÉ (3s)</button>';
-h+='<button onclick="acquitProcess()" class="py-2 '+(STATE.uga.temporizationActive?'bg-yellow-600':'bg-gray-500 opacity-50')+' text-white rounded text-xs font-bold">✋ ACQUIT</button>';
+h+='<button onclick="acquitProcess()" class="py-2 '+(STATE.uga.temporizationActive&&STATE.smsiAccessLevel>=2?'bg-yellow-600':'bg-gray-500 opacity-50')+' text-white rounded text-xs font-bold">✋ ACQUIT '+(STATE.smsiAccessLevel<2?'(Niv.2)':'')+'</button>';
 h+='</div>';
 if(STATE.uga.alarmActive)h+='<div class="mt-2 bg-red-600 text-white p-2 rounded text-center font-bold text-xs blink">🚨 ALARME GÉNÉRALE ACTIVE</div>';
 h+='</div>';
