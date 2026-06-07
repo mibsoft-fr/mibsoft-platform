@@ -237,7 +237,8 @@
   </div>
   <p class="pin-help">PIN fourni par votre formateur ou centre de formation</p>
 
-  <div class="keypad">
+  <label style="display:flex;gap:9px;align-items:flex-start;font-size:13px;line-height:1.4;cursor:pointer;margin:14px 0 4px;text-align:left"><input type="checkbox" id="mib-consent-cb" style="margin-top:2px;width:18px;height:18px;flex:0 0 auto"><span>J'accepte les <a href="/legal/cgu.html" target="_blank" rel="noopener">CGU</a> et la <a href="/legal/politique-confidentialite.html" target="_blank" rel="noopener">politique de confidentialite</a> (RGPD).</span></label><div id="mib-consent-err" style="display:none;color:#dc2626;font-size:12.5px;margin:2px 0 8px">Vous devez accepter les CGU et la politique de confidentialite pour continuer.</div>
+<div class="keypad">
     <button class="key-btn" onclick="kp('1')">1</button>
     <button class="key-btn" onclick="kp('2')">2</button>
     <button class="key-btn" onclick="kp('3')">3</button>
@@ -292,6 +293,7 @@ document.addEventListener('keydown', e => {
 
 async function verifyPin() {
   if (pin.length !== 6) return;
+  if(!mibConsentOK())return;
   const errEl = document.getElementById('pin-err');
   errEl.classList.add('hidden');
   document.getElementById('pin-loading').classList.remove('hidden');
@@ -344,6 +346,7 @@ async function verifyPin() {
       center_nom: stag.centers?.nom || '',
     });
 
+    mibRecordConsent('stagiaire', row.email, stag.center_id);
     window.location.href = 'stagiaire.html';
   } catch(e) {
     document.getElementById('pin-loading').classList.add('hidden');
@@ -355,44 +358,13 @@ async function verifyPin() {
 }
 </script>
 
-<!-- Gate de consentement RGPD MIBsoft (bloquant tant que non accepté) -->
+
+<!-- Consentement RGPD MIBsoft : requis a chaque connexion, lie a l'identite -->
 <script>
-(function(){
-  var ROLE='stagiaire';
-  var VERSION='2026-06-v1';
-  var KEY='mib_rgpd_'+ROLE+'_'+VERSION;
-  try{ if(localStorage.getItem(KEY)) return; }catch(_){}
-  function clientId(){ try{var id=localStorage.getItem('mib_client_id'); if(!id){ id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(16).slice(2)); localStorage.setItem('mib_client_id',id);} return id;}catch(_){ return Date.now()+''; } }
-  function param(n){ try{return new URLSearchParams(location.search).get(n);}catch(_){return null;} }
-  function uuidOrNull(v){ return (v&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v))?v:null; }
-  function go(){
-    var o=document.createElement('div');
-    o.id='mib-rgpd-overlay'; o.setAttribute('role','dialog'); o.setAttribute('aria-modal','true');
-    o.style.cssText='position:fixed;inset:0;z-index:2147483600;background:rgba(8,15,30,.74);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:18px';
-    o.innerHTML='<div style="background:#fff;color:#1e293b;max-width:440px;width:100%;border-radius:16px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.45);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif">'
-      +'<div style="text-align:center;margin-bottom:12px"><img src="/logo/icon.png" alt="MIBsoft" width="48" height="48"></div>'
-      +'<h2 style="margin:0 0 8px;font-size:18px;text-align:center;font-weight:800">Protection de vos donnees</h2>'
-      +'<p style="margin:0 0 14px;font-size:13.5px;line-height:1.5;color:#475569;text-align:center">Pour acceder a la plateforme MIBsoft, merci d\'accepter nos conditions et la gestion de vos donnees personnelles (RGPD).</p>'
-      +'<label style="display:flex;gap:9px;align-items:flex-start;font-size:13.5px;line-height:1.45;cursor:pointer;margin-bottom:16px">'
-        +'<input type="checkbox" id="mib-rgpd-cb" style="margin-top:2px;width:18px;height:18px;flex:0 0 auto">'
-        +'<span>J\'ai lu et j\'accepte les <a href="/legal/cgu.html" target="_blank" rel="noopener" style="color:#2f7d12;font-weight:600">CGU</a> et la <a href="/legal/politique-confidentialite.html" target="_blank" rel="noopener" style="color:#2f7d12;font-weight:600">politique de confidentialite</a>.</span>'
-      +'</label>'
-      +'<button id="mib-rgpd-ok" disabled style="width:100%;padding:12px;border:0;border-radius:10px;background:#9ca3af;color:#fff;font-weight:700;font-size:15px;cursor:not-allowed">Acceder a la plateforme</button>'
-      +'<button id="mib-rgpd-no" style="width:100%;margin-top:8px;padding:10px;border:0;border-radius:10px;background:transparent;color:#64748b;font-size:13px;cursor:pointer">Refuser et quitter</button>'
-      +'</div>';
-    document.body.appendChild(o);
-    var cb=o.querySelector('#mib-rgpd-cb'), ok=o.querySelector('#mib-rgpd-ok'), no=o.querySelector('#mib-rgpd-no');
-    cb.addEventListener('change',function(){ if(cb.checked){ok.disabled=false;ok.style.background='#4e9e16';ok.style.cursor='pointer';}else{ok.disabled=true;ok.style.background='#9ca3af';ok.style.cursor='not-allowed';} });
-    no.addEventListener('click',function(){ location.href='/index.html'; });
-    ok.addEventListener('click',function(){
-      if(!cb.checked) return;
-      try{ localStorage.setItem(KEY,new Date().toISOString()); }catch(_){}
-      try{ if(window.supabase&&supabase.rpc){ supabase.rpc('record_rgpd_consent',{p_role:ROLE,p_client_id:clientId(),p_consent_version:VERSION,p_email:null,p_center_id:uuidOrNull(param('center')),p_user_agent:navigator.userAgent,p_page:location.pathname}).then(function(r){ if(r&&r.error) console.warn('record_rgpd_consent',r.error); }); } }catch(e){ console.warn('record_rgpd_consent',e); }
-      o.remove();
-    });
-  }
-  if(document.body) go(); else document.addEventListener('DOMContentLoaded',go);
-})();
+window.MIB_CONSENT_VERSION='2026-06-v1';
+function mibClientId(){try{var id=localStorage.getItem('mib_client_id');if(!id){id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(16).slice(2));localStorage.setItem('mib_client_id',id);}return id;}catch(_){return Date.now()+'';}}
+function mibConsentOK(){var cb=document.getElementById('mib-consent-cb');var e=document.getElementById('mib-consent-err');if(cb&&cb.checked){if(e)e.style.display='none';return true;}if(e)e.style.display='block';if(cb){try{cb.focus();}catch(_){}}return false;}
+function mibRecordConsent(role,email,centerId){try{if(window.supabase&&supabase.rpc){var cid=(centerId&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(centerId))?centerId:null;supabase.rpc('record_rgpd_consent',{p_role:role,p_client_id:mibClientId(),p_consent_version:window.MIB_CONSENT_VERSION,p_email:email||null,p_center_id:cid,p_user_agent:navigator.userAgent,p_page:location.pathname}).then(function(r){if(r&&r.error)console.warn('record_rgpd_consent',r.error);});}}catch(e){console.warn('record_rgpd_consent',e);}}
 </script>
 
 </body>
