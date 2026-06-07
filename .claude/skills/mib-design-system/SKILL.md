@@ -1,6 +1,6 @@
 ---
 name: mib-design-system
-description: Apply the MIB "Vigil" design system to any HTML/CSS/JS project. Use when building UI for MIB Prévention apps (SSIAP, sécurité incendie) or any spin-off app of MIB. Provides design tokens (colors, typography, spacing) and component classes (.mib-btn, .mib-card, .mib-inp, .mib-modal, .mib-badge, etc.) with a green-blue gradient brand identity (vert sauvetage + bleu pompier). Always use the .mib-* classes instead of inventing new styles. Triggers when: user asks to style a new page, create a form, add a button, build a dashboard, or refactor an existing page to match brand.
+description: Apply the MIB "Vigil" design system to any HTML/CSS/JS project. Use when building UI for MIBsoft apps (SSIAP, sécurité incendie) or any spin-off app of MIB. Provides design tokens (colors, typography, spacing) and component classes (.mib-btn, .mib-card, .mib-inp, .mib-modal, .mib-badge, etc.) with a green-blue gradient brand identity (vert sauvetage + bleu pompier). Always use the .mib-* classes instead of inventing new styles. Triggers when: user asks to style a new page, create a form, add a button, build a dashboard, or refactor an existing page to match brand.
 ---
 
 # MIB Design System — "Vigil"
@@ -8,7 +8,7 @@ description: Apply the MIB "Vigil" design system to any HTML/CSS/JS project. Use
 ## Quand utiliser ce skill
 
 Ce skill s'applique automatiquement quand :
-- L'utilisateur travaille sur une app MIB Prévention ou un spin-off MIB
+- L'utilisateur travaille sur une app MIBsoft ou un spin-off MIB
 - L'utilisateur demande de styler un nouveau composant ou une nouvelle page
 - L'utilisateur demande de "rendre responsive" ou "améliorer le design" d'une page
 - L'utilisateur demande de créer un formulaire, un dashboard, une modal, une table

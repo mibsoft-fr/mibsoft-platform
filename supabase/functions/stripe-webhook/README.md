@@ -25,7 +25,7 @@ Tout est en production sur Supabase. Le flow bout-en-bout fonctionne :
 - `STRIPE_SECRET_KEY` (mode test sk_test_...)
 - `STRIPE_WEBHOOK_SECRET` (whsec_...)
 - `MAILGUN_API_KEY` (Private API Key)
-- `MAILGUN_DOMAIN` = `mib-prevention.fr`
+- `MAILGUN_DOMAIN` = `mibsoft.fr`
 - `MAILGUN_HOST` = `api.eu.mailgun.net` (compte Mailgun EU)
 - `APP_URL`, `VITRINE_URL` selon environnement
 
@@ -47,7 +47,7 @@ Dans le repo (app Vercel) :
 - `paiement-succes.html` — page de retour post-paiement (instructions email)
 - `paiement-annule.html` — page de retour si abandon
 
-Versions standalone (`vitrine/`) pour copier-coller sur `mib-prevention.fr` :
+Versions standalone (`vitrine/`) pour copier-coller sur `mibsoft.fr` :
 - `vitrine/pricing.html` (inline les constantes Supabase, sans dépendance supabase.js)
 - `vitrine/paiement-succes.html`
 - `vitrine/paiement-annule.html`
@@ -76,9 +76,9 @@ Versions standalone (`vitrine/`) pour copier-coller sur `mib-prevention.fr` :
    - Récupérer `sk_live_...` et nouveau `whsec_...` mode live
    - Remplacer `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET`
    - Recréer les produits Stripe en mode live (re-run `stripe-setup-products`)
-   - Vérifier `mib-prevention.fr` configuré dans Mailgun avec SPF/DKIM corrects
+   - Vérifier `mibsoft.fr` configuré dans Mailgun avec SPF/DKIM corrects
 
-3. **Déploiement vitrine** : copier `vitrine/pricing.html`, `vitrine/paiement-succes.html`, `vitrine/paiement-annule.html` sur `mib-prevention.fr`
+3. **Déploiement vitrine** : copier `vitrine/pricing.html`, `vitrine/paiement-succes.html`, `vitrine/paiement-annule.html` sur `mibsoft.fr`
 
 4. **Admin UI Phase 7c** (optionnel) : onglet "Tarifs Stripe" pour modifier les prix sans console + onglet "Paiements" pour voir les events Stripe récents
 

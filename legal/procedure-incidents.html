@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Procédure de gestion des incidents — MIB Prévention</title>
+<title>Procédure de gestion des incidents — MIBsoft</title>
 <meta name="theme-color" content="#F8FAFC">
 <link rel="icon" href="/Logo MIB.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -32,7 +32,7 @@
   <div class="legal-hero">
     <div class="eyebrow">Document opérationnel — Sécurité</div>
     <h1>Procédure de gestion des incidents</h1>
-    <p class="lead">Procédure interne décrivant la détection, le confinement, la notification et la remédiation des incidents de sécurité affectant le service MIB Prévention.</p>
+    <p class="lead">Procédure interne décrivant la détection, le confinement, la notification et la remédiation des incidents de sécurité affectant le service MIBsoft.</p>
     <div class="meta">
       <span><strong>Version :</strong> 1.0 — Projet</span>
       <span><strong>Dernière mise à jour :</strong> Mai 2026</span>
@@ -51,7 +51,7 @@
   <article class="legal-article">
 
     <h2>1. Objet</h2>
-    <p>La présente procédure décrit le processus opérationnel de gestion des incidents de sécurité au sein de MIB Prévention, dans le respect des obligations RGPD (articles 33 et 34), des exigences ANSSI et des bonnes pratiques OWASP.</p>
+    <p>La présente procédure décrit le processus opérationnel de gestion des incidents de sécurité au sein de MIBsoft, dans le respect des obligations RGPD (articles 33 et 34), des exigences ANSSI et des bonnes pratiques OWASP.</p>
     <p>Sont visés les incidents :</p>
     <ul>
       <li>Affectant la <strong>confidentialité</strong> des données (fuites, accès non autorisé) ;</li>
@@ -99,7 +99,7 @@
       <li><strong>Alertes automatiques</strong> Supabase (santé DB, requêtes anormales, erreurs auth massives) ;</li>
       <li><strong>Monitoring Vercel</strong> (uptime, codes 5xx, latences) ;</li>
       <li><strong>Outils de sécurité</strong> : scans CVE Dependabot, alertes GitHub Security ;</li>
-      <li><strong>Signalements externes</strong> : utilisateurs, chercheurs en sécurité (via responsible disclosure : <a href="mailto:security@mib-prevention.fr">security@mib-prevention.fr</a>) ;</li>
+      <li><strong>Signalements externes</strong> : utilisateurs, chercheurs en sécurité (via responsible disclosure : <a href="mailto:security@mibsoft.fr">security@mibsoft.fr</a>) ;</li>
       <li><strong>Veille</strong> : bulletins ANSSI, CERT-FR, suivi des CVE des dépendances.</li>
     </ul>
 
@@ -149,11 +149,11 @@
     </ul>
 
     <h3>6.3 Notification aux Clients (responsables de traitement)</h3>
-    <p>En sa qualité de sous-traitant, MIB Prévention notifie ses Clients <strong>sous 48 h</strong> en cas de violation affectant leurs données, conformément au DPA (article 4.5).</p>
+    <p>En sa qualité de sous-traitant, MIBsoft notifie ses Clients <strong>sous 48 h</strong> en cas de violation affectant leurs données, conformément au DPA (article 4.5).</p>
 
     <h3>6.4 Autres notifications</h3>
     <ul>
-      <li><strong>ANSSI</strong> : si l'incident relève des opérateurs d'importance vitale ou de services essentiels (généralement non applicable au stade actuel de MIB Prévention, mais à réévaluer) ;</li>
+      <li><strong>ANSSI</strong> : si l'incident relève des opérateurs d'importance vitale ou de services essentiels (généralement non applicable au stade actuel de MIBsoft, mais à réévaluer) ;</li>
       <li><strong>Police / Gendarmerie</strong> : en cas d'infraction pénale (intrusion, extorsion, ransomware) — dépôt de plainte ;</li>
       <li><strong>Assureur cyber</strong> : selon les clauses du contrat d'assurance (à souscrire — <code>[À COMPLÉTER]</code>).</li>
     </ul>
@@ -183,19 +183,19 @@
       <strong>[Email type — incident affectant les données clients]</strong><br><br>
       <em>Objet</em> : [URGENT] Incident de sécurité — Information importante<br><br>
       Bonjour [Prénom Nom],<br><br>
-      Nous vous informons qu'un incident de sécurité a été détecté le [date, heure] sur la plateforme MIB Prévention.<br><br>
+      Nous vous informons qu'un incident de sécurité a été détecté le [date, heure] sur la plateforme MIBsoft.<br><br>
       <strong>Nature de l'incident :</strong> [description factuelle].<br>
       <strong>Périmètre :</strong> [données / utilisateurs concernés].<br>
       <strong>Risque pour vous :</strong> [évaluation honnête : aucun / modéré / élevé].<br>
       <strong>Mesures prises :</strong> [confinement, correctif, etc.].<br>
       <strong>Recommandations :</strong> [actions de votre côté, ex. changer mot de passe].<br><br>
       Nous mettons tout en œuvre pour résoudre cet incident et renforcer nos mesures de prévention. Une déclaration auprès de la CNIL a été effectuée le [date], conformément à nos obligations RGPD.<br><br>
-      Pour toute question, notre DPO se tient à votre disposition : <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a>.<br><br>
-      L'équipe MIB Prévention
+      Pour toute question, notre DPO se tient à votre disposition : <a href="mailto:dpo@mibsoft.fr">dpo@mibsoft.fr</a>.<br><br>
+      L'équipe MIBsoft
     </div>
 
     <h2>10. Registre des violations de données</h2>
-    <p>Conformément à l'article 33.5 du RGPD, MIB Prévention tient un registre interne de l'ensemble des violations de données, contenant pour chacune :</p>
+    <p>Conformément à l'article 33.5 du RGPD, MIBsoft tient un registre interne de l'ensemble des violations de données, contenant pour chacune :</p>
     <ul>
       <li>Date de détection et de fin de l'incident ;</li>
       <li>Faits, effets et mesures prises ;</li>
@@ -217,8 +217,8 @@
     <h2>12. Coordonnées d'urgence</h2>
     <ul>
       <li><strong>Astreinte technique 24/7 :</strong> <code>[À COMPLÉTER : numéro]</code></li>
-      <li><strong>Signalement responsible disclosure :</strong> <a href="mailto:security@mib-prevention.fr">security@mib-prevention.fr</a></li>
-      <li><strong>DPO :</strong> <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a></li>
+      <li><strong>Signalement responsible disclosure :</strong> <a href="mailto:security@mibsoft.fr">security@mibsoft.fr</a></li>
+      <li><strong>DPO :</strong> <a href="mailto:dpo@mibsoft.fr">dpo@mibsoft.fr</a></li>
       <li><strong>Direction :</strong> <code>[À COMPLÉTER : email + téléphone]</code></li>
       <li><strong>CNIL</strong> (notification violations) : <a href="https://www.cnil.fr/fr/notifier-une-violation-de-donnees-personnelles" target="_blank" rel="noopener">cnil.fr</a></li>
       <li><strong>ANSSI / CERT-FR</strong> : <a href="https://www.cert.ssi.gouv.fr" target="_blank" rel="noopener">cert.ssi.gouv.fr</a></li>
@@ -229,8 +229,8 @@
 
   <div class="legal-footer">
     <p>
-      <strong>MIB Prévention</strong> — Plateforme SaaS de formation SSIAP<br>
-      Pour toute question : <a href="mailto:dpo@mib-prevention.fr">dpo@mib-prevention.fr</a><br>
+      <strong>MIBsoft</strong> — Plateforme SaaS de formation SSIAP<br>
+      Pour toute question : <a href="mailto:dpo@mibsoft.fr">dpo@mibsoft.fr</a><br>
       <a href="index.html">← Retour au référentiel juridique</a>
     </p>
   </div>

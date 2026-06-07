@@ -1,5 +1,5 @@
 // ============================================================
-// supabase.js — Configuration partagée MIB Prévention Platform
+// supabase.js — Configuration partagée MIBsoft Platform
 // À inclure en premier dans chaque page HTML :
 // <script src="supabase.js"></script>
 // ============================================================
@@ -334,5 +334,5 @@ if (typeof window !== 'undefined') {
   });
 }
 
-console.log('✅ MIB Prévention Platform — Supabase initialisé');
+console.log('✅ MIBsoft Platform — Supabase initialisé');
 console.log(`📡 Projet : ${SUPABASE_URL}`);
