@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
 
   const { data: formateurs, error } = await admin
     .from('formateurs')
-    .select('id, prenom, nom, niveau, center_id, centers ( nom )')
+    .select('id, prenom, nom, niveau, center_id, auth_user_id, centers ( nom )')
     .eq('email', email)
     .eq('actif', true);
 
@@ -86,6 +86,16 @@ Deno.serve(async (req) => {
       })
       .eq('id', f.id);
     if (upErr) continue;
+
+    // Synchronise le password Supabase auth (sinon le nouveau PIN ne permet pas de se connecter).
+    // Si pas d'auth_user_id (formateur jamais bootstrappé), on crée l'auth user via formateur-auth-sync.
+    if (f.auth_user_id) {
+      await admin.auth.admin.updateUserById(f.auth_user_id, { password: newPin });
+    } else {
+      await admin.functions.invoke('formateur-auth-sync', {
+        body: { formateur_id: f.id, new_pin: newPin }
+      });
+    }
 
     updated.push({
       prenom: f.prenom,
