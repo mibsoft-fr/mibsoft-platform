@@ -1603,8 +1603,16 @@ window.saveFormateur = async function() {
         if (!ex || !ex.length) { pin = c; pinHash = ph; break; }
       }
       if (!pin) throw new Error('Impossible de générer un PIN unique');
-      const { error } = await supabase.from('formateurs').insert({ prenom, nom, email: email||null, role, niveau: niveauForm||null, date_dernier_recyclage: recyclage, pin_hash: pinHash, pin_clair: pin, center_id: CENTER.id, actif: true });
+      const { data: inserted, error } = await supabase.from('formateurs').insert({ prenom, nom, email: email||null, role, niveau: niveauForm||null, date_dernier_recyclage: recyclage, pin_hash: pinHash, pin_clair: pin, center_id: CENTER.id, actif: true }).select('id').single();
       if (error) throw error;
+      // Crée l'auth user Supabase associé (transparent pour le formateur) pour
+      // que le login par PIN fonctionne. En cas d'échec, on log mais on n'annule
+      // pas la création — l'admin pourra resync via formateur-auth-sync.
+      try {
+        if (inserted?.id) {
+          await supabase.functions.invoke('formateur-auth-sync', { body: { formateur_id: inserted.id } });
+        }
+      } catch (e) { console.warn('formateur-auth-sync failed', e); }
       const base = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
       const loginUrl = base + 'login-formateur.html?center=' + CENTER.id;
       document.getElementById('f-pin-generated').textContent = pin;

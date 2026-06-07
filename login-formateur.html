@@ -327,11 +327,34 @@
     <div class="step-dot" id="dot-2"></div>
   </div>
 
+  <!-- ══ ÉTAPE 0 : CHOIX DU CENTRE (avant la saisie du PIN) ══ -->
+  <div id="step-choose-centre" class="hidden">
+    <div class="auth-prompt">
+      <div class="title">Choisissez votre centre</div>
+      <div class="desc">Sélectionnez le centre de formation</div>
+    </div>
+    <div id="choose-centre-loading" class="loading">
+      <span class="spin"></span>
+      Chargement des centres...
+    </div>
+    <div id="choose-centre-list" class="hidden" style="margin-bottom: var(--space-3);"></div>
+    <div id="choose-centre-err" class="alert-err hidden" style="margin-bottom: var(--space-3);"></div>
+    <button class="btn-primary hidden" id="btn-choose-centre" onclick="confirmChosenCentre()" disabled>
+      Continuer →
+    </button>
+  </div>
+
   <!-- ══ ÉTAPE 1 : PIN ══ -->
-  <div id="step-pin">
+  <div id="step-pin" class="hidden">
+    <button onclick="backToChooseCentre()" class="back-step-btn hidden" id="back-to-centre">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+      Changer de centre
+    </button>
     <div class="auth-prompt">
       <div class="title">Votre code PIN</div>
-      <div class="desc">Entrez votre PIN à 6 chiffres</div>
+      <div class="desc" id="pin-subtitle">Entrez votre PIN à 6 chiffres</div>
     </div>
 
     <div class="pin-wrap" id="pin-display">
@@ -433,12 +456,117 @@
 let pin = [];
 let foundFormateurs = [];
 let selectedFormateur = null;
+let allCentres = [];
+let chosenCentreId = null;
+let chosenCentreNom = '';
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   if (window.SESSION) SESSION.clear('formateur');
   const p = new URLSearchParams(window.location.search);
   window.preCentreId = p.get('center') || null;
+
+  // Charge la liste publique des centres actifs.
+  try {
+    const { data, error } = await supabase.rpc('list_centers_public');
+    if (error) throw error;
+    allCentres = data || [];
+  } catch (e) {
+    allCentres = [];
+  }
+
+  // Stratégie d'affichage initial :
+  //   - URL contient ?center=ID → centre forcé, on saute le picker
+  //   - 1 seul centre actif      → auto-sélection, on saute le picker
+  //   - sinon                    → picker avec auto-loading
+  if (window.preCentreId) {
+    const c = allCentres.find(x => x.id === window.preCentreId);
+    if (c) {
+      setChosenCentre(c.id, c.nom);
+      goToPinStep();
+      return;
+    }
+  }
+  if (allCentres.length === 1) {
+    setChosenCentre(allCentres[0].id, allCentres[0].nom);
+    goToPinStep();
+    return;
+  }
+  showChooseCentreStep();
 });
+
+function setChosenCentre(id, nom) {
+  chosenCentreId = id;
+  chosenCentreNom = nom || '';
+  const sub = document.getElementById('pin-subtitle');
+  if (sub) sub.innerHTML = chosenCentreNom
+    ? `Centre <strong style="color:var(--vigil-700);">${escapeHtml(chosenCentreNom)}</strong> — entrez votre PIN à 6 chiffres`
+    : 'Entrez votre PIN à 6 chiffres';
+}
+
+function showChooseCentreStep() {
+  document.getElementById('step-choose-centre').classList.remove('hidden');
+  document.getElementById('step-pin').classList.add('hidden');
+  document.getElementById('step-centre').classList.add('hidden');
+  document.getElementById('step-forgot').classList.add('hidden');
+  document.getElementById('dot-1').classList.add('active');
+  document.getElementById('dot-2').classList.remove('active');
+
+  const loading = document.getElementById('choose-centre-loading');
+  const list = document.getElementById('choose-centre-list');
+  const btn = document.getElementById('btn-choose-centre');
+  const err = document.getElementById('choose-centre-err');
+  err.classList.add('hidden');
+  if (!allCentres.length) {
+    loading.classList.add('hidden');
+    err.textContent = '❌ Aucun centre disponible. Contactez votre responsable.';
+    err.classList.remove('hidden');
+    return;
+  }
+  loading.classList.add('hidden');
+  list.classList.remove('hidden');
+  btn.classList.remove('hidden');
+  list.innerHTML = allCentres.map((c, i) => `
+    <div class="centre-item" id="choose-item-${i}" onclick="pickChosenCentre(${i})">
+      <div class="centre-icon">🏢</div>
+      <div>
+        <div class="centre-nom">${escapeHtml(c.nom || '—')}</div>
+        <div class="centre-meta">Plan ${escapeHtml(c.plan || '—')}</div>
+      </div>
+    </div>`).join('');
+}
+
+function pickChosenCentre(idx) {
+  const c = allCentres[idx];
+  if (!c) return;
+  setChosenCentre(c.id, c.nom);
+  document.querySelectorAll('#choose-centre-list .centre-item').forEach((el, i) => {
+    el.classList.toggle('selected', i === idx);
+  });
+  document.getElementById('btn-choose-centre').disabled = false;
+}
+
+function confirmChosenCentre() {
+  if (!chosenCentreId) return;
+  goToPinStep();
+}
+
+function goToPinStep() {
+  document.getElementById('step-choose-centre').classList.add('hidden');
+  document.getElementById('step-pin').classList.remove('hidden');
+  document.getElementById('step-centre').classList.add('hidden');
+  document.getElementById('step-forgot').classList.add('hidden');
+  document.getElementById('dot-1').classList.add('active');
+  document.getElementById('dot-2').classList.remove('active');
+  pin = []; updatePin();
+  document.getElementById('pin-err').classList.add('hidden');
+  // Permet de revenir au picker si plusieurs centres existent
+  const back = document.getElementById('back-to-centre');
+  if (back) back.classList.toggle('hidden', !!window.preCentreId || allCentres.length <= 1);
+}
+
+function backToChooseCentre() {
+  showChooseCentreStep();
+}
 
 function kp(d) { if (pin.length >= 6) return; pin.push(d); updatePin(); }
 function kd() { if (!pin.length) return; pin.pop(); updatePin(); }
@@ -473,7 +601,7 @@ async function verifyPin() {
 
   const pinStr = pin.join('');
   currentPinStr = pinStr;
-  const centerId = window.preCentreId || null;
+  const centerId = chosenCentreId || window.preCentreId || null;
 
   try {
     try { await supabase.auth.signOut(); } catch (_) {}
