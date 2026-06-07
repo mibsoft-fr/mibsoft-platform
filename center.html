@@ -1748,7 +1748,7 @@ window.saveStagiaire = async function() {
       }
       let pin = '', pinHash = null;
       for (let a = 0; a < 20; a++) {
-        const c = String(Math.floor(1000 + Math.random()*9000));
+        const c = String(Math.floor(100000 + Math.random()*900000));
         const ph = await UTILS.hash(c);
         const { data: ex } = await supabase.from('stagiaires').select('id').eq('center_id',CENTER.id).eq('pin_hash',ph).eq('actif',true);
         if (!ex || !ex.length) { pin = c; pinHash = ph; break; }
