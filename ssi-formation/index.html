@@ -150,6 +150,7 @@ activeMibRTUnsubs=[];
 function cleanupSession(){
 cleanupRealtime();
 if(typeof stopSessionAliveCheck==='function')stopSessionAliveCheck();
+if(typeof stopNextSessionWatch==='function')stopNextSessionWatch();
 stopVideo();
 stopAlarmSound(true);
 stopGeneralAlarm();
@@ -215,6 +216,8 @@ render();
 // Auto-rejoin : écoute le canal formation pour qu'à la prochaine `_formation_session_started`
 // le stagiaire bascule automatiquement sur la nouvelle session SSI (chaînage d'exercices).
 watchFormationChannel();
+// Filet de secours si le broadcast est manqué : on poll la prochaine session.
+startNextSessionWatch();
 }
 
 // ─── Polling « session alive » (filet de sécurité côté stagiaire) ────────────
@@ -260,6 +263,45 @@ handleSessionEnded();
 }
 function stopSessionAliveCheck(){if(sessionAliveTimer){clearInterval(sessionAliveTimer);sessionAliveTimer=null;}}
 
+// ─── Polling « prochaine session » (filet pour le chaînage d'exercices) ──────
+// Le broadcast `_formation_session_started` (canal formation:) est éphémère :
+// si le stagiaire le rate (canal recréé, course à la souscription, micro-coupure
+// réseau au moment où le formateur ferme puis rouvre), il reste bloqué sur
+// « ⏳ En attente de session… » et doit re-saisir son PIN. Ce poller comble le
+// trou : tant que le stagiaire est connecté SANS session active, on re-résout
+// toutes les 12s la session en cours de sa formation via ssi_resolve_stagiaire
+// (SECURITY DEFINER → pas de dépendance RLS, pas de comptage d'échec PIN) et on
+// rejoint automatiquement dès qu'une nouvelle session 'en_cours' apparaît.
+let nextSessionTimer=null;
+function startNextSessionWatch(){
+stopNextSessionWatch();
+if(STATE.userType!=='trainee')return;
+// Besoin du PIN + centerId mémorisés au login pour re-résoudre sans re-saisie.
+if(!STATE.currentUser||!STATE.currentUser.pin||!STATE.centerId)return;
+nextSessionTimer=setInterval(async()=>{
+// Dès qu'une session est (re)devenue active — via broadcast ou via ce poller —
+// on coupe le watch ; il sera relancé au prochain handleSessionEnded.
+if(STATE.sessionActive){stopNextSessionWatch();return;}
+try{
+const sb=window.supabaseStagiaire||window.supabase;
+if(!sb||!sb.rpc)return;
+const{data,error}=await sb.rpc('ssi_resolve_stagiaire',{p_center_id:STATE.centerId,p_pin:STATE.currentUser.pin});
+if(error){console.warn('nextSessionWatch resolve failed',error);return;}
+const row=Array.isArray(data)?data[0]:data;
+if(!row||row.no_active_session||!row.session_number)return;
+// Déjà sur cette session (broadcast arrivé entre-temps) → rien à faire.
+if(STATE.sessionActive&&STATE.sessionId===row.session_number)return;
+console.log('nextSessionWatch: nouvelle session détectée',row.session_number);
+STATE.mibSessionId=row.sessions_formation_id||STATE.mibSessionId;
+STATE.ssiSessionId=row.ssi_session_id||null;
+// joinKnownSession arrête le poller lui-même sur succès ; en cas d'échec
+// (session déjà retombée inactive) on laisse le poller retenter au tick suivant.
+joinKnownSession(row.session_number);
+}catch(e){console.warn('nextSessionWatch threw',e);}
+},12000);
+}
+function stopNextSessionWatch(){if(nextSessionTimer){clearInterval(nextSessionTimer);nextSessionTimer=null;}}
+
 // Phase 3a+ : abonnement au canal formation:<mibSessionId> pour détecter le démarrage
 // d'une nouvelle session SSI dans la même session de formation et auto-rejoindre.
 // Remplace l'ancien watchForNewSession() Firebase (singleton active_session, retiré).
@@ -299,6 +341,7 @@ function watchForNextFormationSession(){watchFormationChannel();}
 // le BON canal tout en affichant le bon numéro.
 function autoRejoinSession(ssiSessionId,sessionId,sessionNumber){
 if(STATE.userType!=='trainee'||!sessionId)return;
+stopNextSessionWatch();
 cleanupRealtime();
 STATE.sessionId=sessionId;
 STATE.ssiSessionId=ssiSessionId||null;
@@ -504,6 +547,7 @@ if(!firebaseInitialized||!sessionId)return;
 db.ref(`sessions/${sessionId}`).once('value',(sessionSnapshot)=>{
 const sessionData=sessionSnapshot.val();
 if(sessionData&&sessionData.active===true){
+stopNextSessionWatch();
 STATE.sessionId=sessionId;
 STATE.sessionActive=true;
 STATE.sessionNumber=sessionData.sessionNumber;
