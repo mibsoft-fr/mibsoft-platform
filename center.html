@@ -1068,7 +1068,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
         <div><label class="lbl">Prénom</label><input type="text" id="f-prenom" class="inp" placeholder="Jean" oninput="this.value=capitalizeWords(this.value)"></div>
         <div><label class="lbl">Nom</label><input type="text" id="f-nom" class="inp" placeholder="MARTIN" oninput="this.value=this.value.toUpperCase()"></div>
       </div>
-      <div><label class="lbl">Email (optionnel)</label><input type="email" id="f-email" class="inp" placeholder="jean.martin@centre.fr"></div>
+      <div><label class="lbl">Email <span style="color:#dc2626;">*</span></label><input type="email" id="f-email" class="inp" placeholder="jean.martin@centre.fr"></div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="lbl">Rôle</label>
           <select id="f-role" class="inp"><option value="formateur">Formateur</option><option value="responsable">Responsable de centre</option></select>
@@ -1586,6 +1586,11 @@ window.saveFormateur = async function() {
   const msgEl = document.getElementById('f-msg');
   msgEl.classList.add('hidden');
   if (!prenom || !nom) { msgEl.innerHTML = '<div class="alert-err">❌ Prénom et nom obligatoires.</div>'; msgEl.classList.remove('hidden'); return; }
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    msgEl.innerHTML = '<div class="alert-err">❌ Email obligatoire (utilisé pour identifier le formateur entre les centres).</div>';
+    msgEl.classList.remove('hidden');
+    return;
+  }
   const btnEl = document.getElementById('btn-save-f');
   btnEl.disabled = true; btnEl.innerHTML = '<span class="spin"></span>';
   try {
@@ -1595,15 +1600,47 @@ window.saveFormateur = async function() {
       loadFormateurs(); loadAll();
       setTimeout(() => closeModal('modal-add-formateur'), 1500);
     } else {
-      let pin = '', pinHash = null;
-      for (let a = 0; a < 20; a++) {
-        const c = String(Math.floor(100000 + Math.random()*900000));
-        const ph = await UTILS.hash(c);
-        const { data: ex } = await supabase.from('formateurs').select('id').eq('center_id',CENTER.id).eq('pin_hash',ph).eq('actif',true);
-        if (!ex || !ex.length) { pin = c; pinHash = ph; break; }
+      // Dédup par email : si un formateur existe déjà dans un autre centre avec
+      // cet email, on lui propose de réutiliser le même PIN (un seul code partout).
+      const { data: existing } = await supabase.rpc('find_formateur_by_email', { p_email: email });
+      let pin, pinHash, sharedAuthUserId = null;
+      if (existing && existing.length > 0) {
+        const ex = existing[0];
+        // Bloque si déjà inscrit dans CE centre (éviter doublon)
+        if (existing.some(e => e.center_id === CENTER.id)) {
+          throw new Error('Ce formateur (même email) est déjà présent dans votre centre.');
+        }
+        const centresList = existing.map(e => e.center_nom).join(', ');
+        const linkConfirm = confirm(
+          `Cet email est déjà utilisé par ${ex.prenom} ${ex.nom}, inscrit(e) dans ${existing.length} centre(s) : ${centresList}.\n\n` +
+          `Cliquez sur OK pour LIER ce formateur à votre centre (même code PIN partout).\n` +
+          `Cliquez sur Annuler pour ne rien faire — utilisez un autre email si c'est une personne différente.`
+        );
+        if (!linkConfirm) {
+          msgEl.innerHTML = '<div class="alert-err">Création annulée. Utilisez un autre email pour créer un profil distinct.</div>';
+          msgEl.classList.remove('hidden');
+          return;
+        }
+        pin = ex.pin_clair;
+        pinHash = ex.pin_hash;
+        sharedAuthUserId = ex.auth_user_id;
+      } else {
+        for (let a = 0; a < 20; a++) {
+          const c = String(Math.floor(100000 + Math.random()*900000));
+          const ph = await UTILS.hash(c);
+          const { data: dup } = await supabase.from('formateurs').select('id').eq('center_id',CENTER.id).eq('pin_hash',ph).eq('actif',true);
+          if (!dup || !dup.length) { pin = c; pinHash = ph; break; }
+        }
+        if (!pin) throw new Error('Impossible de générer un PIN unique');
       }
-      if (!pin) throw new Error('Impossible de générer un PIN unique');
-      const { data: inserted, error } = await supabase.from('formateurs').insert({ prenom, nom, email: email||null, role, niveau: niveauForm||null, date_dernier_recyclage: recyclage, pin_hash: pinHash, pin_clair: pin, center_id: CENTER.id, actif: true }).select('id').single();
+      const insertPayload = {
+        prenom, nom, email, role, niveau: niveauForm||null,
+        date_dernier_recyclage: recyclage,
+        pin_hash: pinHash, pin_clair: pin,
+        center_id: CENTER.id, actif: true
+      };
+      if (sharedAuthUserId) insertPayload.auth_user_id = sharedAuthUserId;
+      const { data: inserted, error } = await supabase.from('formateurs').insert(insertPayload).select('id').single();
       if (error) throw error;
       // Crée l'auth user Supabase associé (transparent pour le formateur) pour
       // que le login par PIN fonctionne. En cas d'échec, on log mais on n'annule
