@@ -327,19 +327,47 @@
     <div class="step-dot" id="dot-2"></div>
   </div>
 
-  <!-- ══ ÉTAPE 0 : CHOIX DU CENTRE (avant la saisie du PIN) ══ -->
+  <!-- ══ ÉTAPE 0 : EMAIL ══ -->
+  <div id="step-email" class="hidden">
+    <div class="auth-prompt">
+      <div class="title">Votre email</div>
+      <div class="desc">Identifiez-vous avec votre email professionnel</div>
+    </div>
+    <div style="margin-bottom:var(--space-3);">
+      <input id="login-email" type="email" autocomplete="email"
+        placeholder="prenom.nom@centre.fr"
+        style="width:100%;padding:var(--space-3) var(--space-4);min-height:48px;
+               border-radius:var(--radius-md);border:1px solid var(--border-default);
+               font-size:var(--text-sm);background:#fff;"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();submitEmail();}">
+    </div>
+    <div id="email-err" class="alert-err hidden" style="margin-bottom:var(--space-3);"></div>
+    <button class="btn-primary" id="btn-email" onclick="submitEmail()">
+      <span id="btn-email-label">Continuer →</span>
+    </button>
+    <button type="button" id="link-forgot-from-email" onclick="openForgot()"
+      style="display:block;margin:var(--space-4) auto 0;background:transparent;border:none;cursor:pointer;
+             font-size:var(--text-sm);font-weight:var(--weight-semibold);color:var(--vigil-700);
+             text-decoration:underline;text-underline-offset:3px;">
+      PIN oublié ?
+    </button>
+  </div>
+
+  <!-- ══ ÉTAPE 0bis : CHOIX DU CENTRE (uniquement si plusieurs) ══ -->
   <div id="step-choose-centre" class="hidden">
+    <button onclick="backToEmail()" class="back-step-btn" type="button">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+      Changer d'email
+    </button>
     <div class="auth-prompt">
       <div class="title">Choisissez votre centre</div>
-      <div class="desc">Sélectionnez le centre de formation</div>
+      <div class="desc" id="choose-centre-subtitle">Vous êtes inscrit dans plusieurs centres</div>
     </div>
-    <div id="choose-centre-loading" class="loading">
-      <span class="spin"></span>
-      Chargement des centres...
-    </div>
-    <div id="choose-centre-list" class="hidden" style="margin-bottom: var(--space-3);"></div>
+    <div id="choose-centre-list" style="margin-bottom: var(--space-3);"></div>
     <div id="choose-centre-err" class="alert-err hidden" style="margin-bottom: var(--space-3);"></div>
-    <button class="btn-primary hidden" id="btn-choose-centre" onclick="confirmChosenCentre()" disabled>
+    <button class="btn-primary" id="btn-choose-centre" onclick="confirmChosenCentre()" disabled>
       Continuer →
     </button>
   </div>
@@ -350,7 +378,7 @@
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="15 18 9 12 15 6"></polyline>
       </svg>
-      Changer de centre
+      <span id="back-to-centre-label">Retour</span>
     </button>
     <div class="auth-prompt">
       <div class="title">Votre code PIN</div>
@@ -456,43 +484,79 @@
 let pin = [];
 let foundFormateurs = [];
 let selectedFormateur = null;
-let allCentres = [];
+let formateurCentres = [];
 let chosenCentreId = null;
 let chosenCentreNom = '';
+let formateurEmail = '';
 
-window.addEventListener('DOMContentLoaded', async () => {
+window.addEventListener('DOMContentLoaded', () => {
   if (window.SESSION) SESSION.clear('formateur');
   const p = new URLSearchParams(window.location.search);
   window.preCentreId = p.get('center') || null;
 
-  // Charge la liste publique des centres actifs.
-  try {
-    const { data, error } = await supabase.rpc('list_centers_public');
-    if (error) throw error;
-    allCentres = data || [];
-  } catch (e) {
-    allCentres = [];
-  }
-
   // Stratégie d'affichage initial :
-  //   - URL contient ?center=ID → centre forcé, on saute le picker
-  //   - 1 seul centre actif      → auto-sélection, on saute le picker
-  //   - sinon                    → picker avec auto-loading
+  //   - URL contient ?center=ID (QR code) → on saute l'email, direct au PIN
+  //   - sinon                              → étape email
   if (window.preCentreId) {
-    const c = allCentres.find(x => x.id === window.preCentreId);
-    if (c) {
-      setChosenCentre(c.id, c.nom);
-      goToPinStep();
-      return;
-    }
-  }
-  if (allCentres.length === 1) {
-    setChosenCentre(allCentres[0].id, allCentres[0].nom);
+    setChosenCentre(window.preCentreId, '');
     goToPinStep();
+  } else {
+    showEmailStep();
+  }
+});
+
+function showEmailStep() {
+  document.getElementById('step-email').classList.remove('hidden');
+  document.getElementById('step-choose-centre').classList.add('hidden');
+  document.getElementById('step-pin').classList.add('hidden');
+  document.getElementById('step-centre').classList.add('hidden');
+  document.getElementById('step-forgot').classList.add('hidden');
+  document.getElementById('dot-1').classList.add('active');
+  document.getElementById('dot-2').classList.remove('active');
+  document.getElementById('email-err').classList.add('hidden');
+  setTimeout(() => document.getElementById('login-email').focus(), 50);
+}
+
+async function submitEmail() {
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const errEl = document.getElementById('email-err');
+  const btnEl = document.getElementById('btn-email');
+  const lblEl = document.getElementById('btn-email-label');
+  errEl.classList.add('hidden');
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    errEl.textContent = '❌ Email invalide.';
+    errEl.classList.remove('hidden');
     return;
   }
-  showChooseCentreStep();
-});
+  btnEl.disabled = true;
+  lblEl.innerHTML = '<span class="spin"></span>';
+  try {
+    const { data, error } = await supabase.rpc('list_centers_for_formateur_email', { p_email: email });
+    if (error) throw new Error('Erreur de connexion au serveur.');
+    const centres = data || [];
+    if (centres.length === 0) {
+      errEl.textContent = '❌ Aucun centre trouvé pour cet email. Vérifiez l\'orthographe ou contactez votre responsable.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    formateurEmail = email;
+    formateurCentres = centres;
+    if (centres.length === 1) {
+      setChosenCentre(centres[0].id, centres[0].nom);
+      goToPinStep();
+    } else {
+      showChooseCentreStep();
+    }
+  } catch (e) {
+    errEl.textContent = '❌ ' + (e.message || 'Erreur inattendue.');
+    errEl.classList.remove('hidden');
+  } finally {
+    btnEl.disabled = false;
+    lblEl.textContent = 'Continuer →';
+  }
+}
+
+function backToEmail() { showEmailStep(); }
 
 function setChosenCentre(id, nom) {
   chosenCentreId = id;
@@ -504,6 +568,7 @@ function setChosenCentre(id, nom) {
 }
 
 function showChooseCentreStep() {
+  document.getElementById('step-email').classList.add('hidden');
   document.getElementById('step-choose-centre').classList.remove('hidden');
   document.getElementById('step-pin').classList.add('hidden');
   document.getElementById('step-centre').classList.add('hidden');
@@ -511,21 +576,12 @@ function showChooseCentreStep() {
   document.getElementById('dot-1').classList.add('active');
   document.getElementById('dot-2').classList.remove('active');
 
-  const loading = document.getElementById('choose-centre-loading');
   const list = document.getElementById('choose-centre-list');
   const btn = document.getElementById('btn-choose-centre');
   const err = document.getElementById('choose-centre-err');
   err.classList.add('hidden');
-  if (!allCentres.length) {
-    loading.classList.add('hidden');
-    err.textContent = '❌ Aucun centre disponible. Contactez votre responsable.';
-    err.classList.remove('hidden');
-    return;
-  }
-  loading.classList.add('hidden');
-  list.classList.remove('hidden');
-  btn.classList.remove('hidden');
-  list.innerHTML = allCentres.map((c, i) => `
+  btn.disabled = true;
+  list.innerHTML = formateurCentres.map((c, i) => `
     <div class="centre-item" id="choose-item-${i}" onclick="pickChosenCentre(${i})">
       <div class="centre-icon">🏢</div>
       <div>
@@ -536,7 +592,7 @@ function showChooseCentreStep() {
 }
 
 function pickChosenCentre(idx) {
-  const c = allCentres[idx];
+  const c = formateurCentres[idx];
   if (!c) return;
   setChosenCentre(c.id, c.nom);
   document.querySelectorAll('#choose-centre-list .centre-item').forEach((el, i) => {
@@ -559,13 +615,16 @@ function goToPinStep() {
   document.getElementById('dot-2').classList.remove('active');
   pin = []; updatePin();
   document.getElementById('pin-err').classList.add('hidden');
-  // Permet de revenir au picker si plusieurs centres existent
+  // Bouton de retour : visible sauf si on est verrouillé par ?center=
   const back = document.getElementById('back-to-centre');
-  if (back) back.classList.toggle('hidden', !!window.preCentreId || allCentres.length <= 1);
+  const lbl = document.getElementById('back-to-centre-label');
+  if (back) back.classList.toggle('hidden', !!window.preCentreId);
+  if (lbl) lbl.textContent = formateurCentres.length > 1 ? 'Changer de centre' : 'Changer d\'email';
 }
 
 function backToChooseCentre() {
-  showChooseCentreStep();
+  if (formateurCentres.length > 1) showChooseCentreStep();
+  else backToEmail();
 }
 
 function kp(d) { if (pin.length >= 6) return; pin.push(d); updatePin(); }
@@ -718,16 +777,24 @@ function escapeHtml(s) {
 
 // ══ PIN oublié ══
 function openForgot() {
+  document.getElementById('step-email').classList.add('hidden');
   document.getElementById('step-pin').classList.add('hidden');
+  document.getElementById('step-choose-centre').classList.add('hidden');
   document.getElementById('step-forgot').classList.remove('hidden');
   document.getElementById('forgot-err').classList.add('hidden');
   document.getElementById('forgot-ok').classList.add('hidden');
-  document.getElementById('forgot-email').value = '';
+  // Pré-remplit avec l'email déjà saisi à l'étape précédente.
+  const prefill = (document.getElementById('login-email')?.value || formateurEmail || '').trim();
+  document.getElementById('forgot-email').value = prefill;
   setTimeout(() => document.getElementById('forgot-email').focus(), 50);
 }
 function closeForgot() {
   document.getElementById('step-forgot').classList.add('hidden');
-  document.getElementById('step-pin').classList.remove('hidden');
+  if (window.preCentreId) {
+    document.getElementById('step-pin').classList.remove('hidden');
+  } else {
+    showEmailStep();
+  }
 }
 async function submitForgot() {
   const email = document.getElementById('forgot-email').value.trim().toLowerCase();
