@@ -53,14 +53,16 @@ Deno.serve(async (req) => {
     return json(RESPONSE_OK);
   }
 
-  // Régénère un PIN unique par centre pour chaque formateur trouvé.
-  const updated: { prenom: string, nom: string, niveau: string | null, center_nom: string, pin: string }[] = [];
-  for (const f of formateurs as any[]) {
-    let newPin = '';
-    let newHash = '';
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const candidate = generatePin();
-      const candidateHash = await hashSha256Hex(candidate);
+  // 1 SEUL nouveau PIN partagé par toutes les lignes du même email (= même
+  // personne dans plusieurs centres). On vérifie l'unicité dans chaque centre
+  // où la personne est inscrite avant de valider le PIN candidat.
+  let newPin = '';
+  let newHash = '';
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const candidate = generatePin();
+    const candidateHash = await hashSha256Hex(candidate);
+    let conflict = false;
+    for (const f of formateurs as any[]) {
       const { data: existing } = await admin
         .from('formateurs')
         .select('id')
@@ -68,43 +70,34 @@ Deno.serve(async (req) => {
         .eq('pin_hash', candidateHash)
         .eq('actif', true)
         .neq('id', f.id);
-      if (!existing || existing.length === 0) {
-        newPin = candidate;
-        newHash = candidateHash;
-        break;
-      }
+      if (existing && existing.length > 0) { conflict = true; break; }
     }
-    if (!newPin) continue;
-
-    const { error: upErr } = await admin
-      .from('formateurs')
-      .update({
-        pin_hash: newHash,
-        pin_clair: newPin,
-        failed_attempts: 0,
-        locked_until: null
-      })
-      .eq('id', f.id);
-    if (upErr) continue;
-
-    // Synchronise le password Supabase auth (sinon le nouveau PIN ne permet pas de se connecter).
-    // Si pas d'auth_user_id (formateur jamais bootstrappé), on crée l'auth user via formateur-auth-sync.
-    if (f.auth_user_id) {
-      await admin.auth.admin.updateUserById(f.auth_user_id, { password: newPin });
-    } else {
-      await admin.functions.invoke('formateur-auth-sync', {
-        body: { formateur_id: f.id, new_pin: newPin }
-      });
-    }
-
-    updated.push({
-      prenom: f.prenom,
-      nom: f.nom,
-      niveau: f.niveau,
-      center_nom: f.centers?.nom || '—',
-      pin: newPin
-    });
+    if (!conflict) { newPin = candidate; newHash = candidateHash; break; }
   }
+  if (!newPin) return json(RESPONSE_OK);
+
+  // Met à jour toutes les lignes en une fois.
+  const allIds = (formateurs as any[]).map(f => f.id);
+  await admin.from('formateurs')
+    .update({ pin_hash: newHash, pin_clair: newPin, failed_attempts: 0, locked_until: null })
+    .in('id', allIds);
+
+  // Met à jour le password Supabase auth — une fois par auth_user_id unique.
+  const authIds = Array.from(new Set((formateurs as any[]).map(f => f.auth_user_id).filter(Boolean)));
+  for (const aid of authIds) {
+    await admin.auth.admin.updateUserById(aid, { password: newPin });
+  }
+  // Pour les lignes sans auth_user_id (jamais bootstrappées), on délègue.
+  const orphan = (formateurs as any[]).filter(f => !f.auth_user_id);
+  for (const f of orphan) {
+    await admin.functions.invoke('formateur-auth-sync', { body: { formateur_id: f.id, new_pin: newPin } });
+  }
+
+  const updated = (formateurs as any[]).map(f => ({
+    prenom: f.prenom, nom: f.nom, niveau: f.niveau,
+    center_nom: f.centers?.nom || '—',
+    pin: newPin
+  }));
 
   if (updated.length === 0) return json(RESPONSE_OK);
 
@@ -112,7 +105,7 @@ Deno.serve(async (req) => {
   if (MAILGUN_API_KEY) {
     try {
       const subject = updated.length > 1
-        ? `[MIB] Vos nouveaux codes PIN (${updated.length} centres)`
+        ? `[MIB] Votre nouveau code PIN (valable dans ${updated.length} centres)`
         : `[MIB] Votre nouveau code PIN`;
       const html = buildHtml(updated);
       const form = new FormData();
@@ -134,21 +127,24 @@ Deno.serve(async (req) => {
 });
 
 function buildHtml(items: { prenom: string, nom: string, niveau: string | null, center_nom: string, pin: string }[]) {
-  const lines = items.map(i => {
+  // Un seul PIN partagé entre toutes les inscriptions de la personne.
+  const pin = items[0].pin;
+  const centresList = items.map(i => {
     const niv = i.niveau ? ` <span style="color:#6b7280;">(${escapeHtml(i.niveau)})</span>` : '';
-    return `<li style="margin: 10px 0;">
-      <div><strong>${escapeHtml(i.center_nom)}</strong>${niv}</div>
-      <div style="margin-top:4px;">Nouveau PIN : <span style="font-family:monospace;font-size:1.4rem;letter-spacing:.2em;font-weight:800;color:#059669;">${escapeHtml(i.pin)}</span></div>
-    </li>`;
+    return `<li style="margin: 4px 0;"><strong>${escapeHtml(i.center_nom)}</strong>${niv}</li>`;
   }).join('');
   const intro = items.length > 1
-    ? `<p>Vous êtes inscrit(e) dans plusieurs centres. Voici un nouveau PIN pour chacun :</p>`
+    ? `<p>Vous êtes inscrit(e) dans <strong>${items.length} centres</strong>. Un <strong>seul code PIN</strong> est valable pour tous :</p>`
     : `<p>Voici votre nouveau code PIN pour vous connecter à votre espace formateur :</p>`;
   return `<div style="font-family:Arial,sans-serif;max-width:520px;line-height:1.5;">
     <h2 style="color:#065f46;margin-top:0;">Réinitialisation de votre code PIN</h2>
     <p>Bonjour ${escapeHtml(items[0].prenom)} ${escapeHtml(items[0].nom)},</p>
     ${intro}
-    <ul style="list-style:none;padding-left:0;background:#f0fdf4;border-radius:8px;padding:14px 18px;border:1px solid #bbf7d0;">${lines}</ul>
+    <div style="text-align:center;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:18px;margin:18px 0;">
+      <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;color:#065f46;font-weight:700;">Nouveau code PIN</div>
+      <div style="font-family:monospace;font-size:2rem;letter-spacing:.3em;font-weight:800;color:#059669;margin-top:6px;">${escapeHtml(pin)}</div>
+    </div>
+    ${items.length > 1 ? `<p style="font-size:.9rem;color:#374151;">Centres concernés :</p><ul style="padding-left:18px;">${centresList}</ul>` : ''}
     <p style="color:#b91c1c;"><strong>⚠️ Vos anciens codes PIN ne fonctionnent plus.</strong></p>
     <p style="color:#6b7280;font-size:.85rem;">Si vous n'êtes pas à l'origine de cette demande, contactez votre responsable de centre — vos anciens PIN ont été invalidés.</p>
   </div>`;
