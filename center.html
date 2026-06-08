@@ -2335,9 +2335,11 @@ window.renderModules = function() {
         + '</div>';
     }
     if (on && m.key === 'module_ssi_supervise' && CENTER.id) {
-      window._ssiStagiaireUrl = base + 'ssi-formation/index.html?role=stagiaire&center=' + CENTER.id;
-      // HTML-escape pour l'affichage (sinon &c se fait parser en entité &cent; = ¢).
-      // Le presse-papier reçoit la valeur brute non échappée via copySsiStagiaireUrl().
+      // Lien volontairement réduit à UN SEUL paramètre (?center=…), sans "&" :
+      // l'app route vers l'écran PIN stagiaire par défaut, donc role=stagiaire est
+      // inutile. Surtout, un lien sans "&" résiste à l'envoi par messagerie/SMS
+      // (beaucoup d'apps tronquaient l'URL au "&", faisant perdre &center=… → "Lien invalide").
+      window._ssiStagiaireUrl = base + 'ssi-formation/index.html?center=' + CENTER.id;
       const ssiUrlHtml = window._ssiStagiaireUrl.replace(/&/g, '&amp;');
       extra = '<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">'
         + '<button onclick="copySsiStagiaireUrl()" '
