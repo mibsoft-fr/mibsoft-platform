@@ -1703,7 +1703,11 @@ function bootstrapFromMib(){
   const role=p.get('role');
   const sessionId=p.get('session');
   const centerId=p.get('center');
-  if(centerId)STATE.centerId=centerId;
+  // Mémorise le centre du poste : ainsi les ouvertures sans le lien complet
+  // (PWA installée, favori, raccourci dont l'URL de départ n'a pas ?center=…)
+  // retrouvent le centre et évitent le « Lien invalide ».
+  if(centerId){STATE.centerId=centerId;try{localStorage.setItem('ssi_center_id',centerId);}catch(_){}}
+  else{try{const c=localStorage.getItem('ssi_center_id');if(c)STATE.centerId=c;}catch(_){}}
   // Formateur depuis le dashboard MIB → son interface directement.
   if(from==='mib'&&role!=='stagiaire'){
     let f=null;
