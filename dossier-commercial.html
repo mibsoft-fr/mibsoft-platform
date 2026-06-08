@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dossier commercial — MIBsoft</title>
+<link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --g600:#059669;--g700:#047857;--g100:#D1FAE5;--g50:#ECFDF5;
+    --b600:#2563EB;--b100:#DBEAFE;--b800:#1E40AF;
+    --n900:#0F172A;--n800:#1E293B;--n700:#334155;--n600:#475569;--n500:#64748B;--n300:#CBD5E1;--n200:#E2E8F0;--n100:#F1F5F9;--n50:#F8FAFC;
+    --warn:#D97706;--danger:#DC2626;
+    --display:'Plus Jakarta Sans',system-ui,sans-serif;--body:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--n50);color:var(--n800);font-family:var(--body);line-height:1.55;font-size:15px}
+  .wrap{max-width:980px;margin:0 auto;padding:0 26px 70px}
+  h1,h2,h3,h4{font-family:var(--display);color:var(--n900);letter-spacing:-.02em;margin:0}
+  p{margin:.5em 0}
+  a{color:var(--g700)}
+  .ph{color:var(--danger);font-weight:600;background:#FEF2F2;border:1px dashed #FECACA;border-radius:5px;padding:0 5px;font-size:.85em}
+
+  .hero{background:linear-gradient(135deg,#10B981 0%,#059669 45%,#2563EB 100%);color:#fff;padding:46px 26px;border-radius:0 0 26px 26px;margin-bottom:18px}
+  .hero-in{max-width:980px;margin:0 auto;display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+  .hero .mk{width:78px;height:78px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .hero h1{color:#fff;font-size:2.1rem}
+  .hero .sub{opacity:.93;margin-top:4px}
+  .hero .tag{display:inline-block;margin-top:12px;font-size:.72rem;letter-spacing:.12em;text-transform:lowercase;background:rgba(255,255,255,.16);padding:5px 12px;border-radius:999px}
+  .meta{max-width:980px;margin:10px auto 0;color:var(--n400);font-size:.78rem}
+
+  section{margin-top:34px}
+  .ey{font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--g600);font-weight:800}
+  h2{font-size:1.5rem;margin:5px 0 6px;padding-bottom:8px;border-bottom:2px solid var(--g100)}
+  h3{font-size:1.1rem;margin:18px 0 6px;color:var(--n900)}
+  .lead{color:var(--n600);max-width:760px}
+
+  .card{background:#fff;border:1px solid var(--n200);border-radius:14px;padding:20px 22px;box-shadow:0 4px 12px -6px rgba(15,23,42,.1)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  ul{margin:.4em 0;padding-left:20px}li{margin:4px 0}
+  .pill{display:inline-block;background:var(--g50);color:var(--g700);border:1px solid var(--g100);border-radius:999px;padding:3px 11px;font-size:.78rem;font-weight:600;margin:3px 4px 3px 0}
+
+  table{width:100%;border-collapse:collapse;font-size:.9rem;margin-top:8px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--n200);vertical-align:top}
+  th{background:var(--n100);font-family:var(--display);font-size:.82rem;color:var(--n700)}
+  .price-t td:nth-child(2){font-weight:700;color:var(--g700);white-space:nowrap}
+
+  .obj{border:1px solid var(--n200);border-radius:12px;overflow:hidden;margin:12px 0}
+  .obj .q{background:linear-gradient(135deg,#FFF7ED,#FFFBEB);padding:12px 16px;font-weight:700;color:#9A3412;font-family:var(--display);display:flex;gap:8px;align-items:flex-start}
+  .obj .q::before{content:"❝";font-size:1.2rem;line-height:1;color:var(--warn)}
+  .obj .a{padding:14px 16px;background:#fff}
+  .obj .a .lbl{font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--g600);display:block;margin-bottom:4px}
+  .obj .a .punch{margin-top:8px;font-style:italic;color:var(--n600);border-left:3px solid var(--g600);padding-left:10px}
+
+  .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:10px}
+  .kpi .k{background:var(--n900);color:#fff;border-radius:12px;padding:16px}
+  .kpi .k .big{font-family:var(--display);font-size:1.7rem;font-weight:800;color:#6EE7B7}
+  .kpi .k .lab{font-size:.82rem;color:var(--n300)}
+
+  .step{display:flex;gap:12px;align-items:flex-start;margin:10px 0}
+  .step .n{flex:0 0 28px;height:28px;border-radius:50%;background:var(--g600);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:.85rem}
+
+  .callout{background:var(--b100);border:1px solid #BFDBFE;border-radius:12px;padding:14px 16px;color:var(--b800);font-size:.9rem}
+  footer{margin-top:46px;padding-top:18px;border-top:1px solid var(--n200);color:var(--n400);font-size:.8rem;text-align:center}
+  @media(max-width:640px){.grid2,.grid3,.kpi{grid-template-columns:1fr}.hero h1{font-size:1.7rem}}
+  @media print{body{background:#fff;font-size:12.5px}.hero{border-radius:0}.card{box-shadow:none}section{break-inside:avoid}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-in">
+    <div class="mk">
+      <svg width="50" height="32" viewBox="0 0 130.011 81.611" xmlns="http://www.w3.org/2000/svg">
+        <g transform="scale(0.69980987)">
+          <path d="m117.186 115.337 14.692.081L66.531 0 0 115.236h40.465l34.228-58.262-7.505-13.237-33.917 59.039H21.582l44.949-77.855z" fill="#fff"/>
+          <path d="m51.985 115.418 14.453-.05.932-1.719a.282.282 0 0 1 .053.03l3.097-5.844 8.394-15.488 13.563 24.272h14.171L78.933 66.681l-26.948 48.737zM119.249 0 97.415 37.769l7.415 12.025 14.419-24.873 44.949 77.855h-11.689l-33.747-58.693-7.443 11.941 33.996 59.212h40.466z" fill="rgba(255,255,255,.72)"/>
+        </g>
+      </svg>
+    </div>
+    <div>
+      <h1>Dossier commercial</h1>
+      <div class="sub">MIBsoft — la plateforme de formation SSIAP &amp; sécurité incendie</div>
+      <span class="tag">create your safe software</span>
+    </div>
+  </div>
+</header>
+<div class="meta">Support d'aide à la vente — usage interne commercial · Tarifs indiqués HT/mois (grille en vigueur). Mettre à jour avant diffusion.</div>
+
+<div class="wrap">
+
+  <!-- 1. PITCH -->
+  <section>
+    <div class="ey">01 — La société &amp; le produit</div>
+    <h2>En une phrase</h2>
+    <p class="lead"><b>MIBsoft équipe les organismes de formation SSIAP d'une plateforme tout-en-un</b> : un <b>simulateur de Système de Sécurité Incendie en temps réel</b> (le formateur pilote le tableau, le stagiaire agit comme en situation réelle), des <b>entraînements QCM</b>, des <b>outils pédagogiques</b>, et la <b>gestion administrative &amp; Qualiopi</b> du centre — le tout 100&nbsp;% web, sans matériel à installer.</p>
+    <div class="grid3" style="margin-top:14px">
+      <div class="card"><h4>Notre mission</h4><p style="font-size:.9rem;color:var(--n600)">Rendre la formation incendie <b>plus pratique, plus mesurable et moins coûteuse</b> — sans tableau SSI physique à 10&nbsp;000&nbsp;€.</p></div>
+      <div class="card"><h4>Pour qui</h4><p style="font-size:.9rem;color:var(--n600)">Formateurs indépendants, centres de formation SSIAP, organismes multi-sites, services sécurité (ERP/IGH).</p></div>
+      <div class="card"><h4>Promesse</h4><p style="font-size:.9rem;color:var(--n600)">Des stagiaires qui <b>manipulent vraiment</b>, des formateurs qui gagnent du temps, un centre <b>conforme</b> et bien suivi.</p></div>
+    </div>
+    <h3>Ce que contient la plateforme</h3>
+    <div>
+      <span class="pill">Simulateur SSI supervisé (formateur↔stagiaire, temps réel + vidéo)</span>
+      <span class="pill">SSI autoformation</span>
+      <span class="pill">QCM auto-entraînement SSIAP 1·2·3</span>
+      <span class="pill">Quiz en salle (Training Salle)</span>
+      <span class="pill">Challenge Cup (compétition)</span>
+      <span class="pill">Outils pédagogiques (désenfumage, dégagements, effectif)</span>
+      <span class="pill">Patrol — rondes de sécurité</span>
+      <span class="pill">Suivi pédagogique &amp; Qualiopi</span>
+      <span class="pill">Gestion centre / formateurs / stagiaires</span>
+      <span class="pill">Statistiques &amp; journaux horodatés</span>
+      <span class="pill">Hébergement Europe · RGPD</span>
+    </div>
+  </section>
+
+  <!-- 2. CIBLE -->
+  <section>
+    <div class="ey">02 — Marché cible</div>
+    <h2>Qui démarcher (et leurs déclencheurs)</h2>
+    <table>
+      <tr><th>Segment</th><th>Profil / interlocuteur</th><th>Déclencheur d'achat</th></tr>
+      <tr><td><b>Formateur SSIAP indépendant</b></td><td>Le formateur lui-même</td><td>Se démarquer, animer sans matériel, support clé en main → offre <b>Indépendant</b>.</td></tr>
+      <tr><td><b>Petit centre de formation</b></td><td>Gérant / responsable pédagogique</td><td>Professionnaliser, suivre les stagiaires, préparer Qualiopi → <b>Starter / Pro</b>.</td></tr>
+      <tr><td><b>Centre établi / multi-formateurs</b></td><td>Direction + référent qualité</td><td>Harmoniser les pratiques, piloter, audit Qualiopi serein → <b>Pro / Expert</b>.</td></tr>
+      <tr><td><b>Groupe / multi-sites</b></td><td>Direction réseau, achats</td><td>Standardiser sur N centres, reporting consolidé, SLA → <b>Entreprise</b>.</td></tr>
+      <tr><td><b>Service sécurité (ERP/IGH, entreprise)</b></td><td>Chef de service SSI / RH formation</td><td>Recyclages, maintien des acquis des agents → <b>Pro / Entreprise</b>.</td></tr>
+    </table>
+    <div class="callout" style="margin-top:14px"><b>Signaux à repérer :</b> passage / renouvellement Qualiopi, croissance du nombre de sessions, plaintes sur le manque de pratique, matériel SSI vieillissant ou indisponible, formateurs qui partent (perte de savoir-faire), examens à fort taux d'échec.</div>
+  </section>
+
+  <!-- 3. CONCURRENCE -->
+  <section>
+    <div class="ey">03 — Paysage concurrentiel</div>
+    <h2>Contre quoi on se bat</h2>
+    <p class="lead">MIBsoft ne se compare pas à un seul concurrent mais remplace un <b>patchwork d'outils et de méthodes</b>. Positionner selon ce que le prospect utilise déjà :</p>
+    <table>
+      <tr><th>Alternative actuelle</th><th>Ses limites</th><th>Notre réponse</th></tr>
+      <tr><td>Cours « PowerPoint + paperboard »</td><td>Passif, peu mémorisable, pas de mise en situation</td><td>Le stagiaire <b>manipule</b> un vrai tableau SSI simulé, piloté par le formateur.</td></tr>
+      <tr><td>Tableau SSI physique (matériel)</td><td>Coût élevé, encombrant, 1 poste à la fois, maintenance, non transportable</td><td>Simulateur illimité, multi-postes, à jour, <b>0 € de matériel</b>, accessible partout.</td></tr>
+      <tr><td>Applis QCM SSIAP « grand public »</td><td>QCM seuls, pas de SSI temps réel, pas de gestion de centre ni Qualiopi</td><td>QCM <b>+</b> simulateur supervisé <b>+</b> gestion administrative <b>+</b> suivi qualité.</td></tr>
+      <tr><td>LMS généraliste (Moodle, etc.)</td><td>Générique, non métier, lourd à configurer, aucune logique SSI</td><td>Pensé <b>100&nbsp;% métier SSIAP</b>, prêt à l'emploi, sans paramétrage technique.</td></tr>
+      <tr><td>Outils maison / tableurs</td><td>Chronophage, non conforme, fragile, pas de traçabilité</td><td>Tout centralisé, <b>journaux horodatés</b>, exports, conforme RGPD/Qualiopi.</td></tr>
+    </table>
+  </section>
+
+  <!-- 4. PLUS-VALUE -->
+  <section>
+    <div class="ey">04 — Plus-value &amp; différenciation</div>
+    <h2>Pourquoi MIBsoft (nos 6 arguments massue)</h2>
+    <div class="grid2">
+      <div class="card"><h4>1. La pratique sans le matériel</h4><p style="font-size:.92rem;color:var(--n600)">Le <b>seul</b> à proposer un simulateur SDI/SMSI <b>piloté en temps réel par le formateur</b> pendant que le stagiaire agit (+ vidéo/audio). On remplace un tableau à plusieurs milliers d'euros.</p></div>
+      <div class="card"><h4>2. Tout-en-un</h4><p style="font-size:.92rem;color:var(--n600)">Pédagogie <b>et</b> gestion de centre <b>et</b> Qualiopi <b>et</b> facturation. Fini les 4 outils qui ne se parlent pas.</p></div>
+      <div class="card"><h4>3. Conforme &amp; serein</h4><p style="font-size:.92rem;color:var(--n600)"><b>Qualiopi-ready</b> : suivi pédagogique, journaux d'actions horodatés, traçabilité du consentement RGPD, données hébergées <b>en Europe</b>.</p></div>
+      <div class="card"><h4>4. Zéro installation</h4><p style="font-size:.92rem;color:var(--n600)">100&nbsp;% web/PWA : un navigateur suffit, sur PC, tablette ou mobile. Fonctionne même hors-ligne pour l'entraînement.</p></div>
+      <div class="card"><h4>5. Prêt en quelques minutes</h4><p style="font-size:.92rem;color:var(--n600)">Comptes centre/formateur/stagiaire, codes PIN, c'est parti. Pas de projet IT, pas de serveur à monter.</p></div>
+      <div class="card"><h4>6. Sans engagement</h4><p style="font-size:.92rem;color:var(--n600)"><b>Essai gratuit 14 jours</b>, facturation mensuelle, <b>résiliable à tout moment</b>. Le risque est de notre côté, pas du vôtre.</p></div>
+    </div>
+  </section>
+
+  <!-- 5. ARGUMENTAIRE / OBJECTIONS -->
+  <section>
+    <div class="ey">05 — Argumentaire : questions &amp; craintes clients</div>
+    <h2>Traiter les objections</h2>
+    <p class="lead">Pour chaque crainte : on <b>reconnaît</b>, on <b>recadre</b>, on <b>prouve</b>. La phrase en italique est le « closing » à placer.</p>
+
+    <div class="obj"><div class="q">« C'est trop cher / je n'ai pas le budget. »</div><div class="a">
+      <span class="lbl">Réponse</span>
+      À partir de <b>69&nbsp;€/mois</b> pour un indépendant, soit le prix d'un plein d'essence — contre un tableau SSI physique à plusieurs milliers d'euros, non transportable et à maintenir. Le coût est <b>mensuel, sans engagement</b>, et un seul stagiaire supplémentaire convaincu par une démo pratique rentabilise l'abonnement.
+      <div class="punch">« Question budget : préférez-vous comparer notre tarif à un coût mensuel d'outil… ou à ce que vous coûte aujourd'hui le manque de pratique sur vos taux de réussite ? »</div>
+    </div></div>
+
+    <div class="obj"><div class="q">« Un simulateur ne remplacera jamais le matériel / le présentiel réel. »</div><div class="a">
+      <span class="lbl">Réponse</span>
+      D'accord, et ce n'est pas le but : MIBsoft <b>complète</b> le présentiel. Il permet de <b>multiplier les mises en situation</b> (chaque stagiaire manipule, pas seulement celui devant l'unique tableau), de rejouer un scénario autant de fois que nécessaire, et de standardiser. Le formateur reste au centre — il <b>pilote</b> le tableau en direct.
+      <div class="punch">« Combien de vos stagiaires touchent réellement le tableau pendant une session ? Avec nous, c'est 100&nbsp;%. »</div>
+    </div></div>
+
+    <div class="obj"><div class="q">« Et mes données / le RGPD ? Où sont hébergées les infos des stagiaires ? »</div><div class="a">
+      <span class="lbl">Réponse</span>
+      Données <b>hébergées en Europe</b>, plateforme conçue <b>RGPD by design</b> : consentement explicite et <b>tracé</b> à la connexion, CGU/CGV/politique de confidentialité fournies, registre RGPD et documents de conformité disponibles. Vous restez responsable de traitement, nous sommes votre sous-traitant cadré par un <b>DPA</b>.
+      <div class="punch">« Sur la donnée, on est plus carrés que la plupart des outils maison ou tableurs que les centres utilisent encore. »</div>
+    </div></div>
+
+    <div class="obj"><div class="q">« Est-ce compatible Qualiopi ? J'ai un audit. »</div><div class="a">
+      <span class="lbl">Réponse</span>
+      Oui : <b>suivi pédagogique</b>, <b>journaux d'actions horodatés</b> (preuve de la mise en situation), traçabilité des sessions et des stagiaires, kit de documents. De quoi <b>nourrir vos preuves</b> sur les indicateurs concernés. <span class="ph">[Préciser les indicateurs Qualiopi couverts / faire valider par votre référent qualité]</span>
+      <div class="punch">« On vous aide à transformer chaque session en preuve auditable, automatiquement. »</div>
+    </div></div>
+
+    <div class="obj"><div class="q">« C'est compliqué à prendre en main / je n'ai pas le temps. »</div><div class="a">
+      <span class="lbl">Réponse</span>
+      Aucune installation : un navigateur, des comptes, des codes PIN — et c'est prêt. Interface pensée pour des formateurs, pas pour des informaticiens. <b>Essai gratuit 14 jours</b> et <span class="ph">[onboarding / accompagnement selon offre]</span> pour démarrer accompagné.
+      <div class="punch">« Donnez-moi 15 minutes en visio : je vous fais lancer votre première session en direct. »</div>
+    </div></div>
+
+    <div class="obj"><div class="q">« Et si internet coupe en pleine session ? »</div><div class="a">
+      <span class="lbl">Réponse</span>
+      L'app est une <b>PWA</b> : les modules d'entraînement fonctionnent <b>même hors-ligne</b>, et la session se <b>resynchronise</b> automatiquement au retour du réseau. Le risque d'une coupure n'arrête pas la formation.
+      <div class="punch">« On a conçu l'outil pour le terrain, pas pour un wifi parfait. »</div>
+    </div></div>
+
+    <div class="obj"><div class="q">« Je suis déjà engagé ailleurs / j'ai peur de me lier. »</div><div class="a">
+      <span class="lbl">Réponse</span>
+      <b>Sans engagement</b> : facturation mensuelle, <b>résiliable à tout moment</b>, essai gratuit avant de payer. Vous testez sur une vraie session, vous décidez après. Zéro risque.
+      <div class="punch">« Le seul engagement, c'est le nôtre : vous convaincre dès la première session. »</div>
+    </div></div>
+
+    <div class="obj"><div class="q">« Le paiement en ligne est-il sécurisé ? »</div><div class="a">
+      <span class="lbl">Réponse</span>
+      Paiement via <b>prestataire certifié</b> <span class="ph">[Stripe — à confirmer]</span>, aucune donnée bancaire stockée chez nous, facturation claire et résiliation en autonomie.
+      <div class="punch">« Vous payez comme sur n'importe quel grand site, en toute sécurité. »</div>
+    </div></div>
+
+    <div class="obj"><div class="q">« Le contenu suit-il la réglementation (arrêtés SSIAP) ? »</div><div class="a">
+      <span class="lbl">Réponse</span>
+      Contenus et QCM alignés sur les référentiels SSIAP&nbsp;1·2·3, <b>mis à jour en continu</b> côté plateforme (pas de réimpression de supports). <span class="ph">[Préciser la source/veille réglementaire et la fréquence de mise à jour]</span>
+      <div class="punch">« Vos supports vieillissent ; notre plateforme, elle, se met à jour pour vous. »</div>
+    </div></div>
+
+    <div class="obj"><div class="q">« Quel support si j'ai un problème ? »</div><div class="a">
+      <span class="lbl">Réponse</span>
+      Support par e-mail <span class="ph">[contact@mibsoft.fr]</span>, <b>support prioritaire</b> dès l'offre Expert, <b>SLA dédié</b> et onboarding complet en Entreprise.
+      <div class="punch">« Vous n'êtes jamais seul : on est un partenaire, pas un simple logiciel. »</div>
+    </div></div>
+  </section>
+
+  <!-- 6. TARIFS -->
+  <section>
+    <div class="ey">06 — Tarifs &amp; ancrage de valeur</div>
+    <h2>La grille</h2>
+    <table class="price-t">
+      <tr><th>Offre</th><th>Prix HT/mois</th><th>Cible</th><th>Inclus (résumé)</th></tr>
+      <tr><td><b>Indépendant</b></td><td>69 €</td><td>Formateur indépendant</td><td>Jusqu'à 20 stagiaires · QCM · Training Salle</td></tr>
+      <tr><td><b>Starter</b></td><td>160 €</td><td>Petit centre (1–3 form.)</td><td>3 form. · 30 stag. · + Suivi Qualiopi</td></tr>
+      <tr><td><b>Pro</b></td><td>260 €</td><td>Centre intermédiaire</td><td>10 form. · 100 stag. · + Training Stagiaire, Outils SSI, Compta</td></tr>
+      <tr><td><b>Expert</b></td><td>360 €</td><td>Grand centre</td><td>20 form. · 200 stag. · + Patrol, tous modules SSI, support prioritaire</td></tr>
+      <tr><td><b>Entreprise</b></td><td>Sur devis</td><td>Multi-centres / groupes</td><td>Illimité · multi-centres · personnalisation · SLA · onboarding</td></tr>
+    </table>
+    <p style="font-size:.85rem;color:var(--n500);margin-top:6px">Essai gratuit 14 jours · facturation mensuelle · résiliable à tout moment. <span class="ph">[Vérifier la grille en vigueur avant diffusion]</span></p>
+
+    <h3>Ancrer la valeur (à dire en rendez-vous)</h3>
+    <div class="kpi">
+      <div class="k"><div class="big">0 €</div><div class="lab">de matériel SSI à acheter (vs plusieurs milliers d'€)</div></div>
+      <div class="k"><div class="big">100 %</div><div class="lab">des stagiaires qui manipulent, pas seulement 1</div></div>
+      <div class="k"><div class="big">14 j</div><div class="lab">pour tester gratuitement, sans risque</div></div>
+    </div>
+    <p style="margin-top:12px;font-size:.92rem;color:var(--n600)"><b>Calcul ROI express :</b> une session = X stagiaires × prix de la formation. Une meilleure pratique = meilleur taux de réussite = meilleure réputation = plus d'inscriptions. <span class="ph">[Insérer 1 chiffre client réel : prix moyen d'une formation, nb de sessions/mois]</span></p>
+  </section>
+
+  <!-- 7. DEROULE -->
+  <section>
+    <div class="ey">07 — Conduite de l'entretien</div>
+    <h2>Le déroulé en 6 temps</h2>
+    <div class="card">
+      <div class="step"><div class="n">1</div><div><b>Accroche / diagnostic.</b> « Comment vos stagiaires s'entraînent-ils aujourd'hui sur le tableau SSI ? Combien le manipulent vraiment ? »</div></div>
+      <div class="step"><div class="n">2</div><div><b>Découverte.</b> Taille du centre, nb de formateurs/sessions, échéance Qualiopi, douleurs (matériel, suivi, temps administratif).</div></div>
+      <div class="step"><div class="n">3</div><div><b>Démo pratique.</b> Lancer une vraie session : déclencher une alarme, piloter le SSI, montrer le stagiaire qui agit + le journal horodaté.</div></div>
+      <div class="step"><div class="n">4</div><div><b>Reformulation valeur.</b> Relier 2–3 douleurs trouvées à 2–3 modules. Annoncer l'offre adaptée à sa taille.</div></div>
+      <div class="step"><div class="n">5</div><div><b>Objections.</b> Utiliser les réponses §05. Toujours finir par la phrase de closing.</div></div>
+      <div class="step"><div class="n">6</div><div><b>Engagement.</b> Lancer l'<b>essai gratuit 14 jours</b> ensemble, fixer un point de suivi à J+7. « On crée votre compte maintenant ? »</div></div>
+    </div>
+  </section>
+
+  <!-- 8. A COMPLETER -->
+  <section>
+    <div class="ey">08 — À compléter avant diffusion</div>
+    <h2>Check-list</h2>
+    <div class="grid2">
+      <div class="card">
+        <h4>Identité société</h4>
+        <ul style="font-size:.9rem;color:var(--n600)">
+          <li><span class="ph">Raison sociale, SIRET, n° de déclaration d'activité (NDA)</span></li>
+          <li><span class="ph">Certification / référencement Qualiopi de l'éditeur (si applicable)</span></li>
+          <li><span class="ph">Coordonnées commerciales : contact@mibsoft.fr, téléphone</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Preuves &amp; chiffres</h4>
+        <ul style="font-size:.9rem;color:var(--n600)">
+          <li><span class="ph">2–3 témoignages / références centres clients</span></li>
+          <li><span class="ph">1 cas chiffré (gain de temps, taux de réussite)</span></li>
+          <li><span class="ph">Captures d'écran du simulateur en action</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Dossier commercial MIBsoft — usage interne. À actualiser (tarifs, mentions légales, références) avant toute diffusion externe.
+  </footer>
+
+</div>
+</body>
+</html>

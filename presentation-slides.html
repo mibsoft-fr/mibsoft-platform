@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIBsoft — Présentation</title>
+<link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--g600:#059669;--g700:#047857;--g100:#D1FAE5;--g50:#ECFDF5;--b600:#2563EB;--n900:#0F172A;--n800:#1E293B;--n700:#334155;--n600:#475569;--n500:#64748B;--n300:#CBD5E1;--n200:#E2E8F0;--n100:#F1F5F9;--display:'Plus Jakarta Sans',system-ui,sans-serif;--body:'Inter',system-ui,sans-serif;--danger:#DC2626}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:var(--body);color:var(--n800);background:#0b1220}
+  .deck{height:100vh;width:100vw;overflow:hidden;position:relative}
+  .slide{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;padding:6vh 8vw;background:var(--n50)}
+  .slide.on{display:flex}
+  h1,h2,h3{font-family:var(--display);margin:0;color:var(--n900);letter-spacing:-.02em;line-height:1.08}
+  .ey{font-size:.8rem;letter-spacing:.18em;text-transform:uppercase;color:var(--g600);font-weight:800;margin-bottom:14px}
+  .slide h2{font-size:clamp(1.8rem,4.4vw,3rem)}
+  .slide p{font-size:clamp(1rem,1.9vw,1.35rem);color:var(--n600);max-width:46ch;margin:14px 0 0}
+  .pill{display:inline-block;background:#fff;color:var(--g700);border:1px solid var(--g100);border-radius:999px;padding:6px 14px;font-weight:600;font-size:clamp(.8rem,1.5vw,1rem);margin:5px 6px 5px 0}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 30px;margin-top:22px;max-width:1000px}
+  .grid .it{font-size:clamp(.95rem,1.7vw,1.2rem)}.grid .it b{color:var(--g700)}
+  .big{font-size:clamp(2.4rem,7vw,5rem);font-weight:800;font-family:var(--display);color:var(--g600);line-height:1}
+  table{border-collapse:collapse;margin-top:18px;font-size:clamp(.85rem,1.5vw,1.05rem);background:#fff;border-radius:12px;overflow:hidden;border:1px solid var(--n200)}
+  td,th{padding:9px 16px;border-bottom:1px solid var(--n200);text-align:left}
+  th{background:var(--n100);font-family:var(--display)} .price td:nth-child(2){font-weight:800;color:var(--g700)}
+  .obj{font-size:clamp(.95rem,1.7vw,1.25rem);margin:12px 0;max-width:60ch}.obj b{color:#9A3412}.obj span{color:var(--g700);font-weight:700}
+  /* cover + cta dark */
+  .slide.dark{background:linear-gradient(135deg,#10B981 0%,#059669 45%,#2563EB 100%);color:#fff}
+  .slide.dark h2,.slide.dark h1{color:#fff}.slide.dark p{color:rgba(255,255,255,.92)}
+  .slide.dark .ey{color:rgba(255,255,255,.85)}
+  .cover-mk{width:96px;height:96px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.32);border-radius:24px;display:flex;align-items:center;justify-content:center;margin-bottom:22px}
+  .tag{display:inline-block;margin-top:16px;font-size:.8rem;letter-spacing:.12em;text-transform:lowercase;background:rgba(255,255,255,.18);padding:6px 14px;border-radius:999px}
+  .ph{color:#fff;background:rgba(255,255,255,.18);border:1px dashed rgba(255,255,255,.5);border-radius:5px;padding:0 6px;font-size:.9em}
+  /* nav */
+  .nav{position:fixed;bottom:18px;right:22px;display:flex;gap:8px;align-items:center;z-index:10}
+  .nav button{border:0;background:rgba(15,23,42,.55);color:#fff;width:38px;height:38px;border-radius:10px;font-size:1.1rem;cursor:pointer}
+  .nav .count{color:#fff;background:rgba(15,23,42,.55);padding:6px 12px;border-radius:10px;font-size:.85rem;font-variant-numeric:tabular-nums}
+  .hint{position:fixed;bottom:20px;left:22px;color:rgba(255,255,255,.6);font-size:.75rem;z-index:10}
+  @page{size:A4 landscape;margin:0}
+  @media print{
+    html,body{height:auto;background:#fff}
+    .deck{height:auto;width:auto;overflow:visible}
+    .slide{display:flex!important;position:relative;inset:auto;height:100vh;page-break-after:always;break-after:page}
+    .nav,.hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <section class="slide dark on">
+    <div class="cover-mk"><svg width="60" height="38" viewBox="0 0 130.011 81.611"><g transform="scale(0.6998)"><path d="m117.186 115.337 14.692.081L66.531 0 0 115.236h40.465l34.228-58.262-7.505-13.237-33.917 59.039H21.582l44.949-77.855z" fill="#fff"/><path d="m51.985 115.418 14.453-.05.932-1.719a.282.282 0 0 1 .053.03l3.097-5.844 8.394-15.488 13.563 24.272h14.171L78.933 66.681l-26.948 48.737zM119.249 0 97.415 37.769l7.415 12.025 14.419-24.873 44.949 77.855h-11.689l-33.747-58.693-7.443 11.941 33.996 59.212h40.466z" fill="rgba(255,255,255,.72)"/></g></svg></div>
+    <h1 style="font-size:clamp(2.4rem,6vw,4rem)">MIBsoft</h1>
+    <p style="font-size:clamp(1.1rem,2.4vw,1.6rem);max-width:30ch">La plateforme de formation SSIAP &amp; sécurité incendie.</p>
+    <span class="tag">create your safe software</span>
+  </section>
+
+  <section class="slide">
+    <div class="ey">Le constat</div>
+    <h2>Un seul tableau SSI.<br>Un stagiaire manipule, dix regardent.</h2>
+    <p>Matériel coûteux et encombrant, suivi pédagogique chronophage, conformité Qualiopi sous pression. La pratique manque — et ça se voit aux examens.</p>
+  </section>
+
+  <section class="slide">
+    <div class="ey">La solution</div>
+    <h2>Le SSI, en temps réel,<br>piloté par le formateur.</h2>
+    <p>MIBsoft simule le SDI/SMSI. Le formateur déclenche les alarmes et scénarios, le <b style="color:var(--g700)">stagiaire agit comme en situation réelle</b> — 100&nbsp;% web, 0&nbsp;€ de matériel.</p>
+  </section>
+
+  <section class="slide">
+    <div class="ey">L'effet « waouh »</div>
+    <h2>Chaque stagiaire manipule vraiment.</h2>
+    <div class="big" style="margin-top:18px">100 %</div>
+    <p>des apprenants en situation active (au lieu d'un seul devant l'unique tableau). Scénarios rejouables à volonté, journal horodaté à l'appui.</p>
+  </section>
+
+  <section class="slide">
+    <div class="ey">Tout-en-un</div>
+    <h2>Une plateforme, pas dix outils.</h2>
+    <div style="margin-top:18px">
+      <span class="pill">Simulateur SSI supervisé</span><span class="pill">QCM SSIAP 1·2·3</span><span class="pill">Quiz en salle</span>
+      <span class="pill">Challenge Cup</span><span class="pill">Outils pédagogiques</span><span class="pill">Patrol — rondes</span>
+      <span class="pill">Suivi Qualiopi</span><span class="pill">Gestion centre</span><span class="pill">Statistiques</span>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="ey">Pourquoi nous</div>
+    <h2>6 raisons de choisir MIBsoft</h2>
+    <div class="grid">
+      <div class="it"><b>① Pratique sans matériel</b> — 0 € de tableau physique.</div>
+      <div class="it"><b>② Tout-en-un</b> — pédagogie + gestion + Qualiopi.</div>
+      <div class="it"><b>③ Conforme</b> — RGPD, hébergement Europe, journaux.</div>
+      <div class="it"><b>④ Zéro install</b> — un navigateur, même hors-ligne.</div>
+      <div class="it"><b>⑤ Prêt en minutes</b> — comptes + codes PIN.</div>
+      <div class="it"><b>⑥ Sans engagement</b> — essai 14 j, mensuel.</div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="ey">Face aux alternatives</div>
+    <h2>Les autres cochent une case. Nous, toutes.</h2>
+    <p>Le PowerPoint n'est pas pratique. Le tableau physique coûte cher et ne sert qu'un. Les applis QCM ne simulent rien. Les LMS ne sont pas métier.<br><b style="color:var(--g700)">MIBsoft réunit pratique temps réel + entraînements + gestion conforme.</b></p>
+  </section>
+
+  <section class="slide">
+    <div class="ey">Tarifs</div>
+    <h2>Une offre par taille de centre.</h2>
+    <table class="price">
+      <tr><th>Offre</th><th>HT/mois</th><th>Cible</th></tr>
+      <tr><td>Indépendant</td><td>69 €</td><td>Formateur indépendant</td></tr>
+      <tr><td>Starter</td><td>160 €</td><td>1–3 formateurs</td></tr>
+      <tr><td>Pro</td><td>260 €</td><td>5–10 formateurs</td></tr>
+      <tr><td>Expert</td><td>360 €</td><td>10–20 formateurs</td></tr>
+      <tr><td>Entreprise</td><td>devis</td><td>Multi-centres / groupes</td></tr>
+    </table>
+    <p style="margin-top:12px;font-size:1rem">Essai gratuit 14 jours · résiliable à tout moment.</p>
+  </section>
+
+  <section class="slide">
+    <div class="ey">Objections, vite réglées</div>
+    <h2>Ce qu'on vous répond.</h2>
+    <div class="obj"><b>« C'est cher »</b> → 69&nbsp;€/mois vs un tableau à plusieurs milliers d'€. <span>1 stagiaire convaincu = rentabilisé.</span></div>
+    <div class="obj"><b>« Rien ne vaut le réel »</b> → on complète le présentiel ; <span>ici 100 % manipulent.</span></div>
+    <div class="obj"><b>« Et le RGPD ? »</b> → <span>hébergement Europe, consentement tracé, DPA fourni.</span></div>
+    <div class="obj"><b>« Qualiopi ? »</b> → <span>journaux horodatés = preuves auditables.</span></div>
+  </section>
+
+  <section class="slide dark">
+    <div class="ey">À vous de jouer</div>
+    <h2>Testez gratuitement 14 jours.</h2>
+    <p>Sans carte, sans engagement. On crée votre compte et on lance une vraie session ensemble, en 15 minutes.</p>
+    <p style="margin-top:22px"><span class="ph">contact@mibsoft.fr</span> &nbsp;·&nbsp; <span class="ph">[téléphone]</span> &nbsp;·&nbsp; <span class="ph">[site web]</span></p>
+  </section>
+
+</div>
+
+<div class="hint">← → ou Espace pour naviguer · P pour imprimer/PDF</div>
+<div class="nav">
+  <button onclick="go(-1)" aria-label="Précédent">‹</button>
+  <span class="count" id="count">1 / 10</span>
+  <button onclick="go(1)" aria-label="Suivant">›</button>
+</div>
+
+<script>
+  var slides=[].slice.call(document.querySelectorAll('.slide')), i=0;
+  function show(n){ i=Math.max(0,Math.min(slides.length-1,n)); slides.forEach(function(s,k){s.classList.toggle('on',k===i);}); document.getElementById('count').textContent=(i+1)+' / '+slides.length; }
+  function go(d){ show(i+d); }
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();go(1);}
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(-1);}
+    else if(e.key==='Home'){show(0);} else if(e.key==='End'){show(slides.length-1);}
+    else if(e.key==='p'||e.key==='P'){window.print();}
+  });
+  document.getElementById('deck').addEventListener('click',function(e){ if(!e.target.closest('a')) go(1); });
+  show(0);
+</script>
+</body>
+</html>
