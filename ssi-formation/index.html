@@ -1392,7 +1392,7 @@ async function handleTraineePinLogin(event){
       centerId=cId;
       try{await sbStag.auth.signOut();}catch(_){}
       const{data:rows,error:rpcErr}=await sbStag.rpc('login_pin_resolve',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});
-      if(rpcErr)throw new Error('Erreur serveur.');
+      if(rpcErr){console.error('RPC PIN échec',rpcErr);throw new Error('Erreur serveur : '+(rpcErr.message||rpcErr.code||'réseau bloqué ?')+'. Vérifiez la connexion internet du poste.');}
       const row=Array.isArray(rows)?rows[0]:rows;
       if(row?.locked)throw new Error('Compte temporairement verrouillé.');
       if(!row?.email){await sbStag.rpc('login_pin_fail',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});throw new Error('PIN invalide.');}
@@ -1402,7 +1402,7 @@ async function handleTraineePinLogin(event){
       centerId=centerIdRaccourci;
       try{await sbStag.auth.signOut();}catch(_){}
       const{data:rows,error:rpcErr}=await sbStag.rpc('ssi_resolve_stagiaire',{p_center_id:centerId,p_pin:pin});
-      if(rpcErr)throw new Error('Erreur serveur.');
+      if(rpcErr){console.error('RPC PIN échec',rpcErr);throw new Error('Erreur serveur : '+(rpcErr.message||rpcErr.code||'réseau bloqué ?')+'. Vérifiez la connexion internet du poste.');}
       const row=Array.isArray(rows)?rows[0]:rows;
       if(row?.locked)throw new Error('Compte temporairement verrouillé. Réessayez plus tard.');
       if(!row?.stagiaire_email){await sbStag.rpc('login_pin_fail',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});throw new Error('PIN invalide.');}
@@ -1413,7 +1413,19 @@ async function handleTraineePinLogin(event){
       stagId=row.stagiaire_id;stagPrenom=row.stagiaire_prenom;stagNom=row.stagiaire_nom;
     }
     const{error:authErr}=await sbStag.auth.signInWithPassword({email:stagiaireEmail,password:pin});
-    if(authErr){await sbStag.rpc('login_pin_fail',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});throw new Error('PIN invalide.');}
+    if(authErr){
+      console.error('signInWithPassword échec',authErr);
+      try{await sbStag.rpc('login_pin_fail',{p_center_id:centerId,p_role:'stagiaire',p_pin:pin});}catch(_){}
+      const m=((authErr.message||'')+' '+(authErr.code||'')).toLowerCase();
+      if(authErr.status===429||m.includes('rate')||m.includes('too many')){
+        throw new Error('Trop de connexions depuis ce réseau. Patientez 1 à 2 minutes puis réessayez (limite de sécurité partagée sur la connexion du centre).');
+      }
+      if(m.includes('invalid')&&(m.includes('credential')||m.includes('login')||m.includes('password'))){
+        throw new Error('PIN invalide.');
+      }
+      // Tout autre cas (réseau bloqué, horloge décalée, service indispo…) : on montre la vraie raison.
+      throw new Error('Connexion refusée : '+(authErr.message||authErr.name||'erreur inconnue')+'. Vérifiez la connexion internet du poste et l\'heure du PC.');
+    }
     try{await sbStag.rpc('login_pin_success_reset');}catch(_){}
     if(!stagId){
       const userId=(await sbStag.auth.getUser()).data.user.id;
