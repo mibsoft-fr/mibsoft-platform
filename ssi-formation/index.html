@@ -63,16 +63,11 @@ if(window._sbFactory&&window.supabase&&window.supabase.supabaseUrl){
 // Helper : le bon client selon le rôle courant (formateur=localStorage, stagiaire=sessionStorage)
 function sbForRole(){return STATE&&STATE.userType==='trainee'&&window.supabaseStagiaire?window.supabaseStagiaire:window.supabase;}
 
-// ─── Synchronisation auto de l'auth formateur entre onglets ─────────────────
-// L'onglet dashboard MIB fait tourner le jeton Supabase (refresh token rotatif) ;
-// l'onglet simulateur doit adopter ce jeton frais SANS rechargement, sinon
-// ssi_start_session échoue en « forbidden ». On lit la clé par défaut
-// sb-<ref>-auth-token (ref dérivée de SUPABASE_URL, fiable — window.supabase
-// .supabaseUrl est souvent undefined en supabase-js v2) : avant chaque RPC
-// sensible ET à chaque event 'storage' (déclenché quand le dashboard rafraîchit).
-function mibAuthStorageKey(){try{const u=(typeof SUPABASE_URL!=='undefined'&&SUPABASE_URL)||(window.supabase&&window.supabase.supabaseUrl)||'';const ref=(u.match(/https?:\/\/([^.]+)\./)||[])[1];return ref?('sb-'+ref+'-auth-token'):null;}catch(_){return null;}}
-async function adoptStoredSession(){try{const k=mibAuthStorageKey();if(!k||!window.supabase||!window.supabase.auth)return false;const raw=localStorage.getItem(k);if(!raw)return false;const pr=JSON.parse(raw);const at=pr&&(pr.access_token||(pr.currentSession&&pr.currentSession.access_token));const rt=pr&&(pr.refresh_token||(pr.currentSession&&pr.currentSession.refresh_token));if(at&&rt){const{error}=await supabase.auth.setSession({access_token:at,refresh_token:rt});return !error;}}catch(_){}return false;}
-try{window.addEventListener('storage',(e)=>{const k=mibAuthStorageKey();if(k&&e.key===k&&e.newValue){adoptStoredSession();}});}catch(_){}
+// NOTE: on laisse supabase-js gérer NATIVEMENT le rafraîchissement du jeton
+// (autoRefreshToken + verrous multi-onglets). Les anciens helpers maison
+// (setSession depuis localStorage + écouteur 'storage') ont été retirés : ils
+// entraient en conflit avec la rotation native du refresh token et finissaient
+// par INVALIDER la session (-> 'permission denied for function').
 
 const MibRT = {
   _channels: new Map(),
@@ -407,6 +402,52 @@ render();
 activeFirebaseListeners.push(activeSessionRef);
 }
 
+// Re-login formateur SANS quitter le simulateur : si la session Supabase est morte
+// (ssi_start_session -> permission denied / forbidden), on demande juste le PIN,
+// on re-résout l'email via login_pin_resolve_multi (center_id connu dans
+// mib_formateur), on signInWithPassword, puis on relance le démarrage de session.
+function promptFormateurReauth(){
+  if(document.getElementById('mib-reauth-overlay'))return;
+  let f=null;try{f=JSON.parse(localStorage.getItem('mib_formateur')||'null');}catch(_){}
+  const centerId=(f&&f.center_id)||STATE.centerId||null;
+  const o=document.createElement('div');o.id='mib-reauth-overlay';
+  o.style.cssText='position:fixed;inset:0;z-index:2147483600;background:rgba(8,15,30,.74);display:flex;align-items:center;justify-content:center;padding:18px';
+  o.innerHTML='<div style="background:#fff;color:#1e293b;max-width:380px;width:100%;border-radius:16px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.45);font-family:system-ui,-apple-system,Segoe UI,sans-serif;text-align:center">'
+    +'<div style="font-size:34px;line-height:1">🔐</div>'
+    +'<h2 style="margin:8px 0 6px;font-size:18px;font-weight:800">Session expirée</h2>'
+    +'<p style="margin:0 0 14px;font-size:13.5px;color:#475569">Retapez votre <b>code PIN formateur</b> pour reprendre — sans quitter cette page.</p>'
+    +'<input id="mib-reauth-pin" type="password" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="off" style="width:100%;text-align:center;font-size:22px;letter-spacing:.4em;padding:10px;border:2px solid #cbd5e1;border-radius:10px;font-family:monospace;box-sizing:border-box">'
+    +'<div id="mib-reauth-err" style="display:none;color:#dc2626;font-size:12.5px;margin-top:8px"></div>'
+    +'<button id="mib-reauth-ok" style="width:100%;margin-top:14px;padding:12px;border:0;border-radius:10px;background:#059669;color:#fff;font-weight:700;font-size:15px;cursor:pointer">Se reconnecter &amp; démarrer</button>'
+    +'<button id="mib-reauth-cancel" style="width:100%;margin-top:8px;padding:9px;border:0;border-radius:10px;background:transparent;color:#64748b;font-size:13px;cursor:pointer">Annuler</button>'
+    +'</div>';
+  document.body.appendChild(o);
+  const pinEl=o.querySelector('#mib-reauth-pin'),okEl=o.querySelector('#mib-reauth-ok'),errEl=o.querySelector('#mib-reauth-err');
+  setTimeout(()=>{try{pinEl.focus();}catch(_){}},60);
+  const showErr=(m)=>{errEl.textContent='❌ '+m;errEl.style.display='block';};
+  o.querySelector('#mib-reauth-cancel').onclick=()=>o.remove();
+  async function doReauth(){
+    const pin=(pinEl.value||'').replace(/\D/g,'');
+    if(pin.length!==6){showErr('Le PIN doit faire 6 chiffres.');return;}
+    if(!centerId){showErr('Centre introuvable. Reconnectez-vous depuis le dashboard MIB.');return;}
+    okEl.disabled=true;okEl.textContent='… Vérification';errEl.style.display='none';
+    try{
+      const{data:rows,error:rErr}=await supabase.rpc('login_pin_resolve_multi',{p_center_id:centerId,p_role:'formateur',p_pin:pin});
+      if(rErr)throw new Error('Erreur serveur. Vérifiez la connexion.');
+      const matches=(rows||[]).filter(r=>r&&r.email&&!r.locked);
+      if(matches.length===0){try{await supabase.rpc('login_pin_fail',{p_center_id:centerId,p_role:'formateur',p_pin:pin});}catch(_){}throw new Error('PIN incorrect ou compte verrouillé.');}
+      const row=matches.find(r=>r.center_id===centerId)||matches[0];
+      const{error:aErr}=await supabase.auth.signInWithPassword({email:row.email,password:pin});
+      if(aErr){try{await supabase.rpc('login_pin_fail',{p_center_id:centerId,p_role:'formateur',p_pin:pin});}catch(_){}throw new Error('PIN incorrect.');}
+      try{await supabase.rpc('login_pin_success_reset');}catch(_){}
+      o.remove();
+      createSession(); // session fraîche -> démarrage relancé automatiquement
+    }catch(e){okEl.disabled=false;okEl.textContent='Se reconnecter & démarrer';showErr(e.message||'Échec de la reconnexion.');}
+  }
+  okEl.onclick=doReauth;
+  pinEl.onkeydown=(e)=>{if(e.key==='Enter')doReauth();};
+}
+
 async function createSession(){
 if(!firebaseInitialized){showCustomAlert('Erreur: Firebase non disponible');return;}
 const now=new Date();
@@ -422,26 +463,25 @@ const startTimeISO=now.toISOString();
 // 2 sessions SSI 'en_cours' sur la même SSIAP.
 let ssiSessionId=null;
 if(STATE.mibSessionId&&window.supabase?.rpc){
-  // Auth formateur potentiellement périmée (jeton tourné par l'onglet dashboard,
-  // l'onglet simulateur gardant en mémoire un ancien refresh token). On tente
-  // jusqu'à 2 fois : refresh classique, puis adoption du jeton frais écrit en
-  // localStorage par le dashboard (corrige la course multi-onglets), avant d'abandonner.
+  // Gestion native : supabase-js fournit/rafraîchit le jeton automatiquement
+  // avant la requête. On ne force RIEN manuellement (pas de setSession maison).
   let _startErr=null;
-  for(let attempt=0;attempt<2;attempt++){
-    // Adopte le jeton frais écrit par l'onglet dashboard (clé fiable), puis refresh.
-    await adoptStoredSession();
-    try{await supabase.auth.refreshSession();}catch(_){}
-    try{
-      const{data,error}=await supabase.rpc('ssi_start_session',{p_sessions_formation_id:STATE.mibSessionId,p_session_number:sessionId});
-      if(error)throw error;
-      ssiSessionId=data;_startErr=null;break;
-    }catch(e){_startErr=e;}
-  }
+  try{
+    const{data,error}=await supabase.rpc('ssi_start_session',{p_sessions_formation_id:STATE.mibSessionId,p_session_number:sessionId});
+    if(error)throw error;
+    ssiSessionId=data;
+  }catch(e){_startErr=e;}
   if(_startErr){
     console.error('ssi_start_session failed',_startErr);
     // PAS de fallback legacy quand on est en mode MIB : ça créerait une session
     // Firebase non retrouvable par les stagiaires (qui passent par ssi_resolve_stagiaire).
-    showCustomAlert('❌ Impossible de démarrer la session côté Supabase : '+(_startErr.message||_startErr.code||'auth')+'\n\nVotre session formateur a expiré. Reconnectez-vous au dashboard MIB, PUIS rechargez cette page (Ctrl+Maj+R) et réessayez.');
+    const _m=((_startErr.message||'')+' '+(_startErr.code||'')).toLowerCase();
+    if(_m.includes('permission')||_m.includes('forbidden')||_m.includes('jwt')||_m.includes('auth')||_m.includes('401')||_m.includes('403')||_m.includes('denied')){
+      // Session formateur morte : re-login PIN intégré, puis on relance le démarrage.
+      promptFormateurReauth();
+    }else{
+      showCustomAlert('❌ Impossible de démarrer la session : '+(_startErr.message||_startErr.code||'')+'\n\nRéessayez dans un instant.');
+    }
     return;
   }
 }
@@ -540,8 +580,6 @@ db.ref(`sessions/${sessionId}`).update({endTime:firebase.database.ServerValue.TI
 // silencieux, la ligne reste 'en_cours' indéfiniment et le stagiaire qui re-PIN
 // retombe dessus (bug constaté en preview phase 2).
 if(STATE.ssiSessionId&&window.supabase?.rpc){
-  await adoptStoredSession();
-  try{await supabase.auth.refreshSession();}catch(_){}
   const{error:endErr}=await supabase.rpc('ssi_end_session',{p_ssi_session_id:STATE.ssiSessionId});
   if(endErr){
     console.error('ssi_end_session failed',endErr);
