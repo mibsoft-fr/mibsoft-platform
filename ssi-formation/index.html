@@ -1569,6 +1569,11 @@ if(m.kind==='trigger'){
 if(m.address)updateDetectorAddressInput(m.type,m.id,m.address);
 triggerFromPlan(m.type,m.id);
 broadcastPlanState();
+return;
+}
+if(m.kind==='trigger-zf'){
+triggerZfFromPlan(m.symbol,m.zf,m.label);
+broadcastPlanState();
 }
 };
 return PLAN_BUS;
@@ -1594,11 +1599,26 @@ if(d.outOfService||d.state==='hors-service')return{triggered:d.triggered,blocked
 toggleDetector(type,id);
 return{triggered:d.triggered,blocked:false,address:d.address};
 }
-// État courant des détecteurs, lu par le plan pour synchroniser le clignotement
-// (y compris quand le formateur réarme depuis le panneau manuel).
+// Déclenche le désenfumage depuis le plan (symbole VH/VB/CCF -> zone ZF + coffret
+// CR du même numéro). Bascule sécurité <-> attente à chaque clic. L'adresse de la
+// ZF reçoit le libellé saisi (ex. "ZF1 couloir X"), affiché sur l'écran SMSI.
+function triggerZfFromPlan(symbol,zf,label){
+if(!checkSessionBeforeAction())return null;
+const z=STATE.smsi.smokeZones.find(x=>x.id===zf);
+if(!z)return{error:'zf'};
+if(label)updateZoneAddressInput('smoke',zf,`ZF${zf} ${label}`);
+const active=(z.state==='securite'||z.state==='defaut-securite');
+const next=active?'attente':'securite';
+changeZoneState('smoke',zf,next);
+if(STATE.smsi.relayBoxes.find(r=>r.id===zf))changeZoneState('relay',zf,next);
+logAction(`Désenfumage ${symbol} ZF${zf}`,next==='securite'?'En sécurité':'Réarmé','formateur');
+return{active:!active};
+}
+// État courant (détecteurs + zones ZF), lu par le plan pour synchroniser le
+// clignotement (y compris réarmement depuis le panneau manuel).
 function getDetectorsForPlan(){
 const map=a=>a.map(d=>({id:d.id,address:d.address,zone:d.zone,triggered:!!d.triggered,hs:d.outOfService||d.state==='hors-service'}));
-return{DAI:map(STATE.sdi.detectors),DM:map(STATE.sdi.manualAlarms),sessionActive:!!STATE.sessionActive};
+return{DAI:map(STATE.sdi.detectors),DM:map(STATE.sdi.manualAlarms),ZF:STATE.smsi.smokeZones.map(z=>({id:z.id,state:z.state})),sessionActive:!!STATE.sessionActive};
 }
 
 // Pré-charge les infos de la session de formation (titre, dates) puis ouvre la

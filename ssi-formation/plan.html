@@ -37,6 +37,10 @@
   .mk .cap.todo{color:#b45309;border-color:#fcd34d;background:#fffbeb}
   .mk.hs .dot{filter:grayscale(.7);opacity:.55}
   .mk .xmark{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:26px;font-weight:900;color:#111;text-shadow:0 0 3px #fff,0 0 4px #fff,0 0 4px #fff;pointer-events:none;line-height:1}
+  .mk.vh .dot,.mk.vb .dot{background:#38bdf8;color:#082f49;width:34px;height:22px;border-radius:4px;font-size:11px;box-shadow:0 0 0 2px #0284c7,0 2px 6px rgba(0,0,0,.4)}
+  .mk.ccf .dot{background:#1d4ed8;color:#fff;width:30px;height:30px;border-radius:50%;font-size:9px;box-shadow:0 0 0 2px #1e3a8a,0 2px 6px rgba(0,0,0,.4)}
+  .mk.zfactive .dot{animation:blinkblue .7s infinite}
+  @keyframes blinkblue{50%{background:#bae6fd;box-shadow:0 0 0 3px #38bdf8,0 0 12px #38bdf8}}
   .empty{padding:54px 20px;text-align:center;color:#64748b;border:2px dashed var(--n300);border-radius:12px;background:#fff}
   .help{font-size:.78rem;color:var(--n600);margin-top:10px;line-height:1.5}
   .log{margin-top:12px;background:#0b1220;color:#9be29b;border-radius:10px;padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:.78rem;max-height:140px;overflow:auto}
@@ -69,6 +73,7 @@
     <input id="file" type="file" accept="image/*" style="display:none" onchange="loadFile(this.files[0])">
     <button class="btn alt edit-only" onclick="detect()" title="Ronds = DAI, rectangles = DM">🔴 Détecter (ronds→DAI, rect.→DM)</button>
     <button class="btn edit-only" id="btn-ocr" onclick="detectNames()" title="Lit les noms des locaux sur le plan">🔤 Noms (OCR)</button>
+    <label class="sld edit-only">Clic ajoute <select id="add-kind"><option value="DAI">🔴 DAI</option><option value="DM">🟥 DM</option><option value="VH">🟦 VH</option><option value="VB">🟦 VB</option><option value="CCF">🔵 CCF</option></select></label>
     <label class="sld edit-only">Sensibilité <input id="rMin" type="range" min="80" max="200" value="110"></label>
     <label class="sld edit-only">Taille mini <input id="minA" type="range" min="5" max="400" value="30"></label>
     <button class="btn grey edit-only" onclick="clearMarkers()">🗑️ Effacer</button>
@@ -87,7 +92,8 @@
 
   <div class="help">
     <b>Jeu :</b> un clic envoie l'alarme au SSI du stagiaire (ECS : « Alarme feu &lt;local&gt; », voyant ALARME FEU rouge clignotant). Reclic = réarmement.<br>
-    <b>Édition :</b> « Détecter » place les <b>DAI sur les ronds rouges</b> et les <b>DM sur les rectangles rouges</b>. « <b>Noms (OCR)</b> » lit les noms des locaux et les propose ; complète les « (à nommer) » à la main. Clic plan = ajouter ; clic point = sélectionner (type, <b>local</b>, supprimer) ; glisser = déplacer. <b>Sauvegarder</b> pour mémoriser.
+    <b>Édition :</b> « Détecter » place les <b>DAI</b> (ronds) et <b>DM</b> (rectangles) rouges. « <b>Noms (OCR)</b> » propose les noms des locaux. Le sélecteur <b>« Clic ajoute »</b> choisit ce qu'un clic sur le plan ajoute : DAI, DM, ou un symbole désenfumage <b>VH/VB</b> (ventilation) / <b>CCF</b> (clapet) — pour ceux-ci, indique la <b>zone ZF</b> et le local. Clic point = sélectionner ; glisser = déplacer. <b>Sauvegarder</b>.<br>
+    <b>Désenfumage :</b> en Jeu, cliquer une VH/VB/CCF met la <b>ZF en sécurité</b> (voyant rouge sur le CMSI pendant l'alarme) + le coffret CR du même n° ; toutes les VH/VB/CCF de la zone clignotent en bleu.
   </div>
 
   <div class="log" id="log">› Prêt.</div>
@@ -96,9 +102,10 @@
 <div class="editor" id="editor">
   <h4>Point sélectionné</h4>
   <label>Type</label>
-  <select id="ed-type" onchange="applyEditor()"><option value="DAI">🔴 DAI (auto)</option><option value="DM">🟥 DM (manuel)</option></select>
+  <select id="ed-type" onchange="applyEditor()"><option value="DAI">🔴 DAI (auto)</option><option value="DM">🟥 DM (manuel)</option><option value="VH">🟦 VH ventil. haute</option><option value="VB">🟦 VB ventil. basse</option><option value="CCF">🔵 CCF clapet coupe-feu</option></select>
+  <div id="ed-zf-row" style="display:none"><label>Zone ZF</label><select id="ed-zf" onchange="applyEditor()"><option value="1">ZF1</option><option value="2">ZF2</option><option value="3">ZF3</option><option value="4">ZF4</option><option value="5">ZF5</option></select></div>
   <label>Local / adresse</label>
-  <input id="ed-addr" type="text" placeholder="ex. Réserve cafétéria" oninput="applyEditor()">
+  <input id="ed-addr" type="text" placeholder="ex. couloir X / aile ouest" oninput="applyEditor()">
   <button class="btn grey" style="width:100%;margin-top:10px" onclick="deleteSelected()">🗑️ Supprimer ce point</button>
 </div>
 
@@ -113,7 +120,9 @@ let MODE='play', selected=-1, dragging=null, dragMoved=false, lastStateAt=0;
 const $=id=>document.getElementById(id);
 function logLine(t){const l=$('log');l.innerHTML+='\n› '+t;l.scrollTop=l.scrollHeight;}
 let toastT;function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('show'),1900);}
-const tag=m=>m.type+String(m.id).padStart(2,'0');
+const isSym=m=>m.type==='VH'||m.type==='VB'||m.type==='CCF';
+const tag=m=>isSym(m)?('ZF'+(m.zf||1)):(m.type+String(m.id).padStart(2,'0'));
+const dotText=m=>isSym(m)?m.type:String(m.id);
 
 document.title='Plan — '+(LABELS[PLAN_KEY]||PLAN_KEY);
 $('title').textContent='Plan — '+(LABELS[PLAN_KEY]||PLAN_KEY);
@@ -133,8 +142,12 @@ function requestState(){post({kind:'request-state'});}
 function applyState(data){
   if(!data)return;
   const find=(t,id)=>((t==='DAI'?data.DAI:data.DM)||[]).find(d=>d.id===id);
+  const zfActive=zf=>{const z=(data.ZF||[]).find(x=>x.id===zf);return !!(z&&(z.state==='securite'||z.state==='defaut-securite'));};
   let changed=false;
-  MARKERS.forEach(m=>{const d=find(m.type,m.id);const t=!!(d&&d.triggered);const hs=!!(d&&d.hs);if(t!==!!m._fired||hs!==!!m._hs){m._fired=t;m._hs=hs;changed=true;}});
+  MARKERS.forEach(m=>{
+    if(isSym(m)){const a=zfActive(m.zf||1);if(a!==!!m._zfactive){m._zfactive=a;changed=true;}return;}
+    const d=find(m.type,m.id);const t=!!(d&&d.triggered);const hs=!!(d&&d.hs);if(t!==!!m._fired||hs!==!!m._hs){m._fired=t;m._hs=hs;changed=true;}
+  });
   if(changed&&dragging===null)renderMarkers();
 }
 
@@ -146,8 +159,8 @@ function refreshLink(){
 
 // Numérotation automatique : DAI et DM numérotés 1..N dans l'ordre de placement.
 // (En mode exploitation réelle on rebranchera un choix manuel du numéro ici.)
-function renumber(){let a=0,m=0;MARKERS.forEach(k=>{k.id=(k.type==='DAI')?(++a):(++m);});
-  const tooMany=MARKERS.filter(k=>k.id>10);if(tooMany.length)toast('Plus de 10 '+(tooMany[0].type)+' : au-delà de 10, non géré par le SSI');}
+function renumber(){let a=0,m=0;MARKERS.forEach(k=>{if(k.type==='DAI')k.id=++a;else if(k.type==='DM')k.id=++m;});
+  const tooMany=MARKERS.filter(k=>(k.type==='DAI'||k.type==='DM')&&k.id>10);if(tooMany.length)toast('Plus de 10 '+(tooMany[0].type)+' : au-delà de 10, non géré par le SSI');}
 
 function setMode(m){MODE=m;document.body.className='mode-'+m;$('m-play').classList.toggle('on',m==='play');$('m-edit').classList.toggle('on',m==='edit');if(m==='play')selectMarker(-1);logLine('Mode : '+(m==='edit'?'Édition':'Jeu'));renderMarkers();}
 
@@ -248,10 +261,11 @@ function renderMarkers(){
   stage.querySelectorAll('.mk').forEach(e=>e.remove());
   MARKERS.forEach((m,idx)=>{
     const wrap=document.createElement('div');
-    wrap.className='mk '+(m.type==='DAI'?'dai':'dm')+(idx===selected?' sel':'')+(m._fired?' fired':'')+(m._hs?' hs':'');
+    const kindClass={DAI:'dai',DM:'dm',VH:'vh',VB:'vb',CCF:'ccf'}[m.type]||'dai';
+    wrap.className='mk '+kindClass+(idx===selected?' sel':'')+(m._fired?' fired':'')+(m._hs?' hs':'')+(m._zfactive?' zfactive':'');
     wrap.style.left=(m.x/img.naturalWidth*100)+'%';wrap.style.top=(m.y/img.naturalHeight*100)+'%';
     wrap.title=tag(m)+(m.addr?(' — '+m.addr):'')+(m._hs?' (hors service)':'');
-    const dot=document.createElement('div');dot.className='dot';dot.textContent=m.id;wrap.appendChild(dot);
+    const dot=document.createElement('div');dot.className='dot';dot.textContent=dotText(m);wrap.appendChild(dot);
     if(m._hs){const x=document.createElement('div');x.className='xmark';x.textContent='✕';wrap.appendChild(x);}
     const cap=document.createElement('div');cap.className='cap'+(m.addr?'':' todo');cap.textContent=m.addr?(tag(m)+' · '+m.addr):(tag(m)+' · (à nommer)');wrap.appendChild(cap);
     wrap.addEventListener('mousedown',ev=>{if(MODE!=='edit')return;dragging=idx;dragMoved=false;ev.stopPropagation();});
@@ -264,9 +278,12 @@ function renderMarkers(){
 // ── Sélection / éditeur ──
 function selectMarker(idx){selected=idx;const ed=$('editor');
   if(idx<0||MODE!=='edit'){ed.classList.remove('show');renderMarkers();return;}
-  const m=MARKERS[idx];$('ed-type').value=m.type;$('ed-addr').value=m.addr||'';ed.classList.add('show');renderMarkers();
+  const m=MARKERS[idx];$('ed-type').value=m.type;$('ed-addr').value=m.addr||'';
+  $('ed-zf-row').style.display=isSym(m)?'block':'none';if(isSym(m))$('ed-zf').value=m.zf||1;
+  ed.classList.add('show');renderMarkers();
   setTimeout(()=>{const a=$('ed-addr');a.focus();a.select();},0);}
-function applyEditor(){if(selected<0)return;const m=MARKERS[selected];m.type=$('ed-type').value;m.addr=$('ed-addr').value;renumber();renderMarkers();}
+function applyEditor(){if(selected<0)return;const m=MARKERS[selected];m.type=$('ed-type').value;m.addr=$('ed-addr').value;
+  if(isSym(m)){m.zf=+$('ed-zf').value||1;}$('ed-zf-row').style.display=isSym(m)?'block':'none';renumber();renderMarkers();}
 function deleteSelected(){if(selected<0)return;MARKERS.splice(selected,1);renumber();selectMarker(-1);logLine('Point supprimé.');}
 
 // ── drag + ajout ──
@@ -280,11 +297,22 @@ $('stage').addEventListener('click',ev=>{
   if(MODE!=='edit'||dragMoved){dragMoved=false;return;}
   const img=$('plan');if(ev.target!==img)return;const r=img.getBoundingClientRect();
   const x=(ev.clientX-r.left)/r.width*img.naturalWidth,y=(ev.clientY-r.top)/r.height*img.naturalHeight;
-  MARKERS.push({x,y,type:'DAI',id:0,addr:''});renumber();selectMarker(MARKERS.length-1);logLine('Point ajouté ('+tag(MARKERS[MARKERS.length-1])+').');});
+  const kind=($('add-kind')&&$('add-kind').value)||'DAI';
+  if(kind==='VH'||kind==='VB'||kind==='CCF'){MARKERS.push({x,y,type:kind,id:0,zf:1,addr:''});}
+  else{MARKERS.push({x,y,type:kind,id:0,addr:''});renumber();}
+  selectMarker(MARKERS.length-1);logLine('Ajouté : '+tag(MARKERS[MARKERS.length-1])+'.');});
 
 // ── déclenchement (mode Jeu) ──
 function fire(idx){
   const m=MARKERS[idx];
+  if(isSym(m)){ // désenfumage : VH/VB/CCF -> déclenche la ZF (+ coffret CR n°ZF)
+    const zf=m.zf||1;
+    if(!m.addr)toast('Astuce : nomme la zone (ZF) en Édition');
+    const sent=post({kind:'trigger-zf',symbol:m.type,zf:zf,label:m.addr||''});
+    if(sent){logLine('💨 Désenfumage → ZF'+zf+' ('+m.type+(m.addr?(' '+m.addr):'')+')');if((Date.now()-lastStateAt)>=3000)toast('Onglet formateur non détecté — rechargez-le');return;}
+    const op=opener();if(op&&typeof op.triggerZfFromPlan==='function'){op.triggerZfFromPlan(m.type,zf,m.addr||'');logLine('💨 Désenfumage ZF'+zf);return;}
+    toast('Non relié au formateur');return;
+  }
   if(!m.addr&&!m._fired)toast('Astuce : nomme ce local en Édition pour l’afficher sur l’ECS');
   const sent=post({kind:'trigger',type:m.type,id:m.id,address:m.addr||''});
   if(sent){
@@ -305,15 +333,15 @@ function fire(idx){
 
 function clearMarkers(){MARKERS=[];selectMarker(-1);logLine('Tous les points effacés.');}
 function saveAll(){
-  try{localStorage.setItem(STORE,JSON.stringify(MARKERS.map(({x,y,type,id,addr})=>({x,y,type,id,addr:addr||''}))));toast('Plan sauvegardé');logLine('💾 Sauvegardé ('+MARKERS.length+' points).');}catch(e){logLine('⚠️ Sauvegarde impossible.');}
-  // pousse les adresses au SSI pour qu'elles soient déjà en place
-  MARKERS.forEach(m=>{if(m.addr)post({kind:'set-address',type:m.type,id:m.id,address:m.addr});});
+  try{localStorage.setItem(STORE,JSON.stringify(MARKERS.map(m=>({x:m.x,y:m.y,type:m.type,id:m.id,addr:m.addr||'',zf:m.zf||1}))));toast('Plan sauvegardé');logLine('💾 Sauvegardé ('+MARKERS.length+' points).');}catch(e){logLine('⚠️ Sauvegarde impossible.');}
+  // pousse les adresses des DAI/DM au SSI pour qu'elles soient déjà en place
+  MARKERS.forEach(m=>{if(m.addr&&!isSym(m))post({kind:'set-address',type:m.type,id:m.id,address:m.addr});});
 }
 
 // ── restauration + boucle de synchro ──
 (function(){
   const img=localStorage.getItem(STORE+'_img');if(img)$('plan').src=img;
-  const mk=localStorage.getItem(STORE);if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>({addr:'',...m}));renumber();}catch(_){}}
+  const mk=localStorage.getItem(STORE);if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>({addr:'',zf:1,...m}));renumber();}catch(_){}}
   if(!img&&!MARKERS.length)setMode('edit');else logLine('Plan « '+(LABELS[PLAN_KEY]||PLAN_KEY)+' » chargé ('+MARKERS.length+' points).');
   requestState();refreshLink();
   setInterval(()=>{requestState();refreshLink();},1200);
