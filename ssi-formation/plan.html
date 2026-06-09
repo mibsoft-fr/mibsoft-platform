@@ -93,8 +93,6 @@
   <h4>Point sélectionné</h4>
   <label>Type</label>
   <select id="ed-type" onchange="applyEditor()"><option value="DAI">🔴 DAI (auto)</option><option value="DM">🔵 DM (manuel)</option></select>
-  <label>Numéro</label>
-  <select id="ed-id" onchange="applyEditor()"></select>
   <label>Local / adresse</label>
   <input id="ed-addr" type="text" placeholder="ex. Réserve cafétéria" oninput="applyEditor()">
   <button class="btn grey" style="width:100%;margin-top:10px" onclick="deleteSelected()">🗑️ Supprimer ce point</button>
@@ -142,8 +140,10 @@ function refreshLink(){
   el.classList.toggle('off',!ok);
 }
 
-// id select 1..10
-(function(){const s=$('ed-id');for(let i=1;i<=10;i++){const o=document.createElement('option');o.value=i;o.textContent=String(i).padStart(2,'0');s.appendChild(o);}})();
+// Numérotation automatique : DAI et DM numérotés 1..N dans l'ordre de placement.
+// (En mode exploitation réelle on rebranchera un choix manuel du numéro ici.)
+function renumber(){let a=0,m=0;MARKERS.forEach(k=>{k.id=(k.type==='DAI')?(++a):(++m);});
+  const tooMany=MARKERS.filter(k=>k.id>10);if(tooMany.length)toast('Plus de 10 '+(tooMany[0].type)+' : au-delà de 10, non géré par le SSI');}
 
 function setMode(m){MODE=m;document.body.className='mode-'+m;$('m-play').classList.toggle('on',m==='play');$('m-edit').classList.toggle('on',m==='edit');if(m==='play')selectMarker(-1);logLine('Mode : '+(m==='edit'?'Édition':'Jeu'));renderMarkers();}
 
@@ -168,7 +168,7 @@ function detect(){
   const found=blobs.filter(b=>b.n>=minA&&b.bw<w*0.5&&b.bh<h*0.5&&b.fill>0.35&&(b.bw/b.bh)<3&&(b.bh/b.bw)<3)
     .map(b=>({x:b.cx/scale,y:b.cy/scale})).sort((a,b)=>a.y-b.y||a.x-b.x);
   const merged=[];for(const f of found){if(!merged.some(m=>Math.hypot(m.x-f.x,m.y-f.y)<img.naturalWidth*0.02))merged.push(f);}
-  MARKERS=merged.map((m,i)=>({x:m.x,y:m.y,type:'DAI',id:Math.min(i+1,10),addr:''}));
+  MARKERS=merged.map(m=>({x:m.x,y:m.y,type:'DAI',id:0,addr:''}));renumber();
   selectMarker(-1);renderMarkers();
   logLine('Détection : '+MARKERS.length+' rond(s) → DAI01…. Sélectionne chaque point pour nommer le local, puis Sauvegarde.');
 }
@@ -193,9 +193,9 @@ function renderMarkers(){
 // ── Sélection / éditeur ──
 function selectMarker(idx){selected=idx;const ed=$('editor');
   if(idx<0||MODE!=='edit'){ed.classList.remove('show');renderMarkers();return;}
-  const m=MARKERS[idx];$('ed-type').value=m.type;$('ed-id').value=m.id;$('ed-addr').value=m.addr||'';ed.classList.add('show');renderMarkers();}
-function applyEditor(){if(selected<0)return;const m=MARKERS[selected];m.type=$('ed-type').value;m.id=+$('ed-id').value;m.addr=$('ed-addr').value;renderMarkers();}
-function deleteSelected(){if(selected<0)return;MARKERS.splice(selected,1);selectMarker(-1);logLine('Point supprimé.');}
+  const m=MARKERS[idx];$('ed-type').value=m.type;$('ed-addr').value=m.addr||'';ed.classList.add('show');renderMarkers();}
+function applyEditor(){if(selected<0)return;const m=MARKERS[selected];m.type=$('ed-type').value;m.addr=$('ed-addr').value;renumber();renderMarkers();}
+function deleteSelected(){if(selected<0)return;MARKERS.splice(selected,1);renumber();selectMarker(-1);logLine('Point supprimé.');}
 
 // ── drag + ajout ──
 document.addEventListener('mousemove',ev=>{if(dragging===null)return;dragMoved=true;
@@ -208,8 +208,7 @@ $('stage').addEventListener('click',ev=>{
   if(MODE!=='edit'||dragMoved){dragMoved=false;return;}
   const img=$('plan');if(ev.target!==img)return;const r=img.getBoundingClientRect();
   const x=(ev.clientX-r.left)/r.width*img.naturalWidth,y=(ev.clientY-r.top)/r.height*img.naturalHeight;
-  const used=MARKERS.filter(m=>m.type==='DAI').map(m=>m.id);let id=1;while(used.includes(id)&&id<10)id++;
-  MARKERS.push({x,y,type:'DAI',id,addr:''});selectMarker(MARKERS.length-1);logLine('Point ajouté (DAI'+String(id).padStart(2,'0')+').');});
+  MARKERS.push({x,y,type:'DAI',id:0,addr:''});renumber();selectMarker(MARKERS.length-1);logLine('Point ajouté ('+tag(MARKERS[MARKERS.length-1])+').');});
 
 // ── déclenchement (mode Jeu) ──
 function fire(idx){
@@ -241,7 +240,7 @@ function saveAll(){
 // ── restauration + boucle de synchro ──
 (function(){
   const img=localStorage.getItem(STORE+'_img');if(img)$('plan').src=img;
-  const mk=localStorage.getItem(STORE);if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>({addr:'',...m}));}catch(_){}}
+  const mk=localStorage.getItem(STORE);if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>({addr:'',...m}));renumber();}catch(_){}}
   if(!img&&!MARKERS.length)setMode('edit');else logLine('Plan « '+(LABELS[PLAN_KEY]||PLAN_KEY)+' » chargé ('+MARKERS.length+' points).');
   requestState();refreshLink();
   setInterval(()=>{requestState();refreshLink();},1200);
