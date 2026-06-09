@@ -1379,7 +1379,7 @@ case 'trainee-login':app.innerHTML=renderTraineeLogin();break;
 case 'trainee-management':app.innerHTML=renderTraineeManagement();break;
 case 'create-trainee':app.innerHTML=renderCreateTrainee();break;
 case 'edit-trainee':app.innerHTML=renderEditTrainee();break;
-case 'formateur-interface':app.innerHTML=renderFormateurInterface();break;
+case 'formateur-interface':app.innerHTML=renderFormateurInterface();try{planBus();}catch(_){}break;
 case 'trainee-interface':app.innerHTML=renderTraineeInterface();break;
 case 'session-logs':app.innerHTML=renderSessionLogs();break;
 }
@@ -1548,19 +1548,39 @@ function changeDetectorState(type,id,state){const detectorArray=type==='DAI'?STA
 function changeDetectorZone(type,id,zone){const detectorArray=type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const detector=detectorArray.find(d=>d.id===id);detector.zone=zone;logAction(`${type}${String(id).padStart(2,'0')} - Affecté à ${zone}`,detector.address,'formateur');render();}
 
 // ── Plan interactif : la liste déroulante du Contrôle SDI ouvre un plan dans une
-// fenêtre dédiée. Un clic sur un marqueur DAI/DM y appelle window.opener.triggerFromPlan
-// qui déclenche le VRAI détecteur (donc envoie l'alarme au stagiaire, comme le manuel).
+// fenêtre dédiée. La communication passe par un BroadcastChannel (robuste entre
+// fenêtres du même navigateur, indépendant de window.opener). Un clic sur un
+// marqueur DAI/DM y déclenche le VRAI détecteur (alarme envoyée au stagiaire).
 const PLAN_WINDOWS={};
+let PLAN_BUS=null;
+function planBus(){
+if(PLAN_BUS)return PLAN_BUS;
+try{PLAN_BUS=new BroadcastChannel('mib-ssi-plan');}catch(_){return null;}
+PLAN_BUS.onmessage=(ev)=>{
+const m=ev.data||{};
+if(STATE.userType!=='formateur')return; // seul le poste formateur agit
+if(m.kind==='request-state'){broadcastPlanState();return;}
+if(m.kind==='set-address'){if(m.address)updateDetectorAddressInput(m.type,m.id,m.address);broadcastPlanState();return;}
+if(m.kind==='trigger'){
+if(m.address)updateDetectorAddressInput(m.type,m.id,m.address);
+triggerFromPlan(m.type,m.id);
+broadcastPlanState();
+}
+};
+return PLAN_BUS;
+}
+function broadcastPlanState(){const b=planBus();if(b)try{b.postMessage({kind:'state',data:getDetectorsForPlan()});}catch(_){}}
 function onDeclencheModeChange(sel){const v=sel.value;sel.value='manuel';if(v==='manuel')return;openPlanWindow(v);}
 function openPlanWindow(planKey){
 if(!checkSessionBeforeAction())return;
+planBus(); // garantit que le formateur écoute avant l'ouverture du plan
 const existing=PLAN_WINDOWS[planKey];
 if(existing&&!existing.closed){existing.focus();return;}
 const win=window.open('plan.html?plan='+encodeURIComponent(planKey),'mibplan_'+planKey,'width=1100,height=820');
 if(!win){showCustomAlert('Le navigateur a bloqué la fenêtre du plan. Autorisez les pop-ups pour ce site.');return;}
 PLAN_WINDOWS[planKey]=win;
 }
-// Déclenche/réarme le détecteur réel et renvoie son état au plan (pour le clignotement).
+// Déclenche/réarme le détecteur réel et renvoie son état (pour le clignotement).
 function triggerFromPlan(type,id){
 if(!checkSessionBeforeAction())return null;
 const arr=type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;
