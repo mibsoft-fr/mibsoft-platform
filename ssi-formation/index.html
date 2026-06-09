@@ -63,6 +63,17 @@ if(window._sbFactory&&window.supabase&&window.supabase.supabaseUrl){
 // Helper : le bon client selon le rôle courant (formateur=localStorage, stagiaire=sessionStorage)
 function sbForRole(){return STATE&&STATE.userType==='trainee'&&window.supabaseStagiaire?window.supabaseStagiaire:window.supabase;}
 
+// ─── Synchronisation auto de l'auth formateur entre onglets ─────────────────
+// L'onglet dashboard MIB fait tourner le jeton Supabase (refresh token rotatif) ;
+// l'onglet simulateur doit adopter ce jeton frais SANS rechargement, sinon
+// ssi_start_session échoue en « forbidden ». On lit la clé par défaut
+// sb-<ref>-auth-token (ref dérivée de SUPABASE_URL, fiable — window.supabase
+// .supabaseUrl est souvent undefined en supabase-js v2) : avant chaque RPC
+// sensible ET à chaque event 'storage' (déclenché quand le dashboard rafraîchit).
+function mibAuthStorageKey(){try{const u=(typeof SUPABASE_URL!=='undefined'&&SUPABASE_URL)||(window.supabase&&window.supabase.supabaseUrl)||'';const ref=(u.match(/https?:\/\/([^.]+)\./)||[])[1];return ref?('sb-'+ref+'-auth-token'):null;}catch(_){return null;}}
+async function adoptStoredSession(){try{const k=mibAuthStorageKey();if(!k||!window.supabase||!window.supabase.auth)return false;const raw=localStorage.getItem(k);if(!raw)return false;const pr=JSON.parse(raw);const at=pr&&(pr.access_token||(pr.currentSession&&pr.currentSession.access_token));const rt=pr&&(pr.refresh_token||(pr.currentSession&&pr.currentSession.refresh_token));if(at&&rt){const{error}=await supabase.auth.setSession({access_token:at,refresh_token:rt});return !error;}}catch(_){}return false;}
+try{window.addEventListener('storage',(e)=>{const k=mibAuthStorageKey();if(k&&e.key===k&&e.newValue){adoptStoredSession();}});}catch(_){}
+
 const MibRT = {
   _channels: new Map(),
   _channel(channelName){
@@ -417,15 +428,9 @@ if(STATE.mibSessionId&&window.supabase?.rpc){
   // localStorage par le dashboard (corrige la course multi-onglets), avant d'abandonner.
   let _startErr=null;
   for(let attempt=0;attempt<2;attempt++){
-    try{const{error:rErr}=await supabase.auth.refreshSession();if(rErr)throw rErr;}
-    catch(_){
-      try{
-        const sbUrl=window.supabase.supabaseUrl||'';
-        const ref=(sbUrl.match(/https?:\/\/([^.]+)\./)||[])[1];
-        const raw=ref&&localStorage.getItem('sb-'+ref+'-auth-token');
-        if(raw){const pr=JSON.parse(raw);const at=pr&&(pr.access_token||(pr.currentSession&&pr.currentSession.access_token));const rt=pr&&(pr.refresh_token||(pr.currentSession&&pr.currentSession.refresh_token));if(at&&rt){await supabase.auth.setSession({access_token:at,refresh_token:rt});}}
-      }catch(_){}
-    }
+    // Adopte le jeton frais écrit par l'onglet dashboard (clé fiable), puis refresh.
+    await adoptStoredSession();
+    try{await supabase.auth.refreshSession();}catch(_){}
     try{
       const{data,error}=await supabase.rpc('ssi_start_session',{p_sessions_formation_id:STATE.mibSessionId,p_session_number:sessionId});
       if(error)throw error;
@@ -535,6 +540,7 @@ db.ref(`sessions/${sessionId}`).update({endTime:firebase.database.ServerValue.TI
 // silencieux, la ligne reste 'en_cours' indéfiniment et le stagiaire qui re-PIN
 // retombe dessus (bug constaté en preview phase 2).
 if(STATE.ssiSessionId&&window.supabase?.rpc){
+  await adoptStoredSession();
   try{await supabase.auth.refreshSession();}catch(_){}
   const{error:endErr}=await supabase.rpc('ssi_end_session',{p_ssi_session_id:STATE.ssiSessionId});
   if(endErr){
@@ -920,8 +926,8 @@ if(STATE.userType==='formateur'&&STATE.sessionActive)sendEndSessionBeacon();
 function sendEndSessionBeacon(){
 try{
 if(!STATE.ssiSessionId||!window.supabase)return;
-const sbUrl=window.supabase.supabaseUrl;
-const sbKey=window.supabase.supabaseKey;
+const sbUrl=(typeof SUPABASE_URL!=='undefined'&&SUPABASE_URL)||window.supabase.supabaseUrl;
+const sbKey=(typeof SUPABASE_ANON_KEY!=='undefined'&&SUPABASE_ANON_KEY)||window.supabase.supabaseKey;
 if(!sbUrl||!sbKey)return;
 // Récupère le JWT formateur depuis le storage Supabase (clé par défaut sb-<projectRef>-auth-token).
 let token=null;
