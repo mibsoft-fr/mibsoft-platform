@@ -411,21 +411,32 @@ const startTimeISO=now.toISOString();
 // 2 sessions SSI 'en_cours' sur la même SSIAP.
 let ssiSessionId=null;
 if(STATE.mibSessionId&&window.supabase?.rpc){
-  // Refresh proactif du JWT au cas où la session Supabase Auth est stale
-  // (cas vu en prod : token Supabase expiré pendant que le localStorage MIB
-  // garde "mib_formateur" valide → ssi_start_session échoue avec auth_required).
-  try{await supabase.auth.refreshSession();}catch(_){}
-  try{
-    const{data,error}=await supabase.rpc('ssi_start_session',{p_sessions_formation_id:STATE.mibSessionId,p_session_number:sessionId});
-    if(error)throw error;
-    ssiSessionId=data;
-  }catch(e){
-    console.error('ssi_start_session failed',e);
+  // Auth formateur potentiellement périmée (jeton tourné par l'onglet dashboard,
+  // l'onglet simulateur gardant en mémoire un ancien refresh token). On tente
+  // jusqu'à 2 fois : refresh classique, puis adoption du jeton frais écrit en
+  // localStorage par le dashboard (corrige la course multi-onglets), avant d'abandonner.
+  let _startErr=null;
+  for(let attempt=0;attempt<2;attempt++){
+    try{const{error:rErr}=await supabase.auth.refreshSession();if(rErr)throw rErr;}
+    catch(_){
+      try{
+        const sbUrl=window.supabase.supabaseUrl||'';
+        const ref=(sbUrl.match(/https?:\/\/([^.]+)\./)||[])[1];
+        const raw=ref&&localStorage.getItem('sb-'+ref+'-auth-token');
+        if(raw){const pr=JSON.parse(raw);const at=pr&&(pr.access_token||(pr.currentSession&&pr.currentSession.access_token));const rt=pr&&(pr.refresh_token||(pr.currentSession&&pr.currentSession.refresh_token));if(at&&rt){await supabase.auth.setSession({access_token:at,refresh_token:rt});}}
+      }catch(_){}
+    }
+    try{
+      const{data,error}=await supabase.rpc('ssi_start_session',{p_sessions_formation_id:STATE.mibSessionId,p_session_number:sessionId});
+      if(error)throw error;
+      ssiSessionId=data;_startErr=null;break;
+    }catch(e){_startErr=e;}
+  }
+  if(_startErr){
+    console.error('ssi_start_session failed',_startErr);
     // PAS de fallback legacy quand on est en mode MIB : ça créerait une session
-    // Firebase qui ne serait PAS retrouvable par les stagiaires via leur raccourci
-    // PC (qui passe par ssi_resolve_stagiaire = Supabase only). Mieux vaut bloquer
-    // proprement et demander à re-login.
-    showCustomAlert('❌ Impossible de démarrer la session côté Supabase : '+(e.message||e.code||'auth_required')+'\n\nVotre session a probablement expiré. Reconnectez-vous depuis le dashboard MIB et réessayez.');
+    // Firebase non retrouvable par les stagiaires (qui passent par ssi_resolve_stagiaire).
+    showCustomAlert('❌ Impossible de démarrer la session côté Supabase : '+(_startErr.message||_startErr.code||'auth')+'\n\nVotre session formateur a expiré. Reconnectez-vous au dashboard MIB, PUIS rechargez cette page (Ctrl+Maj+R) et réessayez.');
     return;
   }
 }
