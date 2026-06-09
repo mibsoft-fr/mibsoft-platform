@@ -35,6 +35,8 @@
   @keyframes blink{50%{opacity:.25}}
   .mk .cap{position:absolute;top:31px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;background:rgba(255,255,255,.92);border:1px solid var(--n300);border-radius:5px;padding:0 4px;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;line-height:1.4;color:#111}
   .mk .cap.todo{color:#b45309;border-color:#fcd34d;background:#fffbeb}
+  .mk.hs .dot{filter:grayscale(.7);opacity:.55}
+  .mk .xmark{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:26px;font-weight:900;color:#111;text-shadow:0 0 3px #fff,0 0 4px #fff,0 0 4px #fff;pointer-events:none;line-height:1}
   .empty{padding:54px 20px;text-align:center;color:#64748b;border:2px dashed var(--n300);border-radius:12px;background:#fff}
   .help{font-size:.78rem;color:var(--n600);margin-top:10px;line-height:1.5}
   .log{margin-top:12px;background:#0b1220;color:#9be29b;border-radius:10px;padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:.78rem;max-height:140px;overflow:auto}
@@ -132,8 +134,8 @@ function applyState(data){
   if(!data)return;
   const find=(t,id)=>((t==='DAI'?data.DAI:data.DM)||[]).find(d=>d.id===id);
   let changed=false;
-  MARKERS.forEach(m=>{const d=find(m.type,m.id);const t=!!(d&&d.triggered);if(t!==!!m._fired){m._fired=t;changed=true;}});
-  if(changed&&MODE==='play')renderMarkers();
+  MARKERS.forEach(m=>{const d=find(m.type,m.id);const t=!!(d&&d.triggered);const hs=!!(d&&d.hs);if(t!==!!m._fired||hs!==!!m._hs){m._fired=t;m._hs=hs;changed=true;}});
+  if(changed&&dragging===null)renderMarkers();
 }
 
 function refreshLink(){
@@ -246,10 +248,11 @@ function renderMarkers(){
   stage.querySelectorAll('.mk').forEach(e=>e.remove());
   MARKERS.forEach((m,idx)=>{
     const wrap=document.createElement('div');
-    wrap.className='mk '+(m.type==='DAI'?'dai':'dm')+(idx===selected?' sel':'')+(m._fired?' fired':'');
+    wrap.className='mk '+(m.type==='DAI'?'dai':'dm')+(idx===selected?' sel':'')+(m._fired?' fired':'')+(m._hs?' hs':'');
     wrap.style.left=(m.x/img.naturalWidth*100)+'%';wrap.style.top=(m.y/img.naturalHeight*100)+'%';
-    wrap.title=tag(m)+(m.addr?(' — '+m.addr):'');
+    wrap.title=tag(m)+(m.addr?(' — '+m.addr):'')+(m._hs?' (hors service)':'');
     const dot=document.createElement('div');dot.className='dot';dot.textContent=m.id;wrap.appendChild(dot);
+    if(m._hs){const x=document.createElement('div');x.className='xmark';x.textContent='✕';wrap.appendChild(x);}
     const cap=document.createElement('div');cap.className='cap'+(m.addr?'':' todo');cap.textContent=m.addr?(tag(m)+' · '+m.addr):(tag(m)+' · (à nommer)');wrap.appendChild(cap);
     wrap.addEventListener('mousedown',ev=>{if(MODE!=='edit')return;dragging=idx;dragMoved=false;ev.stopPropagation();});
     wrap.addEventListener('click',ev=>{ev.stopPropagation();if(MODE==='play'){fire(idx);return;}if(!dragMoved)selectMarker(idx);});
