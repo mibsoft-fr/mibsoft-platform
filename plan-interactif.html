@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan interactif DAI — Prototype MIBsoft</title>
+<link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
+<style>
+  :root{--g600:#059669;--g700:#047857;--g100:#D1FAE5;--n900:#0F172A;--n700:#334155;--n600:#475569;--n300:#CBD5E1;--n200:#E2E8F0;--n100:#F1F5F9;--n50:#F8FAFC;--red:#DC2626;--blue:#2563EB}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--n50);color:var(--n800)}
+  .head{background:linear-gradient(135deg,#10B981,#059669 45%,#2563EB);color:#fff;padding:16px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .head h1{margin:0;font-size:1.25rem}
+  .head .sub{opacity:.9;font-size:.82rem}
+  .wrap{max-width:1200px;margin:0 auto;padding:18px}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid var(--n200);border-radius:12px;padding:12px;margin-bottom:14px}
+  .btn{border:0;border-radius:9px;padding:9px 14px;font-weight:700;font-size:.85rem;cursor:pointer;color:#fff;background:var(--g600)}
+  .btn.alt{background:var(--blue)}.btn.grey{background:#64748b}.btn.warn{background:#D97706}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  .seg{display:inline-flex;border:1px solid var(--n300);border-radius:9px;overflow:hidden}
+  .seg button{border:0;background:#fff;padding:8px 12px;font-weight:700;font-size:.82rem;cursor:pointer;color:var(--n700)}
+  .seg button.on{background:var(--g600);color:#fff}
+  label.sld{display:inline-flex;flex-direction:column;font-size:.7rem;color:var(--n600);gap:2px}
+  .stage{position:relative;display:inline-block;max-width:100%;border:1px solid var(--n200);border-radius:12px;overflow:hidden;background:#fff;line-height:0}
+  #plan{max-width:100%;display:block;user-select:none;-webkit-user-drag:none}
+  .mk{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;border:3px solid #fff;background:var(--red);box-shadow:0 0 0 2px var(--red),0 2px 6px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;cursor:pointer;transition:transform .08s}
+  .mk:hover{transform:scale(1.15)}
+  .mk.fired{background:#fff;color:var(--red);animation:blink .7s infinite}
+  @keyframes blink{50%{opacity:.35}}
+  .empty{padding:60px 20px;text-align:center;color:var(--n500);border:2px dashed var(--n300);border-radius:12px;background:#fff}
+  .help{font-size:.8rem;color:var(--n600);margin-top:10px;line-height:1.5}
+  .log{margin-top:14px;background:#0b1220;color:#9be29b;border-radius:10px;padding:12px;font-family:ui-monospace,Menlo,monospace;font-size:.8rem;max-height:160px;overflow:auto}
+  .count{font-size:.82rem;color:var(--n700);font-weight:700}
+  kbd{background:var(--n100);border:1px solid var(--n300);border-radius:4px;padding:1px 5px;font-size:.75rem}
+</style>
+</head>
+<body>
+<div class="head">
+  <svg width="34" height="22" viewBox="0 0 130.011 81.611"><g transform="scale(0.6998)"><path d="m117.186 115.337 14.692.081L66.531 0 0 115.236h40.465l34.228-58.262-7.505-13.237-33.917 59.039H21.582l44.949-77.855z" fill="#fff"/><path d="m51.985 115.418 14.453-.05.932-1.719a.282.282 0 0 1 .053.03l3.097-5.844 8.394-15.488 13.563 24.272h14.171L78.933 66.681l-26.948 48.737zM119.249 0 97.415 37.769l7.415 12.025 14.419-24.873 44.949 77.855h-11.689l-33.747-58.693-7.443 11.941 33.996 59.212h40.466z" fill="rgba(255,255,255,.72)"/></g></svg>
+  <div><h1>Plan interactif DAI — prototype</h1><div class="sub">Importe le plan, l'app détecte les ronds rouges → DAI cliquables (déclenchement simulé)</div></div>
+</div>
+
+<div class="wrap">
+  <div class="bar">
+    <button class="btn" onclick="document.getElementById('file').click()">📁 Importer un plan (image)</button>
+    <input id="file" type="file" accept="image/*" style="display:none" onchange="loadFile(this.files[0])">
+    <span class="seg">
+      <button id="m-edit" class="on" onclick="setMode('edit')">✏️ Édition</button>
+      <button id="m-play" onclick="setMode('play')">▶️ Jeu</button>
+    </span>
+    <button class="btn alt" id="btn-detect" onclick="detect()" disabled>🔴 Détecter les ronds rouges</button>
+    <label class="sld">Sensibilité rouge <input id="rMin" type="range" min="80" max="200" value="110" oninput="rv('rMin')"></label>
+    <label class="sld">Taille mini <input id="minA" type="range" min="5" max="400" value="30" oninput="rv('minA')"></label>
+    <button class="btn grey" onclick="clearMarkers()">🗑️ Tout effacer</button>
+    <button class="btn warn" onclick="saveAll()">💾 Sauvegarder</button>
+    <span class="count" id="count">0 DAI</span>
+  </div>
+
+  <div id="hostEmpty" class="empty">
+    Aucun plan chargé.<br>Clique <b>« Importer un plan »</b> et choisis ton image (PNG/JPG) — idéalement le plan du centre commercial avec tes ronds rouges dans les réserves.
+  </div>
+
+  <div id="stage" class="stage" style="display:none">
+    <img id="plan" alt="plan" onload="onPlanLoaded()">
+  </div>
+
+  <div class="help">
+    <b>Mode Édition :</b> « Détecter » place un DAI sur chaque rond rouge. Tu peux <b>cliquer sur le plan</b> pour <b>ajouter</b> un DAI, ou <b>cliquer sur un marqueur</b> pour le <b>supprimer</b>. Glisse un marqueur pour l'ajuster.<br>
+    <b>Mode Jeu :</b> un clic sur un DAI <b>simule le déclenchement</b> (ici un log + clignotement). Dans le simulateur final, ça déclenchera la vraie alarme chez le stagiaire.
+  </div>
+
+  <div class="log" id="log">› Prêt. Importe un plan pour commencer.</div>
+</div>
+
+<script>
+let MARKERS=[]; // {x,y} en coordonnées NATURELLES de l'image
+let MODE='edit';
+let dragging=null, dragMoved=false;
+const $=id=>document.getElementById(id);
+function rv(id){ /* valeur live si besoin */ }
+function logLine(t){const l=$('log');l.innerHTML+='\n› '+t;l.scrollTop=l.scrollHeight;}
+
+function loadFile(f){
+  if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{ $('plan').src=e.target.result; localStorage.setItem('mib_plan_img', e.target.result); };
+  r.readAsDataURL(f);
+}
+function onPlanLoaded(){
+  $('hostEmpty').style.display='none';
+  $('stage').style.display='inline-block';
+  $('btn-detect').disabled=false;
+  renderMarkers();
+  logLine('Plan chargé ('+$('plan').naturalWidth+'×'+$('plan').naturalHeight+' px). Clique « Détecter ».');
+}
+
+function setMode(m){
+  MODE=m;
+  $('m-edit').classList.toggle('on',m==='edit');
+  $('m-play').classList.toggle('on',m==='play');
+  logLine('Mode : '+(m==='edit'?'Édition':'Jeu'));
+}
+
+// ── Auto-détection des ronds rouges (analyse pixels + composantes connexes) ──
+function detect(){
+  const img=$('plan'); if(!img.naturalWidth)return;
+  const maxW=1000, scale=Math.min(1, maxW/img.naturalWidth);
+  const w=Math.round(img.naturalWidth*scale), h=Math.round(img.naturalHeight*scale);
+  const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+  const ctx=cv.getContext('2d',{willReadFrequently:true}); ctx.drawImage(img,0,0,w,h);
+  let data; try{ data=ctx.getImageData(0,0,w,h).data; }catch(err){ logLine('⚠️ Lecture image bloquée (CORS). Importe le fichier en local.'); return; }
+  const rMin=+$('rMin').value, minA=+$('minA').value;
+  const red=new Uint8Array(w*h);
+  for(let p=0,i=0;p<w*h;p++,i+=4){
+    const r=data[i],g=data[i+1],b=data[i+2];
+    if(r>rMin && (r-g)>45 && (r-b)>45) red[p]=1;
+  }
+  const lab=new Int32Array(w*h); const blobs=[]; const st=[];
+  for(let p=0;p<w*h;p++){
+    if(red[p]&&!lab[p]){
+      const id=blobs.length+1; let sx=0,sy=0,n=0,minx=w,miny=h,maxx=0,maxy=0;
+      st.length=0; st.push(p); lab[p]=id;
+      while(st.length){
+        const q=st.pop(), qx=q%w, qy=(q/w)|0; sx+=qx;sy+=qy;n++;
+        if(qx<minx)minx=qx; if(qx>maxx)maxx=qx; if(qy<miny)miny=qy; if(qy>maxy)maxy=qy;
+        const nb=[qx>0?q-1:-1, qx<w-1?q+1:-1, qy>0?q-w:-1, qy<h-1?q+w:-1];
+        for(const nq of nb){ if(nq>=0&&red[nq]&&!lab[nq]){lab[nq]=id;st.push(nq);} }
+      }
+      const bw=maxx-minx+1, bh=maxy-miny+1, fill=n/(bw*bh);
+      blobs.push({cx:sx/n,cy:sy/n,n,bw,bh,fill});
+    }
+  }
+  const found=blobs
+    .filter(b=> b.n>=minA && b.bw<w*0.5 && b.bh<h*0.5 && b.fill>0.35 && (b.bw/b.bh)<3 && (b.bh/b.bw)<3)
+    .map(b=>({x:b.cx/scale, y:b.cy/scale}))
+    .sort((a,b)=> a.y-b.y || a.x-b.x);
+  // fusionne les centres trop proches
+  const merged=[];
+  for(const f of found){ if(!merged.some(m=>Math.hypot(m.x-f.x,m.y-f.y) < img.naturalWidth*0.02)) merged.push(f); }
+  MARKERS=merged;
+  renderMarkers();
+  logLine('Détection : '+MARKERS.length+' rond(s) rouge(s) trouvé(s) → DAI01…DAI'+String(MARKERS.length).padStart(2,'0')+'. Ajuste si besoin.');
+}
+
+function renderMarkers(){
+  const stage=$('stage'), img=$('plan');
+  stage.querySelectorAll('.mk').forEach(e=>e.remove());
+  MARKERS.forEach((m,idx)=>{
+    const d=document.createElement('div'); d.className='mk'; d.textContent=idx+1;
+    d.style.left=(m.x/img.naturalWidth*100)+'%';
+    d.style.top=(m.y/img.naturalHeight*100)+'%';
+    d.title='DAI'+String(idx+1).padStart(2,'0');
+    d.addEventListener('mousedown',ev=>{ if(MODE!=='edit')return; dragging=idx; dragMoved=false; ev.stopPropagation(); });
+    d.addEventListener('click',ev=>{ ev.stopPropagation();
+      if(MODE==='play'){ fire(idx,d); return; }
+      if(!dragMoved){ MARKERS.splice(idx,1); renderMarkers(); logLine('DAI supprimé. '+MARKERS.length+' restants.'); }
+    });
+    stage.appendChild(d);
+  });
+  $('count').textContent=MARKERS.length+' DAI';
+}
+
+// drag + ajout manuel
+document.addEventListener('mousemove',ev=>{
+  if(dragging===null)return; dragMoved=true;
+  const img=$('plan'), r=img.getBoundingClientRect();
+  const x=(ev.clientX-r.left)/r.width*img.naturalWidth, y=(ev.clientY-r.top)/r.height*img.naturalHeight;
+  MARKERS[dragging]={x:Math.max(0,Math.min(img.naturalWidth,x)),y:Math.max(0,Math.min(img.naturalHeight,y))};
+  const mk=$('stage').querySelectorAll('.mk')[dragging];
+  if(mk){mk.style.left=(MARKERS[dragging].x/img.naturalWidth*100)+'%';mk.style.top=(MARKERS[dragging].y/img.naturalHeight*100)+'%';}
+});
+document.addEventListener('mouseup',()=>{ dragging=null; });
+$('stage').addEventListener('click',ev=>{
+  if(MODE!=='edit'||dragMoved){dragMoved=false;return;}
+  const img=$('plan'), r=img.getBoundingClientRect();
+  if(ev.target!==img)return;
+  const x=(ev.clientX-r.left)/r.width*img.naturalWidth, y=(ev.clientY-r.top)/r.height*img.naturalHeight;
+  MARKERS.push({x,y}); renderMarkers(); logLine('DAI ajouté manuellement (DAI'+String(MARKERS.length).padStart(2,'0')+').');
+});
+
+function fire(idx,el){
+  const id='DAI'+String(idx+1).padStart(2,'0');
+  el.classList.toggle('fired');
+  logLine(el.classList.contains('fired') ? ('🔥 ALARME FEU déclenchée : '+id+' (réserve)') : ('✅ '+id+' réarmé'));
+}
+
+function clearMarkers(){ MARKERS=[]; renderMarkers(); logLine('Tous les DAI effacés.'); }
+function saveAll(){
+  try{ localStorage.setItem('mib_plan_markers', JSON.stringify(MARKERS)); logLine('💾 Sauvegardé ('+MARKERS.length+' DAI). Rechargé automatiquement à la prochaine ouverture.'); }
+  catch(e){ logLine('⚠️ Sauvegarde impossible.'); }
+}
+// restauration auto
+(function(){
+  const img=localStorage.getItem('mib_plan_img'); if(img){ $('plan').src=img; }
+  const mk=localStorage.getItem('mib_plan_markers'); if(mk){ try{MARKERS=JSON.parse(mk)||[];}catch(_){} }
+})();
+</script>
+</body>
+</html>
