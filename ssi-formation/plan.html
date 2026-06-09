@@ -33,7 +33,8 @@
   .mk.sel .dot{outline:3px dashed #111;outline-offset:2px}
   .mk.fired .dot{animation:blink .6s infinite;background:#fff!important;color:var(--red)!important}
   @keyframes blink{50%{opacity:.25}}
-  .mk .cap{position:absolute;top:31px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;background:rgba(255,255,255,.92);border:1px solid var(--n300);border-radius:5px;padding:0 4px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;line-height:1.4;color:#111}
+  .mk .cap{position:absolute;top:31px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;background:rgba(255,255,255,.92);border:1px solid var(--n300);border-radius:5px;padding:0 4px;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;line-height:1.4;color:#111}
+  .mk .cap.todo{color:#b45309;border-color:#fcd34d;background:#fffbeb}
   .empty{padding:54px 20px;text-align:center;color:#64748b;border:2px dashed var(--n300);border-radius:12px;background:#fff}
   .help{font-size:.78rem;color:var(--n600);margin-top:10px;line-height:1.5}
   .log{margin-top:12px;background:#0b1220;color:#9be29b;border-radius:10px;padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:.78rem;max-height:140px;overflow:auto}
@@ -182,7 +183,7 @@ function renderMarkers(){
     wrap.style.left=(m.x/img.naturalWidth*100)+'%';wrap.style.top=(m.y/img.naturalHeight*100)+'%';
     wrap.title=tag(m)+(m.addr?(' — '+m.addr):'');
     const dot=document.createElement('div');dot.className='dot';dot.textContent=m.id;wrap.appendChild(dot);
-    const cap=document.createElement('div');cap.className='cap';cap.textContent=m.addr?(tag(m)+' · '+m.addr):tag(m);wrap.appendChild(cap);
+    const cap=document.createElement('div');cap.className='cap'+(m.addr?'':' todo');cap.textContent=m.addr?(tag(m)+' · '+m.addr):(tag(m)+' · (à nommer)');wrap.appendChild(cap);
     wrap.addEventListener('mousedown',ev=>{if(MODE!=='edit')return;dragging=idx;dragMoved=false;ev.stopPropagation();});
     wrap.addEventListener('click',ev=>{ev.stopPropagation();if(MODE==='play'){fire(idx);return;}if(!dragMoved)selectMarker(idx);});
     stage.appendChild(wrap);
@@ -193,7 +194,8 @@ function renderMarkers(){
 // ── Sélection / éditeur ──
 function selectMarker(idx){selected=idx;const ed=$('editor');
   if(idx<0||MODE!=='edit'){ed.classList.remove('show');renderMarkers();return;}
-  const m=MARKERS[idx];$('ed-type').value=m.type;$('ed-addr').value=m.addr||'';ed.classList.add('show');renderMarkers();}
+  const m=MARKERS[idx];$('ed-type').value=m.type;$('ed-addr').value=m.addr||'';ed.classList.add('show');renderMarkers();
+  setTimeout(()=>{const a=$('ed-addr');a.focus();a.select();},0);}
 function applyEditor(){if(selected<0)return;const m=MARKERS[selected];m.type=$('ed-type').value;m.addr=$('ed-addr').value;renumber();renderMarkers();}
 function deleteSelected(){if(selected<0)return;MARKERS.splice(selected,1);renumber();selectMarker(-1);logLine('Point supprimé.');}
 
@@ -213,6 +215,7 @@ $('stage').addEventListener('click',ev=>{
 // ── déclenchement (mode Jeu) ──
 function fire(idx){
   const m=MARKERS[idx];
+  if(!m.addr&&!m._fired)toast('Astuce : nomme ce local en Édition pour l’afficher sur l’ECS');
   const sent=post({kind:'trigger',type:m.type,id:m.id,address:m.addr||''});
   if(sent){
     m._fired=!m._fired; // optimiste, réconcilié par l'état renvoyé
