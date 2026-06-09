@@ -317,7 +317,7 @@ STATE.mibSessionId=row.sessions_formation_id||STATE.mibSessionId;
 STATE.ssiSessionId=row.ssi_session_id||null;
 // joinKnownSession arrête le poller lui-même sur succès ; en cas d'échec
 // (session déjà retombée inactive) on laisse le poller retenter au tick suivant.
-joinKnownSession(row.session_number);
+joinKnownSession(row.session_number,{silent:true});
 }catch(e){console.warn('nextSessionWatch threw',e);}
 },12000);
 }
@@ -569,7 +569,8 @@ showCustomAlert(`Session ${sessionNumber} terminée. Journal sauvegardé (${sess
 
 // Rejoint une session Firebase connue (sessionId déjà résolu via ssi_resolve_stagiaire).
 // Évite le singleton `active_session` qui empêche le multi-formateurs.
-function joinKnownSession(sessionId){
+function joinKnownSession(sessionId,opts){
+const silent=opts&&opts.silent;
 if(!firebaseInitialized||!sessionId)return;
 db.ref(`sessions/${sessionId}`).once('value',(sessionSnapshot)=>{
 const sessionData=sessionSnapshot.val();
@@ -592,11 +593,16 @@ watchFormationChannel();
 startSessionAliveCheck();
 render();
 }else{
+// Appel silencieux (poller d'enchaînement) : la session vient de se terminer
+// (course Firebase active=false / Supabase). On n'alerte pas, on laisse le
+// watch continuer à guetter une vraie nouvelle session.
+if(!silent){
 showCustomAlert('La session du formateur n\'est pas (ou plus) active. Demandez au formateur de la redémarrer.');
 STATE.sessionActive=false;
 STATE.sessionId=null;
 STATE.sessionNumber=null;
 render();
+}
 }
 });
 }
