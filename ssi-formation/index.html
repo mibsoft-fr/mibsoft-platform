@@ -698,17 +698,17 @@ if(!STATE.sessionId)return;
 STATE.peerConnection=new RTCPeerConnection(iceServers);
 STATE.localStream.getTracks().forEach(track=>{STATE.peerConnection.addTrack(track,STATE.localStream);});
 STATE.peerConnection.onicecandidate=(event)=>{if(event.candidate){db.ref(`sessions/${STATE.sessionId}/video/trainee_ice_candidates`).push(event.candidate.toJSON());}};
-STATE.peerConnection.ontrack=(event)=>{const st=(event.streams&&event.streams[0])||new MediaStream([event.track]);STATE.remoteStream=st;const fa=document.getElementById('formateur-audio');if(fa){fa.srcObject=st;fa.muted=false;fa.volume=1;try{fa.play();}catch(_){}}};
+STATE.peerConnection.ontrack=(event)=>{const st=(event.streams&&event.streams[0])||new MediaStream([event.track]);STATE.remoteStream=st;const fa=document.getElementById('formateur-audio');if(fa){fa.srcObject=st;fa.muted=false;fa.volume=1;fa.play().catch(()=>{})}};
 if(STATE.userType==='trainee'){
 const offer=await STATE.peerConnection.createOffer();
 await STATE.peerConnection.setLocalDescription(offer);
 db.ref(`sessions/${STATE.sessionId}/video/offer`).set({type:offer.type,sdp:offer.sdp});
 db.ref(`sessions/${STATE.sessionId}/video/trainee_stream_active`).set(true);
 const answerRef=db.ref(`sessions/${STATE.sessionId}/video/answer`);
-answerRef.on('value',async(snapshot)=>{const answer=snapshot.val();if(answer&&STATE.peerConnection&&!STATE.peerConnection.currentRemoteDescription){await STATE.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));}});
+answerRef.on('value',async(snapshot)=>{const answer=snapshot.val();if(answer&&STATE.peerConnection&&!STATE.peerConnection.currentRemoteDescription){try{await STATE.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));}catch(_){}}});
 activeFirebaseListeners.push(answerRef);
 const supIceRef=db.ref(`sessions/${STATE.sessionId}/video/formateur_ice_candidates`);
-supIceRef.on('child_added',async(snapshot)=>{const candidate=snapshot.val();if(candidate&&STATE.peerConnection){await STATE.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));}});
+supIceRef.on('child_added',async(snapshot)=>{const candidate=snapshot.val();if(candidate&&STATE.peerConnection){try{await STATE.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));}catch(_){}}});
 activeFirebaseListeners.push(supIceRef);
 }
 }
@@ -740,7 +740,7 @@ const answer=await STATE.peerConnection.createAnswer();
 await STATE.peerConnection.setLocalDescription(answer);
 db.ref(`sessions/${STATE.sessionId}/video/answer`).set({type:answer.type,sdp:answer.sdp});
 const traineeIceRef=db.ref(`sessions/${STATE.sessionId}/video/trainee_ice_candidates`);
-traineeIceRef.on('child_added',async(snapshot)=>{const candidate=snapshot.val();if(candidate&&STATE.peerConnection){await STATE.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));}});
+traineeIceRef.on('child_added',async(snapshot)=>{const candidate=snapshot.val();if(candidate&&STATE.peerConnection){try{await STATE.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));}catch(_){}}});
 activeFirebaseListeners.push(traineeIceRef);
 }
 });
@@ -1339,7 +1339,7 @@ case 'session-logs':app.innerHTML=renderSessionLogs();break;
 restoreVideoStreams();
 }
 
-function restoreVideoStreams(){setTimeout(()=>{if(STATE.localStream){const localVideo=document.getElementById('local-video');if(localVideo&&localVideo.srcObject!==STATE.localStream){localVideo.srcObject=STATE.localStream;}}if(STATE.remoteStream){const remoteVideo=document.getElementById('trainee-video');if(remoteVideo&&remoteVideo.srcObject!==STATE.remoteStream){remoteVideo.srcObject=STATE.remoteStream;remoteVideo.muted=STATE.audioMuted;remoteVideo.volume=STATE.audioVolume;}const fa=document.getElementById('formateur-audio');if(fa&&fa.srcObject!==STATE.remoteStream){fa.srcObject=STATE.remoteStream;fa.muted=false;try{fa.play();}catch(_){}}}},50);}
+function restoreVideoStreams(){setTimeout(()=>{if(STATE.localStream){const localVideo=document.getElementById('local-video');if(localVideo&&localVideo.srcObject!==STATE.localStream){localVideo.srcObject=STATE.localStream;}}if(STATE.remoteStream){const remoteVideo=document.getElementById('trainee-video');if(remoteVideo&&remoteVideo.srcObject!==STATE.remoteStream){remoteVideo.srcObject=STATE.remoteStream;remoteVideo.muted=STATE.audioMuted;remoteVideo.volume=STATE.audioVolume;}const fa=document.getElementById('formateur-audio');if(fa&&fa.srcObject!==STATE.remoteStream){fa.srcObject=STATE.remoteStream;fa.muted=false;fa.play().catch(()=>{})}}},50);}
 
 function renderHome(){return `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--space-6);background:var(--bg-page);"><div style="max-width:720px;width:100%;"><div style="text-align:center;margin-bottom:var(--space-10);"><div class="mib-logo" style="font-size:var(--text-3xl);margin-bottom:var(--space-2);">MIBsoft</div><h1 style="font-family:var(--font-display);font-size:var(--text-2xl);font-weight:700;color:var(--text-1);margin:0;letter-spacing:-0.02em;">Formation SSI — SSIAP</h1><p style="color:var(--text-2);margin-top:var(--space-2);">Simulateur SSI pour formation pratique sécurité incendie</p></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--space-5);"><div onclick="navigate('formateur-login')" class="mib-card mib-card-interactive" style="cursor:pointer;padding:var(--space-6);"><div style="font-size:2rem;margin-bottom:var(--space-3);">👨‍🏫</div><h2 class="mib-card-title" style="margin-bottom:var(--space-2);">Formateur</h2><p style="color:var(--text-2);margin:0;">Créer des scénarios et superviser les stagiaires en direct.</p></div><div onclick="navigate('trainee-login')" class="mib-card mib-card-interactive" style="cursor:pointer;padding:var(--space-6);"><div style="font-size:2rem;margin-bottom:var(--space-3);">🎓</div><h2 class="mib-card-title" style="margin-bottom:var(--space-2);">Stagiaire</h2><p style="color:var(--text-2);margin:0;">Se connecter avec votre PIN MIB et participer à la session.</p></div></div></div></div>`;}
 function renderFormateurLogin(){return `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--space-6);background:var(--bg-page);"><div class="mib-card" style="max-width:420px;width:100%;padding:var(--space-8);"><h2 class="mib-card-title" style="margin-bottom:var(--space-2);">Connexion Formateur</h2><p style="color:var(--text-2);margin:0 0 var(--space-6) 0;font-size:var(--text-sm);">Saisissez le code formateur du simulateur.</p><form onsubmit="handleFormateurLogin(event)"><div style="margin-bottom:var(--space-4);"><label class="mib-label" for="formateur-code">Code formateur</label><input type="password" id="formateur-code" class="mib-inp" required autofocus></div><button type="submit" class="mib-btn mib-btn-primary mib-btn-block mib-btn-lg" style="margin-bottom:var(--space-3);">Se connecter</button><button type="button" onclick="location.reload()" class="mib-btn mib-btn-ghost mib-btn-block">Retour</button></form></div></div>`;}
