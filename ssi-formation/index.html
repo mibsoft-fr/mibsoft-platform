@@ -63,16 +63,11 @@ if(window._sbFactory&&window.supabase&&window.supabase.supabaseUrl){
 // Helper : le bon client selon le rôle courant (formateur=localStorage, stagiaire=sessionStorage)
 function sbForRole(){return STATE&&STATE.userType==='trainee'&&window.supabaseStagiaire?window.supabaseStagiaire:window.supabase;}
 
-// ─── Synchronisation auto de l'auth formateur entre onglets ─────────────────
-// L'onglet dashboard MIB fait tourner le jeton Supabase (refresh token rotatif) ;
-// l'onglet simulateur doit adopter ce jeton frais SANS rechargement, sinon
-// ssi_start_session échoue en « forbidden ». On lit la clé par défaut
-// sb-<ref>-auth-token (ref dérivée de SUPABASE_URL, fiable — window.supabase
-// .supabaseUrl est souvent undefined en supabase-js v2) : avant chaque RPC
-// sensible ET à chaque event 'storage' (déclenché quand le dashboard rafraîchit).
-function mibAuthStorageKey(){try{const u=(typeof SUPABASE_URL!=='undefined'&&SUPABASE_URL)||(window.supabase&&window.supabase.supabaseUrl)||'';const ref=(u.match(/https?:\/\/([^.]+)\./)||[])[1];return ref?('sb-'+ref+'-auth-token'):null;}catch(_){return null;}}
-async function adoptStoredSession(){try{const k=mibAuthStorageKey();if(!k||!window.supabase||!window.supabase.auth)return false;const raw=localStorage.getItem(k);if(!raw)return false;const pr=JSON.parse(raw);const at=pr&&(pr.access_token||(pr.currentSession&&pr.currentSession.access_token));const rt=pr&&(pr.refresh_token||(pr.currentSession&&pr.currentSession.refresh_token));if(at&&rt){const{error}=await supabase.auth.setSession({access_token:at,refresh_token:rt});return !error;}}catch(_){}return false;}
-try{window.addEventListener('storage',(e)=>{const k=mibAuthStorageKey();if(k&&e.key===k&&e.newValue){adoptStoredSession();}});}catch(_){}
+// NOTE: on laisse supabase-js gérer NATIVEMENT le rafraîchissement du jeton
+// (autoRefreshToken + verrous multi-onglets). Les anciens helpers maison
+// (setSession depuis localStorage + écouteur 'storage') ont été retirés : ils
+// entraient en conflit avec la rotation native du refresh token et finissaient
+// par INVALIDER la session (-> 'permission denied for function').
 
 const MibRT = {
   _channels: new Map(),
@@ -468,21 +463,14 @@ const startTimeISO=now.toISOString();
 // 2 sessions SSI 'en_cours' sur la même SSIAP.
 let ssiSessionId=null;
 if(STATE.mibSessionId&&window.supabase?.rpc){
-  // Auth formateur potentiellement périmée (jeton tourné par l'onglet dashboard,
-  // l'onglet simulateur gardant en mémoire un ancien refresh token). On tente
-  // jusqu'à 2 fois : refresh classique, puis adoption du jeton frais écrit en
-  // localStorage par le dashboard (corrige la course multi-onglets), avant d'abandonner.
+  // Gestion native : supabase-js fournit/rafraîchit le jeton automatiquement
+  // avant la requête. On ne force RIEN manuellement (pas de setSession maison).
   let _startErr=null;
-  for(let attempt=0;attempt<2;attempt++){
-    // Adopte le jeton frais écrit par l'onglet dashboard (clé fiable), puis refresh.
-    await adoptStoredSession();
-    try{await supabase.auth.refreshSession();}catch(_){}
-    try{
-      const{data,error}=await supabase.rpc('ssi_start_session',{p_sessions_formation_id:STATE.mibSessionId,p_session_number:sessionId});
-      if(error)throw error;
-      ssiSessionId=data;_startErr=null;break;
-    }catch(e){_startErr=e;}
-  }
+  try{
+    const{data,error}=await supabase.rpc('ssi_start_session',{p_sessions_formation_id:STATE.mibSessionId,p_session_number:sessionId});
+    if(error)throw error;
+    ssiSessionId=data;
+  }catch(e){_startErr=e;}
   if(_startErr){
     console.error('ssi_start_session failed',_startErr);
     // PAS de fallback legacy quand on est en mode MIB : ça créerait une session
@@ -592,8 +580,6 @@ db.ref(`sessions/${sessionId}`).update({endTime:firebase.database.ServerValue.TI
 // silencieux, la ligne reste 'en_cours' indéfiniment et le stagiaire qui re-PIN
 // retombe dessus (bug constaté en preview phase 2).
 if(STATE.ssiSessionId&&window.supabase?.rpc){
-  await adoptStoredSession();
-  try{await supabase.auth.refreshSession();}catch(_){}
   const{error:endErr}=await supabase.rpc('ssi_end_session',{p_ssi_session_id:STATE.ssiSessionId});
   if(endErr){
     console.error('ssi_end_session failed',endErr);
