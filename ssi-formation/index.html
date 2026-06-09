@@ -107,8 +107,8 @@ restoreDirHandleFromIDB().then(()=>{if(STATE.storageDirName)console.log('✓ Dos
 
 const STATE={currentView:'trainee-login',currentUser:null,userType:null,trainees:[],currentSession:null,sessionActive:false,sessionId:null,centerId:null,mibSessionId:null,ssiSessionId:null,accessLevel:1,smsiAccessLevel:1,
 sdi:{systemState:'service',batteryState:'service',powerState:'secteur',alarms:[],
-detectors:Array(10).fill().map((_,i)=>({id:i+1,type:'DAI',zone:`ZC${Math.floor(i/3)+1}`,address:`DAI ${Math.floor(i/3)+1}-${(i%3)+1}`,state:'service',triggered:false,outOfService:false})),
-manualAlarms:Array(10).fill().map((_,i)=>({id:i+1,type:'DM',zone:`ZC${Math.floor(i/3)+1}`,address:`DM ${Math.floor(i/3)+1}-${(i%3)+1}`,state:'service',triggered:false,outOfService:false})),
+detectors:Array(10).fill().map((_,i)=>({id:i+1,type:'DAI',zone:`ZC${Math.floor(i/2)+1}`,address:`DAI ${Math.floor(i/2)+1}-${(i%2)+1}`,state:'service',triggered:false,outOfService:false})),
+manualAlarms:Array(10).fill().map((_,i)=>({id:i+1,type:'DM',zone:`ZC${Math.floor(i/2)+1}`,address:`DM ${Math.floor(i/2)+1}-${(i%2)+1}`,state:'service',triggered:false,outOfService:false})),
 alarmSound:false,fireAlarmActive:false},
 smsi:{systemState:'service',batteryState:'service',powerState:'secteur',alarmState:'service',alarmSound:false,messages:[],
 compartmentZones:Array(5).fill().map((_,i)=>({id:i+1,zone:`ZC${i+1}`,address:`Compartiment Zone ${i+1}`,state:'attente',ledRed:{on:false,blink:false},ledOrange:{on:false,blink:false},ledGreen:{on:false,blink:false},commandActive:false})),
