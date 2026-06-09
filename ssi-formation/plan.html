@@ -29,7 +29,7 @@
   .mk .dot{width:28px;height:28px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.45);transition:transform .08s}
   .mk:hover .dot{transform:scale(1.15)}
   .mk.dai .dot{background:var(--red);box-shadow:0 0 0 2px var(--red),0 2px 6px rgba(0,0,0,.4)}
-  .mk.dm .dot{background:var(--blue);width:34px;height:22px;border-radius:4px;box-shadow:0 0 0 2px var(--blue),0 2px 6px rgba(0,0,0,.4)}
+  .mk.dm .dot{background:var(--red);width:34px;height:22px;border-radius:4px;box-shadow:0 0 0 2px var(--red),0 2px 6px rgba(0,0,0,.4)}
   .mk.sel .dot{outline:3px dashed #111;outline-offset:2px}
   .mk.fired .dot{animation:blink .6s infinite;background:#fff!important;color:var(--red)!important}
   @keyframes blink{50%{opacity:.25}}
@@ -71,7 +71,7 @@
     <label class="sld edit-only">Taille mini <input id="minA" type="range" min="5" max="400" value="30"></label>
     <button class="btn grey edit-only" onclick="clearMarkers()">🗑️ Effacer</button>
     <button class="btn warn edit-only" onclick="saveAll()">💾 Sauvegarder</button>
-    <span class="leg"><span><span class="dotleg" style="background:#DC2626"></span>DAI (ronds)</span><span><span class="dotleg" style="background:#2563EB"></span>DM (rectangles)</span></span>
+    <span class="leg"><span><span class="dotleg" style="background:#DC2626"></span>DAI (ronds)</span><span><span class="dotleg" style="background:#DC2626;border-radius:3px;width:16px"></span>DM (rectangles)</span></span>
     <span class="count" id="count">0 point</span>
   </div>
 
@@ -186,7 +186,15 @@ function detect(){
 
 // ── Détection des noms de locaux (OCR Tesseract.js, chargé à la demande) ──
 function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('chargement '+src));document.head.appendChild(s);});}
-async function ensureTesseract(){if(window.Tesseract)return;await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');}
+async function ensureTesseract(){if(window.Tesseract)return;await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@4.1.4/dist/tesseract.min.js');}
+// Tout chargé depuis cdn.jsdelivr.net (déjà autorisé pour les scripts) ; worker
+// hors blob pour éviter les restrictions CSP worker-src blob:. v4 => data.words rempli.
+const TESS_OPTS={
+  workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.4/dist/worker.min.js',
+  corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@4.0.4/tesseract-core.wasm.js',
+  langPath:'https://cdn.jsdelivr.net/gh/naptha/tessdata@gh-pages/4.0.0',
+  workerBlobURL:false
+};
 function cleanName(t){return (t||'').replace(/[^\p{L}\p{N}\s'’\-]/gu,'').replace(/\s+/g,' ').trim();}
 // Regroupe les mots OCR proches en libellés (ex. "Station Service", "Agence de voyage").
 function clusterWords(words){
@@ -213,8 +221,9 @@ async function detectNames(){
   logLine('🔤 OCR en cours… (1er lancement : téléchargement du moteur, ~10 Mo, patiente)');
   try{
     await ensureTesseract();
-    const res=await Tesseract.recognize(img.src,'fra');
+    const res=await Tesseract.recognize(img.src,'fra',{...TESS_OPTS,logger:m=>{if(m.status==='recognizing text'&&m.progress!=null)btn.textContent='⏳ OCR '+Math.round(m.progress*100)+'%';}});
     const words=(res.data.words||[]).filter(w=>w&&w.text&&w.confidence>40&&/[\p{L}]{3,}/u.test(w.text));
+    if(!words.length){logLine('🔤 OCR exécuté mais 0 mot lisible détecté (texte trop petit ou image floue). Saisie manuelle.');toast('Aucun texte lisible');return;}
     const labels=clusterWords(words).filter(L=>L.text.length>=3);
     let n=0,skip=0;
     MARKERS.forEach(m=>{
@@ -227,8 +236,9 @@ async function detectNames(){
     logLine('🔤 OCR terminé : '+n+' nom(s) proposé(s)'+(skip?(' ('+skip+' déjà nommé(s))'):'')+'. Vérifie/corrige les « (à nommer) » puis Sauvegarde.');
     toast(n+' nom(s) détecté(s)');
   }catch(e){
-    logLine('⚠️ OCR indisponible ('+(e&&e.message||e)+'). Saisis les noms à la main.');
-    toast('OCR indisponible — saisie manuelle');
+    console.error('OCR error',e);
+    logLine('⚠️ OCR bloqué : '+(e&&e.message||e)+'. (Souvent la CSP du site qui bloque le moteur OCR.) Saisis les noms à la main.');
+    toast('OCR bloqué — saisie manuelle');
   }finally{OCR_RUNNING=false;btn.textContent=old;btn.disabled=false;}
 }
 
