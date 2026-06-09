@@ -5,18 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Plan interactif — SSI Formation</title>
 <style>
-  :root{--g600:#059669;--g700:#047857;--blue:#2563EB;--n900:#0F172A;--n700:#334155;--n600:#475569;--n300:#CBD5E1;--n200:#E2E8F0;--n100:#F1F5F9;--n50:#F8FAFC;--red:#DC2626;--orange:#D97706}
+  :root{--g600:#059669;--blue:#2563EB;--n700:#334155;--n600:#475569;--n300:#CBD5E1;--n200:#E2E8F0;--n50:#F8FAFC;--red:#DC2626;--orange:#D97706}
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--n50);color:#1e293b}
   .head{background:linear-gradient(135deg,#10B981,#059669 45%,#2563EB);color:#fff;padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
   .head h1{margin:0;font-size:1.05rem}
   .head .sub{opacity:.9;font-size:.78rem}
   .pill{margin-left:auto;font-size:.72rem;background:rgba(255,255,255,.18);padding:4px 9px;border-radius:999px;font-weight:700}
+  .pill.off{background:rgba(220,38,38,.6)}
   .wrap{max-width:1280px;margin:0 auto;padding:14px}
   .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid var(--n200);border-radius:12px;padding:10px;margin-bottom:12px}
   .btn{border:0;border-radius:9px;padding:8px 12px;font-weight:700;font-size:.82rem;cursor:pointer;color:#fff;background:var(--g600)}
   .btn.alt{background:var(--blue)}.btn.grey{background:#64748b}.btn.warn{background:var(--orange)}
-  .btn[disabled]{opacity:.5;cursor:not-allowed}
   .seg{display:inline-flex;border:1px solid var(--n300);border-radius:9px;overflow:hidden}
   .seg button{border:0;background:#fff;padding:7px 12px;font-weight:700;font-size:.8rem;cursor:pointer;color:var(--n700)}
   .seg button.on{background:var(--g600);color:#fff}
@@ -25,33 +25,35 @@
   body.mode-edit .edit-only{display:inline-flex}
   .stage{position:relative;display:inline-block;max-width:100%;border:1px solid var(--n200);border-radius:12px;overflow:hidden;background:#fff;line-height:0}
   #plan{max-width:100%;display:block;-webkit-user-drag:none;user-select:none}
-  .mk{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.45);transition:transform .08s}
-  .mk:hover{transform:scale(1.15)}
-  .mk.dai{background:var(--red);box-shadow:0 0 0 2px var(--red),0 2px 6px rgba(0,0,0,.4)}
-  .mk.dm{background:var(--blue);box-shadow:0 0 0 2px var(--blue),0 2px 6px rgba(0,0,0,.4)}
-  .mk.sel{outline:3px dashed #111;outline-offset:2px}
-  .mk.fired{animation:blink .6s infinite;background:#fff!important;color:var(--red)!important}
+  .mk{position:absolute;width:28px;height:28px;transform:translate(-50%,-50%);cursor:pointer}
+  .mk .dot{width:28px;height:28px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.45);transition:transform .08s}
+  .mk:hover .dot{transform:scale(1.15)}
+  .mk.dai .dot{background:var(--red);box-shadow:0 0 0 2px var(--red),0 2px 6px rgba(0,0,0,.4)}
+  .mk.dm .dot{background:var(--blue);box-shadow:0 0 0 2px var(--blue),0 2px 6px rgba(0,0,0,.4)}
+  .mk.sel .dot{outline:3px dashed #111;outline-offset:2px}
+  .mk.fired .dot{animation:blink .6s infinite;background:#fff!important;color:var(--red)!important}
   @keyframes blink{50%{opacity:.25}}
+  .mk .cap{position:absolute;top:31px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;background:rgba(255,255,255,.92);border:1px solid var(--n300);border-radius:5px;padding:0 4px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;line-height:1.4;color:#111}
   .empty{padding:54px 20px;text-align:center;color:#64748b;border:2px dashed var(--n300);border-radius:12px;background:#fff}
   .help{font-size:.78rem;color:var(--n600);margin-top:10px;line-height:1.5}
   .log{margin-top:12px;background:#0b1220;color:#9be29b;border-radius:10px;padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:.78rem;max-height:140px;overflow:auto}
-  .editor{position:fixed;right:16px;top:90px;width:210px;background:#fff;border:1px solid var(--n300);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:12px;display:none;z-index:50}
+  .editor{position:fixed;right:16px;top:96px;width:222px;background:#fff;border:1px solid var(--n300);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:12px;display:none;z-index:50}
   .editor.show{display:block}
   .editor h4{margin:0 0 8px;font-size:.85rem}
   .editor label{display:block;font-size:.7rem;color:var(--n600);margin:8px 0 2px}
-  .editor select{width:100%;padding:6px;border:1px solid var(--n300);border-radius:7px;font-size:.85rem}
+  .editor select,.editor input{width:100%;padding:6px;border:1px solid var(--n300);border-radius:7px;font-size:.85rem}
   .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 16px;border-radius:10px;font-weight:700;font-size:.85rem;opacity:0;transition:opacity .2s;z-index:80}
   .toast.show{opacity:.95}
   .count{font-size:.8rem;color:var(--n700);font-weight:700}
   .leg{font-size:.72rem;color:var(--n600);display:inline-flex;gap:10px;align-items:center}
-  .dot{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:middle;margin-right:3px}
+  .dotleg{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:middle;margin-right:3px}
 </style>
 </head>
 <body class="mode-play">
 <div class="head">
   <svg width="30" height="20" viewBox="0 0 130.011 81.611"><g transform="scale(0.6998)"><path d="m117.186 115.337 14.692.081L66.531 0 0 115.236h40.465l34.228-58.262-7.505-13.237-33.917 59.039H21.582l44.949-77.855z" fill="#fff"/><path d="m51.985 115.418 14.453-.05.932-1.719a.282.282 0 0 1 .053.03l3.097-5.844 8.394-15.488 13.563 24.272h14.171L78.933 66.681l-26.948 48.737zM119.249 0 97.415 37.769l7.415 12.025 14.419-24.873 44.949 77.855h-11.689l-33.747-58.693-7.443 11.941 33.996 59.212h40.466z" fill="rgba(255,255,255,.72)"/></g></svg>
   <div><h1 id="title">Plan interactif</h1><div class="sub">Mode Jeu : clic sur un DAI/DM → alarme envoyée au stagiaire</div></div>
-  <span class="pill" id="link">● relié au formateur</span>
+  <span class="pill" id="link">○ recherche du formateur…</span>
 </div>
 
 <div class="wrap">
@@ -62,17 +64,17 @@
     </span>
     <button class="btn edit-only" onclick="document.getElementById('file').click()">📁 Importer le plan</button>
     <input id="file" type="file" accept="image/*" style="display:none" onchange="loadFile(this.files[0])">
-    <button class="btn alt edit-only" id="btn-detect" onclick="detect()">🔴 Détecter les ronds rouges</button>
+    <button class="btn alt edit-only" onclick="detect()">🔴 Détecter les ronds rouges</button>
     <label class="sld edit-only">Sensibilité <input id="rMin" type="range" min="80" max="200" value="110"></label>
     <label class="sld edit-only">Taille mini <input id="minA" type="range" min="5" max="400" value="30"></label>
     <button class="btn grey edit-only" onclick="clearMarkers()">🗑️ Effacer</button>
     <button class="btn warn edit-only" onclick="saveAll()">💾 Sauvegarder</button>
-    <span class="leg"><span><span class="dot" style="background:#DC2626"></span>DAI</span><span><span class="dot" style="background:#2563EB"></span>DM</span></span>
+    <span class="leg"><span><span class="dotleg" style="background:#DC2626"></span>DAI</span><span><span class="dotleg" style="background:#2563EB"></span>DM</span></span>
     <span class="count" id="count">0 point</span>
   </div>
 
   <div id="hostEmpty" class="empty">
-    Aucun plan pour ce site.<br>Passe en <b>✏️ Édition</b>, clique <b>« Importer le plan »</b>, puis <b>« Détecter les ronds rouges »</b>. Sauvegarde : le plan se rouvrira tout seul ensuite.
+    Aucun plan pour ce site.<br>Passe en <b>✏️ Édition</b>, clique <b>« Importer le plan »</b>, puis <b>« Détecter les ronds rouges »</b>. Nomme chaque local, puis <b>Sauvegarder</b>.
   </div>
 
   <div id="stage" class="stage" style="display:none">
@@ -80,8 +82,8 @@
   </div>
 
   <div class="help">
-    <b>Jeu :</b> un clic sur un point envoie l'alarme au SSI du stagiaire (le voyant ALARME FEU clignote rouge). Reclic = réarmement.<br>
-    <b>Édition :</b> « Détecter » place les DAI sur les ronds rouges. Clic sur le plan = ajouter un point ; clic sur un point = le sélectionner (panneau à droite : type DAI/DM, numéro, supprimer) ; glisser = déplacer. Pense à <b>Sauvegarder</b>.
+    <b>Jeu :</b> un clic envoie l'alarme au SSI du stagiaire (ECS : « Alarme feu &lt;local&gt; », voyant ALARME FEU rouge clignotant). Reclic = réarmement.<br>
+    <b>Édition :</b> « Détecter » place les DAI sur les ronds rouges. Clic plan = ajouter ; clic point = sélectionner (panneau droite : type, numéro, <b>local/adresse</b>, supprimer) ; glisser = déplacer. <b>Sauvegarder</b> pour mémoriser.
   </div>
 
   <div class="log" id="log">› Prêt.</div>
@@ -93,6 +95,8 @@
   <select id="ed-type" onchange="applyEditor()"><option value="DAI">🔴 DAI (auto)</option><option value="DM">🔵 DM (manuel)</option></select>
   <label>Numéro</label>
   <select id="ed-id" onchange="applyEditor()"></select>
+  <label>Local / adresse</label>
+  <input id="ed-addr" type="text" placeholder="ex. Réserve cafétéria" oninput="applyEditor()">
   <button class="btn grey" style="width:100%;margin-top:10px" onclick="deleteSelected()">🗑️ Supprimer ce point</button>
 </div>
 
@@ -102,28 +106,46 @@
 const PLAN_KEY=new URLSearchParams(location.search).get('plan')||'plan';
 const LABELS={'centre-commercial':'Centre commercial','hopital':'Hôpital'};
 const STORE='mib_plan_'+PLAN_KEY;
-let MARKERS=[]; // {x,y,type:'DAI'|'DM',id}
-let MODE='play', selected=-1, dragging=null, dragMoved=false;
+let MARKERS=[]; // {x,y,type,id,addr,_fired}
+let MODE='play', selected=-1, dragging=null, dragMoved=false, lastStateAt=0;
 const $=id=>document.getElementById(id);
 function logLine(t){const l=$('log');l.innerHTML+='\n› '+t;l.scrollTop=l.scrollHeight;}
-let toastT;function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('show'),1800);}
+let toastT;function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('show'),1900);}
+const tag=m=>m.type+String(m.id).padStart(2,'0');
 
 document.title='Plan — '+(LABELS[PLAN_KEY]||PLAN_KEY);
 $('title').textContent='Plan — '+(LABELS[PLAN_KEY]||PLAN_KEY);
 
+// ── Transport : BroadcastChannel (robuste), repli sur window.opener ──
+let BUS=null;try{BUS=new BroadcastChannel('mib-ssi-plan');}catch(_){}
 function opener(){try{return window.opener&&!window.opener.closed?window.opener:null;}catch(_){return null;}}
-function refreshLink(){const ok=opener()&&typeof opener().triggerFromPlan==='function';$('link').textContent=ok?'● relié au formateur':'○ fenêtre seule (test)';$('link').style.background=ok?'rgba(255,255,255,.18)':'rgba(220,38,38,.55)';}
+if(BUS)BUS.onmessage=(ev)=>{const m=ev.data||{};if(m.kind==='state'){lastStateAt=Date.now();applyState(m.data);}};
 
-// ── id select options (1..10) ──
+function post(msg){
+  let sent=false;
+  if(BUS){try{BUS.postMessage(msg);sent=true;}catch(_){}}
+  return sent;
+}
+function requestState(){post({kind:'request-state'});}
+
+function applyState(data){
+  if(!data)return;
+  const find=(t,id)=>((t==='DAI'?data.DAI:data.DM)||[]).find(d=>d.id===id);
+  let changed=false;
+  MARKERS.forEach(m=>{const d=find(m.type,m.id);const t=!!(d&&d.triggered);if(t!==!!m._fired){m._fired=t;changed=true;}});
+  if(changed&&MODE==='play')renderMarkers();
+}
+
+function refreshLink(){
+  const ok=(Date.now()-lastStateAt)<3000;
+  const el=$('link');el.textContent=ok?'● relié au formateur':'○ non relié — rechargez l’onglet formateur';
+  el.classList.toggle('off',!ok);
+}
+
+// id select 1..10
 (function(){const s=$('ed-id');for(let i=1;i<=10;i++){const o=document.createElement('option');o.value=i;o.textContent=String(i).padStart(2,'0');s.appendChild(o);}})();
 
-function setMode(m){
-  MODE=m;document.body.className='mode-'+m;
-  $('m-play').classList.toggle('on',m==='play');$('m-edit').classList.toggle('on',m==='edit');
-  if(m==='play'){selectMarker(-1);}
-  logLine('Mode : '+(m==='edit'?'Édition':'Jeu'));
-  renderMarkers();
-}
+function setMode(m){MODE=m;document.body.className='mode-'+m;$('m-play').classList.toggle('on',m==='play');$('m-edit').classList.toggle('on',m==='edit');if(m==='play')selectMarker(-1);logLine('Mode : '+(m==='edit'?'Édition':'Jeu'));renderMarkers();}
 
 function loadFile(f){if(!f)return;const r=new FileReader();r.onload=e=>{$('plan').src=e.target.result;localStorage.setItem(STORE+'_img',e.target.result);};r.readAsDataURL(f);}
 function onPlanLoaded(){$('hostEmpty').style.display='none';$('stage').style.display='inline-block';renderMarkers();}
@@ -146,26 +168,24 @@ function detect(){
   const found=blobs.filter(b=>b.n>=minA&&b.bw<w*0.5&&b.bh<h*0.5&&b.fill>0.35&&(b.bw/b.bh)<3&&(b.bh/b.bw)<3)
     .map(b=>({x:b.cx/scale,y:b.cy/scale})).sort((a,b)=>a.y-b.y||a.x-b.x);
   const merged=[];for(const f of found){if(!merged.some(m=>Math.hypot(m.x-f.x,m.y-f.y)<img.naturalWidth*0.02))merged.push(f);}
-  MARKERS=merged.map((m,i)=>({x:m.x,y:m.y,type:'DAI',id:Math.min(i+1,10)}));
+  MARKERS=merged.map((m,i)=>({x:m.x,y:m.y,type:'DAI',id:Math.min(i+1,10),addr:''}));
   selectMarker(-1);renderMarkers();
-  logLine('Détection : '+MARKERS.length+' rond(s) rouge(s) → DAI01…. Ajuste si besoin puis Sauvegarde.');
+  logLine('Détection : '+MARKERS.length+' rond(s) → DAI01…. Sélectionne chaque point pour nommer le local, puis Sauvegarde.');
 }
 
-function mkLabel(m){return (m.type==='DAI'?'A':'M')+m.id;}
 function renderMarkers(){
   const stage=$('stage'),img=$('plan');
   stage.querySelectorAll('.mk').forEach(e=>e.remove());
   MARKERS.forEach((m,idx)=>{
-    const d=document.createElement('div');
-    d.className='mk '+(m.type==='DAI'?'dai':'dm')+(idx===selected?' sel':'')+(m._fired?' fired':'');
-    d.textContent=mkLabel(m);
-    d.style.left=(m.x/img.naturalWidth*100)+'%';d.style.top=(m.y/img.naturalHeight*100)+'%';
-    d.title=m.type+String(m.id).padStart(2,'0');
-    d.addEventListener('mousedown',ev=>{if(MODE!=='edit')return;dragging=idx;dragMoved=false;ev.stopPropagation();});
-    d.addEventListener('click',ev=>{ev.stopPropagation();
-      if(MODE==='play'){fire(idx);return;}
-      if(!dragMoved)selectMarker(idx);});
-    stage.appendChild(d);
+    const wrap=document.createElement('div');
+    wrap.className='mk '+(m.type==='DAI'?'dai':'dm')+(idx===selected?' sel':'')+(m._fired?' fired':'');
+    wrap.style.left=(m.x/img.naturalWidth*100)+'%';wrap.style.top=(m.y/img.naturalHeight*100)+'%';
+    wrap.title=tag(m)+(m.addr?(' — '+m.addr):'');
+    const dot=document.createElement('div');dot.className='dot';dot.textContent=m.id;wrap.appendChild(dot);
+    const cap=document.createElement('div');cap.className='cap';cap.textContent=m.addr?(tag(m)+' · '+m.addr):tag(m);wrap.appendChild(cap);
+    wrap.addEventListener('mousedown',ev=>{if(MODE!=='edit')return;dragging=idx;dragMoved=false;ev.stopPropagation();});
+    wrap.addEventListener('click',ev=>{ev.stopPropagation();if(MODE==='play'){fire(idx);return;}if(!dragMoved)selectMarker(idx);});
+    stage.appendChild(wrap);
   });
   $('count').textContent=MARKERS.length+(MARKERS.length>1?' points':' point');
 }
@@ -173,8 +193,8 @@ function renderMarkers(){
 // ── Sélection / éditeur ──
 function selectMarker(idx){selected=idx;const ed=$('editor');
   if(idx<0||MODE!=='edit'){ed.classList.remove('show');renderMarkers();return;}
-  const m=MARKERS[idx];$('ed-type').value=m.type;$('ed-id').value=m.id;ed.classList.add('show');renderMarkers();}
-function applyEditor(){if(selected<0)return;MARKERS[selected].type=$('ed-type').value;MARKERS[selected].id=+$('ed-id').value;renderMarkers();}
+  const m=MARKERS[idx];$('ed-type').value=m.type;$('ed-id').value=m.id;$('ed-addr').value=m.addr||'';ed.classList.add('show');renderMarkers();}
+function applyEditor(){if(selected<0)return;const m=MARKERS[selected];m.type=$('ed-type').value;m.id=+$('ed-id').value;m.addr=$('ed-addr').value;renderMarkers();}
 function deleteSelected(){if(selected<0)return;MARKERS.splice(selected,1);selectMarker(-1);logLine('Point supprimé.');}
 
 // ── drag + ajout ──
@@ -189,40 +209,42 @@ $('stage').addEventListener('click',ev=>{
   const img=$('plan');if(ev.target!==img)return;const r=img.getBoundingClientRect();
   const x=(ev.clientX-r.left)/r.width*img.naturalWidth,y=(ev.clientY-r.top)/r.height*img.naturalHeight;
   const used=MARKERS.filter(m=>m.type==='DAI').map(m=>m.id);let id=1;while(used.includes(id)&&id<10)id++;
-  MARKERS.push({x,y,type:'DAI',id});selectMarker(MARKERS.length-1);logLine('Point ajouté (DAI'+String(id).padStart(2,'0')+').');});
+  MARKERS.push({x,y,type:'DAI',id,addr:''});selectMarker(MARKERS.length-1);logLine('Point ajouté (DAI'+String(id).padStart(2,'0')+').');});
 
 // ── déclenchement (mode Jeu) ──
 function fire(idx){
-  const m=MARKERS[idx];const op=opener();
-  if(op&&typeof op.triggerFromPlan==='function'){
-    const res=op.triggerFromPlan(m.type,m.id);
-    if(!res){toast('Démarre une session côté formateur');logLine('⛔ Pas de session active.');return;}
-    if(res.error){toast(m.type+String(m.id).padStart(2,'0')+' non configuré');logLine('⚠️ '+m.type+String(m.id).padStart(2,'0')+' introuvable côté SSI.');return;}
-    if(res.blocked){toast(m.type+String(m.id).padStart(2,'0')+' hors service');logLine('⚠️ '+(res.address||'')+' hors service — alarme ignorée.');return;}
-    m._fired=res.triggered;
-    logLine(res.triggered?('🔥 ALARME FEU envoyée : '+m.type+String(m.id).padStart(2,'0')+' — '+(res.address||'')):('✅ Réarmé : '+m.type+String(m.id).padStart(2,'0')));
-  }else{ // fenêtre seule : démo locale
-    m._fired=!m._fired;
-    logLine((m._fired?'🔥 (test) ':'✅ (test) ')+m.type+String(m.id).padStart(2,'0'));
+  const m=MARKERS[idx];
+  const sent=post({kind:'trigger',type:m.type,id:m.id,address:m.addr||''});
+  if(sent){
+    m._fired=!m._fired; // optimiste, réconcilié par l'état renvoyé
+    renderMarkers();
+    logLine((m._fired?'🔥 ALARME FEU → ':'✅ Réarmement → ')+tag(m)+(m.addr?(' ('+m.addr+')'):''));
+    if((Date.now()-lastStateAt)>=3000)toast('Onglet formateur non détecté — rechargez-le');
+    return;
   }
-  renderMarkers();
+  const op=opener(); // repli
+  if(op&&typeof op.triggerFromPlan==='function'){
+    if(m.addr&&typeof op.updateDetectorAddressInput==='function')op.updateDetectorAddressInput(m.type,m.id,m.addr);
+    const res=op.triggerFromPlan(m.type,m.id);
+    if(res&&!res.error&&!res.blocked){m._fired=res.triggered;renderMarkers();logLine((res.triggered?'🔥 ALARME FEU → ':'✅ Réarmement → ')+tag(m));return;}
+  }
+  m._fired=!m._fired;renderMarkers();logLine('🔌 (test local) '+tag(m));toast('Non relié au formateur');
 }
 
 function clearMarkers(){MARKERS=[];selectMarker(-1);logLine('Tous les points effacés.');}
-function saveAll(){try{localStorage.setItem(STORE,JSON.stringify(MARKERS.map(({x,y,type,id})=>({x,y,type,id}))));toast('Plan sauvegardé');logLine('💾 Sauvegardé ('+MARKERS.length+' points) pour « '+(LABELS[PLAN_KEY]||PLAN_KEY)+' ».');}catch(e){logLine('⚠️ Sauvegarde impossible.');}}
+function saveAll(){
+  try{localStorage.setItem(STORE,JSON.stringify(MARKERS.map(({x,y,type,id,addr})=>({x,y,type,id,addr:addr||''}))));toast('Plan sauvegardé');logLine('💾 Sauvegardé ('+MARKERS.length+' points).');}catch(e){logLine('⚠️ Sauvegarde impossible.');}
+  // pousse les adresses au SSI pour qu'elles soient déjà en place
+  MARKERS.forEach(m=>{if(m.addr)post({kind:'set-address',type:m.type,id:m.id,address:m.addr});});
+}
 
-// ── synchro clignotement avec l'état réel des détecteurs (réarmement manuel inclus) ──
-function syncFromOpener(){const op=opener();if(!op||typeof op.getDetectorsForPlan!=='function')return;
-  let st;try{st=op.getDetectorsForPlan();}catch(_){return;}let changed=false;
-  MARKERS.forEach(m=>{const arr=m.type==='DAI'?st.DAI:st.DM;const d=arr&&arr.find(x=>x.id===m.id);const t=!!(d&&d.triggered);if(t!==!!m._fired){m._fired=t;changed=true;}});
-  if(changed&&MODE==='play')renderMarkers();}
-
-// ── restauration ──
+// ── restauration + boucle de synchro ──
 (function(){
   const img=localStorage.getItem(STORE+'_img');if(img)$('plan').src=img;
-  const mk=localStorage.getItem(STORE);if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>({...m}));}catch(_){}}
+  const mk=localStorage.getItem(STORE);if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>({addr:'',...m}));}catch(_){}}
   if(!img&&!MARKERS.length)setMode('edit');else logLine('Plan « '+(LABELS[PLAN_KEY]||PLAN_KEY)+' » chargé ('+MARKERS.length+' points).');
-  refreshLink();setInterval(()=>{refreshLink();syncFromOpener();},1200);
+  requestState();refreshLink();
+  setInterval(()=>{requestState();refreshLink();},1200);
 })();
 window.addEventListener('keydown',e=>{if(e.key==='Delete'&&selected>=0&&MODE==='edit')deleteSelected();});
 </script>
