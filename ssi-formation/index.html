@@ -407,6 +407,52 @@ render();
 activeFirebaseListeners.push(activeSessionRef);
 }
 
+// Re-login formateur SANS quitter le simulateur : si la session Supabase est morte
+// (ssi_start_session -> permission denied / forbidden), on demande juste le PIN,
+// on re-résout l'email via login_pin_resolve_multi (center_id connu dans
+// mib_formateur), on signInWithPassword, puis on relance le démarrage de session.
+function promptFormateurReauth(){
+  if(document.getElementById('mib-reauth-overlay'))return;
+  let f=null;try{f=JSON.parse(localStorage.getItem('mib_formateur')||'null');}catch(_){}
+  const centerId=(f&&f.center_id)||STATE.centerId||null;
+  const o=document.createElement('div');o.id='mib-reauth-overlay';
+  o.style.cssText='position:fixed;inset:0;z-index:2147483600;background:rgba(8,15,30,.74);display:flex;align-items:center;justify-content:center;padding:18px';
+  o.innerHTML='<div style="background:#fff;color:#1e293b;max-width:380px;width:100%;border-radius:16px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.45);font-family:system-ui,-apple-system,Segoe UI,sans-serif;text-align:center">'
+    +'<div style="font-size:34px;line-height:1">🔐</div>'
+    +'<h2 style="margin:8px 0 6px;font-size:18px;font-weight:800">Session expirée</h2>'
+    +'<p style="margin:0 0 14px;font-size:13.5px;color:#475569">Retapez votre <b>code PIN formateur</b> pour reprendre — sans quitter cette page.</p>'
+    +'<input id="mib-reauth-pin" type="password" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="off" style="width:100%;text-align:center;font-size:22px;letter-spacing:.4em;padding:10px;border:2px solid #cbd5e1;border-radius:10px;font-family:monospace;box-sizing:border-box">'
+    +'<div id="mib-reauth-err" style="display:none;color:#dc2626;font-size:12.5px;margin-top:8px"></div>'
+    +'<button id="mib-reauth-ok" style="width:100%;margin-top:14px;padding:12px;border:0;border-radius:10px;background:#059669;color:#fff;font-weight:700;font-size:15px;cursor:pointer">Se reconnecter &amp; démarrer</button>'
+    +'<button id="mib-reauth-cancel" style="width:100%;margin-top:8px;padding:9px;border:0;border-radius:10px;background:transparent;color:#64748b;font-size:13px;cursor:pointer">Annuler</button>'
+    +'</div>';
+  document.body.appendChild(o);
+  const pinEl=o.querySelector('#mib-reauth-pin'),okEl=o.querySelector('#mib-reauth-ok'),errEl=o.querySelector('#mib-reauth-err');
+  setTimeout(()=>{try{pinEl.focus();}catch(_){}},60);
+  const showErr=(m)=>{errEl.textContent='❌ '+m;errEl.style.display='block';};
+  o.querySelector('#mib-reauth-cancel').onclick=()=>o.remove();
+  async function doReauth(){
+    const pin=(pinEl.value||'').replace(/\D/g,'');
+    if(pin.length!==6){showErr('Le PIN doit faire 6 chiffres.');return;}
+    if(!centerId){showErr('Centre introuvable. Reconnectez-vous depuis le dashboard MIB.');return;}
+    okEl.disabled=true;okEl.textContent='… Vérification';errEl.style.display='none';
+    try{
+      const{data:rows,error:rErr}=await supabase.rpc('login_pin_resolve_multi',{p_center_id:centerId,p_role:'formateur',p_pin:pin});
+      if(rErr)throw new Error('Erreur serveur. Vérifiez la connexion.');
+      const matches=(rows||[]).filter(r=>r&&r.email&&!r.locked);
+      if(matches.length===0){try{await supabase.rpc('login_pin_fail',{p_center_id:centerId,p_role:'formateur',p_pin:pin});}catch(_){}throw new Error('PIN incorrect ou compte verrouillé.');}
+      const row=matches.find(r=>r.center_id===centerId)||matches[0];
+      const{error:aErr}=await supabase.auth.signInWithPassword({email:row.email,password:pin});
+      if(aErr){try{await supabase.rpc('login_pin_fail',{p_center_id:centerId,p_role:'formateur',p_pin:pin});}catch(_){}throw new Error('PIN incorrect.');}
+      try{await supabase.rpc('login_pin_success_reset');}catch(_){}
+      o.remove();
+      createSession(); // session fraîche -> démarrage relancé automatiquement
+    }catch(e){okEl.disabled=false;okEl.textContent='Se reconnecter & démarrer';showErr(e.message||'Échec de la reconnexion.');}
+  }
+  okEl.onclick=doReauth;
+  pinEl.onkeydown=(e)=>{if(e.key==='Enter')doReauth();};
+}
+
 async function createSession(){
 if(!firebaseInitialized){showCustomAlert('Erreur: Firebase non disponible');return;}
 const now=new Date();
@@ -441,7 +487,13 @@ if(STATE.mibSessionId&&window.supabase?.rpc){
     console.error('ssi_start_session failed',_startErr);
     // PAS de fallback legacy quand on est en mode MIB : ça créerait une session
     // Firebase non retrouvable par les stagiaires (qui passent par ssi_resolve_stagiaire).
-    showCustomAlert('❌ Impossible de démarrer la session côté Supabase : '+(_startErr.message||_startErr.code||'auth')+'\n\nVotre session formateur a expiré. Reconnectez-vous au dashboard MIB, PUIS rechargez cette page (Ctrl+Maj+R) et réessayez.');
+    const _m=((_startErr.message||'')+' '+(_startErr.code||'')).toLowerCase();
+    if(_m.includes('permission')||_m.includes('forbidden')||_m.includes('jwt')||_m.includes('auth')||_m.includes('401')||_m.includes('403')||_m.includes('denied')){
+      // Session formateur morte : re-login PIN intégré, puis on relance le démarrage.
+      promptFormateurReauth();
+    }else{
+      showCustomAlert('❌ Impossible de démarrer la session : '+(_startErr.message||_startErr.code||'')+'\n\nRéessayez dans un instant.');
+    }
     return;
   }
 }
