@@ -1097,9 +1097,13 @@ const detector=detectorArray.find(d=>d.id===id);
 if(detector){
 if(detector.outOfService||detector.state==='hors-service'){addSdiMessage(`${detector.address} hors service - alarme ignorée`);return;}
 detector.triggered=true;STATE.sdi.fireAlarmActive=true;STATE.sdi.alarmSound=true;
-const alarm=`Alarme feu ${detector.address}`;
+// Libellé alarme : préfixe l'identifiant (DAIxx/DMxx) si l'adresse ne le contient
+// pas déjà, pour distinguer DAI et DM sur l'ECS (ex. "DM02 - sortie 2").
+const _loc=(detector.address||'').trim();
+const _label=/^(DAI|DM)/i.test(_loc)?_loc:`${type}${String(id).padStart(2,'0')} - ${_loc}`;
+const alarm=`Alarme feu ${_label}`;
 STATE.sdi.alarms.push({text:alarm,timestamp:new Date().toISOString()});
-addSmsiMessage(`Alarme détectée: ${detector.address}`);
+addSmsiMessage(`Alarme détectée: ${_label}`);
 if(!STATE.uga.alarmActive){
 if(STATE.uga.temporization>0&&!STATE.uga.temporizationActive){STATE.uga.temporizationActive=true;STATE.uga.temporizationRemaining=STATE.uga.temporization*60;startTemporization();}
 else if(STATE.uga.temporization===0){triggerGeneralAlarm();}
