@@ -104,6 +104,7 @@
   <label>Type</label>
   <select id="ed-type" onchange="applyEditor()"><option value="DAI">🔴 DAI (auto)</option><option value="DM">🟥 DM (manuel)</option><option value="VH">🟦 VH ventil. haute</option><option value="VB">🟦 VB ventil. basse</option><option value="CCF">🔵 CCF clapet coupe-feu</option></select>
   <div id="ed-zf-row" style="display:none"><label id="ed-zf-label">Zone</label><select id="ed-zf" onchange="applyEditor()"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+  <div id="ed-link-row" style="display:none"><label id="ed-link-label">Mise en sécurité</label><select id="ed-link" onchange="applyEditor()"><option value="">(aucun)</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
   <label>Local / adresse</label>
   <input id="ed-addr" type="text" placeholder="ex. couloir X / aile ouest" oninput="applyEditor()">
   <button class="btn grey" style="width:100%;margin-top:10px" onclick="deleteSelected()">🗑️ Supprimer ce point</button>
@@ -269,7 +270,10 @@ function renderMarkers(){
     wrap.title=tag(m)+(m.addr?(' — '+m.addr):'')+(m._hs?' (hors service)':'');
     const dot=document.createElement('div');dot.className='dot';dot.textContent=dotText(m);wrap.appendChild(dot);
     if(m._hs){const x=document.createElement('div');x.className='xmark';x.textContent='✕';wrap.appendChild(x);}
-    const cap=document.createElement('div');cap.className='cap'+(m.addr?'':' todo');cap.textContent=m.addr?(tag(m)+' · '+m.addr):(tag(m)+' · (à nommer)');wrap.appendChild(cap);
+    const cap=document.createElement('div');cap.className='cap'+(m.addr?'':' todo');
+    let capt=m.addr?(tag(m)+' · '+m.addr):(tag(m)+' · (à nommer)');
+    if(!isSym(m)&&m.link)capt+=' →'+(m.type==='DM'?'ZC':'ZF')+m.link;
+    cap.textContent=capt;wrap.appendChild(cap);
     wrap.addEventListener('mousedown',ev=>{if(MODE!=='edit')return;dragging=idx;dragMoved=false;ev.stopPropagation();});
     wrap.addEventListener('click',ev=>{ev.stopPropagation();if(MODE==='play'){fire(idx);return;}if(!dragMoved)selectMarker(idx);});
     stage.appendChild(wrap);
@@ -281,11 +285,17 @@ function renderMarkers(){
 function selectMarker(idx){selected=idx;const ed=$('editor');
   if(idx<0||MODE!=='edit'){ed.classList.remove('show');renderMarkers();return;}
   const m=MARKERS[idx];$('ed-type').value=m.type;$('ed-addr').value=m.addr||'';
-  $('ed-zf-row').style.display=isSym(m)?'block':'none';if(isSym(m)){$('ed-zf').value=m.zf||1;$('ed-zf-label').textContent='Zone '+symPfx(m);}
+  const sym=isSym(m);
+  $('ed-zf-row').style.display=sym?'block':'none';if(sym){$('ed-zf').value=m.zf||1;$('ed-zf-label').textContent='Zone '+symPfx(m);}
+  $('ed-link-row').style.display=sym?'none':'block';if(!sym){$('ed-link').value=m.link||'';$('ed-link-label').textContent=(m.type==='DM'?'Compartimentage ZC':'Désenfumage ZF');}
   ed.classList.add('show');renderMarkers();
   setTimeout(()=>{const a=$('ed-addr');a.focus();a.select();},0);}
 function applyEditor(){if(selected<0)return;const m=MARKERS[selected];m.type=$('ed-type').value;m.addr=$('ed-addr').value;
-  if(isSym(m)){m.zf=+$('ed-zf').value||1;$('ed-zf-label').textContent='Zone '+symPfx(m);}$('ed-zf-row').style.display=isSym(m)?'block':'none';renumber();renderMarkers();}
+  const sym=isSym(m);
+  if(sym){m.zf=+$('ed-zf').value||1;$('ed-zf-label').textContent='Zone '+symPfx(m);}
+  else{m.link=$('ed-link').value?+$('ed-link').value:0;$('ed-link-label').textContent=(m.type==='DM'?'Compartimentage ZC':'Désenfumage ZF');}
+  $('ed-zf-row').style.display=sym?'block':'none';$('ed-link-row').style.display=sym?'none':'block';
+  renumber();renderMarkers();}
 function deleteSelected(){if(selected<0)return;MARKERS.splice(selected,1);renumber();selectMarker(-1);logLine('Point supprimé.');}
 
 // ── drag + ajout ──
@@ -316,7 +326,7 @@ function fire(idx){
     toast('Non relié au formateur');return;
   }
   if(!m.addr&&!m._fired)toast('Astuce : nomme ce local en Édition pour l’afficher sur l’ECS');
-  const sent=post({kind:'trigger',type:m.type,id:m.id,address:m.addr||''});
+  const sent=post({kind:'trigger',type:m.type,id:m.id,address:m.addr||'',linkZone:m.link||0});
   if(sent){
     m._fired=!m._fired; // optimiste, réconcilié par l'état renvoyé
     renderMarkers();
@@ -335,7 +345,7 @@ function fire(idx){
 
 function clearMarkers(){MARKERS=[];selectMarker(-1);logLine('Tous les points effacés.');}
 function saveAll(){
-  try{localStorage.setItem(STORE,JSON.stringify(MARKERS.map(m=>({x:m.x,y:m.y,type:m.type,id:m.id,addr:m.addr||'',zf:m.zf||1}))));toast('Plan sauvegardé');logLine('💾 Sauvegardé ('+MARKERS.length+' points).');}catch(e){logLine('⚠️ Sauvegarde impossible.');}
+  try{localStorage.setItem(STORE,JSON.stringify(MARKERS.map(m=>({x:m.x,y:m.y,type:m.type,id:m.id,addr:m.addr||'',zf:m.zf||1,link:m.link||0}))));toast('Plan sauvegardé');logLine('💾 Sauvegardé ('+MARKERS.length+' points).');}catch(e){logLine('⚠️ Sauvegarde impossible.');}
   // pousse les adresses des DAI/DM au SSI pour qu'elles soient déjà en place
   MARKERS.forEach(m=>{if(m.addr&&!isSym(m))post({kind:'set-address',type:m.type,id:m.id,address:m.addr});});
 }
@@ -343,7 +353,7 @@ function saveAll(){
 // ── restauration + boucle de synchro ──
 (function(){
   const img=localStorage.getItem(STORE+'_img');if(img)$('plan').src=img;
-  const mk=localStorage.getItem(STORE);if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>({addr:'',zf:1,...m}));renumber();}catch(_){}}
+  const mk=localStorage.getItem(STORE);if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>({addr:'',zf:1,link:0,...m}));renumber();}catch(_){}}
   if(!img&&!MARKERS.length)setMode('edit');else logLine('Plan « '+(LABELS[PLAN_KEY]||PLAN_KEY)+' » chargé ('+MARKERS.length+' points).');
   requestState();refreshLink();
   setInterval(()=>{requestState();refreshLink();},1200);
