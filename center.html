@@ -1009,7 +1009,10 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
               <h2 style="font-size:1rem;font-weight:700;">🗺️ Plans de mes établissements (UAE)</h2>
               <p style="font-size:.78rem;color:var(--text2);margin-top:2px;">Créez le plan propre à votre centre. Il sera utilisé en session et vu par vos stagiaires en UAE. Sans plan, c'est le modèle commun MIB qui s'applique.</p>
             </div>
-            <button onclick="loadCenterPlans()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button onclick="addCenterPlanType()" class="btn btn-green btn-sm">+ Ajouter un plan</button>
+              <button onclick="loadCenterPlans()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
+            </div>
           </div>
           <div style="overflow-x:auto;">
             <table class="tbl" style="width:100%;">
@@ -1502,16 +1505,40 @@ window.loadStats = function() {
 // ============================================================
 const CENTER_PLAN_BUCKET = 'ssi-plans';
 function centerPlanFmtDate(s){ try { return new Date(s).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}); } catch(_) { return '—'; } }
+function centerPlanSlug(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40); }
 function openCenterPlanEditor(key){ window.open('ssi-formation/plan.html?plan='+encodeURIComponent(key),'mibplan_'+key,'width=1100,height=820'); }
+
+window.addCenterPlanType = async function(){
+  const name = prompt('Nom de l\'établissement (ex. Mon ERP, Résidence des Lilas) :');
+  if (!name) return;
+  const label = name.trim(); const key = centerPlanSlug(label);
+  if (!key) { alert('Nom invalide.'); return; }
+  try {
+    const { error } = await supabase.from('ssi_plan_types').insert({ key, label, center_id: CENTER.id });
+    if (error) { if (error.code === '23505') { alert('Un plan « '+label+' » existe déjà.'); } else throw error; return; }
+  } catch(e) { alert('❌ Ajout refusé : '+(e.message||e)); return; }
+  await loadCenterPlans();
+  if (confirm('Établissement « '+label+' » ajouté.\nOuvrir l\'éditeur pour construire ce plan maintenant ?')) openCenterPlanEditor(key);
+};
+
+window.removeCenterPlanType = async function(key, label){
+  if (!confirm('Retirer l\'établissement « '+(label||key)+' » de votre centre ?\nSon plan sera aussi supprimé.')) return;
+  try {
+    await supabase.storage.from(CENTER_PLAN_BUCKET).remove([CENTER.id+'/'+key+'.json']);
+    const { error } = await supabase.from('ssi_plan_types').delete().eq('center_id', CENTER.id).eq('key', key);
+    if (error) throw error;
+  } catch(e) { alert('❌ Suppression refusée : '+(e.message||e)); return; }
+  loadCenterPlans();
+};
 
 window.loadCenterPlans = async function(){
   const body = document.getElementById('body-center-plans');
   if (!body) return;
-  // Référentiel des établissements
+  // Établissements propres à CE centre
   let types = [];
-  try { const { data } = await supabase.from('ssi_plan_types').select('*').order('sort',{ascending:true}); types = data || []; } catch(_){}
-  if (!types.length) types = [{key:'centre-commercial',label:'Centre commercial'},{key:'hopital',label:'Hôpital'}];
-  // Plans déjà créés par CE centre
+  try { const { data } = await supabase.from('ssi_plan_types').select('*').eq('center_id', CENTER.id).order('sort',{ascending:true}); types = data || []; } catch(_){}
+  if (!types.length) { body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:18px;">Aucun plan pour votre centre. Cliquez « + Ajouter un plan » pour créer celui de votre établissement.</td></tr>'; return; }
+  // Plans déjà publiés par CE centre
   let files = {};
   try {
     const { data, error } = await supabase.storage.from(CENTER_PLAN_BUCKET).list(CENTER.id, { limit: 200 });
@@ -1521,8 +1548,9 @@ window.loadCenterPlans = async function(){
   body.innerHTML = types.map(t => {
     const present = !!files[t.key];
     const when = present && files[t.key].updated ? centerPlanFmtDate(files[t.key].updated) : '—';
-    const statut = present ? '<span style="color:#059669;font-weight:700;">✓ Mon plan</span>' : '<span style="color:#94a3b8;">— Modèle commun</span>';
+    const statut = present ? '<span style="color:#059669;font-weight:700;">✓ Publié</span>' : '<span style="color:#94a3b8;">— À construire</span>';
     const thumb = present ? '<span id="cplan-thumb-'+t.key+'" style="color:#94a3b8;font-size:.75rem;">…</span>' : '<span style="color:#cbd5e1;">—</span>';
+    const labelEsc = (t.label||'').replace(/'/g,"\\'");
     return '<tr>'
       + '<td>'+thumb+'</td>'
       + '<td>'+t.label+'</td>'
@@ -1530,8 +1558,9 @@ window.loadCenterPlans = async function(){
       + '<td>'+when+'</td>'
       + '<td style="white-space:nowrap;">'
       + '<button onclick="openCenterPlanEditor(\''+t.key+'\')" class="btn btn-blue btn-sm" title="Construire / modifier le plan">✏️ Éditeur</button> '
-      + '<button onclick="publishCenterPlan(\''+t.key+'\')" class="btn btn-green btn-sm" title="Publier le plan de l\'éditeur pour mon centre">📤 Publier</button> '
-      + (present ? '<button onclick="deleteCenterPlan(\''+t.key+'\')" class="btn btn-red btn-sm" title="Revenir au modèle commun">🗑️</button>' : '')
+      + '<button onclick="publishCenterPlan(\''+t.key+'\')" class="btn btn-green btn-sm" title="Publier le plan de l\'éditeur">📤 Publier</button> '
+      + (present ? '<button onclick="deleteCenterPlan(\''+t.key+'\')" class="btn btn-red btn-sm" title="Dépublier le plan">🗑️</button> ' : '')
+      + '<button onclick="removeCenterPlanType(\''+t.key+'\',\''+labelEsc+'\')" class="btn btn-gray btn-sm" title="Retirer cet établissement">✖</button>'
       + '</td></tr>';
   }).join('');
   types.forEach(t => { if (files[t.key]) loadCenterPlanThumb(t.key); });
