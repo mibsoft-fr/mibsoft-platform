@@ -1596,9 +1596,20 @@ return PLAN_BUS;
 }
 function broadcastPlanState(){const b=planBus();if(b)try{b.postMessage({kind:'state',data:getDetectorsForPlan()});}catch(_){}}
 function onDeclencheModeChange(sel){const v=sel.value;sel.value='manuel';if(v==='manuel')return;openPlanWindow(v);}
+// Pré-remplit les adresses (noms de locaux) des DAI/DM du Contrôle SDI à partir des
+// marqueurs sauvegardés du plan (même origine, localStorage). Synchronise au stagiaire.
+function applyPlanAddresses(planKey){
+let markers;try{markers=JSON.parse(localStorage.getItem('mib_plan_'+planKey)||'[]');}catch(_){return;}
+if(!Array.isArray(markers))return;
+let n=0;
+markers.forEach(mk=>{if((mk.type==='DAI'||mk.type==='DM')&&mk.addr&&mk.id){updateDetectorAddressInput(mk.type,mk.id,mk.addr);n++;}});
+if(n){logAction('Adresses importées du plan',`${n} détecteur(s) — ${PLAN_LABELS[planKey]||planKey}`,'formateur');render();}
+}
+const PLAN_LABELS={'centre-commercial':'Centre commercial','hopital':'Hôpital'};
 function openPlanWindow(planKey){
 if(!checkSessionBeforeAction())return;
 planBus(); // garantit que le formateur écoute avant l'ouverture du plan
+applyPlanAddresses(planKey); // remplit les adresses DAI/DM depuis le plan
 const existing=PLAN_WINDOWS[planKey];
 if(existing&&!existing.closed){existing.focus();return;}
 const win=window.open('plan.html?plan='+encodeURIComponent(planKey),'mibplan_'+planKey,'width=1100,height=820');
