@@ -1126,19 +1126,25 @@ else if(zoneType==='relay'){zone=STATE.smsi.relayBoxes.find(z=>z.id===id);if(zon
 
 function updateZoneLeds(zone){
 zone.ledRed={on:false,blink:false};zone.ledOrange={on:false,blink:false};zone.ledGreen={on:false,blink:false};
-if(STATE.sdi.fireAlarmActive){
-if(zone.state==='securite'){zone.ledRed={on:true,blink:false};}else if(zone.state==='defaut-securite'){zone.ledRed={on:true,blink:true};}
-}else{
-switch(zone.state){case 'attente':break;case 'defaut-alim':zone.ledOrange={on:true,blink:true};break;case 'defaut-attente':zone.ledOrange={on:true,blink:false};break;case 'securite':zone.ledGreen={on:true,blink:false};break;case 'defaut-securite':zone.ledRed={on:true,blink:false};break;}
+// Une fonction activée (sécurité) = voyant ROUGE FIXE, qu'il y ait ou non alarme feu.
+// Défaut sécurité/position = ROUGE CLIGNOTANT. (Désenfumage/compartimentage activés.)
+switch(zone.state){
+case 'securite':zone.ledRed={on:true,blink:false};break;
+case 'defaut-securite':zone.ledRed={on:true,blink:true};break;
+case 'defaut-alim':zone.ledOrange={on:true,blink:true};break;
+case 'defaut-attente':zone.ledOrange={on:true,blink:false};break;
+case 'attente':default:break;
 }
 }
 
 function updateRelayLeds(relay){
 relay.ledRed={on:false,blink:false};relay.ledOrange={on:false,blink:false};relay.ledGreen={on:false,blink:false};
-if(STATE.sdi.fireAlarmActive){
-if(relay.state==='securite'){relay.ledRed={on:true,blink:false};}else if(relay.state==='defaut-securite'){relay.ledRed={on:true,blink:true};}
-}else{
-switch(relay.state){case 'attente':break;case 'defaut-alim':relay.ledOrange={on:true,blink:true};break;case 'defaut-attente':relay.ledOrange={on:true,blink:false};break;case 'securite':relay.ledGreen={on:true,blink:false};break;case 'defaut-securite':relay.ledRed={on:true,blink:false};break;}
+switch(relay.state){
+case 'securite':relay.ledRed={on:true,blink:false};break;
+case 'defaut-securite':relay.ledRed={on:true,blink:true};break;
+case 'defaut-alim':relay.ledOrange={on:true,blink:true};break;
+case 'defaut-attente':relay.ledOrange={on:true,blink:false};break;
+case 'attente':default:break;
 }
 }
 
