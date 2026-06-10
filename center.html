@@ -755,6 +755,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
       <div class="nav-item" onclick="showTab('sessions')" id="nav-sessions"><span class="nav-icon">📋</span>Sessions</div>
       <div class="nav-item" onclick="showTab('stats')" id="nav-stats"><span class="nav-icon">📈</span>Statistiques</div>
       <div class="sep"></div>
+      <div class="nav-item" onclick="showTab('plans')" id="nav-plans"><span class="nav-icon">🗺️</span>Mes plans</div>
       <div class="nav-item" onclick="showTab('modules')" id="nav-modules"><span class="nav-icon">🧩</span>Mes modules</div>
       <div class="nav-item" onclick="showTab('avis')" id="nav-avis"><span class="nav-icon">💬</span>Avis & Retours</div>
       <div class="nav-item" onclick="showTab('compte')" id="nav-compte"><span class="nav-icon">⚙️</span>Mon compte</div>
@@ -997,6 +998,26 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
         <div style="margin-top:24px;padding:16px 20px;border-radius:14px;background:linear-gradient(145deg,#fff7ed,#ffedd5);border:1.5px solid #fed7aa;">
           <p style="font-size:.82rem;color:#c2410c;font-weight:600;">💡 Vous souhaitez activer d'autres modules ?</p>
           <p style="font-size:.78rem;color:#92400e;margin-top:4px;">Contactez MIBsoft pour faire évoluer votre plan.</p>
+        </div>
+      </div>
+
+      <!-- MES PLANS SSI -->
+      <div id="tab-plans" class="hidden">
+        <div class="card" style="padding:18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+            <div>
+              <h2 style="font-size:1rem;font-weight:700;">🗺️ Plans de mes établissements (UAE)</h2>
+              <p style="font-size:.78rem;color:var(--text2);margin-top:2px;">Créez le plan propre à votre centre. Il sera utilisé en session et vu par vos stagiaires en UAE. Sans plan, c'est le modèle commun MIB qui s'applique.</p>
+            </div>
+            <button onclick="loadCenterPlans()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="tbl" style="width:100%;">
+              <thead><tr><th>Aperçu</th><th>Établissement</th><th>Statut</th><th>Mis à jour</th><th>Actions</th></tr></thead>
+              <tbody id="body-center-plans"><tr><td colspan="5" style="text-align:center;color:var(--text2);padding:16px;">Chargement…</td></tr></tbody>
+            </table>
+          </div>
+          <p style="font-size:.72rem;color:var(--text2);margin-top:10px;">Astuce : « ✏️ Éditeur » ouvre le plan — importez l'image, placez/nommez les points et les portes, puis <strong>💾 Sauvegarder</strong>. Revenez et cliquez <strong>📤 Publier</strong>.</p>
         </div>
       </div>
 
@@ -1436,12 +1457,13 @@ window.logout = function() { SESSION.clear('centre'); window.location.href = 'in
 // ============================================================
 // NAVIGATION
 // ============================================================
-const TABS = ['dashboard','formateurs','sessions','stats','modules','avis','compte'];
+const TABS = ['dashboard','formateurs','sessions','stats','plans','modules','avis','compte'];
 const TAB_TITLES = {
   dashboard:  ['Tableau de bord','Vue générale de votre centre'],
   formateurs: ['Formateurs','Gérez votre équipe pédagogique'],
   sessions:   ['Sessions de formation','Gérez vos sessions INI / REC / RAN'],
   stats:      ['Statistiques','Analyse et suivi pédagogique'],
+  plans:      ['Mes plans SSI','Créez les plans de vos établissements (UAE)'],
   modules:    ['Modules actifs','Fonctionnalités de votre plan'],
   avis:       ['Avis & Retours','Vos retours et demandes au superviseur MIB'],
   compte:     ['Mon compte','Informations et licence']
@@ -1463,6 +1485,7 @@ window.showTab = function(t) {
     currentSession = null;
     loadSessions();
   }
+  if (t === 'plans') loadCenterPlans();
   if (t === 'modules') renderModules();
   if (t === 'avis') loadAvis();
   if (t === 'compte') renderCompte();
@@ -1472,6 +1495,83 @@ window.showTab = function(t) {
 window.loadStats = function() {
   if (typeof STATS === 'undefined') return;
   STATS.renderCentre(CENTER.id);
+};
+
+// ============================================================
+// MES PLANS SSI (bucket privé ssi-plans, dossier <center_id>/)
+// ============================================================
+const CENTER_PLAN_BUCKET = 'ssi-plans';
+function centerPlanFmtDate(s){ try { return new Date(s).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}); } catch(_) { return '—'; } }
+function openCenterPlanEditor(key){ window.open('ssi-formation/plan.html?plan='+encodeURIComponent(key),'mibplan_'+key,'width=1100,height=820'); }
+
+window.loadCenterPlans = async function(){
+  const body = document.getElementById('body-center-plans');
+  if (!body) return;
+  // Référentiel des établissements
+  let types = [];
+  try { const { data } = await supabase.from('ssi_plan_types').select('*').order('sort',{ascending:true}); types = data || []; } catch(_){}
+  if (!types.length) types = [{key:'centre-commercial',label:'Centre commercial'},{key:'hopital',label:'Hôpital'}];
+  // Plans déjà créés par CE centre
+  let files = {};
+  try {
+    const { data, error } = await supabase.storage.from(CENTER_PLAN_BUCKET).list(CENTER.id, { limit: 200 });
+    if (error) throw error;
+    (data||[]).forEach(f => { if (f && f.name && f.name.endsWith('.json')) files[f.name.replace(/\.json$/,'')] = { updated: f.updated_at || f.created_at }; });
+  } catch(e) { body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#dc2626;padding:16px;">Lecture impossible : '+(e.message||e)+'</td></tr>'; return; }
+  body.innerHTML = types.map(t => {
+    const present = !!files[t.key];
+    const when = present && files[t.key].updated ? centerPlanFmtDate(files[t.key].updated) : '—';
+    const statut = present ? '<span style="color:#059669;font-weight:700;">✓ Mon plan</span>' : '<span style="color:#94a3b8;">— Modèle commun</span>';
+    const thumb = present ? '<span id="cplan-thumb-'+t.key+'" style="color:#94a3b8;font-size:.75rem;">…</span>' : '<span style="color:#cbd5e1;">—</span>';
+    return '<tr>'
+      + '<td>'+thumb+'</td>'
+      + '<td>'+t.label+'</td>'
+      + '<td>'+statut+'</td>'
+      + '<td>'+when+'</td>'
+      + '<td style="white-space:nowrap;">'
+      + '<button onclick="openCenterPlanEditor(\''+t.key+'\')" class="btn btn-blue btn-sm" title="Construire / modifier le plan">✏️ Éditeur</button> '
+      + '<button onclick="publishCenterPlan(\''+t.key+'\')" class="btn btn-green btn-sm" title="Publier le plan de l\'éditeur pour mon centre">📤 Publier</button> '
+      + (present ? '<button onclick="deleteCenterPlan(\''+t.key+'\')" class="btn btn-red btn-sm" title="Revenir au modèle commun">🗑️</button>' : '')
+      + '</td></tr>';
+  }).join('');
+  types.forEach(t => { if (files[t.key]) loadCenterPlanThumb(t.key); });
+};
+
+async function loadCenterPlanThumb(key){
+  const cell = document.getElementById('cplan-thumb-'+key);
+  if (!cell) return;
+  try {
+    const { data, error } = await supabase.storage.from(CENTER_PLAN_BUCKET).download(CENTER.id+'/'+key+'.json');
+    if (error || !data) { cell.textContent='—'; return; }
+    const obj = JSON.parse(await data.text());
+    if (!obj.image) { cell.textContent='—'; return; }
+    cell.innerHTML = '<img src="'+obj.image+'" onclick="window.open(this.src,\'_blank\')" style="height:40px;width:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border, #e2e8f0);cursor:zoom-in;display:block;">';
+  } catch(_) { cell.textContent='—'; }
+}
+
+window.publishCenterPlan = async function(key){
+  let img = '';
+  try { img = localStorage.getItem('mib_plan_'+key+'_img') || ''; } catch(_){}
+  if (!img) { alert('Aucun plan « '+key+' » dans l\'éditeur.\nOuvrez « ✏️ Éditeur », importez l\'image, placez les points puis 💾 Sauvegarder, et revenez publier.'); return; }
+  if (!confirm('Publier ce plan pour votre centre ?')) return;
+  let markers='[]', doors='[]';
+  try { markers = localStorage.getItem('mib_plan_'+key) || '[]'; doors = localStorage.getItem('mib_plan_'+key+'_doors') || '[]'; } catch(_){}
+  try {
+    const blob = new Blob([JSON.stringify({ image: img, markers: JSON.parse(markers), doors: JSON.parse(doors), updatedAt: Date.now() })], { type: 'application/json' });
+    const { error } = await supabase.storage.from(CENTER_PLAN_BUCKET).upload(CENTER.id+'/'+key+'.json', blob, { upsert: true, contentType: 'application/json' });
+    if (error) throw error;
+    alert('✅ Plan publié pour votre centre.');
+    loadCenterPlans();
+  } catch(e) { alert('❌ Publication refusée : '+(e.message||e)); }
+};
+
+window.deleteCenterPlan = async function(key){
+  if (!confirm('Supprimer le plan de votre centre ? Vos stagiaires reverront le modèle commun.')) return;
+  try {
+    const { error } = await supabase.storage.from(CENTER_PLAN_BUCKET).remove([CENTER.id+'/'+key+'.json']);
+    if (error) throw error;
+    loadCenterPlans();
+  } catch(e) { alert('❌ Suppression refusée : '+(e.message||e)); }
 };
 
 // ============================================================
