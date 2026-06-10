@@ -1575,7 +1575,15 @@ if(m.kind==='request-state'){broadcastPlanState();return;}
 if(m.kind==='set-address'){if(m.address)updateDetectorAddressInput(m.type,m.id,m.address);broadcastPlanState();return;}
 if(m.kind==='trigger'){
 if(m.address)updateDetectorAddressInput(m.type,m.id,m.address);
-triggerFromPlan(m.type,m.id);
+const res=triggerFromPlan(m.type,m.id);
+// Lien détecteur -> mise en sécurité : DM relié à une ZC (compartimentage),
+// DAI relié à une ZF (désenfumage). La zone suit l'état du détecteur.
+if(m.linkZone&&res&&!res.error&&!res.blocked){
+const zt=m.type==='DM'?'compartment':'smoke';
+const next=res.triggered?'securite':'attente';
+changeZoneState(zt,m.linkZone,next);
+if(STATE.smsi.relayBoxes.find(r=>r.id===m.linkZone))changeZoneState('relay',m.linkZone,next);
+}
 broadcastPlanState();
 return;
 }
