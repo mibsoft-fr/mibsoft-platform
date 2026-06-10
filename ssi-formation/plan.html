@@ -26,6 +26,8 @@
   .stage{position:relative;display:inline-block;max-width:100%;border:1px solid var(--n200);border-radius:12px;overflow:hidden;background:#fff;line-height:0}
   #plan{max-width:100%;display:block;-webkit-user-drag:none;user-select:none}
   #doors-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  #doors-svg .dfault{animation:doorblink .7s infinite}
+  @keyframes doorblink{50%{opacity:.2}}
   .mk{position:absolute;width:28px;height:28px;transform:translate(-50%,-50%);cursor:pointer;display:flex;align-items:center;justify-content:center}
   .mk .dot{width:28px;height:28px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.45);transition:transform .08s}
   .mk:hover .dot{transform:scale(1.15)}
@@ -166,7 +168,8 @@ function applyState(data){
     const d=find(m.type,m.id);const t=!!(d&&d.triggered);const hs=!!(d&&d.hs);if(t!==!!m._fired||hs!==!!m._hs){m._fired=t;m._hs=hs;changed=true;}
   });
   let dchanged=false;
-  DOORS.forEach(dr=>{const a=zoneActive('compartment',dr.zc||1);if(a!==!!dr._active){dr._active=a;dchanged=true;}});
+  const zcState=n=>{const z=(data.ZC||[]).find(x=>x.id===n);return z?z.state:'attente';};
+  DOORS.forEach(dr=>{const st=zcState(dr.zc||1);const a=(st==='securite'||st==='defaut-securite');const f=(st==='defaut-securite');if(a!==!!dr._active||f!==!!dr._fault){dr._active=a;dr._fault=f;dchanged=true;}});
   if(changed&&dragging===null)renderMarkers();
   if(dchanged&&dragDoor===null)renderDoors();
 }
@@ -309,9 +312,12 @@ function renderDoors(){
     const sel=(i===selDoor&&MODE==='edit');
     const mx=(d.x1+d.x2)/2,my=(d.y1+d.y2)/2,g=0.08;
     const ax=mx+(d.x1-mx)*g,ay=my+(d.y1-my)*g,bx=mx+(d.x2-mx)*g,by=my+(d.y2-my)*g;
-    const op=(MODE==='edit'&&!d._active)?0.6:1; // semi-transparent en édition tant que ZC pas active
+    const op=(MODE==='edit'&&!d._active)?0.6:1;
+    // Défaut de position : un battant reste fermé, l'autre pivote (entrouvert) + clignote.
+    let bx2=bx,by2=by,fcls='';
+    if(d._fault){const ang=34*Math.PI/180,vx=bx-d.x2,vy=by-d.y2;bx2=d.x2+vx*Math.cos(ang)-vy*Math.sin(ang);by2=d.y2+vx*Math.sin(ang)+vy*Math.cos(ang);fcls=' class="dfault"';}
     html+=`<line x1="${d.x1}" y1="${d.y1}" x2="${ax}" y2="${ay}" stroke="#DC2626" stroke-width="${sw}" stroke-linecap="round" opacity="${op}"/>`;
-    html+=`<line x1="${bx}" y1="${by}" x2="${d.x2}" y2="${d.y2}" stroke="#DC2626" stroke-width="${sw}" stroke-linecap="round" opacity="${op}"/>`;
+    html+=`<line${fcls} x1="${d.x2}" y1="${d.y2}" x2="${bx2}" y2="${by2}" stroke="#DC2626" stroke-width="${sw}" stroke-linecap="round" opacity="${op}"/>`;
     if(MODE==='edit'){
       html+=`<line data-door="${i}" x1="${d.x1}" y1="${d.y1}" x2="${d.x2}" y2="${d.y2}" stroke="${sel?'#111':'#fff'}" stroke-opacity="${sel?0.5:0.01}" stroke-width="${sw*2.4}" style="pointer-events:stroke;cursor:pointer"/>`;
       html+=`<circle data-door="${i}" data-end="1" cx="${d.x1}" cy="${d.y1}" r="${hr}" fill="#fff" stroke="#111" stroke-width="${sw*0.5}" style="pointer-events:all;cursor:grab"/>`;
