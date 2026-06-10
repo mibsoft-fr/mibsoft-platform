@@ -30,6 +30,15 @@
   .ltabs{display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px 0;background:#0b3a53}
   .ltab{padding:7px 16px;border:none;border-radius:9px 9px 0 0;background:#15506e;color:#cfe3ef;font-weight:700;cursor:pointer;font-size:.86rem}
   .ltab.on{background:#fff;color:#0b3a53}
+  body.examen .mk .cap{display:none!important} /* examen : pas de libellés/aides sur le plan */
+  #media-ov{position:fixed;inset:0;z-index:10001;background:rgba(5,10,20,.82);display:none;align-items:center;justify-content:center;padding:18px}
+  #media-ov.show{display:flex}
+  #media-ov .box{background:#000;border-radius:14px;max-width:92vw;max-height:88vh;overflow:hidden;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  #media-ov img,#media-ov video{display:block;max-width:92vw;max-height:78vh}
+  #media-ov .cap2{color:#fff;font:700 15px system-ui;padding:10px 14px;background:#0b3a53;text-align:center}
+  #media-ov .x{position:absolute;top:8px;right:8px;width:38px;height:38px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;font-size:20px;cursor:pointer;z-index:2}
+  .ed-media-cur{margin-top:6px;border-radius:8px;overflow:hidden;border:1px solid var(--n200)}
+  .ed-media-cur img,.ed-media-cur video{display:block;width:100%;max-height:120px;object-fit:cover}
   .stage{position:relative;display:inline-block;max-width:100%;border:1px solid var(--n200);border-radius:12px;overflow:hidden;background:#fff;line-height:0}
   #plan{max-width:100%;display:block;-webkit-user-drag:none;user-select:none}
   #doors-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
@@ -120,6 +129,11 @@
   <div id="ed-link2-row" style="display:none"><label>Compartimentage ZC</label><select id="ed-link2" onchange="applyEditor()"><option value="">(aucun)</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
   <label>Local / adresse</label>
   <input id="ed-addr" type="text" placeholder="ex. couloir X / aile ouest" oninput="applyEditor()">
+  <label style="margin-top:8px">Média formation (image/vidéo)</label>
+  <input id="ed-media-file" type="file" accept="image/*,video/*" onchange="handleMediaUpload(this.files[0])">
+  <div id="ed-media-status" style="font-size:.72rem;color:var(--n600);margin-top:4px"></div>
+  <div id="ed-media-cur"></div>
+  <button id="ed-media-del" class="btn grey" style="width:100%;margin-top:6px;display:none" onclick="removeMarkerMedia()">✖ Retirer le média</button>
   <button class="btn grey" style="width:100%;margin-top:10px" onclick="deleteSelected()">🗑️ Supprimer ce point</button>
 </div>
 
@@ -133,6 +147,8 @@
   <button class="btn grey" style="width:100%;margin-top:8px" onclick="deleteDoor()">🗑️ Supprimer cette porte</button>
 </div>
 
+<div id="media-ov"><div class="box"><button class="x" onclick="closeMediaOverlay()">✕</button><div id="media-ov-body"></div><div class="cap2" id="media-ov-cap"></div></div></div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -141,7 +157,12 @@ const LABELS={'centre-commercial':'Centre commercial','hopital':'Hôpital'};
 const STORE='mib_plan_'+PLAN_KEY;
 const UAE=new URLSearchParams(location.search).get('uae')==='1'; // vue stagiaire lecture seule
 const PLAYONLY=new URLSearchParams(location.search).get('play')==='1'; // formateur en session : mode jeu seul (déclenchement actif, sans édition)
-let MARKERS=[]; // {x,y,type,id,addr,_fired}
+const SCOPE=new URLSearchParams(location.search).get('scope')||''; // centre_id ou 'shared' (éditeur) — pour ranger les médias
+const SB_URL='https://ozfkmlokovxigfnwjeuk.supabase.co';
+const MEDIA_BUCKET='ssi-plan-media';
+const mediaPublicUrl=path=>SB_URL+'/storage/v1/object/public/'+MEDIA_BUCKET+'/'+path;
+let PLAN_MODE='formation'; // formation | examen — fourni par l'état du formateur
+let MARKERS=[]; // {x,y,type,id,addr,media:{kind,url},_fired}
 let MODE='play', selected=-1, dragging=null, dragMoved=false, lastStateAt=0;
 let DOORS=[], selDoor=-1, dragDoor=null; // portes (compartimentage) : {x1,y1,x2,y2,zc,label,_active}
 const $=id=>document.getElementById(id);
@@ -172,13 +193,16 @@ function requestState(){post({kind:'request-state'});}
 
 function applyState(data){
   if(!data)return;
+  if(data.mode&&data.mode!==PLAN_MODE){PLAN_MODE=data.mode;document.body.classList.toggle('examen',PLAN_MODE==='examen');if(PLAN_MODE==='examen')closeMediaOverlay();}
   const find=(t,id)=>((t==='DAI'?data.DAI:data.DM)||[]).find(d=>d.id===id);
   const zoneActive=(zt,n)=>{const arr=zt==='compartment'?(data.ZC||[]):(data.ZF||[]);const z=arr.find(x=>x.id===n);return !!(z&&(z.state==='securite'||z.state==='defaut-securite'));};
-  let changed=false;
+  let changed=false,justFired=null;
   MARKERS.forEach(m=>{
     if(isSym(m)){const a=zoneActive(symZoneType(m),m.zf||1);if(a!==!!m._zfactive){m._zfactive=a;changed=true;}return;}
-    const d=find(m.type,m.id);const t=!!(d&&d.triggered);const hs=!!(d&&d.hs);if(t!==!!m._fired||hs!==!!m._hs){m._fired=t;m._hs=hs;changed=true;}
+    const d=find(m.type,m.id);const t=!!(d&&d.triggered);const hs=!!(d&&d.hs);if(t!==!!m._fired||hs!==!!m._hs){if(t&&!m._fired&&m.media)justFired=m;m._fired=t;m._hs=hs;changed=true;}
   });
+  // Mode formation, vue stagiaire (UAE) : afficher le média du point qui vient de passer en alarme.
+  if(justFired&&UAE&&PLAN_MODE==='formation')showMediaOverlay(justFired);
   let dchanged=false;
   const zcState=n=>{const z=(data.ZC||[]).find(x=>x.id===n);return z?z.state:'attente';};
   DOORS.forEach(dr=>{const st=zcState(dr.zc||1);const a=(st==='securite'||st==='defaut-securite');const f=(st==='defaut-securite');if(a!==!!dr._active||f!==!!dr._fault){dr._active=a;dr._fault=f;dchanged=true;}});
@@ -360,6 +384,7 @@ function selectMarker(idx){selected=idx;const ed=$('editor');selDoor=-1;$('door-
   $('ed-link-row').style.display=sym?'none':'block';
   $('ed-link2-row').style.display=(!sym&&m.type==='DAI')?'block':'none';
   if(!sym){if(m.type==='DM'){$('ed-link-label').textContent='Compartimentage ZC';$('ed-link').value=m.lzc||'';}else{$('ed-link-label').textContent='Désenfumage ZF';$('ed-link').value=m.lzf||'';$('ed-link2').value=m.lzc||'';}}
+  renderMarkerMediaEditor(m);
   ed.classList.add('show');renderMarkers();
   setTimeout(()=>{const a=$('ed-addr');a.focus();a.select();},0);}
 function applyEditor(){if(selected<0)return;const m=MARKERS[selected];const prev=m.type;m.type=$('ed-type').value;m.addr=$('ed-addr').value;
@@ -371,6 +396,67 @@ function applyEditor(){if(selected<0)return;const m=MARKERS[selected];const prev
   $('ed-zf-row').style.display=sym?'block':'none';$('ed-link-row').style.display=sym?'none':'block';$('ed-link2-row').style.display=(!sym&&m.type==='DAI')?'block':'none';
   renumber();renderMarkers();}
 function deleteSelected(){if(selected<0)return;MARKERS.splice(selected,1);renumber();selectMarker(-1);logLine('Point supprimé.');}
+
+// ── Média par point (mode formation) : upload dans le bucket public ssi-plan-media ──
+const SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZmttbG9rb3Z4aWdmbndqZXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1ODUzODUsImV4cCI6MjA5MTE2MTM4NX0.zu5V20Nz7vO3dSYhOtr7mqS7VAMaUDVS2Ibs01xS9Fk';
+let _sb=null,_sbLoading=null;
+function ensureSupabaseClient(){
+  if(_sb)return Promise.resolve(_sb);
+  if(_sbLoading)return _sbLoading;
+  _sbLoading=new Promise((resolve,reject)=>{
+    const mk=()=>{try{_sb=window.supabase.createClient(SB_URL,SB_ANON,{auth:{persistSession:true,autoRefreshToken:true}});resolve(_sb);}catch(e){reject(e);}};
+    if(window.supabase&&window.supabase.createClient){mk();return;}
+    const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+    s.onload=mk;s.onerror=()=>reject(new Error('SDK Supabase indisponible'));document.head.appendChild(s);
+  });
+  return _sbLoading;
+}
+function renderMarkerMediaEditor(m){
+  const cur=$('ed-media-cur'),del=$('ed-media-del'),st=$('ed-media-status');
+  st.textContent='';if($('ed-media-file'))$('ed-media-file').value='';
+  if(m&&m.media&&m.media.url){
+    cur.className='ed-media-cur';
+    cur.innerHTML=m.media.kind==='video'?('<video src="'+m.media.url+'" muted playsinline></video>'):('<img src="'+m.media.url+'">');
+    del.style.display='';
+  }else{cur.className='';cur.innerHTML='';del.style.display='none';}
+}
+async function handleMediaUpload(file){
+  if(!file||selected<0)return;
+  const m=MARKERS[selected];
+  if(!SCOPE){$('ed-media-status').textContent='⚠️ Éditeur ouvert hors contexte centre/admin : upload impossible.';return;}
+  const kind=(file.type||'').startsWith('video')?'video':'image';
+  const max=kind==='video'?60:8;
+  if(file.size>max*1024*1024){$('ed-media-status').textContent='⚠️ Fichier trop lourd (max '+max+' Mo pour '+(kind==='video'?'une vidéo':'une image')+').';return;}
+  $('ed-media-status').textContent='⏳ Envoi…';
+  try{
+    const sb=await ensureSupabaseClient();
+    const ext=((file.name||'').split('.').pop()||(kind==='video'?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5)||'bin';
+    const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-'+Date.now()+'.'+ext;
+    const{error}=await sb.storage.from(MEDIA_BUCKET).upload(path,file,{upsert:true,contentType:file.type||undefined});
+    if(error)throw error;
+    m.media={kind,url:mediaPublicUrl(path),path};
+    renderMarkerMediaEditor(m);
+    $('ed-media-status').textContent='✅ Média lié. Pensez à 💾 Sauvegarder puis Publier.';
+    logLine('🖼️ Média lié à '+tag(m)+'.');
+  }catch(e){$('ed-media-status').textContent='❌ Échec : '+(e.message||e);}
+}
+function removeMarkerMedia(){
+  if(selected<0)return;const m=MARKERS[selected];
+  if(m.media&&m.media.path){ensureSupabaseClient().then(sb=>sb.storage.from(MEDIA_BUCKET).remove([m.media.path])).catch(()=>{});}
+  m.media=null;renderMarkerMediaEditor(m);logLine('Média retiré (pensez à Sauvegarder).');
+}
+// Overlay média (mode formation), déclenché quand un point passe en alarme.
+let _mediaShownFor=null;
+function showMediaOverlay(m){
+  if(!m||!m.media||!m.media.url)return;
+  const body=$('media-ov-body');
+  body.innerHTML=m.media.kind==='video'
+    ?'<video src="'+m.media.url+'" autoplay controls playsinline></video>'
+    :'<img src="'+m.media.url+'">';
+  $('media-ov-cap').textContent=tag(m)+(m.addr?(' — '+m.addr):'');
+  $('media-ov').classList.add('show');
+}
+function closeMediaOverlay(){const o=$('media-ov');o.classList.remove('show');const v=o.querySelector('video');if(v){try{v.pause();}catch(_){}}$('media-ov-body').innerHTML='';}
 
 // ── drag + ajout ──
 document.addEventListener('mousemove',ev=>{
@@ -424,7 +510,7 @@ function fire(idx){
 
 function clearMarkers(){MARKERS=[];DOORS=[];selectMarker(-1);selectDoor(-1);renderDoors();logLine('Points et portes effacés.');}
 function saveAll(){
-  try{localStorage.setItem(STORE,JSON.stringify(MARKERS.map(m=>({x:m.x,y:m.y,type:m.type,id:m.id,addr:m.addr||'',zf:m.zf||1,lzc:m.lzc||0,lzf:m.lzf||0}))));
+  try{localStorage.setItem(STORE,JSON.stringify(MARKERS.map(m=>({x:m.x,y:m.y,type:m.type,id:m.id,addr:m.addr||'',zf:m.zf||1,lzc:m.lzc||0,lzf:m.lzf||0,media:m.media||null}))));
   localStorage.setItem(STORE+'_doors',JSON.stringify(DOORS.map(d=>({x1:d.x1,y1:d.y1,x2:d.x2,y2:d.y2,zc:d.zc||1,label:d.label||''}))));
   toast('Plan sauvegardé');logLine('💾 Sauvegardé ('+MARKERS.length+' points, '+DOORS.length+' porte(s)).');}catch(e){logLine('⚠️ Sauvegarde impossible.');}
   // pousse les adresses des DAI/DM au SSI pour qu'elles soient déjà en place
