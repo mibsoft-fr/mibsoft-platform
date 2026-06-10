@@ -404,7 +404,10 @@ function lazyClient(){
   if(_sb)return Promise.resolve(_sb);
   if(_sbLoading)return _sbLoading;
   _sbLoading=new Promise((resolve,reject)=>{
-    const mk=()=>{try{_sb=window.supabase.createClient(SB_URL,SB_ANON,{auth:{persistSession:true,autoRefreshToken:true}});resolve(_sb);}catch(e){reject(e);}};
+    // autoRefreshToken:false → ce client secondaire ne fait PAS tourner la rotation du
+    // refresh-token en arrière-plan (sinon il entre en course avec la fenêtre admin/centre et
+    // laisse l'un des deux avec un token périmé). On rafraîchit explicitement au besoin.
+    const mk=()=>{try{_sb=window.supabase.createClient(SB_URL,SB_ANON,{auth:{persistSession:true,autoRefreshToken:false,storageKey:SB_STORAGE_KEY}});resolve(_sb);}catch(e){reject(e);}};
     if(window.supabase&&window.supabase.createClient){mk();return;}
     const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
     s.onload=mk;s.onerror=()=>reject(new Error('SDK Supabase indisponible'));document.head.appendChild(s);
@@ -413,6 +416,40 @@ function lazyClient(){
 }
 // Renvoie le payload (claims) d'un JWT, ou {}.
 function jwtClaims(tok){try{const p=tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');return JSON.parse(decodeURIComponent(escape(atob(p))))||{};}catch(_){return {};}}
+// Clé de stockage supabase-js partagée par toutes les pages de l'origine (admin/centre/éditeur).
+const SB_STORAGE_KEY='sb-ozfkmlokovxigfnwjeuk-auth-token';
+// Lit le token le plus FRAIS écrit dans le localStorage partagé (maintenu par la fenêtre
+// admin/centre active). Contourne la course de rotation du refresh-token entre deux clients
+// supabase-js : la session en mémoire du client local peut être périmée alors que le stockage
+// partagé contient déjà un token rafraîchi et valide.
+function storedToken(){
+  try{
+    const raw=localStorage.getItem(SB_STORAGE_KEY);if(!raw)return null;
+    let o=JSON.parse(raw);o=o&&(o.currentSession||o);
+    if(o&&o.access_token){const cl=jwtClaims(o.access_token);
+      return{access_token:o.access_token,exp:cl.exp||0,email:(o.user&&o.user.email)||'',sa:cl.is_super_admin};}
+  }catch(_){}
+  return null;
+}
+// Token courant en mémoire d'un client supabase-js, au même format que storedToken().
+async function clientToken(c){
+  try{const{data}=await c.auth.getSession();const s=data&&data.session;
+    if(s&&s.access_token){const cl=jwtClaims(s.access_token);
+      return{access_token:s.access_token,exp:cl.exp||0,email:(s.user&&s.user.email)||'',sa:cl.is_super_admin};}}catch(_){}
+  return null;
+}
+// Renvoie le token valide le plus frais (client local + stockage partagé). Rafraîchit au besoin.
+async function freshestToken(c){
+  const now=Math.floor(Date.now()/1000);
+  const pick=(a,b)=>{if(!a)return b;if(!b)return a;return (b.exp||0)>(a.exp||0)?b:a;};
+  let tok=pick(await clientToken(c),storedToken());
+  // Si absent ou expirant dans <60 s, tenter un refresh puis relire les deux sources.
+  if(!tok||!tok.exp||tok.exp-now<60){
+    try{await c.auth.refreshSession();}catch(_){}
+    tok=pick(pick(tok,await clientToken(c)),storedToken());
+  }
+  return tok;
+}
 // Upload via fetch direct à l'API Storage, avec le token explicite : garantit que le header
 // Authorization (et donc le claim is_super_admin) est bien envoyé — contourne le bug de
 // header non-attaché quand deux clients supabase-js partagent la même clé de stockage.
@@ -435,20 +472,22 @@ async function doUpload(path,file,contentType){
   // b) Client de la fenêtre parente EN DIRECT : c'est lui qui publie déjà les plans shared
   //    avec succès. On NE crée PAS de client concurrent (évite la contention de verrou GoTrue).
   if(op&&op.supabase&&op.supabase.storage){
+    try{await op.supabase.auth.refreshSession();}catch(_){}
     let email='',sa;try{const{data}=await op.supabase.auth.getSession();if(data&&data.session){email=(data.session.user&&data.session.user.email)||'';sa=jwtClaims(data.session.access_token).is_super_admin;}}catch(_){}
     try{const{error}=await op.supabase.storage.from(MEDIA_BUCKET).upload(path,file,{upsert:true,contentType});
       return{via:'client parent',email,sa,error:error?(error.message||error+''):null};}
     catch(e){return{via:'client parent',email,sa,error:(e&&e.message)||e+''};}
   }
   // c) Dernier recours (éditeur sans fenêtre parente) : client local + fetch direct avec token explicite.
+  //    On envoie TOUJOURS le token valide le plus frais (cf. freshestToken) : un Bearer expiré
+  //    serait ignoré par Storage qui retomberait sur le rôle anon → refus RLS « new row violates ».
   const c=await lazyClient();
-  try{await c.auth.refreshSession();}catch(_){}
-  const{data}=await c.auth.getSession();
-  const session=data&&data.session;
-  if(!session)return{via:'client local',email:'',sa:undefined,error:'NO_SESSION'};
-  const claims=jwtClaims(session.access_token);
-  const error=await rawUpload(session.access_token,path,file,contentType);
-  return{via:'client local',email:(session.user&&session.user.email)||'',sa:claims.is_super_admin,error};
+  const tok=await freshestToken(c);
+  if(!tok||!tok.access_token)return{via:'client local',email:'',sa:undefined,error:'NO_SESSION'};
+  const now=Math.floor(Date.now()/1000);
+  if(tok.exp&&tok.exp-now<=0)return{via:'client local',email:tok.email,sa:tok.sa,error:'TOKEN_EXPIRED'};
+  const error=await rawUpload(tok.access_token,path,file,contentType);
+  return{via:'client local',email:tok.email,sa:tok.sa,error};
 }
 function renderMarkerMediaEditor(m){
   const cur=$('ed-media-cur'),del=$('ed-media-del'),st=$('ed-media-status');
@@ -466,12 +505,13 @@ async function handleMediaUpload(file){
   const kind=(file.type||'').startsWith('video')?'video':'image';
   const max=kind==='video'?60:8;
   if(file.size>max*1024*1024){$('ed-media-status').textContent='⚠️ Fichier trop lourd (max '+max+' Mo pour '+(kind==='video'?'une vidéo':'une image')+').';return;}
-  $('ed-media-status').textContent='⏳ Envoi… [u5]';
+  $('ed-media-status').textContent='⏳ Envoi… [u6]';
   const ext=((file.name||'').split('.').pop()||(kind==='video'?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5)||'bin';
-  const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-u5-'+Date.now()+'.'+ext;
+  const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-u6-'+Date.now()+'.'+ext;
   let r;try{r=await doUpload(path,file,file.type||undefined);}catch(e){r={via:'?',error:(e&&e.message)||e+''};}
-  const who='[u5] '+(r.via||'?')+(r.email?' · '+r.email:'')+(r.sa===false?' · NON super-admin':(r.sa===true?' · super-admin':''));
-  if(r.error==='NO_SESSION'){$('ed-media-status').textContent='❌ [u5] Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l\'éditeur via le bouton ✏️.';return;}
+  const who='[u6] '+(r.via||'?')+(r.email?' · '+r.email:'')+(r.sa===false?' · NON super-admin':(r.sa===true?' · super-admin':''));
+  if(r.error==='NO_SESSION'){$('ed-media-status').textContent='❌ [u6] Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l\'éditeur via le bouton ✏️.';return;}
+  if(r.error==='TOKEN_EXPIRED'){$('ed-media-status').textContent='❌ [u6] Session expirée ('+(r.email||'?')+'). Votre connexion a expiré : rouvrez/rafraîchissez la page '+(SCOPE==='shared'?'admin':'centre')+' (qui vous reconnecte), puis relancez l\'envoi.';return;}
   if(r.error){const msg=r.error+'';$('ed-media-status').textContent='❌ Échec ('+who+') : '+msg+(/row-level|policy|denied|403/i.test(msg)?(' — '+(r.sa===false?'ce compte n\'est pas super-admin : ouvrez l\'éditeur depuis la page admin connectée en super-admin.':'droits insuffisants pour « '+SCOPE+'/ ». Reconnectez-vous puis réessayez.')):'');return;}
   m.media={kind,url:mediaPublicUrl(path),path};
   renderMarkerMediaEditor(m);
