@@ -450,6 +450,19 @@ async function freshestToken(c){
   }
   return tok;
 }
+// Diagnostic serveur : avec EXACTEMENT les mêmes en-têtes que rawUpload, demande à PostgREST
+// ce que le serveur voit réellement de ce token (claim is_super_admin + rôle). Permet de
+// distinguer « le token ne transmet pas le claim » de « Storage l'ignore ».
+async function serverDiag(token){
+  const now=Math.floor(Date.now()/1000);const cl=jwtClaims(token);
+  let rpcSa='?';
+  try{
+    const res=await fetch(SB_URL+'/rest/v1/rpc/jwt_is_super_admin',{method:'POST',
+      headers:{'Authorization':'Bearer '+token,'apikey':SB_ANON,'Content-Type':'application/json'},body:'{}'});
+    rpcSa=res.ok?(await res.text()):('HTTP '+res.status);
+  }catch(e){rpcSa='err:'+((e&&e.message)||e);}
+  return 'diag[rpc_sa='+rpcSa+' · jwt.role='+(cl.role||'?')+' · jwt.sa='+cl.is_super_admin+' · exp_in='+(cl.exp?(cl.exp-now)+'s':'?')+']';
+}
 // Upload via fetch direct à l'API Storage, avec le token explicite : garantit que le header
 // Authorization (et donc le claim is_super_admin) est bien envoyé — contourne le bug de
 // header non-attaché quand deux clients supabase-js partagent la même clé de stockage.
@@ -486,7 +499,8 @@ async function doUpload(path,file,contentType){
   if(!tok||!tok.access_token)return{via:'client local',email:'',sa:undefined,error:'NO_SESSION'};
   const now=Math.floor(Date.now()/1000);
   if(tok.exp&&tok.exp-now<=0)return{via:'client local',email:tok.email,sa:tok.sa,error:'TOKEN_EXPIRED'};
-  const error=await rawUpload(tok.access_token,path,file,contentType);
+  let error=await rawUpload(tok.access_token,path,file,contentType);
+  if(error&&/row-level|policy|403/i.test(error+'')){try{error=error+' — '+await serverDiag(tok.access_token);}catch(_){}}
   return{via:'client local',email:tok.email,sa:tok.sa,error};
 }
 function renderMarkerMediaEditor(m){
@@ -505,13 +519,13 @@ async function handleMediaUpload(file){
   const kind=(file.type||'').startsWith('video')?'video':'image';
   const max=kind==='video'?60:8;
   if(file.size>max*1024*1024){$('ed-media-status').textContent='⚠️ Fichier trop lourd (max '+max+' Mo pour '+(kind==='video'?'une vidéo':'une image')+').';return;}
-  $('ed-media-status').textContent='⏳ Envoi… [u6]';
+  $('ed-media-status').textContent='⏳ Envoi… [u7]';
   const ext=((file.name||'').split('.').pop()||(kind==='video'?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5)||'bin';
-  const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-u6-'+Date.now()+'.'+ext;
+  const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-u7-'+Date.now()+'.'+ext;
   let r;try{r=await doUpload(path,file,file.type||undefined);}catch(e){r={via:'?',error:(e&&e.message)||e+''};}
-  const who='[u6] '+(r.via||'?')+(r.email?' · '+r.email:'')+(r.sa===false?' · NON super-admin':(r.sa===true?' · super-admin':''));
-  if(r.error==='NO_SESSION'){$('ed-media-status').textContent='❌ [u6] Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l\'éditeur via le bouton ✏️.';return;}
-  if(r.error==='TOKEN_EXPIRED'){$('ed-media-status').textContent='❌ [u6] Session expirée ('+(r.email||'?')+'). Votre connexion a expiré : rouvrez/rafraîchissez la page '+(SCOPE==='shared'?'admin':'centre')+' (qui vous reconnecte), puis relancez l\'envoi.';return;}
+  const who='[u7] '+(r.via||'?')+(r.email?' · '+r.email:'')+(r.sa===false?' · NON super-admin':(r.sa===true?' · super-admin':''));
+  if(r.error==='NO_SESSION'){$('ed-media-status').textContent='❌ [u7] Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l\'éditeur via le bouton ✏️.';return;}
+  if(r.error==='TOKEN_EXPIRED'){$('ed-media-status').textContent='❌ [u7] Session expirée ('+(r.email||'?')+'). Votre connexion a expiré : rouvrez/rafraîchissez la page '+(SCOPE==='shared'?'admin':'centre')+' (qui vous reconnecte), puis relancez l\'envoi.';return;}
   if(r.error){const msg=r.error+'';$('ed-media-status').textContent='❌ Échec ('+who+') : '+msg+(/row-level|policy|denied|403/i.test(msg)?(' — '+(r.sa===false?'ce compte n\'est pas super-admin : ouvrez l\'éditeur depuis la page admin connectée en super-admin.':'droits insuffisants pour « '+SCOPE+'/ ». Reconnectez-vous puis réessayez.')):'');return;}
   m.media={kind,url:mediaPublicUrl(path),path};
   renderMarkerMediaEditor(m);
