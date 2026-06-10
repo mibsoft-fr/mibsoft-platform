@@ -1016,8 +1016,8 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
           </div>
           <div style="overflow-x:auto;">
             <table class="tbl" style="width:100%;">
-              <thead><tr><th>Aperçu</th><th>Établissement</th><th>Statut</th><th>Mis à jour</th><th>Actions</th></tr></thead>
-              <tbody id="body-center-plans"><tr><td colspan="5" style="text-align:center;color:var(--text2);padding:16px;">Chargement…</td></tr></tbody>
+              <thead><tr><th>Établissement</th><th>Niveaux</th><th>Actions</th></tr></thead>
+              <tbody id="body-center-plans"><tr><td colspan="3" style="text-align:center;color:var(--text2);padding:16px;">Chargement…</td></tr></tbody>
             </table>
           </div>
           <p style="font-size:.72rem;color:var(--text2);margin-top:10px;">Astuce : « ✏️ Éditeur » ouvre le plan — importez l'image, placez/nommez les points et les portes, puis <strong>💾 Sauvegarder</strong>. Revenez et cliquez <strong>📤 Publier</strong>.</p>
@@ -1504,9 +1504,18 @@ window.loadStats = function() {
 // MES PLANS SSI (bucket privé ssi-plans, dossier <center_id>/)
 // ============================================================
 const CENTER_PLAN_BUCKET = 'ssi-plans';
+const STD_LEVELS = [
+  {key:'sous-sol-2',label:'Sous-sol -2'},
+  {key:'sous-sol',label:'Sous-sol'},
+  {key:'rdc',label:'RDC'},
+  {key:'etage-1',label:'1er étage'},
+  {key:'etage-2',label:'2ème étage'},
+  {key:'etage-3',label:'3ème étage'},
+  {key:'etage-4',label:'4ème étage'}
+];
 function centerPlanFmtDate(s){ try { return new Date(s).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}); } catch(_) { return '—'; } }
-function centerPlanSlug(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40); }
-function openCenterPlanEditor(key){ window.open('ssi-formation/plan.html?plan='+encodeURIComponent(key),'mibplan_'+key,'width=1100,height=820'); }
+function centerPlanSlug(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40); }
+function openCenterLevelEditor(estabKey, levelKey){ window.open('ssi-formation/plan.html?plan='+encodeURIComponent(estabKey+'/'+levelKey),'mibplan_'+estabKey+'_'+levelKey,'width=1100,height=820'); }
 
 window.addCenterPlanType = async function(){
   const name = prompt('Nom de l\'établissement (ex. Mon ERP, Résidence des Lilas) :');
@@ -1514,17 +1523,19 @@ window.addCenterPlanType = async function(){
   const label = name.trim(); const key = centerPlanSlug(label);
   if (!key) { alert('Nom invalide.'); return; }
   try {
-    const { error } = await supabase.from('ssi_plan_types').insert({ key, label, center_id: CENTER.id });
+    const { error } = await supabase.from('ssi_plan_types').insert({ key, label, center_id: CENTER.id, levels: [{key:'rdc',label:'RDC'}] });
     if (error) { if (error.code === '23505') { alert('Un plan « '+label+' » existe déjà.'); } else throw error; return; }
   } catch(e) { alert('❌ Ajout refusé : '+(e.message||e)); return; }
   await loadCenterPlans();
-  if (confirm('Établissement « '+label+' » ajouté.\nOuvrir l\'éditeur pour construire ce plan maintenant ?')) openCenterPlanEditor(key);
+  openCenterLevels(key);
 };
 
 window.removeCenterPlanType = async function(key, label){
-  if (!confirm('Retirer l\'établissement « '+(label||key)+' » de votre centre ?\nSon plan sera aussi supprimé.')) return;
+  if (!confirm('Retirer l\'établissement « '+(label||key)+' » et tous ses niveaux ?')) return;
   try {
-    await supabase.storage.from(CENTER_PLAN_BUCKET).remove([CENTER.id+'/'+key+'.json']);
+    const { data } = await supabase.storage.from(CENTER_PLAN_BUCKET).list(CENTER.id+'/'+key, { limit: 200 });
+    const paths = (data||[]).filter(f=>f&&f.name).map(f => CENTER.id+'/'+key+'/'+f.name);
+    if (paths.length) await supabase.storage.from(CENTER_PLAN_BUCKET).remove(paths);
     const { error } = await supabase.from('ssi_plan_types').delete().eq('center_id', CENTER.id).eq('key', key);
     if (error) throw error;
   } catch(e) { alert('❌ Suppression refusée : '+(e.message||e)); return; }
@@ -1534,73 +1545,135 @@ window.removeCenterPlanType = async function(key, label){
 window.loadCenterPlans = async function(){
   const body = document.getElementById('body-center-plans');
   if (!body) return;
-  // Établissements propres à CE centre
   let types = [];
   try { const { data } = await supabase.from('ssi_plan_types').select('*').eq('center_id', CENTER.id).order('sort',{ascending:true}); types = data || []; } catch(_){}
-  if (!types.length) { body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:18px;">Aucun plan pour votre centre. Cliquez « + Ajouter un plan » pour créer celui de votre établissement.</td></tr>'; return; }
-  // Plans déjà publiés par CE centre
-  let files = {};
-  try {
-    const { data, error } = await supabase.storage.from(CENTER_PLAN_BUCKET).list(CENTER.id, { limit: 200 });
-    if (error) throw error;
-    (data||[]).forEach(f => { if (f && f.name && f.name.endsWith('.json')) files[f.name.replace(/\.json$/,'')] = { updated: f.updated_at || f.created_at }; });
-  } catch(e) { body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#dc2626;padding:16px;">Lecture impossible : '+(e.message||e)+'</td></tr>'; return; }
+  window._centerTypes = types;
+  if (!types.length) { body.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text2);padding:18px;">Aucun plan pour votre centre. Cliquez « + Ajouter un plan ».</td></tr>'; return; }
   body.innerHTML = types.map(t => {
-    const present = !!files[t.key];
-    const when = present && files[t.key].updated ? centerPlanFmtDate(files[t.key].updated) : '—';
-    const statut = present ? '<span style="color:#059669;font-weight:700;">✓ Publié</span>' : '<span style="color:#94a3b8;">— À construire</span>';
-    const thumb = present ? '<span id="cplan-thumb-'+t.key+'" style="color:#94a3b8;font-size:.75rem;">…</span>' : '<span style="color:#cbd5e1;">—</span>';
+    const levels = Array.isArray(t.levels) ? t.levels : [];
     const labelEsc = (t.label||'').replace(/'/g,"\\'");
     return '<tr>'
-      + '<td>'+thumb+'</td>'
-      + '<td>'+t.label+'</td>'
-      + '<td>'+statut+'</td>'
-      + '<td>'+when+'</td>'
+      + '<td><strong>'+t.label+'</strong></td>'
+      + '<td>'+(levels.length ? levels.map(l=>'<span style="display:inline-block;background:#eef2ff;color:#3730a3;border-radius:6px;padding:1px 7px;margin:1px;font-size:.78rem;">'+l.label+'</span>').join(' ') : '<span style="color:#94a3b8;">aucun niveau</span>')+'</td>'
       + '<td style="white-space:nowrap;">'
-      + '<button onclick="openCenterPlanEditor(\''+t.key+'\')" class="btn btn-blue btn-sm" title="Construire / modifier le plan">✏️ Éditeur</button> '
-      + '<button onclick="publishCenterPlan(\''+t.key+'\')" class="btn btn-green btn-sm" title="Publier le plan de l\'éditeur">📤 Publier</button> '
-      + (present ? '<button onclick="deleteCenterPlan(\''+t.key+'\')" class="btn btn-red btn-sm" title="Dépublier le plan">🗑️</button> ' : '')
+      + '<button onclick="openCenterLevels(\''+t.key+'\')" class="btn btn-blue btn-sm">🗂️ Gérer les niveaux</button> '
       + '<button onclick="removeCenterPlanType(\''+t.key+'\',\''+labelEsc+'\')" class="btn btn-gray btn-sm" title="Retirer cet établissement">✖</button>'
       + '</td></tr>';
   }).join('');
-  types.forEach(t => { if (files[t.key]) loadCenterPlanThumb(t.key); });
 };
 
-async function loadCenterPlanThumb(key){
-  const cell = document.getElementById('cplan-thumb-'+key);
-  if (!cell) return;
-  try {
-    const { data, error } = await supabase.storage.from(CENTER_PLAN_BUCKET).download(CENTER.id+'/'+key+'.json');
-    if (error || !data) { cell.textContent='—'; return; }
-    const obj = JSON.parse(await data.text());
-    if (!obj.image) { cell.textContent='—'; return; }
-    cell.innerHTML = '<img src="'+obj.image+'" onclick="window.open(this.src,\'_blank\')" style="height:40px;width:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border, #e2e8f0);cursor:zoom-in;display:block;">';
-  } catch(_) { cell.textContent='—'; }
+function closeCenterLevels(){ const o=document.getElementById('center-levels-ov'); if(o) o.remove(); }
+window.openCenterLevels = async function(estabKey){
+  const t = (window._centerTypes||[]).find(x=>x.key===estabKey); if(!t) return;
+  closeCenterLevels();
+  const o=document.createElement('div'); o.id='center-levels-ov';
+  o.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(8,15,30,.6);display:flex;align-items:center;justify-content:center;padding:18px;';
+  o.innerHTML='<div style="background:#fff;max-width:760px;width:100%;border-radius:14px;padding:20px;max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.4);">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><h3 style="font-size:1.05rem;font-weight:800;margin:0;">🗂️ Niveaux — '+t.label+'</h3><button onclick="closeCenterLevels()" style="width:30px;height:30px;border-radius:50%;border:none;background:#f1f5f9;cursor:pointer;">✕</button></div>'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">'
+    +'<select id="cl-add-sel" class="inp" style="max-width:220px;"></select>'
+    +'<input id="cl-add-custom" class="inp" placeholder="Nom du niveau" style="max-width:200px;display:none;">'
+    +'<button onclick="addCenterLevel(\''+t.key+'\')" class="btn btn-green btn-sm">+ Ajouter le niveau</button>'
+    +'</div>'
+    +'<div style="overflow-x:auto;"><table class="tbl" style="width:100%;"><thead><tr><th>Aperçu</th><th>Niveau</th><th>Statut</th><th>Mis à jour</th><th>Actions</th></tr></thead><tbody id="cl-body"><tr><td colspan="5" style="text-align:center;padding:14px;color:#94a3b8;">Chargement…</td></tr></tbody></table></div>'
+    +'</div>';
+  document.body.appendChild(o);
+  o.addEventListener('click',e=>{ if(e.target===o) closeCenterLevels(); });
+  const sel=document.getElementById('cl-add-sel');
+  const used=(t.levels||[]).map(l=>l.key);
+  sel.innerHTML = STD_LEVELS.filter(l=>!used.includes(l.key)).map(l=>'<option value="'+l.key+'">'+l.label+'</option>').join('') + '<option value="__custom">Autre (nom libre)…</option>';
+  sel.onchange=()=>{ document.getElementById('cl-add-custom').style.display = sel.value==='__custom' ? '' : 'none'; };
+  renderCenterLevels(t);
+};
+
+async function renderCenterLevels(t){
+  const tb=document.getElementById('cl-body'); if(!tb) return;
+  const levels=Array.isArray(t.levels)?t.levels:[];
+  if(!levels.length){ tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:14px;color:#94a3b8;">Aucun niveau. Ajoutez-en un ci-dessus.</td></tr>'; return; }
+  let files={};
+  try{ const{data}=await supabase.storage.from(CENTER_PLAN_BUCKET).list(CENTER.id+'/'+t.key,{limit:200}); (data||[]).forEach(f=>{ if(f&&f.name&&f.name.endsWith('.json')) files[f.name.replace(/\.json$/,'')]={updated:f.updated_at||f.created_at}; }); }catch(_){}
+  tb.innerHTML=levels.map(l=>{
+    const present=!!files[l.key];
+    const when=present&&files[l.key].updated?centerPlanFmtDate(files[l.key].updated):'—';
+    const statut=present?'<span style="color:#059669;font-weight:700;">✓ Publié</span>':'<span style="color:#94a3b8;">— À construire</span>';
+    const thumb=present?'<span id="cl-thumb-'+l.key+'" style="color:#94a3b8;font-size:.7rem;">…</span>':'<span style="color:#cbd5e1;">—</span>';
+    return '<tr>'
+      +'<td>'+thumb+'</td><td><strong>'+l.label+'</strong></td><td>'+statut+'</td><td>'+when+'</td>'
+      +'<td style="white-space:nowrap;">'
+      +'<button onclick="openCenterLevelEditor(\''+t.key+'\',\''+l.key+'\')" class="btn btn-blue btn-sm">✏️ Éditeur</button> '
+      +'<button onclick="publishCenterLevel(\''+t.key+'\',\''+l.key+'\')" class="btn btn-green btn-sm">📤 Publier</button> '
+      +(present?'<button onclick="deleteCenterLevel(\''+t.key+'\',\''+l.key+'\')" class="btn btn-red btn-sm" title="Dépublier">🗑️</button> ':'')
+      +'<button onclick="removeCenterLevel(\''+t.key+'\',\''+l.key+'\')" class="btn btn-gray btn-sm" title="Retirer ce niveau">✖</button>'
+      +'</td></tr>';
+  }).join('');
+  levels.forEach(l=>{ if(files[l.key]) loadCenterLevelThumb(t.key,l.key); });
 }
 
-window.publishCenterPlan = async function(key){
-  let img = '';
-  try { img = localStorage.getItem('mib_plan_'+key+'_img') || ''; } catch(_){}
-  if (!img) { alert('Aucun plan « '+key+' » dans l\'éditeur.\nOuvrez « ✏️ Éditeur », importez l\'image, placez les points puis 💾 Sauvegarder, et revenez publier.'); return; }
-  if (!confirm('Publier ce plan pour votre centre ?')) return;
-  let markers='[]', doors='[]';
-  try { markers = localStorage.getItem('mib_plan_'+key) || '[]'; doors = localStorage.getItem('mib_plan_'+key+'_doors') || '[]'; } catch(_){}
-  try {
-    const blob = new Blob([JSON.stringify({ image: img, markers: JSON.parse(markers), doors: JSON.parse(doors), updatedAt: Date.now() })], { type: 'application/json' });
-    const { error } = await supabase.storage.from(CENTER_PLAN_BUCKET).upload(CENTER.id+'/'+key+'.json', blob, { upsert: true, contentType: 'application/json' });
-    if (error) throw error;
-    alert('✅ Plan publié pour votre centre.');
-    loadCenterPlans();
-  } catch(e) { alert('❌ Publication refusée : '+(e.message||e)); }
+async function loadCenterLevelThumb(estabKey, levelKey){
+  const cell=document.getElementById('cl-thumb-'+levelKey); if(!cell) return;
+  try{
+    const{data,error}=await supabase.storage.from(CENTER_PLAN_BUCKET).download(CENTER.id+'/'+estabKey+'/'+levelKey+'.json');
+    if(error||!data){cell.textContent='—';return;}
+    const obj=JSON.parse(await data.text());
+    if(!obj.image){cell.textContent='—';return;}
+    cell.innerHTML='<img src="'+obj.image+'" onclick="window.open(this.src,\'_blank\')" style="height:36px;width:54px;object-fit:cover;border-radius:5px;border:1px solid #e2e8f0;cursor:zoom-in;display:block;">';
+  }catch(_){cell.textContent='—';}
+}
+
+async function persistLevels(estabKey, levels){
+  const { error } = await supabase.from('ssi_plan_types').update({ levels }).eq('center_id', CENTER.id).eq('key', estabKey);
+  if (error) throw error;
+  const t=(window._centerTypes||[]).find(x=>x.key===estabKey); if(t) t.levels=levels;
+}
+
+window.addCenterLevel = async function(estabKey){
+  const t=(window._centerTypes||[]).find(x=>x.key===estabKey); if(!t) return;
+  const sel=document.getElementById('cl-add-sel'); let key, label;
+  if(sel.value==='__custom'){ const nm=(document.getElementById('cl-add-custom').value||'').trim(); if(!nm){alert('Saisissez un nom de niveau.');return;} label=nm; key=centerPlanSlug(nm); }
+  else { const std=STD_LEVELS.find(l=>l.key===sel.value); if(!std)return; key=std.key; label=std.label; }
+  if(!key){alert('Niveau invalide.');return;}
+  const levels=Array.isArray(t.levels)?t.levels.slice():[];
+  if(levels.some(l=>l.key===key)){alert('Ce niveau existe déjà.');return;}
+  levels.push({key,label});
+  try{ await persistLevels(estabKey, levels); }catch(e){ alert('❌ '+(e.message||e)); return; }
+  await loadCenterPlans();
+  openCenterLevels(estabKey);
 };
 
-window.deleteCenterPlan = async function(key){
-  if (!confirm('Supprimer le plan de votre centre ? Vos stagiaires reverront le modèle commun.')) return;
-  try {
-    const { error } = await supabase.storage.from(CENTER_PLAN_BUCKET).remove([CENTER.id+'/'+key+'.json']);
-    if (error) throw error;
-    loadCenterPlans();
-  } catch(e) { alert('❌ Suppression refusée : '+(e.message||e)); }
+window.removeCenterLevel = async function(estabKey, levelKey){
+  if(!confirm('Retirer ce niveau et son plan ?')) return;
+  const t=(window._centerTypes||[]).find(x=>x.key===estabKey); if(!t) return;
+  try{
+    await supabase.storage.from(CENTER_PLAN_BUCKET).remove([CENTER.id+'/'+estabKey+'/'+levelKey+'.json']);
+    const levels=(t.levels||[]).filter(l=>l.key!==levelKey);
+    await persistLevels(estabKey, levels);
+  }catch(e){ alert('❌ '+(e.message||e)); return; }
+  await loadCenterPlans();
+  openCenterLevels(estabKey);
+};
+
+window.publishCenterLevel = async function(estabKey, levelKey){
+  const ck='mib_plan_'+estabKey+'/'+levelKey;
+  let img=''; try{ img=localStorage.getItem(ck+'_img')||''; }catch(_){}
+  if(!img){ alert('Aucun plan pour ce niveau dans l\'éditeur.\nOuvrez « ✏️ Éditeur », importez l\'image, placez les points puis 💾 Sauvegarder, et revenez publier.'); return; }
+  let markers='[]', doors='[]';
+  try{ markers=localStorage.getItem(ck)||'[]'; doors=localStorage.getItem(ck+'_doors')||'[]'; }catch(_){}
+  try{
+    const blob=new Blob([JSON.stringify({ image:img, markers:JSON.parse(markers), doors:JSON.parse(doors), updatedAt:Date.now() })],{type:'application/json'});
+    const { error }=await supabase.storage.from(CENTER_PLAN_BUCKET).upload(CENTER.id+'/'+estabKey+'/'+levelKey+'.json', blob, { upsert:true, contentType:'application/json' });
+    if(error) throw error;
+    alert('✅ Niveau publié.');
+    const t=(window._centerTypes||[]).find(x=>x.key===estabKey); if(t) renderCenterLevels(t);
+  }catch(e){ alert('❌ Publication refusée : '+(e.message||e)); }
+};
+
+window.deleteCenterLevel = async function(estabKey, levelKey){
+  if(!confirm('Dépublier le plan de ce niveau ?')) return;
+  try{
+    const { error }=await supabase.storage.from(CENTER_PLAN_BUCKET).remove([CENTER.id+'/'+estabKey+'/'+levelKey+'.json']);
+    if(error) throw error;
+    const t=(window._centerTypes||[]).find(x=>x.key===estabKey); if(t) renderCenterLevels(t);
+  }catch(e){ alert('❌ Suppression refusée : '+(e.message||e)); }
 };
 
 // ============================================================

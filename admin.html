@@ -791,8 +791,8 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
         </div>
         <div class="overflow-x-auto">
           <table class="tbl" id="tbl-plans-ex">
-            <thead><tr><th>Aperçu</th><th>Établissement</th><th>Clé</th><th>Statut</th><th>Mis à jour</th><th>Actions</th></tr></thead>
-            <tbody id="body-plans-ex"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;">Chargement…</td></tr></tbody>
+            <thead><tr><th>Établissement</th><th>Niveaux</th><th>Actions</th></tr></thead>
+            <tbody id="body-plans-ex"><tr><td colspan="3" style="text-align:center;color:var(--text3);padding:16px;">Chargement…</td></tr></tbody>
           </table>
         </div>
         <p style="color:var(--text3);font-size:.75rem;margin-top:10px;">Astuce : « ✏️ Éditeur » ouvre le plan, importez l'image et placez les points, puis <strong>💾 Sauvegarder</strong>. Revenez ici et cliquez <strong>📤 Publier</strong>.</p>
@@ -1789,9 +1789,17 @@ async function deleteContenu(id){
 // PLANS EXEMPLES SSI (bucket privé ssi-plans, dossier shared/)
 // ============================================================
 const PLAN_EX_BUCKET='ssi-plans';
-function planExEditorUrl(key){return 'ssi-formation/plan.html?plan='+encodeURIComponent(key);}
-function openPlanExEditor(key){window.open(planExEditorUrl(key),'_blank','width=1100,height=820');}
-function planSlug(s){return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);}
+const STD_LEVELS=[
+  {key:'sous-sol-2',label:'Sous-sol -2'},
+  {key:'sous-sol',label:'Sous-sol'},
+  {key:'rdc',label:'RDC'},
+  {key:'etage-1',label:'1er étage'},
+  {key:'etage-2',label:'2ème étage'},
+  {key:'etage-3',label:'3ème étage'},
+  {key:'etage-4',label:'4ème étage'}
+];
+function planSlug(s){return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);}
+function openAdminLevelEditor(estabKey,levelKey){window.open('ssi-formation/plan.html?plan='+encodeURIComponent(estabKey+'/'+levelKey),'_blank','width=1100,height=820');}
 
 async function addPlanType(){
   const name=prompt('Nom du type d\'établissement (ex. EHPAD, Parking, Tour de bureaux) :');
@@ -1799,16 +1807,18 @@ async function addPlanType(){
   const label=name.trim();const key=planSlug(label);
   if(!key){alert('Nom invalide.');return;}
   try{
-    const{error}=await supabase.from('ssi_plan_types').insert({key,label});
+    const{error}=await supabase.from('ssi_plan_types').insert({key,label,levels:[{key:'rdc',label:'RDC'}]});
     if(error){if(error.code==='23505'){alert('Un modèle « '+label+' » existe déjà.');}else{alert('❌ Ajout refusé : '+(error.message||error)+'\n(Réservé au super-admin.)');}return;}
   }catch(e){alert('❌ Ajout refusé : '+(e.message||e)+'\n(Réservé au super-admin.)');return;}
   await loadPlanExamples();
-  if(confirm('Type « '+label+' » ajouté.\nOuvrir l\'éditeur pour construire ce plan maintenant ?'))openPlanExEditor(key);
+  openAdminLevels(key);
 }
 async function removePlanType(key,label){
-  if(!confirm('Retirer le type « '+(label||key)+' » ?\nLe plan exemple associé sera aussi supprimé. (Les plans propres des centres ne sont pas touchés.)'))return;
+  if(!confirm('Retirer le modèle « '+(label||key)+' » et tous ses niveaux ?'))return;
   try{
-    await supabase.storage.from(PLAN_EX_BUCKET).remove(['shared/'+key+'.json']);
+    const{data}=await supabase.storage.from(PLAN_EX_BUCKET).list('shared/'+key,{limit:200});
+    const paths=(data||[]).filter(f=>f&&f.name).map(f=>'shared/'+key+'/'+f.name);
+    if(paths.length)await supabase.storage.from(PLAN_EX_BUCKET).remove(paths);
     const{error}=await supabase.from('ssi_plan_types').delete().eq('key',key).is('center_id',null);
     if(error)throw error;
   }catch(e){alert('❌ Suppression refusée : '+(e.message||e));return;}
@@ -1818,85 +1828,134 @@ async function removePlanType(key,label){
 async function loadPlanExamples(){
   const body=document.getElementById('body-plans-ex');
   if(!body)return;
-  // Référentiel des types
   let types=[];
   try{const{data}=await supabase.from('ssi_plan_types').select('*').is('center_id',null).order('sort',{ascending:true});types=data||[];}catch(_){}
-  // Fichiers présents dans shared/
-  let files={};
-  try{
-    const{data,error}=await supabase.storage.from(PLAN_EX_BUCKET).list('shared',{limit:200});
-    if(error)throw error;
-    (data||[]).forEach(f=>{if(f&&f.name&&f.name.endsWith('.json'))files[f.name.replace(/\.json$/,'')]={updated:f.updated_at||f.created_at};});
-  }catch(e){
-    body.innerHTML=`<tr><td colspan="6" style="text-align:center;color:#dc2626;padding:16px;">Lecture impossible : ${(e.message||e)}</td></tr>`;return;
-  }
-  // Types du référentiel + tout fichier « orphelin » présent dans shared/
-  const known=types.map(t=>t.key);
-  const rows=[...types];
-  Object.keys(files).forEach(k=>{if(!known.includes(k))rows.push({key:k,label:k});});
-  if(!rows.length){body.innerHTML='<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:16px;">Aucun type de plan. Cliquez « + Ajouter un plan ».</td></tr>';return;}
-  body.innerHTML=rows.map(t=>{
-    const present=!!files[t.key];
-    const when=present&&files[t.key].updated?UTILS.dateStr(files[t.key].updated):'—';
-    const statut=present
-      ?'<span style="color:#059669;font-weight:700;">✓ Publié</span>'
-      :'<span style="color:#94a3b8;">— Absent</span>';
-    const thumb=present
-      ?`<span id="planex-thumb-${t.key}" style="color:#94a3b8;font-size:.75rem;">…</span>`
-      :'<span style="color:#cbd5e1;">—</span>';
+  window._adminTypes=types;
+  if(!types.length){body.innerHTML='<tr><td colspan="3" style="text-align:center;color:#94a3b8;padding:16px;">Aucun modèle. Cliquez « + Ajouter un plan ».</td></tr>';return;}
+  body.innerHTML=types.map(t=>{
+    const levels=Array.isArray(t.levels)?t.levels:[];
     const labelEsc=(t.label||'').replace(/'/g,"\\'");
-    return `<tr>
-      <td>${thumb}</td>
-      <td>${t.label}</td>
-      <td><code style="font-size:.78rem;">${t.key}</code></td>
-      <td>${statut}</td>
-      <td>${when}</td>
-      <td style="white-space:nowrap;">
-        <button onclick="openPlanExEditor('${t.key}')" class="btn btn-blue btn-sm" title="Construire / modifier le plan dans l'éditeur">✏️ Éditeur</button>
-        <button onclick="publishPlanExample('${t.key}')" class="btn btn-green btn-sm" title="Publier le plan de l'éditeur comme modèle">📤 Publier</button>
-        ${present?`<button onclick="deletePlanExample('${t.key}')" class="btn btn-red btn-sm" title="Dépublier le modèle">🗑️</button>`:''}
-        <button onclick="removePlanType('${t.key}','${labelEsc}')" class="btn btn-gray btn-sm" title="Retirer ce type">✖ Type</button>
-      </td>
-    </tr>`;
+    return '<tr>'
+      +'<td><strong>'+t.label+'</strong> <code style="font-size:.72rem;color:#64748b;">'+t.key+'</code></td>'
+      +'<td>'+(levels.length?levels.map(l=>'<span style="display:inline-block;background:#eef2ff;color:#3730a3;border-radius:6px;padding:1px 7px;margin:1px;font-size:.78rem;">'+l.label+'</span>').join(' '):'<span style="color:#94a3b8;">aucun niveau</span>')+'</td>'
+      +'<td style="white-space:nowrap;">'
+      +'<button onclick="openAdminLevels(\''+t.key+'\')" class="btn btn-blue btn-sm">🗂️ Gérer les niveaux</button> '
+      +'<button onclick="removePlanType(\''+t.key+'\',\''+labelEsc+'\')" class="btn btn-gray btn-sm" title="Retirer ce modèle">✖</button>'
+      +'</td></tr>';
   }).join('');
-  // Miniatures (chargées à la volée depuis le JSON publié)
-  rows.forEach(t=>{if(files[t.key])loadPlanExThumb(t.key);});
 }
 
-async function loadPlanExThumb(key){
-  const cell=document.getElementById('planex-thumb-'+key);
-  if(!cell)return;
+function closeAdminLevels(){const o=document.getElementById('admin-levels-ov');if(o)o.remove();}
+async function openAdminLevels(estabKey){
+  const t=(window._adminTypes||[]).find(x=>x.key===estabKey);if(!t)return;
+  closeAdminLevels();
+  const o=document.createElement('div');o.id='admin-levels-ov';
+  o.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(8,15,30,.6);display:flex;align-items:center;justify-content:center;padding:18px;';
+  o.innerHTML='<div style="background:#fff;max-width:760px;width:100%;border-radius:14px;padding:20px;max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.4);">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><h3 style="font-size:1.05rem;font-weight:800;margin:0;">🗂️ Niveaux — '+t.label+' (modèle commun)</h3><button onclick="closeAdminLevels()" style="width:30px;height:30px;border-radius:50%;border:none;background:#f1f5f9;cursor:pointer;">✕</button></div>'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">'
+    +'<select id="al-add-sel" class="inp" style="max-width:220px;"></select>'
+    +'<input id="al-add-custom" class="inp" placeholder="Nom du niveau" style="max-width:200px;display:none;">'
+    +'<button onclick="addAdminLevel(\''+t.key+'\')" class="btn btn-green btn-sm">+ Ajouter le niveau</button>'
+    +'</div>'
+    +'<div style="overflow-x:auto;"><table class="tbl" style="width:100%;"><thead><tr><th>Aperçu</th><th>Niveau</th><th>Statut</th><th>Mis à jour</th><th>Actions</th></tr></thead><tbody id="al-body"><tr><td colspan="5" style="text-align:center;padding:14px;color:#94a3b8;">Chargement…</td></tr></tbody></table></div>'
+    +'</div>';
+  document.body.appendChild(o);
+  o.addEventListener('click',e=>{if(e.target===o)closeAdminLevels();});
+  const sel=document.getElementById('al-add-sel');
+  const used=(t.levels||[]).map(l=>l.key);
+  sel.innerHTML=STD_LEVELS.filter(l=>!used.includes(l.key)).map(l=>'<option value="'+l.key+'">'+l.label+'</option>').join('')+'<option value="__custom">Autre (nom libre)…</option>';
+  sel.onchange=()=>{document.getElementById('al-add-custom').style.display=sel.value==='__custom'?'':'none';};
+  renderAdminLevels(t);
+}
+
+async function renderAdminLevels(t){
+  const tb=document.getElementById('al-body');if(!tb)return;
+  const levels=Array.isArray(t.levels)?t.levels:[];
+  if(!levels.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:14px;color:#94a3b8;">Aucun niveau. Ajoutez-en un ci-dessus.</td></tr>';return;}
+  let files={};
+  try{const{data}=await supabase.storage.from(PLAN_EX_BUCKET).list('shared/'+t.key,{limit:200});(data||[]).forEach(f=>{if(f&&f.name&&f.name.endsWith('.json'))files[f.name.replace(/\.json$/,'')]={updated:f.updated_at||f.created_at};});}catch(_){}
+  tb.innerHTML=levels.map(l=>{
+    const present=!!files[l.key];
+    const when=present&&files[l.key].updated?UTILS.dateStr(files[l.key].updated):'—';
+    const statut=present?'<span style="color:#059669;font-weight:700;">✓ Publié</span>':'<span style="color:#94a3b8;">— Absent</span>';
+    const thumb=present?'<span id="al-thumb-'+l.key+'" style="color:#94a3b8;font-size:.7rem;">…</span>':'<span style="color:#cbd5e1;">—</span>';
+    return '<tr>'
+      +'<td>'+thumb+'</td><td><strong>'+l.label+'</strong></td><td>'+statut+'</td><td>'+when+'</td>'
+      +'<td style="white-space:nowrap;">'
+      +'<button onclick="openAdminLevelEditor(\''+t.key+'\',\''+l.key+'\')" class="btn btn-blue btn-sm">✏️ Éditeur</button> '
+      +'<button onclick="publishAdminLevel(\''+t.key+'\',\''+l.key+'\')" class="btn btn-green btn-sm">📤 Publier</button> '
+      +(present?'<button onclick="deleteAdminLevel(\''+t.key+'\',\''+l.key+'\')" class="btn btn-red btn-sm" title="Dépublier">🗑️</button> ':'')
+      +'<button onclick="removeAdminLevel(\''+t.key+'\',\''+l.key+'\')" class="btn btn-gray btn-sm" title="Retirer ce niveau">✖</button>'
+      +'</td></tr>';
+  }).join('');
+  levels.forEach(l=>{if(files[l.key])loadAdminLevelThumb(t.key,l.key);});
+}
+
+async function loadAdminLevelThumb(estabKey,levelKey){
+  const cell=document.getElementById('al-thumb-'+levelKey);if(!cell)return;
   try{
-    const{data,error}=await supabase.storage.from(PLAN_EX_BUCKET).download('shared/'+key+'.json');
-    if(error||!data)return;
+    const{data,error}=await supabase.storage.from(PLAN_EX_BUCKET).download('shared/'+estabKey+'/'+levelKey+'.json');
+    if(error||!data){cell.textContent='—';return;}
     const obj=JSON.parse(await data.text());
     if(!obj.image){cell.textContent='—';return;}
-    const n=Array.isArray(obj.markers)?obj.markers.length:0;
-    cell.innerHTML=`<img src="${obj.image}" alt="aperçu" onclick="window.open(this.src,'_blank')" style="height:42px;width:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border-default);cursor:zoom-in;display:block;" title="${n} point(s) — cliquer pour agrandir">`;
+    cell.innerHTML='<img src="'+obj.image+'" onclick="window.open(this.src,\'_blank\')" style="height:36px;width:54px;object-fit:cover;border-radius:5px;border:1px solid var(--border-default);cursor:zoom-in;display:block;">';
   }catch(_){cell.textContent='—';}
 }
 
-async function publishPlanExample(key){
-  // Le plan construit dans l'éditeur vit en localStorage (même origine).
-  let img='',markers='[]',doors='[]';
-  try{img=localStorage.getItem('mib_plan_'+key+'_img')||'';markers=localStorage.getItem('mib_plan_'+key)||'[]';doors=localStorage.getItem('mib_plan_'+key+'_doors')||'[]';}catch(_){}
-  if(!img){alert('Aucun plan « '+key+' » dans l\'éditeur.\nOuvrez « ✏️ Éditeur », importez l\'image, placez les points puis 💾 Sauvegarder, et revenez publier.');return;}
-  if(!confirm('Publier ce plan comme modèle disponible à tous les centres ?'))return;
-  try{
-    const blob=new Blob([JSON.stringify({image:img,markers:JSON.parse(markers),doors:JSON.parse(doors),updatedAt:Date.now()})],{type:'application/json'});
-    const{error}=await supabase.storage.from(PLAN_EX_BUCKET).upload('shared/'+key+'.json',blob,{upsert:true,contentType:'application/json'});
-    if(error)throw error;
-    alert('✅ Modèle publié pour tous les centres.');
-    loadPlanExamples();
-  }catch(e){alert('❌ Publication refusée : '+(e.message||e)+'\n(Réservé au compte administrateur.)');}
+async function persistAdminLevels(estabKey,levels){
+  const{error}=await supabase.from('ssi_plan_types').update({levels}).eq('key',estabKey).is('center_id',null);
+  if(error)throw error;
+  const t=(window._adminTypes||[]).find(x=>x.key===estabKey);if(t)t.levels=levels;
 }
 
-async function deletePlanExample(key){
-  if(!confirm('Supprimer le plan exemple « '+key+' » ? Les centres sans plan propre ne l\'auront plus.'))return;
+async function addAdminLevel(estabKey){
+  const t=(window._adminTypes||[]).find(x=>x.key===estabKey);if(!t)return;
+  const sel=document.getElementById('al-add-sel');let key,label;
+  if(sel.value==='__custom'){const nm=(document.getElementById('al-add-custom').value||'').trim();if(!nm){alert('Saisissez un nom de niveau.');return;}label=nm;key=planSlug(nm);}
+  else{const std=STD_LEVELS.find(l=>l.key===sel.value);if(!std)return;key=std.key;label=std.label;}
+  if(!key){alert('Niveau invalide.');return;}
+  const levels=Array.isArray(t.levels)?t.levels.slice():[];
+  if(levels.some(l=>l.key===key)){alert('Ce niveau existe déjà.');return;}
+  levels.push({key,label});
+  try{await persistAdminLevels(estabKey,levels);}catch(e){alert('❌ '+(e.message||e));return;}
+  await loadPlanExamples();
+  openAdminLevels(estabKey);
+}
+
+async function removeAdminLevel(estabKey,levelKey){
+  if(!confirm('Retirer ce niveau et son plan ?'))return;
+  const t=(window._adminTypes||[]).find(x=>x.key===estabKey);if(!t)return;
   try{
-    const{error}=await supabase.storage.from(PLAN_EX_BUCKET).remove(['shared/'+key+'.json']);
+    await supabase.storage.from(PLAN_EX_BUCKET).remove(['shared/'+estabKey+'/'+levelKey+'.json']);
+    const levels=(t.levels||[]).filter(l=>l.key!==levelKey);
+    await persistAdminLevels(estabKey,levels);
+  }catch(e){alert('❌ '+(e.message||e));return;}
+  await loadPlanExamples();
+  openAdminLevels(estabKey);
+}
+
+async function publishAdminLevel(estabKey,levelKey){
+  const ck='mib_plan_'+estabKey+'/'+levelKey;
+  let img='';try{img=localStorage.getItem(ck+'_img')||'';}catch(_){}
+  if(!img){alert('Aucun plan pour ce niveau dans l\'éditeur.\nOuvrez « ✏️ Éditeur », importez l\'image, placez les points puis 💾 Sauvegarder, et revenez publier.');return;}
+  let markers='[]',doors='[]';
+  try{markers=localStorage.getItem(ck)||'[]';doors=localStorage.getItem(ck+'_doors')||'[]';}catch(_){}
+  try{
+    const blob=new Blob([JSON.stringify({image:img,markers:JSON.parse(markers),doors:JSON.parse(doors),updatedAt:Date.now()})],{type:'application/json'});
+    const{error}=await supabase.storage.from(PLAN_EX_BUCKET).upload('shared/'+estabKey+'/'+levelKey+'.json',blob,{upsert:true,contentType:'application/json'});
     if(error)throw error;
-    loadPlanExamples();
+    alert('✅ Niveau publié (modèle commun).');
+    const t=(window._adminTypes||[]).find(x=>x.key===estabKey);if(t)renderAdminLevels(t);
+  }catch(e){alert('❌ Publication refusée : '+(e.message||e)+'\n(Réservé au super-admin.)');}
+}
+
+async function deleteAdminLevel(estabKey,levelKey){
+  if(!confirm('Dépublier le plan de ce niveau ?'))return;
+  try{
+    const{error}=await supabase.storage.from(PLAN_EX_BUCKET).remove(['shared/'+estabKey+'/'+levelKey+'.json']);
+    if(error)throw error;
+    const t=(window._adminTypes||[]).find(x=>x.key===estabKey);if(t)renderAdminLevels(t);
   }catch(e){alert('❌ Suppression refusée : '+(e.message||e));}
 }
 

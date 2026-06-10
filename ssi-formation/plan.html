@@ -27,6 +27,9 @@
   body.uae .mk{cursor:default}
   /* Mode jeu seul (formateur en session) : on masque toute la barre d'édition, on garde le déclenchement */
   body.playonly .bar,body.playonly .help,body.playonly .editor,body.playonly #door-editor,body.playonly #hostEmpty{display:none!important}
+  .ltabs{display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px 0;background:#0b3a53}
+  .ltab{padding:7px 16px;border:none;border-radius:9px 9px 0 0;background:#15506e;color:#cfe3ef;font-weight:700;cursor:pointer;font-size:.86rem}
+  .ltab.on{background:#fff;color:#0b3a53}
   .stage{position:relative;display:inline-block;max-width:100%;border:1px solid var(--n200);border-radius:12px;overflow:hidden;background:#fff;line-height:0}
   #plan{max-width:100%;display:block;-webkit-user-drag:none;user-select:none}
   #doors-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
@@ -69,6 +72,7 @@
   <div><h1 id="title">Plan interactif</h1><div class="sub">Mode Jeu : clic sur un DAI/DM → alarme envoyée au stagiaire</div></div>
   <span class="pill" id="link">○ recherche du formateur…</span>
 </div>
+<div id="ltabs" class="ltabs" style="display:none"></div>
 
 <div class="wrap">
   <div class="bar">
@@ -193,7 +197,7 @@ function refreshLink(){
 function renumber(){let a=0,m=0;MARKERS.forEach(k=>{if(k.type==='DAI')k.id=++a;else if(k.type==='DM')k.id=++m;});
   const tooMany=MARKERS.filter(k=>(k.type==='DAI'||k.type==='DM')&&k.id>10);if(tooMany.length)toast('Plus de 10 '+(tooMany[0].type)+' : au-delà de 10, non géré par le SSI');}
 
-function setMode(m){MODE=m;document.body.className='mode-'+m;$('m-play').classList.toggle('on',m==='play');$('m-edit').classList.toggle('on',m==='edit');if(m==='play'){selectMarker(-1);selectDoor(-1);}logLine('Mode : '+(m==='edit'?'Édition':'Jeu'));renderMarkers();renderDoors();}
+function setMode(m){MODE=m;document.body.classList.remove('mode-play','mode-edit');document.body.classList.add('mode-'+m);$('m-play').classList.toggle('on',m==='play');$('m-edit').classList.toggle('on',m==='edit');if(m==='play'){selectMarker(-1);selectDoor(-1);}logLine('Mode : '+(m==='edit'?'Édition':'Jeu'));renderMarkers();renderDoors();}
 
 function loadFile(f){if(!f)return;const r=new FileReader();r.onload=e=>{
   $('plan').src=e.target.result;localStorage.setItem(STORE+'_img',e.target.result);
@@ -429,28 +433,50 @@ function saveAll(){
   post({kind:'save-plan',planKey:PLAN_KEY});
 }
 
+// Charge un jeu de données (image/points/portes) depuis une clé localStorage donnée.
+function loadFromStore(store){
+  const img=localStorage.getItem(store+'_img');$('plan').src=img||'';
+  const mk=localStorage.getItem(store);MARKERS=[];
+  if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>{const o={addr:'',zf:1,lzc:0,lzf:0,...m};if(m.link&&!o.lzc&&!o.lzf){if(m.type==='DM')o.lzc=m.link;else if(m.type==='DAI')o.lzf=m.link;}return o;});}catch(_){MARKERS=[];}}
+  renumber();
+  const dd=localStorage.getItem(store+'_doors');DOORS=[];
+  if(dd){try{DOORS=(JSON.parse(dd)||[]).map(d=>({label:'',zc:1,...d}));}catch(_){DOORS=[];}}
+  renderMarkers();renderDoors();
+  return !!img;
+}
+// ── Visualiseur multi-niveaux (jeu / UAE) ──
+let VIEW_LEVELS=[],VIEW_CUR=null;
+const lvlStore=lk=>'mib_plan_'+PLAN_KEY+'/'+lk;
+const manifestKey='mib_plan_'+PLAN_KEY+'__levels';
+function buildLevelTabs(){
+  const bar=$('ltabs');if(!bar)return;
+  if(!VIEW_LEVELS.length){bar.style.display='none';return;}
+  bar.style.display='flex';
+  bar.innerHTML=VIEW_LEVELS.map(l=>'<button class="ltab'+(l.key===VIEW_CUR?' on':'')+'" onclick="setViewLevel(\''+l.key+'\')">'+l.label+'</button>').join('');
+}
+function setViewLevel(lk){
+  VIEW_CUR=lk;buildLevelTabs();
+  loadFromStore(lvlStore(lk));
+  const o=document.getElementById('uaeWait');if(o&&localStorage.getItem(lvlStore(lk)+'_img'))o.remove();
+  requestState();
+}
+function readManifest(){try{const m=JSON.parse(localStorage.getItem(manifestKey)||'null');return Array.isArray(m)&&m.length?m:null;}catch(_){return null;}}
+
 // ── restauration + boucle de synchro ──
 (function(){
-  function loadStore(){
-    const img=localStorage.getItem(STORE+'_img');if(img)$('plan').src=img;
-    const mk=localStorage.getItem(STORE);if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>{const o={addr:'',zf:1,lzc:0,lzf:0,...m};if(m.link&&!o.lzc&&!o.lzf){if(m.type==='DM')o.lzc=m.link;else if(m.type==='DAI')o.lzf=m.link;}return o;});renumber();}catch(_){}}
-    const dd=localStorage.getItem(STORE+'_doors');if(dd){try{DOORS=(JSON.parse(dd)||[]).map(d=>({label:'',zc:1,...d}));}catch(_){}}
-    renderMarkers();renderDoors();
-    return !!img;
-  }
-  const has=loadStore();
   const NEEDLOAD=UAE||PLAYONLY; // plan fourni par le serveur (écrit en localStorage par index.html)
   if(NEEDLOAD){
     setMode('play');
-    if(!has){
-      // Plan pas encore en localStorage : on attend que index.html (même origine) l'écrive
-      // après téléchargement depuis le serveur — détecté via l'évènement « storage ».
-      const ov=document.createElement('div');ov.id='uaeWait';ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;background:#0b3a53;color:#fff;font:600 18px system-ui;z-index:9999';ov.textContent='⏳ Chargement du plan…';document.body.appendChild(ov);
-      const onStore=(e)=>{if(!e.key||e.key===STORE+'_img'||e.key===STORE||e.key===STORE+'_doors'){if(loadStore()){ov.remove();window.removeEventListener('storage',onStore);requestState();}}};
+    function tryManifest(){const man=readManifest();if(!man)return false;VIEW_LEVELS=man;VIEW_CUR=man[0].key;buildLevelTabs();setViewLevel(man[0].key);return true;}
+    if(!tryManifest()){
+      const had=loadFromStore(STORE); // repli plan simple (legacy mono-niveau)
+      let ov=null;
+      if(!had){ov=document.createElement('div');ov.id='uaeWait';ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;background:#0b3a53;color:#fff;font:600 18px system-ui;z-index:9999';ov.textContent='⏳ Chargement du plan…';document.body.appendChild(ov);}
+      const onStore=()=>{ if(tryManifest()){window.removeEventListener('storage',onStore);return;} if(loadFromStore(STORE)){const w=document.getElementById('uaeWait');if(w)w.remove();window.removeEventListener('storage',onStore);requestState();} };
       window.addEventListener('storage',onStore);
       setTimeout(()=>{const o=document.getElementById('uaeWait');if(o)o.textContent='Plan indisponible — ce centre n’a pas encore de plan, et aucun modèle n’est publié.';},15000);
     }
-  } else if(!has&&!MARKERS.length){setMode('edit');}
+  } else if(!loadFromStore(STORE)&&!MARKERS.length){setMode('edit');}
   else{logLine('Plan « '+(LABELS[PLAN_KEY]||PLAN_KEY)+' » chargé ('+MARKERS.length+' points).');}
   requestState();refreshLink();
   setInterval(()=>{requestState();refreshLink();},1200);
