@@ -1649,10 +1649,10 @@ const key=STATE.uaePlanKey;
 const w=window.open('plan.html?plan='+encodeURIComponent(key)+'&uae=1','mibuae_'+key,'width=1100,height=820');
 if(!w){showCustomAlert('Le navigateur a bloqué la fenêtre. Autorisez les pop-ups.');return;}
 planBus(); // pour répondre aux requêtes d'état de la fenêtre UAE
-downloadUaePlan(key,STATE.uaePlanCenter);
+downloadPlan(key,STATE.uaePlanCenter);
 }
-// Essaie le plan du centre, sinon le plan exemple « shared ».
-async function downloadUaePlan(planKey,centerId){
+// Essaie le plan du centre, sinon le plan exemple « shared ». Écrit en localStorage.
+async function downloadPlan(planKey,centerId){
 const sb=(STATE.userType==='trainee'&&window.supabaseStagiaire)?window.supabaseStagiaire:window.supabase;
 const cid=centerId||planCenterId();
 const paths=[];if(cid)paths.push(cid+'/'+planKey+'.json');paths.push('shared/'+planKey+'.json');
@@ -1680,18 +1680,25 @@ markers.forEach(mk=>{if((mk.type==='DAI'||mk.type==='DM')&&mk.addr&&mk.id){updat
 if(n){logAction('Adresses importées du plan',`${n} détecteur(s) — ${PLAN_LABELS[planKey]||planKey}`,'formateur');render();}
 }
 const PLAN_LABELS={'centre-commercial':'Centre commercial','hopital':'Hôpital'};
-function openPlanWindow(planKey){
+// Formateur en session : ouvre le plan en MODE JEU SEUL (sans édition). Le plan provient
+// du serveur — celui du centre s'il existe, sinon l'exemple « shared ». La création/édition
+// d'un plan se fait dans « Mes plans », pas pendant la session.
+async function openPlanWindow(planKey){
 if(!checkSessionBeforeAction())return;
 planBus(); // garantit que le formateur écoute avant l'ouverture du plan
-applyPlanAddresses(planKey); // remplit les adresses DAI/DM depuis le plan
 STATE.activePlanKey=planKey;
-uploadPlanToStorage(planKey); // publie/rafraîchit le plan du centre (asynchrone)
-sendMessage('UAE_PLAN_AVAILABLE',{planKey,centerId:planCenterId()}); // signale le plan actif aux stagiaires (UAE)
 const existing=PLAN_WINDOWS[planKey];
-if(existing&&!existing.closed){existing.focus();return;}
-const win=window.open('plan.html?plan='+encodeURIComponent(planKey),'mibplan_'+planKey,'width=1100,height=820');
+if(existing&&!existing.closed){existing.focus();}
+else{
+const win=window.open('plan.html?plan='+encodeURIComponent(planKey)+'&play=1','mibplan_'+planKey,'width=1100,height=820');
 if(!win){showCustomAlert('Le navigateur a bloqué la fenêtre du plan. Autorisez les pop-ups pour ce site.');return;}
 PLAN_WINDOWS[planKey]=win;
+}
+// Télécharge le plan (centre → sinon modèle shared) vers localStorage ; la fenêtre l'affiche.
+const cid=planCenterId();
+const ok=await downloadPlan(planKey,cid);
+if(ok)applyPlanAddresses(planKey); // pré-remplit les adresses DAI/DM depuis le plan
+sendMessage('UAE_PLAN_AVAILABLE',{planKey,centerId:cid}); // signale le plan actif aux stagiaires (UAE)
 }
 // Déclenche/réarme le détecteur réel et renvoie son état (pour le clignotement).
 function triggerFromPlan(type,id){
