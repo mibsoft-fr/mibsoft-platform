@@ -92,8 +92,8 @@
 
   <div class="help">
     <b>Jeu :</b> un clic envoie l'alarme au SSI du stagiaire (ECS : « Alarme feu &lt;local&gt; », voyant ALARME FEU rouge clignotant). Reclic = réarmement.<br>
-    <b>Édition :</b> « Détecter » place les <b>DAI</b> (ronds) et <b>DM</b> (rectangles) rouges. « <b>Noms (OCR)</b> » propose les noms des locaux. Le sélecteur <b>« Clic ajoute »</b> choisit ce qu'un clic sur le plan ajoute : DAI, DM, ou un symbole désenfumage <b>VH/VB</b> (ventilation) / <b>CCF</b> (clapet) — pour ceux-ci, indique la <b>zone ZF</b> et le local. Clic point = sélectionner ; glisser = déplacer. <b>Sauvegarder</b>.<br>
-    <b>Désenfumage :</b> en Jeu, cliquer une VH/VB/CCF met la <b>ZF en sécurité</b> (voyant rouge sur le CMSI pendant l'alarme) + le coffret CR du même n° ; toutes les VH/VB/CCF de la zone clignotent en bleu.
+    <b>Édition :</b> « Détecter » place les <b>DAI</b> (ronds) et <b>DM</b> (rectangles) rouges. « <b>Noms (OCR)</b> » propose les noms des locaux. Le sélecteur <b>« Clic ajoute »</b> choisit ce qu'un clic sur le plan ajoute : DAI, DM, <b>VH/VB</b> (ventilation → zone <b>ZF</b>) ou <b>CCF</b> (clapet coupe-feu → zone <b>ZC</b>). Pour ces symboles, indique la zone + le local. Clic point = sélectionner ; glisser = déplacer. <b>Sauvegarder</b>.<br>
+    <b>En Jeu :</b> cliquer une <b>VH/VB</b> met la <b>ZF en sécurité</b> (désenfumage), un <b>CCF</b> met la <b>ZC en sécurité</b> (compartimentage) ; + coffret CR du même n° ; voyant rouge sur le CMSI pendant l'alarme ; tous les symboles de la zone clignotent en bleu. Le bouton <b>CMD</b> de l'UCMC force aussi la zone (reflété sur le plan).
   </div>
 
   <div class="log" id="log">› Prêt.</div>
@@ -103,7 +103,7 @@
   <h4>Point sélectionné</h4>
   <label>Type</label>
   <select id="ed-type" onchange="applyEditor()"><option value="DAI">🔴 DAI (auto)</option><option value="DM">🟥 DM (manuel)</option><option value="VH">🟦 VH ventil. haute</option><option value="VB">🟦 VB ventil. basse</option><option value="CCF">🔵 CCF clapet coupe-feu</option></select>
-  <div id="ed-zf-row" style="display:none"><label>Zone ZF</label><select id="ed-zf" onchange="applyEditor()"><option value="1">ZF1</option><option value="2">ZF2</option><option value="3">ZF3</option><option value="4">ZF4</option><option value="5">ZF5</option></select></div>
+  <div id="ed-zf-row" style="display:none"><label id="ed-zf-label">Zone</label><select id="ed-zf" onchange="applyEditor()"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
   <label>Local / adresse</label>
   <input id="ed-addr" type="text" placeholder="ex. couloir X / aile ouest" oninput="applyEditor()">
   <button class="btn grey" style="width:100%;margin-top:10px" onclick="deleteSelected()">🗑️ Supprimer ce point</button>
@@ -121,7 +121,9 @@ const $=id=>document.getElementById(id);
 function logLine(t){const l=$('log');l.innerHTML+='\n› '+t;l.scrollTop=l.scrollHeight;}
 let toastT;function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('show'),1900);}
 const isSym=m=>m.type==='VH'||m.type==='VB'||m.type==='CCF';
-const tag=m=>isSym(m)?('ZF'+(m.zf||1)):(m.type+String(m.id).padStart(2,'0'));
+const symZoneType=m=>m.type==='CCF'?'compartment':'smoke';  // CCF -> ZC, VH/VB -> ZF
+const symPfx=m=>m.type==='CCF'?'ZC':'ZF';
+const tag=m=>isSym(m)?(symPfx(m)+(m.zf||1)):(m.type+String(m.id).padStart(2,'0'));
 const dotText=m=>isSym(m)?m.type:String(m.id);
 
 document.title='Plan — '+(LABELS[PLAN_KEY]||PLAN_KEY);
@@ -142,10 +144,10 @@ function requestState(){post({kind:'request-state'});}
 function applyState(data){
   if(!data)return;
   const find=(t,id)=>((t==='DAI'?data.DAI:data.DM)||[]).find(d=>d.id===id);
-  const zfActive=zf=>{const z=(data.ZF||[]).find(x=>x.id===zf);return !!(z&&(z.state==='securite'||z.state==='defaut-securite'));};
+  const zoneActive=(zt,n)=>{const arr=zt==='compartment'?(data.ZC||[]):(data.ZF||[]);const z=arr.find(x=>x.id===n);return !!(z&&(z.state==='securite'||z.state==='defaut-securite'||z.commandActive));};
   let changed=false;
   MARKERS.forEach(m=>{
-    if(isSym(m)){const a=zfActive(m.zf||1);if(a!==!!m._zfactive){m._zfactive=a;changed=true;}return;}
+    if(isSym(m)){const a=zoneActive(symZoneType(m),m.zf||1);if(a!==!!m._zfactive){m._zfactive=a;changed=true;}return;}
     const d=find(m.type,m.id);const t=!!(d&&d.triggered);const hs=!!(d&&d.hs);if(t!==!!m._fired||hs!==!!m._hs){m._fired=t;m._hs=hs;changed=true;}
   });
   if(changed&&dragging===null)renderMarkers();
@@ -279,11 +281,11 @@ function renderMarkers(){
 function selectMarker(idx){selected=idx;const ed=$('editor');
   if(idx<0||MODE!=='edit'){ed.classList.remove('show');renderMarkers();return;}
   const m=MARKERS[idx];$('ed-type').value=m.type;$('ed-addr').value=m.addr||'';
-  $('ed-zf-row').style.display=isSym(m)?'block':'none';if(isSym(m))$('ed-zf').value=m.zf||1;
+  $('ed-zf-row').style.display=isSym(m)?'block':'none';if(isSym(m)){$('ed-zf').value=m.zf||1;$('ed-zf-label').textContent='Zone '+symPfx(m);}
   ed.classList.add('show');renderMarkers();
   setTimeout(()=>{const a=$('ed-addr');a.focus();a.select();},0);}
 function applyEditor(){if(selected<0)return;const m=MARKERS[selected];m.type=$('ed-type').value;m.addr=$('ed-addr').value;
-  if(isSym(m)){m.zf=+$('ed-zf').value||1;}$('ed-zf-row').style.display=isSym(m)?'block':'none';renumber();renderMarkers();}
+  if(isSym(m)){m.zf=+$('ed-zf').value||1;$('ed-zf-label').textContent='Zone '+symPfx(m);}$('ed-zf-row').style.display=isSym(m)?'block':'none';renumber();renderMarkers();}
 function deleteSelected(){if(selected<0)return;MARKERS.splice(selected,1);renumber();selectMarker(-1);logLine('Point supprimé.');}
 
 // ── drag + ajout ──
@@ -305,12 +307,12 @@ $('stage').addEventListener('click',ev=>{
 // ── déclenchement (mode Jeu) ──
 function fire(idx){
   const m=MARKERS[idx];
-  if(isSym(m)){ // désenfumage : VH/VB/CCF -> déclenche la ZF (+ coffret CR n°ZF)
-    const zf=m.zf||1;
-    if(!m.addr)toast('Astuce : nomme la zone (ZF) en Édition');
-    const sent=post({kind:'trigger-zf',symbol:m.type,zf:zf,label:m.addr||''});
-    if(sent){logLine('💨 Désenfumage → ZF'+zf+' ('+m.type+(m.addr?(' '+m.addr):'')+')');if((Date.now()-lastStateAt)>=3000)toast('Onglet formateur non détecté — rechargez-le');return;}
-    const op=opener();if(op&&typeof op.triggerZfFromPlan==='function'){op.triggerZfFromPlan(m.type,zf,m.addr||'');logLine('💨 Désenfumage ZF'+zf);return;}
+  if(isSym(m)){ // VH/VB -> ZF (désenfumage) ; CCF -> ZC (compartimentage) ; + coffret CR
+    const zone=m.zf||1,zoneType=symZoneType(m),pfx=symPfx(m);
+    if(!m.addr)toast('Astuce : nomme la zone ('+pfx+') en Édition');
+    const sent=post({kind:'trigger-zf',symbol:m.type,zoneType:zoneType,zone:zone,label:m.addr||''});
+    if(sent){logLine((zoneType==='compartment'?'🚪 Compartimentage → ':'💨 Désenfumage → ')+pfx+zone+' ('+m.type+(m.addr?(' '+m.addr):'')+')');if((Date.now()-lastStateAt)>=3000)toast('Onglet formateur non détecté — rechargez-le');return;}
+    const op=opener();if(op&&typeof op.triggerZfFromPlan==='function'){op.triggerZfFromPlan(zoneType,zone,m.addr||'',m.type);logLine(pfx+zone+' déclenché');return;}
     toast('Non relié au formateur');return;
   }
   if(!m.addr&&!m._fired)toast('Astuce : nomme ce local en Édition pour l’afficher sur l’ECS');
