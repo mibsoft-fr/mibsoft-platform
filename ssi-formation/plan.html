@@ -307,8 +307,8 @@ function renderDoors(){
   DOORS.forEach((d,i)=>{
     const show=(MODE==='edit')||d._active;if(!show)return;
     const sel=(i===selDoor&&MODE==='edit');
-    const mx=(d.x1+d.x2)/2,my=(d.y1+d.y2)/2,g=0.07;
-    const ax=mx+(d.x1-mx)*(1-g),ay=my+(d.y1-my)*(1-g),bx=mx+(d.x2-mx)*(1-g),by=my+(d.y2-my)*(1-g);
+    const mx=(d.x1+d.x2)/2,my=(d.y1+d.y2)/2,g=0.08;
+    const ax=mx+(d.x1-mx)*g,ay=my+(d.y1-my)*g,bx=mx+(d.x2-mx)*g,by=my+(d.y2-my)*g;
     const op=(MODE==='edit'&&!d._active)?0.6:1; // semi-transparent en édition tant que ZC pas active
     html+=`<line x1="${d.x1}" y1="${d.y1}" x2="${ax}" y2="${ay}" stroke="#DC2626" stroke-width="${sw}" stroke-linecap="round" opacity="${op}"/>`;
     html+=`<line x1="${bx}" y1="${by}" x2="${d.x2}" y2="${d.y2}" stroke="#DC2626" stroke-width="${sw}" stroke-linecap="round" opacity="${op}"/>`;
