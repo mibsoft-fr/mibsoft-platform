@@ -400,19 +400,30 @@ function deleteSelected(){if(selected<0)return;MARKERS.splice(selected,1);renumb
 // ── Média par point (mode formation) : upload dans le bucket public ssi-plan-media ──
 const SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZmttbG9rb3Z4aWdmbndqZXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1ODUzODUsImV4cCI6MjA5MTE2MTM4NX0.zu5V20Nz7vO3dSYhOtr7mqS7VAMaUDVS2Ibs01xS9Fk';
 let _sb=null,_sbLoading=null;
-function ensureSupabaseClient(){
-  // 1) Réutilise le client DÉJÀ authentifié de la fenêtre parente (center.html / admin.html) :
-  //    c'est lui qui publie les plans (session formateur/centre ou super-admin).
-  try{const op=window.opener;if(op&&!op.closed&&op.supabase&&op.supabase.storage)return Promise.resolve(op.supabase);}catch(_){}
+function lazyClient(){
   if(_sb)return Promise.resolve(_sb);
   if(_sbLoading)return _sbLoading;
   _sbLoading=new Promise((resolve,reject)=>{
-    const mk=()=>{try{const c=window.supabase.createClient(SB_URL,SB_ANON,{auth:{persistSession:true,autoRefreshToken:true}});c.auth.getSession().catch(()=>{}).then(()=>{_sb=c;resolve(c);});}catch(e){reject(e);}};
+    const mk=()=>{try{_sb=window.supabase.createClient(SB_URL,SB_ANON,{auth:{persistSession:true,autoRefreshToken:true}});resolve(_sb);}catch(e){reject(e);}};
     if(window.supabase&&window.supabase.createClient){mk();return;}
     const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
     s.onload=mk;s.onerror=()=>reject(new Error('SDK Supabase indisponible'));document.head.appendChild(s);
   });
   return _sbLoading;
+}
+// Renvoie le client Supabase RÉELLEMENT connecté (parent ou local) + infos de session.
+async function getUploadClient(){
+  const out={client:null,via:'',email:''};
+  // a) Client de la fenêtre parente (center.html / admin.html) — celui qui publie les plans.
+  try{const op=window.opener;if(op&&!op.closed&&op.supabase&&op.supabase.auth){
+    const{data}=await op.supabase.auth.getSession();
+    if(data&&data.session){out.client=op.supabase;out.via='fenêtre parente';out.email=(data.session.user&&data.session.user.email)||'';return out;}
+  }}catch(_){}
+  // b) Client local (lit la session partagée du même navigateur).
+  try{const c=await lazyClient();const{data}=await c.auth.getSession();
+    if(data&&data.session){out.client=c;out.via='client local';out.email=(data.session.user&&data.session.user.email)||'';return out;}
+  }catch(_){}
+  return out; // aucune session
 }
 function renderMarkerMediaEditor(m){
   const cur=$('ed-media-cur'),del=$('ed-media-del'),st=$('ed-media-status');
@@ -431,21 +442,23 @@ async function handleMediaUpload(file){
   const max=kind==='video'?60:8;
   if(file.size>max*1024*1024){$('ed-media-status').textContent='⚠️ Fichier trop lourd (max '+max+' Mo pour '+(kind==='video'?'une vidéo':'une image')+').';return;}
   $('ed-media-status').textContent='⏳ Envoi…';
+  const ctx=await getUploadClient();
+  if(!ctx.client){$('ed-media-status').innerHTML='❌ Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' (l\'onglet d\'où vous avez ouvert l\'éditeur), puis rouvrez l\'éditeur.';return;}
   try{
-    const sb=await ensureSupabaseClient();
+    const sb=ctx.client;
     const ext=((file.name||'').split('.').pop()||(kind==='video'?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5)||'bin';
     const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-'+Date.now()+'.'+ext;
     const{error}=await sb.storage.from(MEDIA_BUCKET).upload(path,file,{upsert:true,contentType:file.type||undefined});
     if(error)throw error;
     m.media={kind,url:mediaPublicUrl(path),path};
     renderMarkerMediaEditor(m);
-    $('ed-media-status').textContent='✅ Média lié. Pensez à 💾 Sauvegarder puis Publier.';
+    $('ed-media-status').textContent='✅ Média lié ('+ctx.via+(ctx.email?' · '+ctx.email:'')+'). 💾 Sauvegarder puis Publier.';
     logLine('🖼️ Média lié à '+tag(m)+'.');
-  }catch(e){$('ed-media-status').textContent='❌ Échec : '+(e.message||e);}
+  }catch(e){const msg=(e&&(e.message||e.error||e))+'';$('ed-media-status').textContent='❌ Échec ('+ctx.via+(ctx.email?' · '+ctx.email:'')+') : '+msg+(/row-level|policy|denied|403/i.test(msg)?' — droits insuffisants pour le dossier « '+SCOPE+'/ ». Reconnectez-vous puis réessayez.':'');}
 }
 function removeMarkerMedia(){
   if(selected<0)return;const m=MARKERS[selected];
-  if(m.media&&m.media.path){ensureSupabaseClient().then(sb=>sb.storage.from(MEDIA_BUCKET).remove([m.media.path])).catch(()=>{});}
+  if(m.media&&m.media.path){const p=m.media.path;getUploadClient().then(c=>{if(c.client)c.client.storage.from(MEDIA_BUCKET).remove([p]);}).catch(()=>{});}
   m.media=null;renderMarkerMediaEditor(m);logLine('Média retiré (pensez à Sauvegarder).');
 }
 // Overlay média (mode formation), déclenché quand un point passe en alarme.
