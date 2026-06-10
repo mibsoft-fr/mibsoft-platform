@@ -1799,8 +1799,8 @@ async function addPlanType(){
   const label=name.trim();const key=planSlug(label);
   if(!key){alert('Nom invalide.');return;}
   try{
-    const{error}=await supabase.from('ssi_plan_types').upsert({key,label},{onConflict:'key'});
-    if(error)throw error;
+    const{error}=await supabase.from('ssi_plan_types').insert({key,label});
+    if(error){if(error.code==='23505'){alert('Un modèle « '+label+' » existe déjà.');}else{alert('❌ Ajout refusé : '+(error.message||error)+'\n(Réservé au super-admin.)');}return;}
   }catch(e){alert('❌ Ajout refusé : '+(e.message||e)+'\n(Réservé au super-admin.)');return;}
   await loadPlanExamples();
   if(confirm('Type « '+label+' » ajouté.\nOuvrir l\'éditeur pour construire ce plan maintenant ?'))openPlanExEditor(key);
@@ -1809,7 +1809,7 @@ async function removePlanType(key,label){
   if(!confirm('Retirer le type « '+(label||key)+' » ?\nLe plan exemple associé sera aussi supprimé. (Les plans propres des centres ne sont pas touchés.)'))return;
   try{
     await supabase.storage.from(PLAN_EX_BUCKET).remove(['shared/'+key+'.json']);
-    const{error}=await supabase.from('ssi_plan_types').delete().eq('key',key);
+    const{error}=await supabase.from('ssi_plan_types').delete().eq('key',key).is('center_id',null);
     if(error)throw error;
   }catch(e){alert('❌ Suppression refusée : '+(e.message||e));return;}
   loadPlanExamples();
@@ -1820,7 +1820,7 @@ async function loadPlanExamples(){
   if(!body)return;
   // Référentiel des types
   let types=[];
-  try{const{data}=await supabase.from('ssi_plan_types').select('*').order('sort',{ascending:true});types=data||[];}catch(_){}
+  try{const{data}=await supabase.from('ssi_plan_types').select('*').is('center_id',null).order('sort',{ascending:true});types=data||[];}catch(_){}
   // Fichiers présents dans shared/
   let files={};
   try{

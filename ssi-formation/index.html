@@ -1744,8 +1744,16 @@ let _planTypesLoaded=false;
 async function loadPlanTypes(force){
 if(_planTypesLoaded&&!force)return;_planTypesLoaded=true;
 try{
-const{data,error}=await window.supabase.from('ssi_plan_types').select('*').order('sort',{ascending:true});
-if(!error&&Array.isArray(data)&&data.length){STATE.planTypes=data;data.forEach(t=>{PLAN_LABELS[t.key]=t.label;});render();}
+const cid=planCenterId();
+let qb=window.supabase.from('ssi_plan_types').select('*');
+qb=cid?qb.or('center_id.is.null,center_id.eq.'+cid):qb.is('center_id',null);
+const{data,error}=await qb.order('sort',{ascending:true});
+if(!error&&Array.isArray(data)){
+const byKey={};
+data.forEach(t=>{if(!byKey[t.key]||t.center_id)byKey[t.key]=t;}); // le type du centre prime sur le modèle commun
+const list=Object.values(byKey).sort((a,b)=>(a.sort||100)-(b.sort||100));
+if(list.length){STATE.planTypes=list;list.forEach(t=>{PLAN_LABELS[t.key]=t.label;});render();}
+}
 }catch(_){}
 }
 // Formateur en session : ouvre le plan en MODE JEU SEUL (sans édition). Le plan provient
