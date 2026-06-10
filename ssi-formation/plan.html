@@ -421,16 +421,30 @@ function saveAll(){
   toast('Plan sauvegardé');logLine('💾 Sauvegardé ('+MARKERS.length+' points, '+DOORS.length+' porte(s)).');}catch(e){logLine('⚠️ Sauvegarde impossible.');}
   // pousse les adresses des DAI/DM au SSI pour qu'elles soient déjà en place
   MARKERS.forEach(m=>{if(m.addr&&!isSym(m))post({kind:'set-address',type:m.type,id:m.id,address:m.addr});});
-  // envoie le plan complet au formateur -> stockage serveur (pour l'UAE stagiaire)
-  post({kind:'save-plan',planKey:PLAN_KEY,image:localStorage.getItem(STORE+'_img')||'',markers:MARKERS.map(m=>({x:m.x,y:m.y,type:m.type,id:m.id,addr:m.addr||'',zf:m.zf||1,lzc:m.lzc||0,lzf:m.lzf||0})),doors:DOORS.map(d=>({x1:d.x1,y1:d.y1,x2:d.x2,y2:d.y2,zc:d.zc||1,label:d.label||''}))});
 }
 
 // ── restauration + boucle de synchro ──
 (function(){
-  const img=localStorage.getItem(STORE+'_img');if(img)$('plan').src=img;
-  const mk=localStorage.getItem(STORE);if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>{const o={addr:'',zf:1,lzc:0,lzf:0,...m};if(m.link&&!o.lzc&&!o.lzf){if(m.type==='DM')o.lzc=m.link;else if(m.type==='DAI')o.lzf=m.link;}return o;});renumber();}catch(_){}}
-  const dd=localStorage.getItem(STORE+'_doors');if(dd){try{DOORS=(JSON.parse(dd)||[]).map(d=>({label:'',zc:1,...d}));}catch(_){}}
-  if(UAE)setMode('play');else if(!img&&!MARKERS.length)setMode('edit');else logLine('Plan « '+(LABELS[PLAN_KEY]||PLAN_KEY)+' » chargé ('+MARKERS.length+' points).');
+  function loadStore(){
+    const img=localStorage.getItem(STORE+'_img');if(img)$('plan').src=img;
+    const mk=localStorage.getItem(STORE);if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>{const o={addr:'',zf:1,lzc:0,lzf:0,...m};if(m.link&&!o.lzc&&!o.lzf){if(m.type==='DM')o.lzc=m.link;else if(m.type==='DAI')o.lzf=m.link;}return o;});renumber();}catch(_){}}
+    const dd=localStorage.getItem(STORE+'_doors');if(dd){try{DOORS=(JSON.parse(dd)||[]).map(d=>({label:'',zc:1,...d}));}catch(_){}}
+    renderMarkers();renderDoors();
+    return !!img;
+  }
+  const has=loadStore();
+  if(UAE){
+    setMode('play');
+    if(!has){
+      // Plan pas encore en localStorage : on attend que le poste stagiaire le reçoive
+      // du formateur (transfert temps réel) et l'écrive — détecté via l'évènement « storage ».
+      const ov=document.createElement('div');ov.id='uaeWait';ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;background:#0b3a53;color:#fff;font:600 18px system-ui;z-index:9999';ov.textContent='⏳ Chargement du plan…';document.body.appendChild(ov);
+      const onStore=(e)=>{if(!e.key||e.key===STORE+'_img'||e.key===STORE||e.key===STORE+'_doors'){if(loadStore()){ov.remove();window.removeEventListener('storage',onStore);requestState();}}};
+      window.addEventListener('storage',onStore);
+      setTimeout(()=>{const o=document.getElementById('uaeWait');if(o)o.textContent='Plan indisponible — demandez au formateur d’ouvrir un plan, puis rouvrez la vue UAE.';},15000);
+    }
+  } else if(!has&&!MARKERS.length){setMode('edit');}
+  else{logLine('Plan « '+(LABELS[PLAN_KEY]||PLAN_KEY)+' » chargé ('+MARKERS.length+' points).');}
   requestState();refreshLink();
   setInterval(()=>{requestState();refreshLink();},1200);
 })();
