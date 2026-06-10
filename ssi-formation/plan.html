@@ -427,12 +427,20 @@ async function rawUpload(token,path,file,contentType){
 }
 // Effectue l'upload via le canal le plus fiable disponible.
 async function doUpload(path,file,contentType){
-  // a) Helper exposé par la fenêtre parente (center/admin) : session live (single client, header OK).
-  try{const op=window.opener;if(op&&!op.closed&&typeof op.__ssiMediaUpload==='function'){
-    const r=await op.__ssiMediaUpload(path,file,contentType);
-    return{via:'fenêtre parente',email:(r&&r.email)||'',sa:r&&r.sa,error:(r&&r.error)||null};
-  }}catch(_){}
-  // b) Client local : refresh pour un token frais (claim via hook) PUIS fetch direct avec ce token.
+  let op=null;try{op=(window.opener&&!window.opener.closed)?window.opener:null;}catch(_){op=null;}
+  // a) Helper exposé par la fenêtre parente (center/admin), session live.
+  if(op&&typeof op.__ssiMediaUpload==='function'){
+    try{const r=await op.__ssiMediaUpload(path,file,contentType);return{via:'parent‑helper',email:(r&&r.email)||'',sa:r&&r.sa,error:(r&&r.error)||null};}catch(_){}
+  }
+  // b) Client de la fenêtre parente EN DIRECT : c'est lui qui publie déjà les plans shared
+  //    avec succès. On NE crée PAS de client concurrent (évite la contention de verrou GoTrue).
+  if(op&&op.supabase&&op.supabase.storage){
+    let email='',sa;try{const{data}=await op.supabase.auth.getSession();if(data&&data.session){email=(data.session.user&&data.session.user.email)||'';sa=jwtClaims(data.session.access_token).is_super_admin;}}catch(_){}
+    try{const{error}=await op.supabase.storage.from(MEDIA_BUCKET).upload(path,file,{upsert:true,contentType});
+      return{via:'client parent',email,sa,error:error?(error.message||error+''):null};}
+    catch(e){return{via:'client parent',email,sa,error:(e&&e.message)||e+''};}
+  }
+  // c) Dernier recours (éditeur sans fenêtre parente) : client local + fetch direct avec token explicite.
   const c=await lazyClient();
   try{await c.auth.refreshSession();}catch(_){}
   const{data}=await c.auth.getSession();
@@ -458,12 +466,12 @@ async function handleMediaUpload(file){
   const kind=(file.type||'').startsWith('video')?'video':'image';
   const max=kind==='video'?60:8;
   if(file.size>max*1024*1024){$('ed-media-status').textContent='⚠️ Fichier trop lourd (max '+max+' Mo pour '+(kind==='video'?'une vidéo':'une image')+').';return;}
-  $('ed-media-status').textContent='⏳ Envoi…';
+  $('ed-media-status').textContent='⏳ Envoi… [u5]';
   const ext=((file.name||'').split('.').pop()||(kind==='video'?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5)||'bin';
-  const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-'+Date.now()+'.'+ext;
+  const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-u5-'+Date.now()+'.'+ext;
   let r;try{r=await doUpload(path,file,file.type||undefined);}catch(e){r={via:'?',error:(e&&e.message)||e+''};}
-  const who=(r.via||'?')+(r.email?' · '+r.email:'')+(r.sa===false?' · NON super-admin':(r.sa===true?' · super-admin':''));
-  if(r.error==='NO_SESSION'){$('ed-media-status').textContent='❌ Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l\'éditeur via le bouton ✏️.';return;}
+  const who='[u5] '+(r.via||'?')+(r.email?' · '+r.email:'')+(r.sa===false?' · NON super-admin':(r.sa===true?' · super-admin':''));
+  if(r.error==='NO_SESSION'){$('ed-media-status').textContent='❌ [u5] Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l\'éditeur via le bouton ✏️.';return;}
   if(r.error){const msg=r.error+'';$('ed-media-status').textContent='❌ Échec ('+who+') : '+msg+(/row-level|policy|denied|403/i.test(msg)?(' — '+(r.sa===false?'ce compte n\'est pas super-admin : ouvrez l\'éditeur depuis la page admin connectée en super-admin.':'droits insuffisants pour « '+SCOPE+'/ ». Reconnectez-vous puis réessayez.')):'');return;}
   m.media={kind,url:mediaPublicUrl(path),path};
   renderMarkerMediaEditor(m);
