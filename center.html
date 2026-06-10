@@ -1515,6 +1515,17 @@ const STD_LEVELS = [
 ];
 function centerPlanFmtDate(s){ try { return new Date(s).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}); } catch(_) { return '—'; } }
 function centerPlanSlug(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40); }
+// Helper d'upload média appelé par l'éditeur de plan (fenêtre enfant) avec la session live de cette page.
+window.__ssiMediaUpload=async(path,file,contentType)=>{
+  try{
+    try{await supabase.auth.refreshSession();}catch(_){}
+    const{data}=await supabase.auth.getSession();const s=data&&data.session;let email='',sa;
+    if(s){email=(s.user&&s.user.email)||'';try{const p=s.access_token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');sa=JSON.parse(decodeURIComponent(escape(atob(p)))).is_super_admin;}catch(_){}}
+    if(!s)return{error:'NO_SESSION',email,sa};
+    const{error}=await supabase.storage.from('ssi-plan-media').upload(path,file,{upsert:true,contentType});
+    return{error:error?(error.message||error+''):null,email,sa};
+  }catch(e){return{error:(e&&e.message)||e+''};}
+};
 function openCenterLevelEditor(estabKey, levelKey){ window.open('ssi-formation/plan.html?plan='+encodeURIComponent(estabKey+'/'+levelKey)+'&scope='+encodeURIComponent(CENTER.id),'mibplan_'+estabKey+'_'+levelKey,'width=1100,height=820'); }
 
 window.addCenterPlanType = async function(){

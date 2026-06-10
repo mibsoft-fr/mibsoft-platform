@@ -411,19 +411,24 @@ function lazyClient(){
   });
   return _sbLoading;
 }
-// Renvoie le client Supabase RÉELLEMENT connecté (parent ou local) + infos de session.
-async function getUploadClient(){
-  const out={client:null,via:'',email:''};
-  // a) Client de la fenêtre parente (center.html / admin.html) — celui qui publie les plans.
-  try{const op=window.opener;if(op&&!op.closed&&op.supabase&&op.supabase.auth){
-    const{data}=await op.supabase.auth.getSession();
-    if(data&&data.session){out.client=op.supabase;out.via='fenêtre parente';out.email=(data.session.user&&data.session.user.email)||'';return out;}
+// Renvoie le payload (claims) d'un JWT, ou {}.
+function jwtClaims(tok){try{const p=tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');return JSON.parse(decodeURIComponent(escape(atob(p))))||{};}catch(_){return {};}}
+// Effectue l'upload via le canal le plus fiable disponible, en re-mintant le token (hook → claim is_super_admin).
+async function doUpload(path,file,contentType){
+  // a) Helper exposé par la fenêtre parente (center/admin) : session live, super-admin garantie pour shared/.
+  try{const op=window.opener;if(op&&!op.closed&&typeof op.__ssiMediaUpload==='function'){
+    const r=await op.__ssiMediaUpload(path,file,contentType);
+    return{via:'fenêtre parente',email:(r&&r.email)||'',sa:r&&r.sa,error:(r&&r.error)||null};
   }}catch(_){}
-  // b) Client local (lit la session partagée du même navigateur).
-  try{const c=await lazyClient();const{data}=await c.auth.getSession();
-    if(data&&data.session){out.client=c;out.via='client local';out.email=(data.session.user&&data.session.user.email)||'';return out;}
-  }catch(_){}
-  return out; // aucune session
+  // b) Client local : on FORCE un refresh pour obtenir un token frais (avec le claim) puis on upload.
+  const c=await lazyClient();
+  try{await c.auth.refreshSession();}catch(_){}
+  const{data}=await c.auth.getSession();
+  const session=data&&data.session;
+  if(!session)return{via:'client local',email:'',sa:undefined,error:'NO_SESSION'};
+  const claims=jwtClaims(session.access_token);
+  const{error}=await c.storage.from(MEDIA_BUCKET).upload(path,file,{upsert:true,contentType});
+  return{via:'client local',email:(session.user&&session.user.email)||'',sa:claims.is_super_admin,error:error?(error.message||error+''):null};
 }
 function renderMarkerMediaEditor(m){
   const cur=$('ed-media-cur'),del=$('ed-media-del'),st=$('ed-media-status');
@@ -442,23 +447,20 @@ async function handleMediaUpload(file){
   const max=kind==='video'?60:8;
   if(file.size>max*1024*1024){$('ed-media-status').textContent='⚠️ Fichier trop lourd (max '+max+' Mo pour '+(kind==='video'?'une vidéo':'une image')+').';return;}
   $('ed-media-status').textContent='⏳ Envoi…';
-  const ctx=await getUploadClient();
-  if(!ctx.client){$('ed-media-status').innerHTML='❌ Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' (l\'onglet d\'où vous avez ouvert l\'éditeur), puis rouvrez l\'éditeur.';return;}
-  try{
-    const sb=ctx.client;
-    const ext=((file.name||'').split('.').pop()||(kind==='video'?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5)||'bin';
-    const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-'+Date.now()+'.'+ext;
-    const{error}=await sb.storage.from(MEDIA_BUCKET).upload(path,file,{upsert:true,contentType:file.type||undefined});
-    if(error)throw error;
-    m.media={kind,url:mediaPublicUrl(path),path};
-    renderMarkerMediaEditor(m);
-    $('ed-media-status').textContent='✅ Média lié ('+ctx.via+(ctx.email?' · '+ctx.email:'')+'). 💾 Sauvegarder puis Publier.';
-    logLine('🖼️ Média lié à '+tag(m)+'.');
-  }catch(e){const msg=(e&&(e.message||e.error||e))+'';$('ed-media-status').textContent='❌ Échec ('+ctx.via+(ctx.email?' · '+ctx.email:'')+') : '+msg+(/row-level|policy|denied|403/i.test(msg)?' — droits insuffisants pour le dossier « '+SCOPE+'/ ». Reconnectez-vous puis réessayez.':'');}
+  const ext=((file.name||'').split('.').pop()||(kind==='video'?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5)||'bin';
+  const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-'+Date.now()+'.'+ext;
+  let r;try{r=await doUpload(path,file,file.type||undefined);}catch(e){r={via:'?',error:(e&&e.message)||e+''};}
+  const who=(r.via||'?')+(r.email?' · '+r.email:'')+(r.sa===false?' · NON super-admin':(r.sa===true?' · super-admin':''));
+  if(r.error==='NO_SESSION'){$('ed-media-status').textContent='❌ Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l\'éditeur via le bouton ✏️.';return;}
+  if(r.error){const msg=r.error+'';$('ed-media-status').textContent='❌ Échec ('+who+') : '+msg+(/row-level|policy|denied|403/i.test(msg)?(' — '+(r.sa===false?'ce compte n\'est pas super-admin : ouvrez l\'éditeur depuis la page admin connectée en super-admin.':'droits insuffisants pour « '+SCOPE+'/ ». Reconnectez-vous puis réessayez.')):'');return;}
+  m.media={kind,url:mediaPublicUrl(path),path};
+  renderMarkerMediaEditor(m);
+  $('ed-media-status').textContent='✅ Média lié ('+who+'). 💾 Sauvegarder puis Publier.';
+  logLine('🖼️ Média lié à '+tag(m)+'.');
 }
 function removeMarkerMedia(){
   if(selected<0)return;const m=MARKERS[selected];
-  if(m.media&&m.media.path){const p=m.media.path;getUploadClient().then(c=>{if(c.client)c.client.storage.from(MEDIA_BUCKET).remove([p]);}).catch(()=>{});}
+  if(m.media&&m.media.path){const p=m.media.path;lazyClient().then(c=>c.auth.refreshSession().catch(()=>{}).then(()=>c.storage.from(MEDIA_BUCKET).remove([p]))).catch(()=>{});}
   m.media=null;renderMarkerMediaEditor(m);logLine('Média retiré (pensez à Sauvegarder).');
 }
 // Overlay média (mode formation), déclenché quand un point passe en alarme.
