@@ -23,6 +23,8 @@
   label.sld{display:inline-flex;flex-direction:column;font-size:.68rem;color:var(--n600);gap:2px}
   .edit-only{display:none}
   body.mode-edit .edit-only{display:inline-flex}
+  body.uae .bar,body.uae .help,body.uae .editor,body.uae #door-editor,body.uae #hostEmpty{display:none!important}
+  body.uae .mk{cursor:default}
   .stage{position:relative;display:inline-block;max-width:100%;border:1px solid var(--n200);border-radius:12px;overflow:hidden;background:#fff;line-height:0}
   #plan{max-width:100%;display:block;-webkit-user-drag:none;user-select:none}
   #doors-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
@@ -131,6 +133,7 @@
 const PLAN_KEY=new URLSearchParams(location.search).get('plan')||'plan';
 const LABELS={'centre-commercial':'Centre commercial','hopital':'Hôpital'};
 const STORE='mib_plan_'+PLAN_KEY;
+const UAE=new URLSearchParams(location.search).get('uae')==='1'; // vue stagiaire lecture seule
 let MARKERS=[]; // {x,y,type,id,addr,_fired}
 let MODE='play', selected=-1, dragging=null, dragMoved=false, lastStateAt=0;
 let DOORS=[], selDoor=-1, dragDoor=null; // portes (compartimentage) : {x1,y1,x2,y2,zc,label,_active}
@@ -143,8 +146,9 @@ const symPfx=m=>m.type==='CCF'?'ZC':'ZF';
 const tag=m=>isSym(m)?(symPfx(m)+(m.zf||1)):(m.type+String(m.id).padStart(2,'0'));
 const dotText=m=>isSym(m)?m.type:String(m.id);
 
-document.title='Plan — '+(LABELS[PLAN_KEY]||PLAN_KEY);
-$('title').textContent='Plan — '+(LABELS[PLAN_KEY]||PLAN_KEY);
+const TITLE=(UAE?'UAE — ':'Plan — ')+(LABELS[PLAN_KEY]||PLAN_KEY);
+document.title=TITLE;$('title').textContent=TITLE;
+if(UAE){document.body.classList.add('uae');const sub=document.querySelector('.head .sub');if(sub)sub.textContent='Visualisation temps réel de l’état du SSI sur le plan';}
 
 // ── Transport : BroadcastChannel (robuste), repli sur window.opener ──
 let BUS=null;try{BUS=new BroadcastChannel('mib-ssi-plan');}catch(_){}
@@ -382,6 +386,7 @@ $('stage').addEventListener('click',ev=>{
 
 // ── déclenchement (mode Jeu) ──
 function fire(idx){
+  if(UAE)return; // vue stagiaire : lecture seule, aucun déclenchement
   const m=MARKERS[idx];
   if(isSym(m)){ // VH/VB -> ZF (désenfumage) ; CCF -> ZC (compartimentage) ; + coffret CR
     const zone=m.zf||1,zoneType=symZoneType(m),pfx=symPfx(m);
@@ -416,6 +421,8 @@ function saveAll(){
   toast('Plan sauvegardé');logLine('💾 Sauvegardé ('+MARKERS.length+' points, '+DOORS.length+' porte(s)).');}catch(e){logLine('⚠️ Sauvegarde impossible.');}
   // pousse les adresses des DAI/DM au SSI pour qu'elles soient déjà en place
   MARKERS.forEach(m=>{if(m.addr&&!isSym(m))post({kind:'set-address',type:m.type,id:m.id,address:m.addr});});
+  // envoie le plan complet au formateur -> stockage serveur (pour l'UAE stagiaire)
+  post({kind:'save-plan',planKey:PLAN_KEY,image:localStorage.getItem(STORE+'_img')||'',markers:MARKERS.map(m=>({x:m.x,y:m.y,type:m.type,id:m.id,addr:m.addr||'',zf:m.zf||1,lzc:m.lzc||0,lzf:m.lzf||0})),doors:DOORS.map(d=>({x1:d.x1,y1:d.y1,x2:d.x2,y2:d.y2,zc:d.zc||1,label:d.label||''}))});
 }
 
 // ── restauration + boucle de synchro ──
@@ -423,7 +430,7 @@ function saveAll(){
   const img=localStorage.getItem(STORE+'_img');if(img)$('plan').src=img;
   const mk=localStorage.getItem(STORE);if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>{const o={addr:'',zf:1,lzc:0,lzf:0,...m};if(m.link&&!o.lzc&&!o.lzf){if(m.type==='DM')o.lzc=m.link;else if(m.type==='DAI')o.lzf=m.link;}return o;});renumber();}catch(_){}}
   const dd=localStorage.getItem(STORE+'_doors');if(dd){try{DOORS=(JSON.parse(dd)||[]).map(d=>({label:'',zc:1,...d}));}catch(_){}}
-  if(!img&&!MARKERS.length)setMode('edit');else logLine('Plan « '+(LABELS[PLAN_KEY]||PLAN_KEY)+' » chargé ('+MARKERS.length+' points).');
+  if(UAE)setMode('play');else if(!img&&!MARKERS.length)setMode('edit');else logLine('Plan « '+(LABELS[PLAN_KEY]||PLAN_KEY)+' » chargé ('+MARKERS.length+' points).');
   requestState();refreshLink();
   setInterval(()=>{requestState();refreshLink();},1200);
 })();
