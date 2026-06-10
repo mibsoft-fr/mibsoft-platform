@@ -491,18 +491,18 @@ async function doUpload(path,file,contentType){
       return{via:'client parent',email,sa,error:error?(error.message||error+''):null};}
     catch(e){return{via:'client parent',email,sa,error:(e&&e.message)||e+''};}
   }
-  // c) Éditeur sans fenêtre parente : on utilise le MÊME mécanisme que la publication des plans
-  //    (supabase-js .upload()), qui fonctionne — et NON un fetch manuel. freshestToken garantit
-  //    une session valide chargée dans le client local avant l'upload.
+  // c) Éditeur sans fenêtre parente : fetch direct avec token explicite (rawUpload). Ce chemin
+  //    fonctionne une fois la RLS Storage corrigée côté serveur (cf. u7). freshestToken garantit
+  //    un token valide ; le fetch manuel reste plus fiable que le SDK quand deux clients
+  //    supabase-js partagent la même clé de stockage.
   const c=await lazyClient();
   const tok=await freshestToken(c);
   if(!tok||!tok.access_token)return{via:'client local',email:'',sa:undefined,error:'NO_SESSION'};
   const now=Math.floor(Date.now()/1000);
   if(tok.exp&&tok.exp-now<=0)return{via:'client local',email:tok.email,sa:tok.sa,error:'TOKEN_EXPIRED'};
-  try{
-    const{error}=await c.storage.from(MEDIA_BUCKET).upload(path,file,{upsert:true,contentType});
-    return{via:'client local',email:tok.email,sa:tok.sa,error:error?(error.message||error+''):null};
-  }catch(e){return{via:'client local',email:tok.email,sa:tok.sa,error:(e&&e.message)||e+''};}
+  let error=await rawUpload(tok.access_token,path,file,contentType);
+  if(error&&/row-level|policy|403/i.test(error+'')){try{error=error+' — '+await serverDiag(tok.access_token);}catch(_){}}
+  return{via:'client local',email:tok.email,sa:tok.sa,error};
 }
 function renderMarkerMediaEditor(m){
   const cur=$('ed-media-cur'),del=$('ed-media-del'),st=$('ed-media-status');
@@ -520,13 +520,13 @@ async function handleMediaUpload(file){
   const kind=(file.type||'').startsWith('video')?'video':'image';
   const max=kind==='video'?60:8;
   if(file.size>max*1024*1024){$('ed-media-status').textContent='⚠️ Fichier trop lourd (max '+max+' Mo pour '+(kind==='video'?'une vidéo':'une image')+').';return;}
-  $('ed-media-status').textContent='⏳ Envoi… [u8]';
+  $('ed-media-status').textContent='⏳ Envoi… [u9]';
   const ext=((file.name||'').split('.').pop()||(kind==='video'?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5)||'bin';
-  const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-u8-'+Date.now()+'.'+ext;
+  const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-u9-'+Date.now()+'.'+ext;
   let r;try{r=await doUpload(path,file,file.type||undefined);}catch(e){r={via:'?',error:(e&&e.message)||e+''};}
-  const who='[u8] '+(r.via||'?')+(r.email?' · '+r.email:'')+(r.sa===false?' · NON super-admin':(r.sa===true?' · super-admin':''));
-  if(r.error==='NO_SESSION'){$('ed-media-status').textContent='❌ [u8] Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l\'éditeur via le bouton ✏️.';return;}
-  if(r.error==='TOKEN_EXPIRED'){$('ed-media-status').textContent='❌ [u8] Session expirée ('+(r.email||'?')+'). Votre connexion a expiré : rouvrez/rafraîchissez la page '+(SCOPE==='shared'?'admin':'centre')+' (qui vous reconnecte), puis relancez l\'envoi.';return;}
+  const who='[u9] '+(r.via||'?')+(r.email?' · '+r.email:'')+(r.sa===false?' · NON super-admin':(r.sa===true?' · super-admin':''));
+  if(r.error==='NO_SESSION'){$('ed-media-status').textContent='❌ [u9] Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l\'éditeur via le bouton ✏️.';return;}
+  if(r.error==='TOKEN_EXPIRED'){$('ed-media-status').textContent='❌ [u9] Session expirée ('+(r.email||'?')+'). Votre connexion a expiré : rouvrez/rafraîchissez la page '+(SCOPE==='shared'?'admin':'centre')+' (qui vous reconnecte), puis relancez l\'envoi.';return;}
   if(r.error){const msg=r.error+'';$('ed-media-status').textContent='❌ Échec ('+who+') : '+msg+(/row-level|policy|denied|403/i.test(msg)?(' — '+(r.sa===false?'ce compte n\'est pas super-admin : ouvrez l\'éditeur depuis la page admin connectée en super-admin.':'droits insuffisants pour « '+SCOPE+'/ ». Reconnectez-vous puis réessayez.')):'');return;}
   m.media={kind,url:mediaPublicUrl(path),path};
   renderMarkerMediaEditor(m);
