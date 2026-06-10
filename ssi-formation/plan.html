@@ -25,6 +25,8 @@
   body.mode-edit .edit-only{display:inline-flex}
   body.uae .bar,body.uae .help,body.uae .editor,body.uae #door-editor,body.uae #hostEmpty{display:none!important}
   body.uae .mk{cursor:default}
+  /* Mode jeu seul (formateur en session) : on masque toute la barre d'édition, on garde le déclenchement */
+  body.playonly .bar,body.playonly .help,body.playonly .editor,body.playonly #door-editor,body.playonly #hostEmpty{display:none!important}
   .stage{position:relative;display:inline-block;max-width:100%;border:1px solid var(--n200);border-radius:12px;overflow:hidden;background:#fff;line-height:0}
   #plan{max-width:100%;display:block;-webkit-user-drag:none;user-select:none}
   #doors-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
@@ -135,6 +137,7 @@ const PLAN_KEY=new URLSearchParams(location.search).get('plan')||'plan';
 const LABELS={'centre-commercial':'Centre commercial','hopital':'Hôpital'};
 const STORE='mib_plan_'+PLAN_KEY;
 const UAE=new URLSearchParams(location.search).get('uae')==='1'; // vue stagiaire lecture seule
+const PLAYONLY=new URLSearchParams(location.search).get('play')==='1'; // formateur en session : mode jeu seul (déclenchement actif, sans édition)
 let MARKERS=[]; // {x,y,type,id,addr,_fired}
 let MODE='play', selected=-1, dragging=null, dragMoved=false, lastStateAt=0;
 let DOORS=[], selDoor=-1, dragDoor=null; // portes (compartimentage) : {x1,y1,x2,y2,zc,label,_active}
@@ -150,6 +153,7 @@ const dotText=m=>isSym(m)?m.type:String(m.id);
 const TITLE=(UAE?'UAE — ':'Plan — ')+(LABELS[PLAN_KEY]||PLAN_KEY);
 document.title=TITLE;$('title').textContent=TITLE;
 if(UAE){document.body.classList.add('uae');const sub=document.querySelector('.head .sub');if(sub)sub.textContent='Visualisation temps réel de l’état du SSI sur le plan';}
+if(PLAYONLY){document.body.classList.add('playonly');const sub=document.querySelector('.head .sub');if(sub)sub.textContent='Mode jeu — cliquez un DAI/DM ou un symbole pour déclencher';}
 
 // ── Transport : BroadcastChannel (robuste), repli sur window.opener ──
 let BUS=null;try{BUS=new BroadcastChannel('mib-ssi-plan');}catch(_){}
@@ -442,15 +446,16 @@ function publishShared(){
     return !!img;
   }
   const has=loadStore();
-  if(UAE){
+  const NEEDLOAD=UAE||PLAYONLY; // plan fourni par le serveur (écrit en localStorage par index.html)
+  if(NEEDLOAD){
     setMode('play');
     if(!has){
-      // Plan pas encore en localStorage : on attend que le poste stagiaire le reçoive
-      // du formateur (transfert temps réel) et l'écrive — détecté via l'évènement « storage ».
+      // Plan pas encore en localStorage : on attend que index.html (même origine) l'écrive
+      // après téléchargement depuis le serveur — détecté via l'évènement « storage ».
       const ov=document.createElement('div');ov.id='uaeWait';ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;background:#0b3a53;color:#fff;font:600 18px system-ui;z-index:9999';ov.textContent='⏳ Chargement du plan…';document.body.appendChild(ov);
       const onStore=(e)=>{if(!e.key||e.key===STORE+'_img'||e.key===STORE||e.key===STORE+'_doors'){if(loadStore()){ov.remove();window.removeEventListener('storage',onStore);requestState();}}};
       window.addEventListener('storage',onStore);
-      setTimeout(()=>{const o=document.getElementById('uaeWait');if(o)o.textContent='Plan indisponible — demandez au formateur d’ouvrir un plan, puis rouvrez la vue UAE.';},15000);
+      setTimeout(()=>{const o=document.getElementById('uaeWait');if(o)o.textContent='Plan indisponible — ce centre n’a pas encore de plan, et aucun modèle n’est publié.';},15000);
     }
   } else if(!has&&!MARKERS.length){setMode('edit');}
   else{logLine('Plan « '+(LABELS[PLAN_KEY]||PLAN_KEY)+' » chargé ('+MARKERS.length+' points).');}
