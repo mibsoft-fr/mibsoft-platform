@@ -413,22 +413,34 @@ function lazyClient(){
 }
 // Renvoie le payload (claims) d'un JWT, ou {}.
 function jwtClaims(tok){try{const p=tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');return JSON.parse(decodeURIComponent(escape(atob(p))))||{};}catch(_){return {};}}
-// Effectue l'upload via le canal le plus fiable disponible, en re-mintant le token (hook → claim is_super_admin).
+// Upload via fetch direct à l'API Storage, avec le token explicite : garantit que le header
+// Authorization (et donc le claim is_super_admin) est bien envoyé — contourne le bug de
+// header non-attaché quand deux clients supabase-js partagent la même clé de stockage.
+async function rawUpload(token,path,file,contentType){
+  const enc=path.split('/').map(encodeURIComponent).join('/');
+  const h={'Authorization':'Bearer '+token,'apikey':SB_ANON,'x-upsert':'true'};
+  if(contentType)h['Content-Type']=contentType;
+  const res=await fetch(SB_URL+'/storage/v1/object/'+MEDIA_BUCKET+'/'+enc,{method:'POST',headers:h,body:file});
+  if(res.ok)return null;
+  let msg='';try{msg=(await res.json()).message||'';}catch(_){}
+  return msg||('HTTP '+res.status);
+}
+// Effectue l'upload via le canal le plus fiable disponible.
 async function doUpload(path,file,contentType){
-  // a) Helper exposé par la fenêtre parente (center/admin) : session live, super-admin garantie pour shared/.
+  // a) Helper exposé par la fenêtre parente (center/admin) : session live (single client, header OK).
   try{const op=window.opener;if(op&&!op.closed&&typeof op.__ssiMediaUpload==='function'){
     const r=await op.__ssiMediaUpload(path,file,contentType);
     return{via:'fenêtre parente',email:(r&&r.email)||'',sa:r&&r.sa,error:(r&&r.error)||null};
   }}catch(_){}
-  // b) Client local : on FORCE un refresh pour obtenir un token frais (avec le claim) puis on upload.
+  // b) Client local : refresh pour un token frais (claim via hook) PUIS fetch direct avec ce token.
   const c=await lazyClient();
   try{await c.auth.refreshSession();}catch(_){}
   const{data}=await c.auth.getSession();
   const session=data&&data.session;
   if(!session)return{via:'client local',email:'',sa:undefined,error:'NO_SESSION'};
   const claims=jwtClaims(session.access_token);
-  const{error}=await c.storage.from(MEDIA_BUCKET).upload(path,file,{upsert:true,contentType});
-  return{via:'client local',email:(session.user&&session.user.email)||'',sa:claims.is_super_admin,error:error?(error.message||error+''):null};
+  const error=await rawUpload(session.access_token,path,file,contentType);
+  return{via:'client local',email:(session.user&&session.user.email)||'',sa:claims.is_super_admin,error};
 }
 function renderMarkerMediaEditor(m){
   const cur=$('ed-media-cur'),del=$('ed-media-del'),st=$('ed-media-status');
