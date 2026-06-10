@@ -1799,7 +1799,7 @@ const STD_LEVELS=[
   {key:'etage-4',label:'4ème étage'}
 ];
 function planSlug(s){return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);}
-function openAdminLevelEditor(estabKey,levelKey){window.open('ssi-formation/plan.html?plan='+encodeURIComponent(estabKey+'/'+levelKey),'_blank','width=1100,height=820');}
+function openAdminLevelEditor(estabKey,levelKey){window.open('ssi-formation/plan.html?plan='+encodeURIComponent(estabKey+'/'+levelKey)+'&scope=shared','_blank','width=1100,height=820');}
 
 async function addPlanType(){
   const name=prompt('Nom du type d\'établissement (ex. EHPAD, Parking, Tour de bureaux) :');
