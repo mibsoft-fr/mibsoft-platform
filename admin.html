@@ -778,6 +778,22 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
         <h1 class="logo-t" style="font-size:1.5rem;">Contenus pédagogiques</h1>
         <button onclick="openModal('modal-upload')" class="btn btn-green">+ Ajouter un contenu</button>
       </div>
+      <div class="card p-5 mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 style="font-size:1.05rem;font-weight:800;">🗺️ Plans exemples SSI (UAE)</h2>
+            <p style="color:var(--text2);font-size:.82rem;margin-top:2px;">Modèles proposés à <strong>tous les centres</strong> qui n'ont pas créé leur propre plan. Construits dans l'éditeur, puis publiés ici.</p>
+          </div>
+          <button onclick="loadPlanExamples()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="tbl" id="tbl-plans-ex">
+            <thead><tr><th>Établissement</th><th>Clé</th><th>Statut</th><th>Mis à jour</th><th>Actions</th></tr></thead>
+            <tbody id="body-plans-ex"><tr><td colspan="5" style="text-align:center;color:var(--text3);padding:16px;">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+        <p style="color:var(--text3);font-size:.75rem;margin-top:10px;">Astuce : « ✏️ Éditeur » ouvre le plan, importez l'image et placez les points, puis <strong>💾 Sauvegarder</strong>. Revenez ici et cliquez <strong>📤 Publier</strong>.</p>
+      </div>
       <div class="card p-5">
         <div class="overflow-x-auto">
           <table class="tbl" id="tbl-contenus">
@@ -1288,7 +1304,7 @@ function showTab(t){
   if(t==='activite')loadActivite();
   if(t==='logs')loadLogs();
   if(t==='monitoring')loadMonitoring();
-  if(t==='contenus')loadContenus();
+  if(t==='contenus'){loadContenus();loadPlanExamples();}
   if(t==='stats')loadStats();
 }
 
@@ -1764,6 +1780,76 @@ async function deleteContenu(id){
   if(!confirm('Supprimer ce contenu ?'))return;
   await supabase.from('contenus').delete().eq('id',id);
   loadContenus();
+}
+
+// ============================================================
+// PLANS EXEMPLES SSI (bucket privé ssi-plans, dossier shared/)
+// ============================================================
+const PLAN_EX_BUCKET='ssi-plans';
+const PLAN_EX_TYPES=[
+  {key:'centre-commercial',label:'Centre commercial'},
+  {key:'hopital',label:'Hôpital'}
+];
+function planExEditorUrl(key){return 'ssi-formation/plan.html?plan='+encodeURIComponent(key);}
+function openPlanExEditor(key){window.open(planExEditorUrl(key),'_blank','width=1100,height=820');}
+
+async function loadPlanExamples(){
+  const body=document.getElementById('body-plans-ex');
+  if(!body)return;
+  let files={};
+  try{
+    const{data,error}=await supabase.storage.from(PLAN_EX_BUCKET).list('shared',{limit:200});
+    if(error)throw error;
+    (data||[]).forEach(f=>{if(f&&f.name&&f.name.endsWith('.json'))files[f.name.replace(/\.json$/,'')]={updated:f.updated_at||f.created_at};});
+  }catch(e){
+    body.innerHTML=`<tr><td colspan="5" style="text-align:center;color:#dc2626;padding:16px;">Lecture impossible : ${(e.message||e)}</td></tr>`;return;
+  }
+  // Types connus + tout fichier supplémentaire découvert dans shared/
+  const known=PLAN_EX_TYPES.map(t=>t.key);
+  const rows=[...PLAN_EX_TYPES];
+  Object.keys(files).forEach(k=>{if(!known.includes(k))rows.push({key:k,label:k});});
+  body.innerHTML=rows.map(t=>{
+    const present=!!files[t.key];
+    const when=present&&files[t.key].updated?UTILS.dateStr(files[t.key].updated):'—';
+    const statut=present
+      ?'<span style="color:#059669;font-weight:700;">✓ Publié</span>'
+      :'<span style="color:#94a3b8;">— Absent</span>';
+    return `<tr>
+      <td>${t.label}</td>
+      <td><code style="font-size:.78rem;">${t.key}</code></td>
+      <td>${statut}</td>
+      <td>${when}</td>
+      <td>
+        <button onclick="openPlanExEditor('${t.key}')" class="btn btn-blue btn-sm" title="Construire / modifier le plan dans l'éditeur">✏️ Éditeur</button>
+        <button onclick="publishPlanExample('${t.key}')" class="btn btn-green btn-sm" title="Publier le plan de l'éditeur comme modèle">📤 Publier</button>
+        ${present?`<button onclick="deletePlanExample('${t.key}')" class="btn btn-red btn-sm">🗑️</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function publishPlanExample(key){
+  // Le plan construit dans l'éditeur vit en localStorage (même origine).
+  let img='',markers='[]',doors='[]';
+  try{img=localStorage.getItem('mib_plan_'+key+'_img')||'';markers=localStorage.getItem('mib_plan_'+key)||'[]';doors=localStorage.getItem('mib_plan_'+key+'_doors')||'[]';}catch(_){}
+  if(!img){alert('Aucun plan « '+key+' » dans l\'éditeur.\nOuvrez « ✏️ Éditeur », importez l\'image, placez les points puis 💾 Sauvegarder, et revenez publier.');return;}
+  if(!confirm('Publier ce plan comme modèle disponible à tous les centres ?'))return;
+  try{
+    const blob=new Blob([JSON.stringify({image:img,markers:JSON.parse(markers),doors:JSON.parse(doors),updatedAt:Date.now()})],{type:'application/json'});
+    const{error}=await supabase.storage.from(PLAN_EX_BUCKET).upload('shared/'+key+'.json',blob,{upsert:true,contentType:'application/json'});
+    if(error)throw error;
+    alert('✅ Modèle publié pour tous les centres.');
+    loadPlanExamples();
+  }catch(e){alert('❌ Publication refusée : '+(e.message||e)+'\n(Réservé au compte administrateur.)');}
+}
+
+async function deletePlanExample(key){
+  if(!confirm('Supprimer le plan exemple « '+key+' » ? Les centres sans plan propre ne l\'auront plus.'))return;
+  try{
+    const{error}=await supabase.storage.from(PLAN_EX_BUCKET).remove(['shared/'+key+'.json']);
+    if(error)throw error;
+    loadPlanExamples();
+  }catch(e){alert('❌ Suppression refusée : '+(e.message||e));}
 }
 
 // ============================================================
