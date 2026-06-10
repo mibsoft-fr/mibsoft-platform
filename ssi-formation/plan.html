@@ -401,10 +401,13 @@ function deleteSelected(){if(selected<0)return;MARKERS.splice(selected,1);renumb
 const SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZmttbG9rb3Z4aWdmbndqZXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1ODUzODUsImV4cCI6MjA5MTE2MTM4NX0.zu5V20Nz7vO3dSYhOtr7mqS7VAMaUDVS2Ibs01xS9Fk';
 let _sb=null,_sbLoading=null;
 function ensureSupabaseClient(){
+  // 1) Réutilise le client DÉJÀ authentifié de la fenêtre parente (center.html / admin.html) :
+  //    c'est lui qui publie les plans (session formateur/centre ou super-admin).
+  try{const op=window.opener;if(op&&!op.closed&&op.supabase&&op.supabase.storage)return Promise.resolve(op.supabase);}catch(_){}
   if(_sb)return Promise.resolve(_sb);
   if(_sbLoading)return _sbLoading;
   _sbLoading=new Promise((resolve,reject)=>{
-    const mk=()=>{try{_sb=window.supabase.createClient(SB_URL,SB_ANON,{auth:{persistSession:true,autoRefreshToken:true}});resolve(_sb);}catch(e){reject(e);}};
+    const mk=()=>{try{const c=window.supabase.createClient(SB_URL,SB_ANON,{auth:{persistSession:true,autoRefreshToken:true}});c.auth.getSession().catch(()=>{}).then(()=>{_sb=c;resolve(c);});}catch(e){reject(e);}};
     if(window.supabase&&window.supabase.createClient){mk();return;}
     const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
     s.onload=mk;s.onerror=()=>reject(new Error('SDK Supabase indisponible'));document.head.appendChild(s);
