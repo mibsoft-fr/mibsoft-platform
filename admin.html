@@ -788,7 +788,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
         </div>
         <div class="overflow-x-auto">
           <table class="tbl" id="tbl-plans-ex">
-            <thead><tr><th>Établissement</th><th>Clé</th><th>Statut</th><th>Mis à jour</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Aperçu</th><th>Établissement</th><th>Clé</th><th>Statut</th><th>Mis à jour</th><th>Actions</th></tr></thead>
             <tbody id="body-plans-ex"><tr><td colspan="5" style="text-align:center;color:var(--text3);padding:16px;">Chargement…</td></tr></tbody>
           </table>
         </div>
@@ -1814,7 +1814,11 @@ async function loadPlanExamples(){
     const statut=present
       ?'<span style="color:#059669;font-weight:700;">✓ Publié</span>'
       :'<span style="color:#94a3b8;">— Absent</span>';
+    const thumb=present
+      ?`<span id="planex-thumb-${t.key}" style="color:#94a3b8;font-size:.75rem;">…</span>`
+      :'<span style="color:#cbd5e1;">—</span>';
     return `<tr>
+      <td>${thumb}</td>
       <td>${t.label}</td>
       <td><code style="font-size:.78rem;">${t.key}</code></td>
       <td>${statut}</td>
@@ -1826,6 +1830,21 @@ async function loadPlanExamples(){
       </td>
     </tr>`;
   }).join('');
+  // Miniatures (chargées à la volée depuis le JSON publié)
+  rows.forEach(t=>{if(files[t.key])loadPlanExThumb(t.key);});
+}
+
+async function loadPlanExThumb(key){
+  const cell=document.getElementById('planex-thumb-'+key);
+  if(!cell)return;
+  try{
+    const{data,error}=await supabase.storage.from(PLAN_EX_BUCKET).download('shared/'+key+'.json');
+    if(error||!data)return;
+    const obj=JSON.parse(await data.text());
+    if(!obj.image){cell.textContent='—';return;}
+    const n=Array.isArray(obj.markers)?obj.markers.length:0;
+    cell.innerHTML=`<img src="${obj.image}" alt="aperçu" onclick="window.open(this.src,'_blank')" style="height:42px;width:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border-default);cursor:zoom-in;display:block;" title="${n} point(s) — cliquer pour agrandir">`;
+  }catch(_){cell.textContent='—';}
 }
 
 async function publishPlanExample(key){
