@@ -85,7 +85,6 @@
     <label class="sld edit-only">Taille mini <input id="minA" type="range" min="5" max="400" value="30"></label>
     <button class="btn grey edit-only" onclick="clearMarkers()">🗑️ Effacer</button>
     <button class="btn warn edit-only" onclick="saveAll()">💾 Sauvegarder</button>
-    <button class="btn grey edit-only" onclick="publishShared()" title="Publier ce plan comme modèle disponible à tous les centres (réservé administrateur)">📤 Exemple (tous centres)</button>
     <span class="leg"><span><span class="dotleg" style="background:#DC2626"></span>DAI (ronds)</span><span><span class="dotleg" style="background:#DC2626;border-radius:3px;width:16px"></span>DM (rectangles)</span></span>
     <span class="count" id="count">0 point</span>
   </div>
@@ -428,12 +427,6 @@ function saveAll(){
   MARKERS.forEach(m=>{if(m.addr&&!isSym(m))post({kind:'set-address',type:m.type,id:m.id,address:m.addr});});
   // notifie le poste formateur pour (re)publier le plan du centre sur le serveur (UAE)
   post({kind:'save-plan',planKey:PLAN_KEY});
-}
-// Publie le plan courant comme MODÈLE disponible à tous les centres (réservé admin via RLS).
-function publishShared(){
-  saveAll(); // garantit que le localStorage est à jour avant publication
-  post({kind:'publish-shared',planKey:PLAN_KEY});
-  toast('Publication du modèle…');
 }
 
 // ── restauration + boucle de synchro ──
