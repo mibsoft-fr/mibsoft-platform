@@ -421,6 +421,8 @@ function saveAll(){
   toast('Plan sauvegardé');logLine('💾 Sauvegardé ('+MARKERS.length+' points, '+DOORS.length+' porte(s)).');}catch(e){logLine('⚠️ Sauvegarde impossible.');}
   // pousse les adresses des DAI/DM au SSI pour qu'elles soient déjà en place
   MARKERS.forEach(m=>{if(m.addr&&!isSym(m))post({kind:'set-address',type:m.type,id:m.id,address:m.addr});});
+  // notifie le poste formateur pour (re)publier le plan du centre sur le serveur (UAE)
+  post({kind:'save-plan',planKey:PLAN_KEY});
 }
 
 // ── restauration + boucle de synchro ──

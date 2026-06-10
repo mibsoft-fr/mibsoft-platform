@@ -1075,9 +1075,7 @@ case 'DETECTOR_OUT_OF_SERVICE':
 case 'CHANGE_DETECTOR_STATE':
 {const detectorArr=data.type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const detector=detectorArr.find(d=>d.id===data.id);if(detector){detector.state=data.state;}}break;
 case 'TEST_SIGNALIZATION':testSignalization();break;
-case 'UAE_PLAN_AVAILABLE':STATE.uaePlanKey=data.planKey;break; // un plan est actif côté formateur
-case 'UAE_PLAN_DATA':handleUaeChunk(data);break;
-case 'UAE_PLAN_NONE':showCustomAlert('Le formateur n’a pas activé de plan.');break;
+case 'UAE_PLAN_AVAILABLE':STATE.uaePlanKey=data.planKey;STATE.uaePlanCenter=data.centerId||null;break; // un plan est actif côté formateur
 }
 render();
 }
@@ -1085,8 +1083,7 @@ render();
 function handleTraineeAction(type,data){
 switch(type){
 case 'ACTION_LOG':STATE.actionLog.push(data);break;
-case 'UAE_QUERY':if(STATE.activePlanKey)sendMessage('UAE_PLAN_AVAILABLE',{planKey:STATE.activePlanKey});break;
-case 'UAE_REQUEST':sendUaePlanToTrainee(data&&data.planKey);break;
+case 'UAE_QUERY':if(STATE.activePlanKey)sendMessage('UAE_PLAN_AVAILABLE',{planKey:STATE.activePlanKey,centerId:planCenterId()});break;
 case 'DETECTOR_OUT_OF_SERVICE':
 {const detArray=data.type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const det=detArray.find(d=>d.id===data.id);if(det){det.outOfService=data.outOfService;}}break;
 case 'CHANGE_DETECTOR_STATE':
@@ -1581,6 +1578,7 @@ const m=ev.data||{};
 if(m.kind==='request-state'){broadcastPlanState();return;}
 if(STATE.userType!=='formateur')return; // les actions (déclenchement, sauvegarde) : formateur seul
 if(m.kind==='set-address'){if(m.address)updateDetectorAddressInput(m.type,m.id,m.address);broadcastPlanState();return;}
+if(m.kind==='save-plan'){uploadPlanToStorage(m.planKey).then(ok=>{if(ok){STATE.activePlanKey=m.planKey;sendMessage('UAE_PLAN_AVAILABLE',{planKey:m.planKey,centerId:planCenterId()});}});return;}
 if(m.kind==='trigger'){
 if(m.address)updateDetectorAddressInput(m.type,m.id,m.address);
 const res=triggerFromPlan(m.type,m.id);
@@ -1605,52 +1603,58 @@ return PLAN_BUS;
 function broadcastPlanState(){const b=planBus();if(b)try{b.postMessage({kind:'state',data:getDetectorsForPlan()});}catch(_){}}
 function onDeclencheModeChange(sel){const v=sel.value;sel.value='manuel';if(v==='manuel')return;openPlanWindow(v);}
 
-// ===== Transfert du plan vers l'UAE stagiaire (temps réel, sans écriture en base) =====
-// Le formateur détient le plan dans son localStorage (image + points + portes). Il le
-// transmet au stagiaire à la demande, par morceaux, via le canal Realtime de la session.
-function sendUaePlanToTrainee(planKey){
-const key=planKey||STATE.activePlanKey;
-if(!key){sendMessage('UAE_PLAN_NONE',{});return;}
-let img='',markers='[]',doors='[]';
-try{img=localStorage.getItem('mib_plan_'+key+'_img')||'';markers=localStorage.getItem('mib_plan_'+key)||'[]';doors=localStorage.getItem('mib_plan_'+key+'_doors')||'[]';}catch(_){}
-if(!img){sendMessage('UAE_PLAN_NONE',{});return;}
-let payload;try{payload=JSON.stringify({image:img,markers:JSON.parse(markers),doors:JSON.parse(doors)});}catch(_){sendMessage('UAE_PLAN_NONE',{});return;}
-const CH=50000,total=Math.ceil(payload.length/CH),xfer='x'+Date.now();
-let i=0;
-(function next(){
-if(i>=total)return;
-sendMessage('UAE_PLAN_DATA',{planKey:key,xfer,seq:i,total,chunk:payload.slice(i*CH,(i+1)*CH)});
-i++;setTimeout(next,130); // respecte la limite Realtime (10 msg/s)
-})();
+// ===== Plan UAE — stockage serveur isolé par centre (bucket privé Supabase) =====
+// Plan d'un centre : ssi-plans/<center_id>/<plan>.json (lecture réservée au centre par RLS).
+// Plans exemples : ssi-plans/shared/<plan>.json (lisibles par tous les centres).
+const PLAN_BUCKET='ssi-plans';
+function planCenterId(){
+if(STATE.currentUser&&STATE.currentUser.center_id)return STATE.currentUser.center_id;
+if(STATE.centerId)return STATE.centerId;
+try{const f=JSON.parse(localStorage.getItem('mib_formateur')||'null');if(f&&f.center_id)return f.center_id;}catch(_){}
+try{const s=JSON.parse(localStorage.getItem('mib_stagiaire')||'null');if(s&&s.center_id)return s.center_id;}catch(_){}
+return null;
 }
-
-// ===== Réception côté stagiaire =====
-let _uaeRecv=null;
+// Formateur : publie le plan courant (localStorage) dans le dossier de son centre.
+async function uploadPlanToStorage(planKey){
+const cid=planCenterId();if(!cid)return false;
+let img,markers,doors;
+try{img=localStorage.getItem('mib_plan_'+planKey+'_img')||'';markers=localStorage.getItem('mib_plan_'+planKey)||'[]';doors=localStorage.getItem('mib_plan_'+planKey+'_doors')||'[]';}catch(_){return false;}
+if(!img)return false; // rien à publier tant qu'aucune image n'a été importée
+try{
+const blob=new Blob([JSON.stringify({image:img,markers:JSON.parse(markers),doors:JSON.parse(doors),updatedAt:Date.now()})],{type:'application/json'});
+const{error}=await window.supabase.storage.from(PLAN_BUCKET).upload(cid+'/'+planKey+'.json',blob,{upsert:true,contentType:'application/json'});
+if(error){console.warn('plan upload',error);return false;}
+return true;
+}catch(e){console.warn('plan upload threw',e);return false;}
+}
 // Stagiaire : ouvre la fenêtre UAE (geste utilisateur → pas de blocage pop-up) puis
-// demande le plan au formateur ; la fenêtre attend les données via l'évènement « storage ».
+// télécharge le plan ; la fenêtre détecte l'écriture localStorage (évènement « storage »).
 function openUaePlan(){
 if(!STATE.uaePlanKey){showCustomAlert('Le formateur n’a pas encore activé de plan.');sendMessage('UAE_QUERY',{});return;}
 const key=STATE.uaePlanKey;
 const w=window.open('plan.html?plan='+encodeURIComponent(key)+'&uae=1','mibuae_'+key,'width=1100,height=820');
 if(!w){showCustomAlert('Le navigateur a bloqué la fenêtre. Autorisez les pop-ups.');return;}
 planBus(); // pour répondre aux requêtes d'état de la fenêtre UAE
-_uaeRecv=null;
-sendMessage('UAE_REQUEST',{planKey:key});
+downloadUaePlan(key,STATE.uaePlanCenter);
 }
-function handleUaeChunk(d){
-if(!d||!d.xfer)return;
-if(!_uaeRecv||_uaeRecv.xfer!==d.xfer)_uaeRecv={xfer:d.xfer,planKey:d.planKey,total:d.total,parts:new Array(d.total),got:0};
-if(_uaeRecv.parts[d.seq]===undefined){_uaeRecv.parts[d.seq]=d.chunk;_uaeRecv.got++;}
-if(_uaeRecv.got<_uaeRecv.total)return;
-const rec=_uaeRecv;_uaeRecv=null;
-let obj;try{obj=JSON.parse(rec.parts.join(''));}catch(_){showCustomAlert('Plan reçu incomplet, rouvrez la vue UAE.');return;}
-const st='mib_plan_'+rec.planKey;
+// Essaie le plan du centre, sinon le plan exemple « shared ».
+async function downloadUaePlan(planKey,centerId){
+const sb=(STATE.userType==='trainee'&&window.supabaseStagiaire)?window.supabaseStagiaire:window.supabase;
+const cid=centerId||planCenterId();
+const paths=[];if(cid)paths.push(cid+'/'+planKey+'.json');paths.push('shared/'+planKey+'.json');
+for(const p of paths){
 try{
+const{data,error}=await sb.storage.from(PLAN_BUCKET).download(p);
+if(error||!data)continue;
+const obj=JSON.parse(await data.text());
+const st='mib_plan_'+planKey;
 if(obj.image)localStorage.setItem(st+'_img',obj.image);
 localStorage.setItem(st,JSON.stringify(obj.markers||[]));
 localStorage.setItem(st+'_doors',JSON.stringify(obj.doors||[]));
-}catch(_){showCustomAlert('Espace de stockage local insuffisant pour le plan.');return;}
-// La fenêtre UAE (même origine) détecte ces écritures via l'évènement « storage » et s'affiche.
+return true; // la fenêtre UAE se met à jour via l'évènement « storage »
+}catch(e){console.warn('download plan',p,e);}
+}
+return false; // plan.html affichera « indisponible » après son délai d'attente
 }
 // Pré-remplit les adresses (noms de locaux) des DAI/DM du Contrôle SDI à partir des
 // marqueurs sauvegardés du plan (même origine, localStorage). Synchronise au stagiaire.
@@ -1666,7 +1670,9 @@ function openPlanWindow(planKey){
 if(!checkSessionBeforeAction())return;
 planBus(); // garantit que le formateur écoute avant l'ouverture du plan
 applyPlanAddresses(planKey); // remplit les adresses DAI/DM depuis le plan
-STATE.activePlanKey=planKey;sendMessage('UAE_PLAN_AVAILABLE',{planKey}); // signale le plan actif aux stagiaires (UAE)
+STATE.activePlanKey=planKey;
+uploadPlanToStorage(planKey); // publie/rafraîchit le plan du centre (asynchrone)
+sendMessage('UAE_PLAN_AVAILABLE',{planKey,centerId:planCenterId()}); // signale le plan actif aux stagiaires (UAE)
 const existing=PLAN_WINDOWS[planKey];
 if(existing&&!existing.closed){existing.focus();return;}
 const win=window.open('plan.html?plan='+encodeURIComponent(planKey),'mibplan_'+planKey,'width=1100,height=820');
