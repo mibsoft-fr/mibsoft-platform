@@ -1075,7 +1075,7 @@ case 'DETECTOR_OUT_OF_SERVICE':
 case 'CHANGE_DETECTOR_STATE':
 {const detectorArr=data.type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const detector=detectorArr.find(d=>d.id===data.id);if(detector){detector.state=data.state;}}break;
 case 'TEST_SIGNALIZATION':testSignalization();break;
-case 'UAE_PLAN_AVAILABLE':STATE.uaePlanKey=data.planKey;STATE.uaePlanCenter=data.centerId||null;break; // un plan est actif côté formateur
+case 'UAE_PLAN_AVAILABLE':STATE.uaePlanKey=data.planKey;STATE.uaePlanCenter=data.centerId||null;STATE.uaePlanLevels=data.levels||null;break; // un plan est actif côté formateur
 }
 render();
 }
@@ -1083,7 +1083,7 @@ render();
 function handleTraineeAction(type,data){
 switch(type){
 case 'ACTION_LOG':STATE.actionLog.push(data);break;
-case 'UAE_QUERY':if(STATE.activePlanKey)sendMessage('UAE_PLAN_AVAILABLE',{planKey:STATE.activePlanKey,centerId:planCenterId()});break;
+case 'UAE_QUERY':if(STATE.activePlanKey)sendMessage('UAE_PLAN_AVAILABLE',{planKey:STATE.activePlanKey,centerId:planCenterId(),levels:getLevelsFor(STATE.activePlanKey)});break;
 case 'DETECTOR_OUT_OF_SERVICE':
 {const detArray=data.type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const det=detArray.find(d=>d.id===data.id);if(det){det.outOfService=data.outOfService;}}break;
 case 'CHANGE_DETECTOR_STATE':
@@ -1629,42 +1629,60 @@ return true;
 }
 // Stagiaire : ouvre la fenêtre UAE (geste utilisateur → pas de blocage pop-up) puis
 // télécharge le plan ; la fenêtre détecte l'écriture localStorage (évènement « storage »).
+// Niveaux d'un établissement (depuis le référentiel) ; repli sur un unique RDC.
+function getLevelsFor(estabKey){
+const t=(STATE.planTypes||[]).find(x=>x.key===estabKey);
+return (t&&Array.isArray(t.levels)&&t.levels.length)?t.levels:[{key:'rdc',label:'RDC'}];
+}
+// Télécharge un niveau (plan du centre → sinon modèle « shared » ; repli legacy mono-niveau pour RDC).
+async function downloadLevel(estabKey,levelKey,cid,sb){
+const paths=[];
+if(cid)paths.push(cid+'/'+estabKey+'/'+levelKey+'.json');
+paths.push('shared/'+estabKey+'/'+levelKey+'.json');
+if(levelKey==='rdc'){if(cid)paths.push(cid+'/'+estabKey+'.json');paths.push('shared/'+estabKey+'.json');}
+for(const p of paths){
+try{
+const{data,error}=await sb.storage.from(PLAN_BUCKET).download(p);
+if(error||!data)continue;
+const obj=JSON.parse(await data.text());
+const st='mib_plan_'+estabKey+'/'+levelKey;
+if(obj.image)localStorage.setItem(st+'_img',obj.image);
+localStorage.setItem(st,JSON.stringify(obj.markers||[]));
+localStorage.setItem(st+'_doors',JSON.stringify(obj.doors||[]));
+return true;
+}catch(e){console.warn('dl level',p,e);}
+}
+return false;
+}
+// Télécharge tous les niveaux publiés d'un établissement + écrit le manifeste en dernier
+// (l'écriture du manifeste déclenche l'affichage des onglets dans la fenêtre plan).
+async function downloadEstablishment(estabKey,centerId,levels){
+const sb=(STATE.userType==='trainee'&&window.supabaseStagiaire)?window.supabaseStagiaire:window.supabase;
+const cid=centerId||planCenterId();
+const ok=[];
+for(const lv of (levels||[])){if(await downloadLevel(estabKey,lv.key,cid,sb))ok.push(lv);}
+if(ok.length)localStorage.setItem('mib_plan_'+estabKey+'__levels',JSON.stringify(ok));
+return ok;
+}
+// Stagiaire : ouvre la vue UAE (onglets de niveaux) et télécharge les niveaux.
 function openUaePlan(){
 if(!STATE.uaePlanKey){showCustomAlert('Le formateur n’a pas encore activé de plan.');sendMessage('UAE_QUERY',{});return;}
 const key=STATE.uaePlanKey;
 const w=window.open('plan.html?plan='+encodeURIComponent(key)+'&uae=1','mibuae_'+key,'width=1100,height=820');
 if(!w){showCustomAlert('Le navigateur a bloqué la fenêtre. Autorisez les pop-ups.');return;}
 planBus(); // pour répondre aux requêtes d'état de la fenêtre UAE
-downloadPlan(key,STATE.uaePlanCenter);
-}
-// Essaie le plan du centre, sinon le plan exemple « shared ». Écrit en localStorage.
-async function downloadPlan(planKey,centerId){
-const sb=(STATE.userType==='trainee'&&window.supabaseStagiaire)?window.supabaseStagiaire:window.supabase;
-const cid=centerId||planCenterId();
-const paths=[];if(cid)paths.push(cid+'/'+planKey+'.json');paths.push('shared/'+planKey+'.json');
-for(const p of paths){
-try{
-const{data,error}=await sb.storage.from(PLAN_BUCKET).download(p);
-if(error||!data)continue;
-const obj=JSON.parse(await data.text());
-const st='mib_plan_'+planKey;
-if(obj.image)localStorage.setItem(st+'_img',obj.image);
-localStorage.setItem(st,JSON.stringify(obj.markers||[]));
-localStorage.setItem(st+'_doors',JSON.stringify(obj.doors||[]));
-return true; // la fenêtre UAE se met à jour via l'évènement « storage »
-}catch(e){console.warn('download plan',p,e);}
-}
-return false; // plan.html affichera « indisponible » après son délai d'attente
+const levels=(STATE.uaePlanLevels&&STATE.uaePlanLevels.length)?STATE.uaePlanLevels:getLevelsFor(key);
+downloadEstablishment(key,STATE.uaePlanCenter,levels);
 }
 
 // Pré-remplit les adresses (noms de locaux) des DAI/DM du Contrôle SDI à partir des
-// marqueurs sauvegardés du plan (même origine, localStorage). Synchronise au stagiaire.
-function applyPlanAddresses(planKey){
-let markers;try{markers=JSON.parse(localStorage.getItem('mib_plan_'+planKey)||'[]');}catch(_){return;}
+// marqueurs d'un niveau (clé composite « établissement/niveau »).
+function applyPlanAddresses(storeKey){
+let markers;try{markers=JSON.parse(localStorage.getItem('mib_plan_'+storeKey)||'[]');}catch(_){return;}
 if(!Array.isArray(markers))return;
 let n=0;
 markers.forEach(mk=>{if((mk.type==='DAI'||mk.type==='DM')&&mk.addr&&mk.id){updateDetectorAddressInput(mk.type,mk.id,mk.addr);n++;}});
-if(n){logAction('Adresses importées du plan',`${n} détecteur(s) — ${PLAN_LABELS[planKey]||planKey}`,'formateur');render();}
+if(n)render();
 }
 const PLAN_LABELS={'centre-commercial':'Centre commercial','hopital':'Hôpital'};
 // Référentiel des types de plans (établissements), géré par l'admin. Alimente le menu
@@ -1688,22 +1706,23 @@ if(list.length){STATE.planTypes=list;list.forEach(t=>{PLAN_LABELS[t.key]=t.label
 // Formateur en session : ouvre le plan en MODE JEU SEUL (sans édition). Le plan provient
 // du serveur — celui du centre s'il existe, sinon l'exemple « shared ». La création/édition
 // d'un plan se fait dans « Mes plans », pas pendant la session.
-async function openPlanWindow(planKey){
+async function openPlanWindow(estabKey){
 if(!checkSessionBeforeAction())return;
 planBus(); // garantit que le formateur écoute avant l'ouverture du plan
-STATE.activePlanKey=planKey;
-const existing=PLAN_WINDOWS[planKey];
+STATE.activePlanKey=estabKey;
+const existing=PLAN_WINDOWS[estabKey];
 if(existing&&!existing.closed){existing.focus();}
 else{
-const win=window.open('plan.html?plan='+encodeURIComponent(planKey)+'&play=1','mibplan_'+planKey,'width=1100,height=820');
+const win=window.open('plan.html?plan='+encodeURIComponent(estabKey)+'&play=1','mibplan_'+estabKey,'width=1100,height=820');
 if(!win){showCustomAlert('Le navigateur a bloqué la fenêtre du plan. Autorisez les pop-ups pour ce site.');return;}
-PLAN_WINDOWS[planKey]=win;
+PLAN_WINDOWS[estabKey]=win;
 }
-// Télécharge le plan (centre → sinon modèle shared) vers localStorage ; la fenêtre l'affiche.
+// Télécharge tous les niveaux (centre → sinon modèle shared) ; la fenêtre affiche les onglets.
 const cid=planCenterId();
-const ok=await downloadPlan(planKey,cid);
-if(ok)applyPlanAddresses(planKey); // pré-remplit les adresses DAI/DM depuis le plan
-sendMessage('UAE_PLAN_AVAILABLE',{planKey,centerId:cid}); // signale le plan actif aux stagiaires (UAE)
+const levels=getLevelsFor(estabKey);
+const ok=await downloadEstablishment(estabKey,cid,levels);
+ok.forEach(lv=>applyPlanAddresses(estabKey+'/'+lv.key)); // adresses DAI/DM de tous les niveaux
+sendMessage('UAE_PLAN_AVAILABLE',{planKey:estabKey,centerId:cid,levels}); // signale aux stagiaires (UAE)
 }
 // Déclenche/réarme le détecteur réel et renvoie son état (pour le clignotement).
 function triggerFromPlan(type,id){
