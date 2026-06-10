@@ -144,7 +144,7 @@ function requestState(){post({kind:'request-state'});}
 function applyState(data){
   if(!data)return;
   const find=(t,id)=>((t==='DAI'?data.DAI:data.DM)||[]).find(d=>d.id===id);
-  const zoneActive=(zt,n)=>{const arr=zt==='compartment'?(data.ZC||[]):(data.ZF||[]);const z=arr.find(x=>x.id===n);return !!(z&&(z.state==='securite'||z.state==='defaut-securite'||z.commandActive));};
+  const zoneActive=(zt,n)=>{const arr=zt==='compartment'?(data.ZC||[]):(data.ZF||[]);const z=arr.find(x=>x.id===n);return !!(z&&(z.state==='securite'||z.state==='defaut-securite'));};
   let changed=false;
   MARKERS.forEach(m=>{
     if(isSym(m)){const a=zoneActive(symZoneType(m),m.zf||1);if(a!==!!m._zfactive){m._zfactive=a;changed=true;}return;}

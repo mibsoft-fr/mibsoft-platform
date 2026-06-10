@@ -1119,9 +1119,9 @@ function resetDetector(type,id){const detectorArray=type==='DAI'?STATE.sdi.detec
 
 function setZoneState(zoneType,id,state){
 let zone;
-if(zoneType==='compartment'){zone=STATE.smsi.compartmentZones.find(z=>z.id===id);if(zone){zone.state=state;updateZoneLeds(zone);addSmsiMessage(`${zone.address}: ${state}`);}}
-else if(zoneType==='smoke'){zone=STATE.smsi.smokeZones.find(z=>z.id===id);if(zone){zone.state=state;updateZoneLeds(zone);addSmsiMessage(`${zone.address}: ${state}`);}}
-else if(zoneType==='relay'){zone=STATE.smsi.relayBoxes.find(z=>z.id===id);if(zone){zone.state=state;updateRelayLeds(zone);addSmsiMessage(`${zone.address}: ${state}`);}}
+if(zoneType==='compartment'){zone=STATE.smsi.compartmentZones.find(z=>z.id===id);if(zone){zone.state=state;if(state==='attente')zone.commandActive=false;updateZoneLeds(zone);addSmsiMessage(`${zone.address}: ${state}`);}}
+else if(zoneType==='smoke'){zone=STATE.smsi.smokeZones.find(z=>z.id===id);if(zone){zone.state=state;if(state==='attente')zone.commandActive=false;updateZoneLeds(zone);addSmsiMessage(`${zone.address}: ${state}`);}}
+else if(zoneType==='relay'){zone=STATE.smsi.relayBoxes.find(z=>z.id===id);if(zone){zone.state=state;if(state==='attente')zone.commandActive=false;updateRelayLeds(zone);addSmsiMessage(`${zone.address}: ${state}`);}}
 }
 
 function updateZoneLeds(zone){
