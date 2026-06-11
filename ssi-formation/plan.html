@@ -43,6 +43,19 @@
   #media-ov.thumb img,#media-ov.thumb video{max-width:100%;max-height:23vh}
   #media-ov.thumb .cap2{font-size:11px;padding:4px 7px}
   #media-ov.thumb .x{width:22px;height:22px;font-size:13px;top:4px;right:4px}
+  /* Liste des médias dans l'éditeur (points & portes) */
+  .media-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+  .media-list .mli{position:relative;width:52px;height:40px;border-radius:6px;overflow:hidden;border:1px solid var(--n300);background:#000}
+  .media-list .mli img,.media-list .mli video{width:100%;height:100%;object-fit:cover;display:block}
+  .media-list .mli button{position:absolute;top:1px;right:1px;width:16px;height:16px;border:none;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;font-size:10px;line-height:16px;cursor:pointer;padding:0}
+  .media-list .empty-m{font-size:.7rem;color:#94a3b8}
+  /* Vignettes médias ancrées près de l'élément (point/porte), déplaçables */
+  .media-grp{position:absolute;transform:translate(-50%,-50%);z-index:60;display:flex;flex-direction:column;gap:5px;cursor:grab;touch-action:none;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))}
+  .media-grp.dragging{cursor:grabbing;z-index:70}
+  .media-grp .mthumb{width:128px;max-width:34vw;border-radius:9px;overflow:hidden;border:2px solid #fff;background:#000;position:relative}
+  .media-grp .mthumb img,.media-grp .mthumb video{display:block;width:100%;max-height:120px;object-fit:cover}
+  .media-grp .mthumb .mcap{position:absolute;left:0;right:0;bottom:0;background:rgba(11,58,83,.92);color:#fff;font:700 10px system-ui;padding:2px 5px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body.uae .media-grp .mthumb{width:108px}
   .ed-media-cur{margin-top:6px;border-radius:8px;overflow:hidden;border:1px solid var(--n200)}
   .ed-media-cur img,.ed-media-cur video{display:block;width:100%;max-height:120px;object-fit:cover}
   .stage{position:relative;display:inline-block;max-width:100%;border:1px solid var(--n200);border-radius:12px;overflow:hidden;background:#fff;line-height:0}
@@ -144,11 +157,10 @@
   <div id="ed-link2-row" style="display:none"><label>Compartimentage ZC</label><select id="ed-link2" onchange="applyEditor()"><option value="">(aucun)</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
   <label>Local / adresse</label>
   <input id="ed-addr" type="text" placeholder="ex. couloir X / aile ouest" oninput="applyEditor()">
-  <label style="margin-top:8px">Média formation (image/vidéo)</label>
+  <label style="margin-top:8px">Médias (s'affichent près du point en alarme)</label>
   <input id="ed-media-file" type="file" accept="image/*,video/*" onchange="handleMediaUpload(this.files[0])">
   <div id="ed-media-status" style="font-size:.72rem;color:var(--n600);margin-top:4px"></div>
-  <div id="ed-media-cur"></div>
-  <button id="ed-media-del" class="btn grey" style="width:100%;margin-top:6px;display:none" onclick="removeMarkerMedia()">✖ Retirer le média</button>
+  <div id="ed-media-list" class="media-list"></div>
   <button class="btn grey" style="width:100%;margin-top:10px" onclick="deleteSelected()">🗑️ Supprimer ce point</button>
 </div>
 
@@ -159,6 +171,10 @@
   <label>Libellé</label>
   <input id="door-label" type="text" placeholder="ex. porte couloir X" oninput="applyDoorEditor()">
   <div style="font-size:.7rem;color:var(--n600);margin-top:8px">Glisse une extrémité (●) pour régler longueur/orientation.</div>
+  <label style="margin-top:8px">Médias (s'affichent près de la porte en sécurité)</label>
+  <input id="door-media-file" type="file" accept="image/*,video/*" onchange="handleMediaUpload(this.files[0])">
+  <div id="door-media-status" style="font-size:.72rem;color:var(--n600);margin-top:4px"></div>
+  <div id="door-media-list" class="media-list"></div>
   <button class="btn grey" style="width:100%;margin-top:8px" onclick="deleteDoor()">🗑️ Supprimer cette porte</button>
 </div>
 
@@ -218,7 +234,7 @@ function applyState(data){
     if(st==='defaut-securite')return 'defaut-securite';
     if(st==='defaut-attente')return 'defaut-attente';
     return 'attente';};
-  let changed=false,justFired=null;
+  let changed=false;
   MARKERS.forEach(m=>{
     if(isSym(m)){
       const z=zoneOf(symZoneType(m),m.zf||1);
@@ -234,16 +250,14 @@ function applyState(data){
     else if(d&&(d.fault==='securite'||d.faultSecurite))ssi='defaut-securite';
     else if(d&&(d.fault==='attente'||d.faultAttente))ssi='defaut-attente';
     else if(t)ssi='securite';
-    if(t&&!m._fired&&m.media)justFired=m;
     if(t!==!!m._fired||hs!==!!m._hs||ssi!==m._ssi){m._fired=t;m._hs=hs;m._ssi=ssi;changed=true;}
   });
-  // Mode formation, vue stagiaire (UAE) : afficher le média du point qui vient de passer en alarme.
-  if(justFired&&UAE&&PLAN_MODE==='formation')showMediaOverlay(justFired);
   let dchanged=false;
   const zcState=n=>{const z=(data.ZC||[]).find(x=>x.id===n);return z?z.state:'attente';};
   DOORS.forEach(dr=>{const st=zcState(dr.zc||1);const a=(st==='securite'||st==='defaut-securite');const f=(st==='defaut-securite');if(a!==!!dr._active||f!==!!dr._fault){dr._active=a;dr._fault=f;dchanged=true;}});
   if(changed&&dragging===null)applyMarkerStates();
   if(dchanged&&dragDoor===null)renderDoors();
+  if((changed||dchanged)&&dragging===null&&dragDoor===null)renderMediaThumbs();
 }
 
 function refreshLink(){
@@ -372,6 +386,7 @@ function renderMarkers(){
     stage.appendChild(wrap);
   });
   $('count').textContent=MARKERS.length+(MARKERS.length>1?' points':' point');
+  renderMediaThumbs();
 }
 // Met à jour l'état visuel des points SANS recréer le DOM (évite le redémarrage des animations
 // → plus de clignotement aléatoire ; les points en sécurité restent fixes). Repli sur un rendu
@@ -414,10 +429,14 @@ function renderDoors(){
     }
   });
   svg.innerHTML=html;
+  renderMediaThumbs();
 }
 function selectDoor(i){selDoor=i;selected=-1;$('editor').classList.remove('show');const de=$('door-editor');
-  if(i<0||MODE!=='edit'){de.classList.remove('show');renderDoors();return;}
-  $('door-zc').value=DOORS[i].zc||1;$('door-label').value=DOORS[i].label||'';de.classList.add('show');renderMarkers();renderDoors();
+  if(i<0||MODE!=='edit'){de.classList.remove('show');renderDoors();renderMediaThumbs(true);return;}
+  $('door-zc').value=DOORS[i].zc||1;$('door-label').value=DOORS[i].label||'';
+  const st=$('door-media-status');if(st)st.textContent='';if($('door-media-file'))$('door-media-file').value='';
+  renderMediaList(DOORS[i],'door-media-list');
+  de.classList.add('show');renderMarkers();renderDoors();renderMediaThumbs(true);
   setTimeout(()=>{const a=$('door-label');a.focus();a.select();},0);}
 function applyDoorEditor(){if(selDoor<0)return;DOORS[selDoor].zc=+$('door-zc').value||1;DOORS[selDoor].label=$('door-label').value;renderDoors();}
 function deleteDoor(){if(selDoor<0)return;DOORS.splice(selDoor,1);selDoor=-1;$('door-editor').classList.remove('show');renderDoors();logLine('Porte supprimée.');}
@@ -566,14 +585,23 @@ async function doUpload(path,file,contentType){
   }catch(e){const m=(e&&e.name==='AbortError')?'délai dépassé (45 s) — réessayez':((e&&e.message)||e+'');return{via:'edge',email:tok.email,sa:tok.sa,error:m};}
   finally{clearTimeout(to);}
 }
-function renderMarkerMediaEditor(m){
-  const cur=$('ed-media-cur'),del=$('ed-media-del'),st=$('ed-media-status');
-  st.textContent='';if($('ed-media-file'))$('ed-media-file').value='';
-  if(m&&m.media&&m.media.url){
-    cur.className='ed-media-cur';
-    cur.innerHTML=m.media.kind==='video'?('<video src="'+m.media.url+'" muted playsinline></video>'):('<img src="'+m.media.url+'">');
-    del.style.display='';
-  }else{cur.className='';cur.innerHTML='';del.style.display='none';}
+// Élément actuellement sélectionné (point OU porte) — cible des ajouts/suppressions de médias.
+function selectedEl(){return selDoor>=0?DOORS[selDoor]:(selected>=0?MARKERS[selected]:null);}
+// Affiche la liste des médias (avec retrait par item) dans le conteneur donné.
+function renderMediaList(el,listId){
+  const box=$(listId);if(!box)return;
+  const arr=(el&&el.medias)||[];
+  if(!arr.length){box.innerHTML='<div class="empty-m">Aucun média. Ajoutez‑en : ils s’afficheront près de l’élément en alarme (déplaçables).</div>';return;}
+  box.innerHTML=arr.map((md,i)=>'<div class="mli">'+(md.kind==='video'?('<video src="'+md.url+'" muted></video>'):('<img src="'+md.url+'">'))+'<button title="Retirer" onclick="removeMediaAt('+i+')">✕</button></div>').join('');
+}
+function renderMarkerMediaEditor(m){const st=$('ed-media-status');if(st)st.textContent='';if($('ed-media-file'))$('ed-media-file').value='';renderMediaList(m,'ed-media-list');}
+// Retire un média (par index) de l'élément sélectionné + tente d'effacer le fichier (best-effort).
+function removeMediaAt(i){
+  const el=selectedEl();if(!el||!el.medias||i<0||i>=el.medias.length)return;
+  const md=el.medias[i];el.medias.splice(i,1);
+  if(md&&md.path){lazyClient().then(c=>c.storage.from(MEDIA_BUCKET).remove([md.path])).catch(()=>{});}
+  renderMediaList(el,selDoor>=0?'door-media-list':'ed-media-list');
+  renderMediaThumbs(true);logLine('Média retiré (pensez à 💾 Sauvegarder).');
 }
 // Redimensionne/compresse une image avant upload (côté droit le plus long ≤ maxDim, JPEG qualité
 // donnée). Garde des fichiers légers — essentiel quand plusieurs médias sont liés au même plan.
@@ -591,13 +619,16 @@ async function downscaleImage(file,maxDim,quality){
   }catch(_){return null;}
 }
 async function handleMediaUpload(file){
-  if(!file||selected<0)return;
-  const m=MARKERS[selected];
-  if(!SCOPE){$('ed-media-status').textContent='⚠️ Éditeur ouvert hors contexte centre/admin : upload impossible.';return;}
+  const el=selectedEl();if(!file||!el)return;
+  const isDoor=selDoor>=0;
+  const listId=isDoor?'door-media-list':'ed-media-list';
+  const fileId=isDoor?'door-media-file':'ed-media-file';
+  const setS=t=>{const e=$(isDoor?'door-media-status':'ed-media-status');if(e)e.textContent=t;};
+  if(!SCOPE){setS('⚠️ Éditeur ouvert hors contexte centre/admin : upload impossible.');return;}
   const kind=(file.type||'').startsWith('video')?'video':'image';
   let upFile=file,ext,contentType;
   if(kind==='image'){
-    $('ed-media-status').textContent='⏳ Optimisation de l’image…';
+    setS('⏳ Optimisation de l’image…');
     const small=await downscaleImage(file,1280,0.82);
     if(small&&small.size<file.size){upFile=small;ext='jpg';contentType='image/jpeg';}
     else{ext='jpg';contentType=file.type||'image/jpeg';}
@@ -606,38 +637,56 @@ async function handleMediaUpload(file){
     contentType=file.type||undefined;
   }
   const max=kind==='video'?60:8;
-  if(upFile.size>max*1024*1024){$('ed-media-status').textContent='⚠️ Fichier trop lourd (max '+max+' Mo pour '+(kind==='video'?'une vidéo':'une image')+').';return;}
-  $('ed-media-status').textContent='⏳ Envoi… [u12]';
-  const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-u12-'+Date.now()+'.'+ext;
+  if(upFile.size>max*1024*1024){setS('⚠️ Fichier trop lourd (max '+max+' Mo pour '+(kind==='video'?'une vidéo':'une image')+').');return;}
+  setS('⏳ Envoi… [u13]');
+  const tagId=(isDoor?('PCF-'+selDoor):((el.type||'PT')+'-'+(el.id||0)));
+  const path=SCOPE+'/'+PLAN_KEY+'/'+tagId+'-u13-'+Date.now()+'.'+ext;
   let r;try{r=await doUpload(path,upFile,contentType);}catch(e){r={via:'?',error:(e&&e.message)||e+''};}
-  const who='[u12] '+(r.via||'?')+(r.email?' · '+r.email:'')+(r.sa===false?' · NON super-admin':(r.sa===true?' · super-admin':''));
-  if(r.error==='NO_SESSION'){$('ed-media-status').textContent='❌ [u12] Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l\'éditeur via le bouton ✏️.';return;}
-  if(r.error==='TOKEN_EXPIRED'){$('ed-media-status').textContent='❌ [u12] Session expirée ('+(r.email||'?')+'). Votre connexion a expiré : rouvrez/rafraîchissez la page '+(SCOPE==='shared'?'admin':'centre')+' (qui vous reconnecte), puis relancez l\'envoi.';return;}
-  if(r.error){const msg=r.error+'';$('ed-media-status').textContent='❌ Échec ('+who+') : '+msg+(/row-level|policy|denied|403/i.test(msg)?(' — '+(r.sa===false?'ce compte n\'est pas super-admin : ouvrez l\'éditeur depuis la page admin connectée en super-admin.':'droits insuffisants pour « '+SCOPE+'/ ». Reconnectez-vous puis réessayez.')):'');return;}
-  m.media={kind,url:mediaPublicUrl(path),path};
-  renderMarkerMediaEditor(m);
-  $('ed-media-status').textContent='✅ Média lié ('+who+'). 💾 Sauvegarder puis Publier.';
-  logLine('🖼️ Média lié à '+tag(m)+'.');
+  if(r.error==='NO_SESSION'){setS('❌ Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l’éditeur via ✏️.');return;}
+  if(r.error==='TOKEN_EXPIRED'){setS('❌ Session expirée. Rouvrez/rafraîchissez la page '+(SCOPE==='shared'?'admin':'centre')+' puis relancez l’envoi.');return;}
+  if(r.error){const msg=r.error+'';setS('❌ Échec : '+msg+(/row-level|policy|denied|403/i.test(msg)?(' — droits insuffisants pour « '+SCOPE+'/ ».'):''));return;}
+  el.medias=el.medias||[];el.medias.push({kind,url:mediaPublicUrl(path),path});
+  if($(fileId))$(fileId).value='';
+  renderMediaList(el,listId);renderMediaThumbs(true);
+  const name=isDoor?('PCF'+(el.zc?(' ZC'+el.zc):'')):tag(el);
+  setS('✅ Média ajouté ('+el.medias.length+'). 💾 Sauvegarder puis Publier.');
+  logLine('🖼️ Média ajouté à '+name+'.');
 }
-function removeMarkerMedia(){
-  if(selected<0)return;const m=MARKERS[selected];
-  if(m.media&&m.media.path){const p=m.media.path;lazyClient().then(c=>c.auth.refreshSession().catch(()=>{}).then(()=>c.storage.from(MEDIA_BUCKET).remove([p]))).catch(()=>{});}
-  m.media=null;renderMarkerMediaEditor(m);logLine('Média retiré (pensez à Sauvegarder).');
+// ── Vignettes médias ancrées près de l'élément (point/porte), affichées en alarme, déplaçables ──
+let _thumbSig='';
+function renderMediaThumbs(force){
+  const stage=$('stage'),img=$('plan');if(!stage||!img.naturalWidth)return;
+  const editing=(MODE==='edit');
+  if(!editing&&PLAN_MODE==='examen'){stage.querySelectorAll('.media-grp').forEach(e=>e.remove());_thumbSig='';return;} // examen : pas de média formation
+  const W=img.naturalWidth,H=img.naturalHeight,items=[];
+  MARKERS.forEach((m,idx)=>{const arr=m.medias||[];if(!arr.length)return;
+    const show=editing?(idx===selected):(m._ssi&&m._ssi!=='attente');
+    if(show)items.push({el:m,arr,ax:m.x,ay:m.y,label:tag(m)});});
+  DOORS.forEach((d,idx)=>{const arr=d.medias||[];if(!arr.length)return;
+    const show=editing?(idx===selDoor):!!d._active;
+    if(show)items.push({el:d,arr,ax:(d.x1+d.x2)/2,ay:(d.y1+d.y2)/2,label:'PCF'+(d.zc?(' ZC'+d.zc):'')+(d.label?(' '+d.label):'')});});
+  const sig=items.map(it=>it.label+'#'+it.arr.map(a=>a.url).join(',')+'@'+(it.el.mediaPos?(Math.round(it.el.mediaPos.x)+','+Math.round(it.el.mediaPos.y)):('~'+Math.round(it.ax)+','+Math.round(it.ay)))).join('|')+(editing?'|E':'|P');
+  if(!force&&sig===_thumbSig)return;_thumbSig=sig;
+  stage.querySelectorAll('.media-grp').forEach(e=>e.remove());
+  items.forEach(it=>{
+    const pos=it.el.mediaPos||{x:Math.min(W,it.ax+W*0.05),y:it.ay};
+    const g=document.createElement('div');g.className='media-grp';
+    g.style.left=(pos.x/W*100)+'%';g.style.top=(pos.y/H*100)+'%';
+    it.arr.forEach(md=>{const t=document.createElement('div');t.className='mthumb';
+      t.innerHTML=(md.kind==='video'?('<video src="'+md.url+'" autoplay muted loop playsinline></video>'):('<img src="'+md.url+'">'))+'<div class="mcap">'+it.label+'</div>';
+      g.appendChild(t);});
+    g.addEventListener('mousedown',ev=>startMediaDrag(ev,it.el,g,W,H));
+    stage.appendChild(g);
+  });
 }
-// Overlay média (mode formation), déclenché quand un point passe en alarme.
-let _mediaShownFor=null;
-function showMediaOverlay(m){
-  if(!m||!m.media||!m.media.url)return;
-  const body=$('media-ov-body');
-  body.innerHTML=m.media.kind==='video'
-    ?'<video src="'+m.media.url+'" autoplay controls playsinline></video>'
-    :'<img src="'+m.media.url+'">';
-  $('media-ov-cap').textContent=tag(m)+(m.addr?(' — '+m.addr):'');
-  // Sur l'UAE (vue stagiaire) : vignette dans un coin, pour ne pas masquer le plan.
-  $('media-ov').classList.toggle('thumb',!!UAE);
-  $('media-ov').classList.add('show');
-}
-function closeMediaOverlay(){const o=$('media-ov');o.classList.remove('show');const v=o.querySelector('video');if(v){try{v.pause();}catch(_){}}$('media-ov-body').innerHTML='';}
+let _mdrag=null;
+function startMediaDrag(ev,el,g,W,H){ev.preventDefault();ev.stopPropagation();_mdrag={el,g,W,H};g.classList.add('dragging');}
+document.addEventListener('mousemove',ev=>{if(!_mdrag)return;const img=$('plan'),r=img.getBoundingClientRect();
+  const x=Math.max(0,Math.min(_mdrag.W,(ev.clientX-r.left)/r.width*_mdrag.W));
+  const y=Math.max(0,Math.min(_mdrag.H,(ev.clientY-r.top)/r.height*_mdrag.H));
+  _mdrag.el.mediaPos={x,y};_mdrag.g.style.left=(x/_mdrag.W*100)+'%';_mdrag.g.style.top=(y/_mdrag.H*100)+'%';});
+document.addEventListener('mouseup',()=>{if(_mdrag){_mdrag.g.classList.remove('dragging');_mdrag=null;}});
+function closeMediaOverlay(){const o=$('media-ov');if(o)o.classList.remove('show');} // ancien overlay central, conservé pour compat
 
 // ── drag + ajout ──
 document.addEventListener('mousemove',ev=>{
@@ -691,8 +740,8 @@ function fire(idx){
 
 function clearMarkers(){MARKERS=[];DOORS=[];selectMarker(-1);selectDoor(-1);renderDoors();logLine('Points et portes effacés.');}
 function saveAll(){
-  try{localStorage.setItem(STORE,JSON.stringify(MARKERS.map(m=>({x:m.x,y:m.y,type:m.type,id:m.id,addr:m.addr||'',zf:m.zf||1,lzc:m.lzc||0,lzf:m.lzf||0,media:m.media||null}))));
-  localStorage.setItem(STORE+'_doors',JSON.stringify(DOORS.map(d=>({x1:d.x1,y1:d.y1,x2:d.x2,y2:d.y2,zc:d.zc||1,label:d.label||''}))));
+  try{localStorage.setItem(STORE,JSON.stringify(MARKERS.map(m=>({x:m.x,y:m.y,type:m.type,id:m.id,addr:m.addr||'',zf:m.zf||1,lzc:m.lzc||0,lzf:m.lzf||0,medias:m.medias||[],mediaPos:m.mediaPos||null}))));
+  localStorage.setItem(STORE+'_doors',JSON.stringify(DOORS.map(d=>({x1:d.x1,y1:d.y1,x2:d.x2,y2:d.y2,zc:d.zc||1,label:d.label||'',medias:d.medias||[],mediaPos:d.mediaPos||null}))));
   toast('Plan sauvegardé');logLine('💾 Sauvegardé ('+MARKERS.length+' points, '+DOORS.length+' porte(s)).');}catch(e){logLine('⚠️ Sauvegarde impossible.');}
   // pousse les adresses des DAI/DM au SSI pour qu'elles soient déjà en place
   MARKERS.forEach(m=>{if(m.addr&&!isSym(m))post({kind:'set-address',type:m.type,id:m.id,address:m.addr});});
@@ -704,10 +753,10 @@ function saveAll(){
 function loadFromStore(store){
   const img=localStorage.getItem(store+'_img');$('plan').src=img||'';
   const mk=localStorage.getItem(store);MARKERS=[];
-  if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>{const o={addr:'',zf:1,lzc:0,lzf:0,...m};if(m.link&&!o.lzc&&!o.lzf){if(m.type==='DM')o.lzc=m.link;else if(m.type==='DAI')o.lzf=m.link;}return o;});}catch(_){MARKERS=[];}}
+  if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>{const o={addr:'',zf:1,lzc:0,lzf:0,...m};if(m.link&&!o.lzc&&!o.lzf){if(m.type==='DM')o.lzc=m.link;else if(m.type==='DAI')o.lzf=m.link;}o.medias=Array.isArray(o.medias)?o.medias:(o.media?[o.media]:[]);return o;});}catch(_){MARKERS=[];}}
   renumber();
   const dd=localStorage.getItem(store+'_doors');DOORS=[];
-  if(dd){try{DOORS=(JSON.parse(dd)||[]).map(d=>({label:'',zc:1,...d}));}catch(_){DOORS=[];}}
+  if(dd){try{DOORS=(JSON.parse(dd)||[]).map(d=>{const o={label:'',zc:1,...d};o.medias=Array.isArray(o.medias)?o.medias:(o.media?[o.media]:[]);return o;});}catch(_){DOORS=[];}}
   renderMarkers();renderDoors();
   return !!img;
 }
