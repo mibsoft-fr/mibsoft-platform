@@ -37,6 +37,12 @@
   #media-ov img,#media-ov video{display:block;max-width:92vw;max-height:78vh}
   #media-ov .cap2{color:#fff;font:700 15px system-ui;padding:10px 14px;background:#0b3a53;text-align:center}
   #media-ov .x{position:absolute;top:8px;right:8px;width:38px;height:38px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;font-size:20px;cursor:pointer;z-index:2}
+  /* Mode vignette (UAE) : le média s'affiche en petit dans un coin sans masquer le plan. */
+  #media-ov.thumb{inset:auto 14px 14px auto;background:transparent;padding:0;width:min(42vw,300px);align-items:flex-end;justify-content:flex-end}
+  #media-ov.thumb .box{max-width:100%;max-height:46vh;box-shadow:0 8px 26px rgba(0,0,0,.55)}
+  #media-ov.thumb img,#media-ov.thumb video{max-width:100%;max-height:38vh}
+  #media-ov.thumb .cap2{font-size:12px;padding:6px 9px}
+  #media-ov.thumb .x{width:26px;height:26px;font-size:15px;top:5px;right:5px}
   .ed-media-cur{margin-top:6px;border-radius:8px;overflow:hidden;border:1px solid var(--n200)}
   .ed-media-cur img,.ed-media-cur video{display:block;width:100%;max-height:120px;object-fit:cover}
   .stage{position:relative;display:inline-block;max-width:100%;border:1px solid var(--n200);border-radius:12px;overflow:hidden;background:#fff;line-height:0}
@@ -60,6 +66,15 @@
   .mk.ccf .dot{background:#1d4ed8;color:#fff;width:30px;height:30px;border-radius:50%;font-size:9px;box-shadow:0 0 0 2px #1e3a8a,0 2px 6px rgba(0,0,0,.4)}
   .mk.zfactive .dot{animation:blinkblue .7s infinite}
   @keyframes blinkblue{50%{background:#bae6fd;box-shadow:0 0 0 3px #38bdf8,0 0 12px #38bdf8}}
+  /* ── États SSI (vue Jeu / UAE uniquement) : la couleur d'état prime sur la couleur de type ──
+     attente = vert clair · sécurité = rouge fixe · défaut position sécurité = rouge clignotant
+     défaut position attente = orange clignotant · défaut alimentation = orange fixe. */
+  body:not(.mode-edit) .mk.ssi-attente .dot{background:#86efac!important;color:#065f46!important;box-shadow:0 0 0 2px #22c55e,0 2px 6px rgba(0,0,0,.35)!important;animation:none!important}
+  body:not(.mode-edit) .mk.ssi-securite .dot{background:var(--red)!important;color:#fff!important;box-shadow:0 0 0 2px #7f1d1d,0 2px 6px rgba(0,0,0,.45)!important;animation:none!important}
+  body:not(.mode-edit) .mk.ssi-defaut-securite .dot{background:var(--red)!important;color:#fff!important;box-shadow:0 0 0 2px #7f1d1d,0 2px 6px rgba(0,0,0,.45)!important;animation:blink .6s infinite!important}
+  body:not(.mode-edit) .mk.ssi-defaut-attente .dot{background:#f59e0b!important;color:#3a2400!important;box-shadow:0 0 0 2px #b45309,0 2px 6px rgba(0,0,0,.45)!important;animation:blinkorange .7s infinite!important}
+  body:not(.mode-edit) .mk.ssi-defaut-alim .dot{background:#f59e0b!important;color:#3a2400!important;box-shadow:0 0 0 2px #b45309,0 2px 6px rgba(0,0,0,.45)!important;animation:none!important}
+  @keyframes blinkorange{50%{opacity:.25}}
   .empty{padding:54px 20px;text-align:center;color:#64748b;border:2px dashed var(--n300);border-radius:12px;background:#fff}
   .help{font-size:.78rem;color:var(--n600);margin-top:10px;line-height:1.5}
   .log{margin-top:12px;background:#0b1220;color:#9be29b;border-radius:10px;padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:.78rem;max-height:140px;overflow:auto}
@@ -195,11 +210,32 @@ function applyState(data){
   if(!data)return;
   if(data.mode&&data.mode!==PLAN_MODE){PLAN_MODE=data.mode;document.body.classList.toggle('examen',PLAN_MODE==='examen');if(PLAN_MODE==='examen')closeMediaOverlay();}
   const find=(t,id)=>((t==='DAI'?data.DAI:data.DM)||[]).find(d=>d.id===id);
-  const zoneActive=(zt,n)=>{const arr=zt==='compartment'?(data.ZC||[]):(data.ZF||[]);const z=arr.find(x=>x.id===n);return !!(z&&(z.state==='securite'||z.state==='defaut-securite'));};
+  const zoneOf=(zt,n)=>{const arr=zt==='compartment'?(data.ZC||[]):(data.ZF||[]);return arr.find(x=>x.id===n)||null;};
+  // Détermine l'état SSI à afficher : attente | securite | defaut-securite | defaut-attente | defaut-alim
+  const ssiZone=z=>{const st=z?z.state:'attente';
+    if(z&&(z.alim===false||z.fault==='alim'||st==='defaut-alim'))return 'defaut-alim';
+    if(st==='securite')return 'securite';
+    if(st==='defaut-securite')return 'defaut-securite';
+    if(st==='defaut-attente')return 'defaut-attente';
+    return 'attente';};
   let changed=false,justFired=null;
   MARKERS.forEach(m=>{
-    if(isSym(m)){const a=zoneActive(symZoneType(m),m.zf||1);if(a!==!!m._zfactive){m._zfactive=a;changed=true;}return;}
-    const d=find(m.type,m.id);const t=!!(d&&d.triggered);const hs=!!(d&&d.hs);if(t!==!!m._fired||hs!==!!m._hs){if(t&&!m._fired&&m.media)justFired=m;m._fired=t;m._hs=hs;changed=true;}
+    if(isSym(m)){
+      const z=zoneOf(symZoneType(m),m.zf||1);
+      const a=!!(z&&(z.state==='securite'||z.state==='defaut-securite'));
+      const ssi=ssiZone(z);
+      if(a!==!!m._zfactive){m._zfactive=a;changed=true;}
+      if(ssi!==m._ssi){m._ssi=ssi;changed=true;}
+      return;
+    }
+    const d=find(m.type,m.id);const t=!!(d&&d.triggered);const hs=!!(d&&d.hs);
+    let ssi='attente';
+    if(hs||(d&&(d.alim===false||d.fault==='alim')))ssi='defaut-alim';
+    else if(d&&(d.fault==='securite'||d.faultSecurite))ssi='defaut-securite';
+    else if(d&&(d.fault==='attente'||d.faultAttente))ssi='defaut-attente';
+    else if(t)ssi='securite';
+    if(t&&!m._fired&&m.media)justFired=m;
+    if(t!==!!m._fired||hs!==!!m._hs||ssi!==m._ssi){m._fired=t;m._hs=hs;m._ssi=ssi;changed=true;}
   });
   // Mode formation, vue stagiaire (UAE) : afficher le média du point qui vient de passer en alarme.
   if(justFired&&UAE&&PLAN_MODE==='formation')showMediaOverlay(justFired);
@@ -321,7 +357,7 @@ function renderMarkers(){
   MARKERS.forEach((m,idx)=>{
     const wrap=document.createElement('div');
     const kindClass={DAI:'dai',DM:'dm',VH:'vh',VB:'vb',CCF:'ccf'}[m.type]||'dai';
-    wrap.className='mk '+kindClass+(idx===selected?' sel':'')+(m._fired?' fired':'')+(m._hs?' hs':'')+(m._zfactive?' zfactive':'');
+    wrap.className='mk '+kindClass+(idx===selected?' sel':'')+(m._hs?' hs':'')+' ssi-'+(m._ssi||'attente');
     wrap.style.left=(m.x/img.naturalWidth*100)+'%';wrap.style.top=(m.y/img.naturalHeight*100)+'%';
     wrap.title=tag(m)+(m.addr?(' — '+m.addr):'')+(m._hs?' (hors service)':'');
     const dot=document.createElement('div');dot.className='dot';dot.textContent=dotText(m);wrap.appendChild(dot);
@@ -551,6 +587,8 @@ function showMediaOverlay(m){
     ?'<video src="'+m.media.url+'" autoplay controls playsinline></video>'
     :'<img src="'+m.media.url+'">';
   $('media-ov-cap').textContent=tag(m)+(m.addr?(' — '+m.addr):'');
+  // Sur l'UAE (vue stagiaire) : vignette dans un coin, pour ne pas masquer le plan.
+  $('media-ov').classList.toggle('thumb',!!UAE);
   $('media-ov').classList.add('show');
 }
 function closeMediaOverlay(){const o=$('media-ov');o.classList.remove('show');const v=o.querySelector('video');if(v){try{v.pause();}catch(_){}}$('media-ov-body').innerHTML='';}
@@ -590,7 +628,7 @@ function fire(idx){
   if(!m.addr&&!m._fired)toast('Astuce : nomme ce local en Édition pour l’afficher sur l’ECS');
   const sent=post({kind:'trigger',type:m.type,id:m.id,address:m.addr||'',linkZC:m.lzc||0,linkZF:m.lzf||0});
   if(sent){
-    m._fired=!m._fired; // optimiste, réconcilié par l'état renvoyé
+    m._fired=!m._fired;m._ssi=m._fired?'securite':'attente'; // optimiste, réconcilié par l'état renvoyé
     renderMarkers();
     logLine((m._fired?'🔥 ALARME FEU → ':'✅ Réarmement → ')+tag(m)+(m.addr?(' ('+m.addr+')'):''));
     if((Date.now()-lastStateAt)>=3000)toast('Onglet formateur non détecté — rechargez-le');
@@ -600,9 +638,9 @@ function fire(idx){
   if(op&&typeof op.triggerFromPlan==='function'){
     if(m.addr&&typeof op.updateDetectorAddressInput==='function')op.updateDetectorAddressInput(m.type,m.id,m.addr);
     const res=op.triggerFromPlan(m.type,m.id);
-    if(res&&!res.error&&!res.blocked){m._fired=res.triggered;renderMarkers();logLine((res.triggered?'🔥 ALARME FEU → ':'✅ Réarmement → ')+tag(m));return;}
+    if(res&&!res.error&&!res.blocked){m._fired=res.triggered;m._ssi=m._fired?'securite':'attente';renderMarkers();logLine((res.triggered?'🔥 ALARME FEU → ':'✅ Réarmement → ')+tag(m));return;}
   }
-  m._fired=!m._fired;renderMarkers();logLine('🔌 (test local) '+tag(m));toast('Non relié au formateur');
+  m._fired=!m._fired;m._ssi=m._fired?'securite':'attente';renderMarkers();logLine('🔌 (test local) '+tag(m));toast('Non relié au formateur');
 }
 
 function clearMarkers(){MARKERS=[];DOORS=[];selectMarker(-1);selectDoor(-1);renderDoors();logLine('Points et portes effacés.');}
