@@ -1954,8 +1954,8 @@ async function publishAdminLevel(estabKey,levelKey){
   try{markers=localStorage.getItem(ck)||'[]';doors=localStorage.getItem(ck+'_doors')||'[]';}catch(_){}
   try{
     const blob=new Blob([JSON.stringify({image:img,markers:JSON.parse(markers),doors:JSON.parse(doors),updatedAt:Date.now()})],{type:'application/json'});
-    const{error}=await supabase.storage.from(PLAN_EX_BUCKET).upload('shared/'+estabKey+'/'+levelKey+'.json',blob,{upsert:true,contentType:'application/json'});
-    if(error)throw error;
+    const r=await edgeUploadObject(PLAN_EX_BUCKET,'shared/'+estabKey+'/'+levelKey+'.json',blob,'application/json');
+    if(r.error)throw new Error(r.error);
     alert('✅ Niveau publié (modèle commun).');
     const t=(window._adminTypes||[]).find(x=>x.key===estabKey);if(t)renderAdminLevels(t);
   }catch(e){alert('❌ Publication refusée : '+(e.message||e)+'\n(Réservé au super-admin.)');}
