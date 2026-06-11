@@ -40,6 +40,36 @@ const STORAGE = {
   }
 };
 
+// Upload fiable via l'Edge Function (clé service_role, contourne la RLS Storage).
+// Vérifie les droits côté serveur (super-admin pour « shared/ », centre/formateur pour son scope).
+// Lit le token directement dans le localStorage partagé (aucun verrou navigator.locks → pas de
+// blocage multi-onglets). Renvoie {ok:true,url} ou {error}.
+async function edgeUploadObject(bucket, path, blobOrFile, contentType) {
+  const SBKEY = 'sb-ozfkmlokovxigfnwjeuk-auth-token';
+  let token = '';
+  try { const o = JSON.parse(localStorage.getItem(SBKEY) || 'null'); const s = o && (o.currentSession || o); token = (s && s.access_token) || ''; } catch (_) {}
+  if (!token) return { error: 'NO_SESSION' };
+  const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 45000);
+  try {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/ssi-media-upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'apikey': SUPABASE_ANON_KEY,
+        'x-bucket': bucket,
+        'x-path': path,
+        'x-content-type': contentType || 'application/octet-stream'
+      },
+      body: blobOrFile, signal: ctrl.signal
+    });
+    let j = {}; try { j = await res.json(); } catch (_) {}
+    if (res.ok && j && j.ok) return { ok: true, url: j.url };
+    return { error: (j && j.error) || ('HTTP ' + res.status) };
+  } catch (e) {
+    return { error: (e && e.name === 'AbortError') ? 'délai dépassé' : ((e && e.message) || (e + '')) };
+  } finally { clearTimeout(to); }
+}
+
 // ============================================================
 // HELPERS — Requêtes Supabase simplifiées
 // ============================================================

@@ -1648,8 +1648,8 @@ try{img=localStorage.getItem('mib_plan_'+planKey+'_img')||'';markers=localStorag
 if(!img)return false; // rien à publier tant qu'aucune image n'a été importée
 try{
 const blob=new Blob([JSON.stringify({image:img,markers:JSON.parse(markers),doors:JSON.parse(doors),updatedAt:Date.now()})],{type:'application/json'});
-const{error}=await window.supabase.storage.from(PLAN_BUCKET).upload(cid+'/'+planKey+'.json',blob,{upsert:true,contentType:'application/json'});
-if(error){console.warn('plan upload',error);return false;}
+const r=await edgeUploadObject(PLAN_BUCKET,cid+'/'+planKey+'.json',blob,'application/json');
+if(r.error){console.warn('plan upload',r.error);return false;}
 return true;
 }catch(e){console.warn('plan upload threw',e);return false;}
 }
