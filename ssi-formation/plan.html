@@ -511,19 +511,23 @@ async function rawUpload(token,path,file,contentType){
   let msg='';try{msg=(await res.json()).message||'';}catch(_){}
   return msg||('HTTP '+res.status);
 }
-// Récupère le meilleur token disponible : fenêtre parente (admin/centre) en priorité, sinon
-// client local. (Le token sert à authentifier l'appel à l'Edge Function.)
+// Récupère le meilleur token disponible SANS jamais bloquer : on lit directement le token du
+// stockage partagé (maintenu à jour par la fenêtre admin/centre, même origine). On N'APPELLE PAS
+// refreshSession()/getSession() de supabase-js quand le token est déjà frais : ces appels prennent
+// un verrou navigator.locks partagé entre onglets qui peut se bloquer indéfiniment (admin +
+// éditeur + UAE ouverts). Refresh de secours UNIQUEMENT si périmé, et borné par un timeout.
 async function bestToken(){
+  const now=Math.floor(Date.now()/1000);
+  let best=storedToken();
+  if(best&&best.exp&&best.exp-now>30)return best; // frais → aucun appel verrouillant
   try{
-    const op=(window.opener&&!window.opener.closed)?window.opener:null;
-    if(op&&op.supabase&&op.supabase.auth){
-      try{await op.supabase.auth.refreshSession();}catch(_){}
-      const{data}=await op.supabase.auth.getSession();
-      if(data&&data.session&&data.session.access_token){const cl=jwtClaims(data.session.access_token);
-        return{access_token:data.session.access_token,exp:cl.exp||0,email:(data.session.user&&data.session.user.email)||'',sa:cl.is_super_admin};}
-    }
+    const c=await lazyClient();
+    await Promise.race([
+      c.auth.refreshSession(),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('refresh-timeout')),6000))
+    ]);
   }catch(_){}
-  const c=await lazyClient();return await freshestToken(c);
+  return storedToken()||best;
 }
 // Upload média via l'Edge Function ssi-media-upload : elle vérifie les droits (super-admin pour
 // « shared/ », centre/formateur pour son propre scope) avec la clé service_role, puis écrit en
@@ -534,15 +538,17 @@ async function doUpload(path,file,contentType){
   if(!tok||!tok.access_token)return{via:'edge',email:'',sa:undefined,error:'NO_SESSION'};
   const now=Math.floor(Date.now()/1000);
   if(tok.exp&&tok.exp-now<=0)return{via:'edge',email:tok.email,sa:tok.sa,error:'TOKEN_EXPIRED'};
+  const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),45000);
   try{
     const res=await fetch(SB_URL+'/functions/v1/ssi-media-upload',{method:'POST',
       headers:{'Authorization':'Bearer '+tok.access_token,'apikey':SB_ANON,'x-path':path,'x-content-type':contentType||'application/octet-stream'},
-      body:file});
+      body:file,signal:ctrl.signal});
     let j={};try{j=await res.json();}catch(_){}
     if(res.ok&&j&&j.ok)return{via:'edge',email:j.email||tok.email,sa:(j.sa===true),error:null};
     const err=(j&&j.error)||('HTTP '+res.status);
     return{via:'edge',email:(j&&j.email)||tok.email,sa:(j&&(j.error==='NOT_SUPER_ADMIN'||j.error==='NOT_ALLOWED_FOR_SCOPE'))?false:tok.sa,error:err};
-  }catch(e){return{via:'edge',email:tok.email,sa:tok.sa,error:(e&&e.message)||e+''};}
+  }catch(e){const m=(e&&e.name==='AbortError')?'délai dépassé (45 s) — réessayez':((e&&e.message)||e+'');return{via:'edge',email:tok.email,sa:tok.sa,error:m};}
+  finally{clearTimeout(to);}
 }
 function renderMarkerMediaEditor(m){
   const cur=$('ed-media-cur'),del=$('ed-media-del'),st=$('ed-media-status');
@@ -560,13 +566,13 @@ async function handleMediaUpload(file){
   const kind=(file.type||'').startsWith('video')?'video':'image';
   const max=kind==='video'?60:8;
   if(file.size>max*1024*1024){$('ed-media-status').textContent='⚠️ Fichier trop lourd (max '+max+' Mo pour '+(kind==='video'?'une vidéo':'une image')+').';return;}
-  $('ed-media-status').textContent='⏳ Envoi… [u10]';
+  $('ed-media-status').textContent='⏳ Envoi… [u11]';
   const ext=((file.name||'').split('.').pop()||(kind==='video'?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5)||'bin';
-  const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-u10-'+Date.now()+'.'+ext;
+  const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-u11-'+Date.now()+'.'+ext;
   let r;try{r=await doUpload(path,file,file.type||undefined);}catch(e){r={via:'?',error:(e&&e.message)||e+''};}
-  const who='[u10] '+(r.via||'?')+(r.email?' · '+r.email:'')+(r.sa===false?' · NON super-admin':(r.sa===true?' · super-admin':''));
-  if(r.error==='NO_SESSION'){$('ed-media-status').textContent='❌ [u10] Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l\'éditeur via le bouton ✏️.';return;}
-  if(r.error==='TOKEN_EXPIRED'){$('ed-media-status').textContent='❌ [u10] Session expirée ('+(r.email||'?')+'). Votre connexion a expiré : rouvrez/rafraîchissez la page '+(SCOPE==='shared'?'admin':'centre')+' (qui vous reconnecte), puis relancez l\'envoi.';return;}
+  const who='[u11] '+(r.via||'?')+(r.email?' · '+r.email:'')+(r.sa===false?' · NON super-admin':(r.sa===true?' · super-admin':''));
+  if(r.error==='NO_SESSION'){$('ed-media-status').textContent='❌ [u11] Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l\'éditeur via le bouton ✏️.';return;}
+  if(r.error==='TOKEN_EXPIRED'){$('ed-media-status').textContent='❌ [u11] Session expirée ('+(r.email||'?')+'). Votre connexion a expiré : rouvrez/rafraîchissez la page '+(SCOPE==='shared'?'admin':'centre')+' (qui vous reconnecte), puis relancez l\'envoi.';return;}
   if(r.error){const msg=r.error+'';$('ed-media-status').textContent='❌ Échec ('+who+') : '+msg+(/row-level|policy|denied|403/i.test(msg)?(' — '+(r.sa===false?'ce compte n\'est pas super-admin : ouvrez l\'éditeur depuis la page admin connectée en super-admin.':'droits insuffisants pour « '+SCOPE+'/ ». Reconnectez-vous puis réessayez.')):'');return;}
   m.media={kind,url:mediaPublicUrl(path),path};
   renderMarkerMediaEditor(m);
