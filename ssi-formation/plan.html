@@ -38,11 +38,11 @@
   #media-ov .cap2{color:#fff;font:700 15px system-ui;padding:10px 14px;background:#0b3a53;text-align:center}
   #media-ov .x{position:absolute;top:8px;right:8px;width:38px;height:38px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;font-size:20px;cursor:pointer;z-index:2}
   /* Mode vignette (UAE) : le média s'affiche en petit dans un coin sans masquer le plan. */
-  #media-ov.thumb{inset:auto 14px 14px auto;background:transparent;padding:0;width:min(42vw,300px);align-items:flex-end;justify-content:flex-end}
-  #media-ov.thumb .box{max-width:100%;max-height:46vh;box-shadow:0 8px 26px rgba(0,0,0,.55)}
-  #media-ov.thumb img,#media-ov.thumb video{max-width:100%;max-height:38vh}
-  #media-ov.thumb .cap2{font-size:12px;padding:6px 9px}
-  #media-ov.thumb .x{width:26px;height:26px;font-size:15px;top:5px;right:5px}
+  #media-ov.thumb{inset:auto 12px 12px auto;background:transparent;padding:0;width:min(26vw,190px);align-items:flex-end;justify-content:flex-end}
+  #media-ov.thumb .box{max-width:100%;max-height:30vh;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+  #media-ov.thumb img,#media-ov.thumb video{max-width:100%;max-height:23vh}
+  #media-ov.thumb .cap2{font-size:11px;padding:4px 7px}
+  #media-ov.thumb .x{width:22px;height:22px;font-size:13px;top:4px;right:4px}
   .ed-media-cur{margin-top:6px;border-radius:8px;overflow:hidden;border:1px solid var(--n200)}
   .ed-media-cur img,.ed-media-cur video{display:block;width:100%;max-height:120px;object-fit:cover}
   .stage{position:relative;display:inline-block;max-width:100%;border:1px solid var(--n200);border-radius:12px;overflow:hidden;background:#fff;line-height:0}
@@ -242,7 +242,7 @@ function applyState(data){
   let dchanged=false;
   const zcState=n=>{const z=(data.ZC||[]).find(x=>x.id===n);return z?z.state:'attente';};
   DOORS.forEach(dr=>{const st=zcState(dr.zc||1);const a=(st==='securite'||st==='defaut-securite');const f=(st==='defaut-securite');if(a!==!!dr._active||f!==!!dr._fault){dr._active=a;dr._fault=f;dchanged=true;}});
-  if(changed&&dragging===null)renderMarkers();
+  if(changed&&dragging===null)applyMarkerStates();
   if(dchanged&&dragDoor===null)renderDoors();
 }
 
@@ -358,6 +358,7 @@ function renderMarkers(){
     const wrap=document.createElement('div');
     const kindClass={DAI:'dai',DM:'dm',VH:'vh',VB:'vb',CCF:'ccf'}[m.type]||'dai';
     wrap.className='mk '+kindClass+(idx===selected?' sel':'')+(m._hs?' hs':'')+' ssi-'+(m._ssi||'attente');
+    wrap.dataset.idx=idx;
     wrap.style.left=(m.x/img.naturalWidth*100)+'%';wrap.style.top=(m.y/img.naturalHeight*100)+'%';
     wrap.title=tag(m)+(m.addr?(' — '+m.addr):'')+(m._hs?' (hors service)':'');
     const dot=document.createElement('div');dot.className='dot';dot.textContent=dotText(m);wrap.appendChild(dot);
@@ -371,6 +372,21 @@ function renderMarkers(){
     stage.appendChild(wrap);
   });
   $('count').textContent=MARKERS.length+(MARKERS.length>1?' points':' point');
+}
+// Met à jour l'état visuel des points SANS recréer le DOM (évite le redémarrage des animations
+// → plus de clignotement aléatoire ; les points en sécurité restent fixes). Repli sur un rendu
+// complet si la structure a changé (nombre de points, apparition/disparition du ✕ hors-service).
+function applyMarkerStates(){
+  const els=$('stage').querySelectorAll('.mk');
+  if(els.length!==MARKERS.length){renderMarkers();return;}
+  for(let idx=0;idx<MARKERS.length;idx++){
+    const m=MARKERS[idx],wrap=els[idx];if(!wrap)continue;
+    const hasX=!!wrap.querySelector('.xmark');
+    if(!!m._hs!==hasX){renderMarkers();return;} // structure modifiée → rebuild complet (rare)
+    const kindClass={DAI:'dai',DM:'dm',VH:'vh',VB:'vb',CCF:'ccf'}[m.type]||'dai';
+    const cls='mk '+kindClass+(idx===selected?' sel':'')+(m._hs?' hs':'')+' ssi-'+(m._ssi||'attente');
+    if(wrap.className!==cls)wrap.className=cls; // n'écrit que si différent → pas de restart d'animation
+  }
 }
 
 // ── Portes (compartimentage) : ligne à 2 extrémités, visible quand la ZC est active ──
@@ -559,20 +575,44 @@ function renderMarkerMediaEditor(m){
     del.style.display='';
   }else{cur.className='';cur.innerHTML='';del.style.display='none';}
 }
+// Redimensionne/compresse une image avant upload (côté droit le plus long ≤ maxDim, JPEG qualité
+// donnée). Garde des fichiers légers — essentiel quand plusieurs médias sont liés au même plan.
+async function downscaleImage(file,maxDim,quality){
+  try{
+    const bmp=await createImageBitmap(file);
+    let w=bmp.width,h=bmp.height;
+    const scale=Math.min(1,maxDim/Math.max(w,h));
+    w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));
+    const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+    cv.getContext('2d').drawImage(bmp,0,0,w,h);
+    if(bmp.close)bmp.close();
+    const blob=await new Promise(res=>cv.toBlob(res,'image/jpeg',quality));
+    return (blob&&blob.size)?blob:null;
+  }catch(_){return null;}
+}
 async function handleMediaUpload(file){
   if(!file||selected<0)return;
   const m=MARKERS[selected];
   if(!SCOPE){$('ed-media-status').textContent='⚠️ Éditeur ouvert hors contexte centre/admin : upload impossible.';return;}
   const kind=(file.type||'').startsWith('video')?'video':'image';
+  let upFile=file,ext,contentType;
+  if(kind==='image'){
+    $('ed-media-status').textContent='⏳ Optimisation de l’image…';
+    const small=await downscaleImage(file,1280,0.82);
+    if(small&&small.size<file.size){upFile=small;ext='jpg';contentType='image/jpeg';}
+    else{ext='jpg';contentType=file.type||'image/jpeg';}
+  }else{
+    ext=((file.name||'').split('.').pop()||'mp4').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5)||'mp4';
+    contentType=file.type||undefined;
+  }
   const max=kind==='video'?60:8;
-  if(file.size>max*1024*1024){$('ed-media-status').textContent='⚠️ Fichier trop lourd (max '+max+' Mo pour '+(kind==='video'?'une vidéo':'une image')+').';return;}
-  $('ed-media-status').textContent='⏳ Envoi… [u11]';
-  const ext=((file.name||'').split('.').pop()||(kind==='video'?'mp4':'jpg')).toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5)||'bin';
-  const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-u11-'+Date.now()+'.'+ext;
-  let r;try{r=await doUpload(path,file,file.type||undefined);}catch(e){r={via:'?',error:(e&&e.message)||e+''};}
-  const who='[u11] '+(r.via||'?')+(r.email?' · '+r.email:'')+(r.sa===false?' · NON super-admin':(r.sa===true?' · super-admin':''));
-  if(r.error==='NO_SESSION'){$('ed-media-status').textContent='❌ [u11] Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l\'éditeur via le bouton ✏️.';return;}
-  if(r.error==='TOKEN_EXPIRED'){$('ed-media-status').textContent='❌ [u11] Session expirée ('+(r.email||'?')+'). Votre connexion a expiré : rouvrez/rafraîchissez la page '+(SCOPE==='shared'?'admin':'centre')+' (qui vous reconnecte), puis relancez l\'envoi.';return;}
+  if(upFile.size>max*1024*1024){$('ed-media-status').textContent='⚠️ Fichier trop lourd (max '+max+' Mo pour '+(kind==='video'?'une vidéo':'une image')+').';return;}
+  $('ed-media-status').textContent='⏳ Envoi… [u12]';
+  const path=SCOPE+'/'+PLAN_KEY+'/'+(m.type||'PT')+'-'+(m.id||0)+'-u12-'+Date.now()+'.'+ext;
+  let r;try{r=await doUpload(path,upFile,contentType);}catch(e){r={via:'?',error:(e&&e.message)||e+''};}
+  const who='[u12] '+(r.via||'?')+(r.email?' · '+r.email:'')+(r.sa===false?' · NON super-admin':(r.sa===true?' · super-admin':''));
+  if(r.error==='NO_SESSION'){$('ed-media-status').textContent='❌ [u12] Aucune session connectée. Reconnectez-vous sur la page '+(SCOPE==='shared'?'admin':'centre')+' puis rouvrez l\'éditeur via le bouton ✏️.';return;}
+  if(r.error==='TOKEN_EXPIRED'){$('ed-media-status').textContent='❌ [u12] Session expirée ('+(r.email||'?')+'). Votre connexion a expiré : rouvrez/rafraîchissez la page '+(SCOPE==='shared'?'admin':'centre')+' (qui vous reconnecte), puis relancez l\'envoi.';return;}
   if(r.error){const msg=r.error+'';$('ed-media-status').textContent='❌ Échec ('+who+') : '+msg+(/row-level|policy|denied|403/i.test(msg)?(' — '+(r.sa===false?'ce compte n\'est pas super-admin : ouvrez l\'éditeur depuis la page admin connectée en super-admin.':'droits insuffisants pour « '+SCOPE+'/ ». Reconnectez-vous puis réessayez.')):'');return;}
   m.media={kind,url:mediaPublicUrl(path),path};
   renderMarkerMediaEditor(m);
@@ -635,7 +675,7 @@ function fire(idx){
   const sent=post({kind:'trigger',type:m.type,id:m.id,address:m.addr||'',linkZC:m.lzc||0,linkZF:m.lzf||0});
   if(sent){
     m._fired=!m._fired;m._ssi=m._fired?'securite':'attente'; // optimiste, réconcilié par l'état renvoyé
-    renderMarkers();
+    applyMarkerStates();
     logLine((m._fired?'🔥 ALARME FEU → ':'✅ Réarmement → ')+tag(m)+(m.addr?(' ('+m.addr+')'):''));
     if((Date.now()-lastStateAt)>=3000)toast('Onglet formateur non détecté — rechargez-le');
     return;
@@ -644,9 +684,9 @@ function fire(idx){
   if(op&&typeof op.triggerFromPlan==='function'){
     if(m.addr&&typeof op.updateDetectorAddressInput==='function')op.updateDetectorAddressInput(m.type,m.id,m.addr);
     const res=op.triggerFromPlan(m.type,m.id);
-    if(res&&!res.error&&!res.blocked){m._fired=res.triggered;m._ssi=m._fired?'securite':'attente';renderMarkers();logLine((res.triggered?'🔥 ALARME FEU → ':'✅ Réarmement → ')+tag(m));return;}
+    if(res&&!res.error&&!res.blocked){m._fired=res.triggered;m._ssi=m._fired?'securite':'attente';applyMarkerStates();logLine((res.triggered?'🔥 ALARME FEU → ':'✅ Réarmement → ')+tag(m));return;}
   }
-  m._fired=!m._fired;m._ssi=m._fired?'securite':'attente';renderMarkers();logLine('🔌 (test local) '+tag(m));toast('Non relié au formateur');
+  m._fired=!m._fired;m._ssi=m._fired?'securite':'attente';applyMarkerStates();logLine('🔌 (test local) '+tag(m));toast('Non relié au formateur');
 }
 
 function clearMarkers(){MARKERS=[];DOORS=[];selectMarker(-1);selectDoor(-1);renderDoors();logLine('Points et portes effacés.');}
