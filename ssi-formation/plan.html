@@ -657,14 +657,20 @@ let _thumbSig='';
 function renderMediaThumbs(force){
   const stage=$('stage'),img=$('plan');if(!stage||!img.naturalWidth)return;
   const editing=(MODE==='edit');
-  if(!editing&&PLAN_MODE==='examen'){stage.querySelectorAll('.media-grp').forEach(e=>e.remove());_thumbSig='';return;} // examen : pas de média formation
+  // Hors édition : vignettes affichées UNIQUEMENT sur l'UAE (vue stagiaire), et jamais en examen.
+  if(!editing&&(!UAE||PLAN_MODE==='examen')){stage.querySelectorAll('.media-grp').forEach(e=>e.remove());_thumbSig='';return;}
   const W=img.naturalWidth,H=img.naturalHeight,items=[];
-  MARKERS.forEach((m,idx)=>{const arr=m.medias||[];if(!arr.length)return;
-    const show=editing?(idx===selected):(m._ssi&&m._ssi!=='attente');
-    if(show)items.push({el:m,arr,ax:m.x,ay:m.y,label:tag(m)});});
-  DOORS.forEach((d,idx)=>{const arr=d.medias||[];if(!arr.length)return;
-    const show=editing?(idx===selDoor):!!d._active;
-    if(show)items.push({el:d,arr,ax:(d.x1+d.x2)/2,ay:(d.y1+d.y2)/2,label:'PCF'+(d.zc?(' ZC'+d.zc):'')+(d.label?(' '+d.label):'')});});
+  // Décide l'affichage. En édition : l'élément sélectionné (pour le placer).
+  // Sur l'UAE : quand l'élément est en alarme, mais auto-fermeture après 10 s (_mediaDismissed)
+  // pour ne pas encombrer le plan sur la durée de la session ; remis à zéro dès la sortie d'alarme.
+  const consider=(el,inAlarm,sel,ax,ay,label)=>{
+    if(editing){if(sel)items.push({el,arr:el.medias,ax,ay,label});return;}
+    if(!inAlarm){if(el._mediaTimer){clearTimeout(el._mediaTimer);el._mediaTimer=null;}el._mediaDismissed=false;return;}
+    if(el._mediaDismissed)return;
+    items.push({el,arr:el.medias,ax,ay,label});
+  };
+  MARKERS.forEach((m,idx)=>{if(!(m.medias&&m.medias.length))return;consider(m,!!(m._ssi&&m._ssi!=='attente'),idx===selected,m.x,m.y,tag(m));});
+  DOORS.forEach((d,idx)=>{if(!(d.medias&&d.medias.length))return;consider(d,!!d._active,idx===selDoor,(d.x1+d.x2)/2,(d.y1+d.y2)/2,'PCF'+(d.zc?(' ZC'+d.zc):'')+(d.label?(' '+d.label):''));});
   const sig=items.map(it=>it.label+'#'+it.arr.map(a=>a.url).join(',')+'@'+(it.el.mediaPos?(Math.round(it.el.mediaPos.x)+','+Math.round(it.el.mediaPos.y)):('~'+Math.round(it.ax)+','+Math.round(it.ay)))).join('|')+(editing?'|E':'|P');
   if(!force&&sig===_thumbSig)return;_thumbSig=sig;
   stage.querySelectorAll('.media-grp').forEach(e=>e.remove());
@@ -677,6 +683,10 @@ function renderMediaThumbs(force){
       g.appendChild(t);});
     g.addEventListener('mousedown',ev=>startMediaDrag(ev,it.el,g,W,H));
     stage.appendChild(g);
+    // UAE : programme la fermeture automatique 10 s après l'apparition (une seule fois par alarme).
+    if(!editing&&UAE&&!it.el._mediaTimer){
+      it.el._mediaTimer=setTimeout(()=>{it.el._mediaDismissed=true;it.el._mediaTimer=null;renderMediaThumbs(true);},10000);
+    }
   });
 }
 let _mdrag=null;
