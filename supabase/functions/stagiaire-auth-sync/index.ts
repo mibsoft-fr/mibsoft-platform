@@ -3,10 +3,10 @@
 // stagiaires afin que le login PIN fonctionne via `signInWithPassword`.
 //
 // Email synthétique : `stagiaire-<id>@stagiaires.mib-prevention.fr`
-// Mot de passe      : PIN courant du stagiaire (ou `new_pin` si fourni).
+// Mot de passe      : PIN courant du stagiaire EN BASE (pin_clair). Jamais fourni par l'appelant.
 //
-// Body (POST JSON) :
-//   { stagiaire_id: uuid?, all: boolean?, new_pin: string? }
+// Body (POST JSON) : { stagiaire_id: uuid }
+// Sécurité : SERVICE_ROLE. Handler exige un appelant authentifié (centre) ou interne (service_role).
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -27,28 +27,35 @@ function syntheticEmail(stagiaireId: string) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
-  const body = await req.json().catch(() => ({} as any));
-  const stagiaireId: string | null = body?.stagiaire_id || null;
-  const newPin: string | null = body?.new_pin || null;
-  const allMode: boolean = body?.all === true || (!stagiaireId && !newPin);
-
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
-  let q = admin.from('stagiaires')
+  // SÉCURITÉ : n'autoriser QUE des appelants AUTHENTIFIÉS (centre connecté). Sans ce contrôle, la
+  // clé anon publique suffisait à invoquer cette fonction service_role. getUser() valide le JWT et
+  // échoue pour un token anon (sans utilisateur).
+  const authHeader = req.headers.get('Authorization') || '';
+  const jwt = authHeader.replace(/^Bearer\s+/i, '');
+  let authorized = false;
+  if (jwt && jwt === SERVICE_ROLE) authorized = true;                       // appels internes (service_role)
+  else if (jwt) authorized = !!(await admin.auth.getUser(jwt)).data.user;   // utilisateur connecté (centre)
+  if (!authorized) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+
+  const body = await req.json().catch(() => ({} as any));
+  const stagiaireId: string | null = body?.stagiaire_id || null;
+  // id précis requis + mot de passe TOUJOURS = PIN courant en base (jamais fourni par l'appelant ;
+  // plus de mode « all ») → empêche la réinitialisation du PIN d'un tiers à une valeur choisie.
+  if (!stagiaireId) return json({ ok: false, error: 'stagiaire_id requis' }, 400);
+
+  const q = admin.from('stagiaires')
     .select('id, prenom, nom, pin_clair, auth_user_id, actif')
-    .eq('actif', true);
-  if (stagiaireId) {
-    q = q.eq('id', stagiaireId);
-  } else if (allMode) {
-    q = q.is('auth_user_id', null);
-  }
+    .eq('actif', true)
+    .eq('id', stagiaireId);
 
   const { data: list, error } = await q;
   if (error) return json({ ok: false, error: error.message }, 500);
 
   const results: any[] = [];
   for (const s of (list || []) as any[]) {
-    const password = newPin || s.pin_clair;
+    const password = s.pin_clair;
     if (!password) {
       results.push({ id: s.id, ok: false, reason: 'no_pin' });
       continue;
@@ -81,12 +88,6 @@ Deno.serve(async (req) => {
         .eq('id', s.id);
       if (upErr) {
         results.push({ id: s.id, ok: false, reason: upErr.message });
-        continue;
-      }
-    } else if (newPin) {
-      const { error: pErr } = await admin.auth.admin.updateUserById(authUserId, { password });
-      if (pErr) {
-        results.push({ id: s.id, ok: false, reason: pErr.message });
         continue;
       }
     }
