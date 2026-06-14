@@ -215,6 +215,9 @@ const symZoneType=m=>m.type==='CCF'?'compartment':'smoke';  // CCF -> ZC, VH/VB 
 const symPfx=m=>m.type==='CCF'?'ZC':'ZF';
 const tag=m=>isSym(m)?(symPfx(m)+(m.zf||1)+(m.type==='CCF'&&m.zf2?('/'+m.zf2):'')):(m.type+String(m.id).padStart(2,'0'));
 const dotText=m=>isSym(m)?m.type:String(m.id);
+// Échappement HTML pour toute donnée de plan (adresses, libellés de portes/clapets) injectée en
+// innerHTML — évite le XSS via un libellé de plan piégé qui s'exécuterait sur l'UAE/le formateur.
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
 const TITLE=(UAE?'UAE — ':'Plan — ')+(LABELS[PLAN_KEY]||PLAN_KEY);
 document.title=TITLE;$('title').textContent=TITLE;
@@ -460,7 +463,7 @@ function renderDoors(){
       html+=`<line data-door="${i}" x1="${d.x1}" y1="${d.y1}" x2="${d.x2}" y2="${d.y2}" stroke="${sel?'#111':'#fff'}" stroke-opacity="${sel?0.5:0.01}" stroke-width="${sw*2.4}" style="pointer-events:stroke;cursor:pointer"/>`;
       html+=`<circle data-door="${i}" data-end="1" cx="${d.x1}" cy="${d.y1}" r="${hr}" fill="#fff" stroke="#111" stroke-width="${sw*0.5}" style="pointer-events:all;cursor:grab"/>`;
       html+=`<circle data-door="${i}" data-end="2" cx="${d.x2}" cy="${d.y2}" r="${hr}" fill="#fff" stroke="#111" stroke-width="${sw*0.5}" style="pointer-events:all;cursor:grab"/>`;
-      html+=`<text x="${mx}" y="${my-hr*1.5}" fill="#111" font-size="${W*0.013}" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:${sw*0.7}px;font-weight:700">ZC${d.zc||1}${d.zc2?('/'+d.zc2):''}${d.label?(' '+d.label):''}</text>`;
+      html+=`<text x="${mx}" y="${my-hr*1.5}" fill="#111" font-size="${W*0.013}" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:${sw*0.7}px;font-weight:700">ZC${d.zc||1}${d.zc2?('/'+d.zc2):''}${d.label?(' '+esc(d.label)):''}</text>`;
     }
   });
   svg.innerHTML=html;
@@ -628,7 +631,7 @@ function renderMediaList(el,listId){
   const box=$(listId);if(!box)return;
   const arr=(el&&el.medias)||[];
   if(!arr.length){box.innerHTML='<div class="empty-m">Aucun média. Ajoutez‑en : ils s’afficheront près de l’élément en alarme (déplaçables).</div>';return;}
-  box.innerHTML=arr.map((md,i)=>'<div class="mli">'+(md.kind==='video'?('<video src="'+md.url+'" muted></video>'):('<img src="'+md.url+'">'))+'<button title="Retirer" onclick="removeMediaAt('+i+')">✕</button></div>').join('');
+  box.innerHTML=arr.map((md,i)=>'<div class="mli">'+(md.kind==='video'?('<video src="'+esc(md.url)+'" muted></video>'):('<img src="'+esc(md.url)+'">'))+'<button title="Retirer" onclick="removeMediaAt('+i+')">✕</button></div>').join('');
 }
 function renderMarkerMediaEditor(m){const st=$('ed-media-status');if(st)st.textContent='';if($('ed-media-file'))$('ed-media-file').value='';renderMediaList(m,'ed-media-list');}
 // Retire un média (par index) de l'élément sélectionné + tente d'effacer le fichier (best-effort).
@@ -715,7 +718,7 @@ function renderMediaThumbs(force){
     const g=document.createElement('div');g.className='media-grp';
     g.style.left=(pos.x/W*100)+'%';g.style.top=(pos.y/H*100)+'%';
     it.arr.forEach(md=>{const t=document.createElement('div');t.className='mthumb';
-      t.innerHTML=(md.kind==='video'?('<video src="'+md.url+'" autoplay muted loop playsinline></video>'):('<img src="'+md.url+'">'))+'<div class="mcap">'+it.label+'</div>';
+      t.innerHTML=(md.kind==='video'?('<video src="'+esc(md.url)+'" autoplay muted loop playsinline></video>'):('<img src="'+esc(md.url)+'">'))+'<div class="mcap">'+esc(it.label)+'</div>';
       g.appendChild(t);});
     g.addEventListener('mousedown',ev=>startMediaDrag(ev,it.el,g,W,H));
     stage.appendChild(g);
@@ -814,7 +817,7 @@ function openElementMenu(px,py,kind,idx){
   const label=isDoor?('Porte coupe-feu '+(el.label||('ZC'+(el.zc||1)+(el.zc2?('/'+el.zc2):'')))):elemMenuLabel(el);
   const states=isDoor?STATES_DOOR:(isSym(el)?STATES_DAS:STATES_DET);
   const m=document.createElement('div');m.className='ctxmenu';m.id='ctxmenu';
-  m.innerHTML='<div class="hd">'+label+'</div>'+states.map(o=>'<button data-s="'+o.s+'"><span class="sw" style="background:'+o.c+'"></span>'+o.t+'</button>').join('');
+  m.innerHTML='<div class="hd">'+esc(label)+'</div>'+states.map(o=>'<button data-s="'+o.s+'"><span class="sw" style="background:'+o.c+'"></span>'+o.t+'</button>').join('');
   document.body.appendChild(m);
   // positionnement dans la fenêtre
   const r=m.getBoundingClientRect();
