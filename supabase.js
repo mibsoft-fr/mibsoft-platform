@@ -13,10 +13,61 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Client Supabase global — utilisé partout
 // On réaffecte window.supabase pour éviter le conflit CDN
 window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    // Verrou d'auth PAR ONGLET (au lieu du navigator.locks global) : quand plusieurs onglets MIB
+    // sont ouverts, un onglet en arrière-plan throttlé par Chrome pouvait bloquer le rafraîchissement
+    // du token des autres → page ouverte longtemps = « perte de connexion », données qui ne chargent
+    // plus, publication NOT_SUPER_ADMIN. Ce verrou sérialise quand même les refresh À L'INTÉRIEUR de
+    // l'onglet, sans jamais bloquer entre onglets.
+    lock: (() => { let p = Promise.resolve(); return (_name, _timeout, fn) => { const run = p.then(fn, fn); p = run.then(() => {}, () => {}); return run; }; })()
+  },
   realtime: {
     params: { eventsPerSecond: 10 }
   }
 });
+
+// ── Garde-session ──────────────────────────────────────────────────────────
+// Maintient le token frais même si l'onglet reste ouvert très longtemps ou en arrière-plan : les
+// timers d'auto-refresh sont throttlés/suspendus par Chrome en arrière-plan, donc le token finissait
+// par expirer (≈1 h) et il fallait se reconnecter. On rafraîchit de façon PROACTIVE — au retour sur
+// l'onglet, au retour réseau, et périodiquement — AVANT l'expiration. Plus besoin de se reconnecter.
+if (typeof window !== 'undefined') {
+  const _SBKEY = 'sb-ozfkmlokovxigfnwjeuk-auth-token';
+  let _keeperBusy = false;
+  const _tokenExp = () => {
+    try {
+      const o = JSON.parse(localStorage.getItem(_SBKEY) || 'null');
+      const s = o && (o.currentSession || o);
+      const at = s && s.access_token;
+      if (!at) return 0;
+      return JSON.parse(atob(at.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp || 0;
+    } catch (_) { return 0; }
+  };
+  const keepSession = async (force) => {
+    if (_keeperBusy) return;
+    const exp = _tokenExp();
+    if (!exp) return;                                  // pas connecté : rien à faire
+    const now = Math.floor(Date.now() / 1000);
+    if (!force && exp - now > 600) return;             // encore > 10 min de validité : on laisse
+    _keeperBusy = true;
+    try {
+      await Promise.race([
+        supabase.auth.refreshSession().catch(() => {}),
+        new Promise(r => setTimeout(r, 8000))          // garde-fou anti-blocage
+      ]);
+    } finally { _keeperBusy = false; }
+  };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepSession(false); });
+  window.addEventListener('focus', () => keepSession(false));
+  window.addEventListener('online', () => keepSession(true));
+  setInterval(() => keepSession(false), 4 * 60 * 1000); // filet de sécurité toutes les 4 min
+  // Exposé pour forcer un rafraîchissement juste avant une action sensible (publication, etc.).
+  window.MIBKeepSession = keepSession;
+}
+
 
 
 // ============================================================
