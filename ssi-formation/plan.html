@@ -87,6 +87,14 @@
   body:not(.mode-edit) .mk.ssi-defaut-securite .dot{background:var(--red)!important;color:#fff!important;box-shadow:0 0 0 2px #7f1d1d,0 2px 6px rgba(0,0,0,.45)!important;animation:blink .6s infinite!important}
   body:not(.mode-edit) .mk.ssi-defaut-attente .dot{background:#f59e0b!important;color:#3a2400!important;box-shadow:0 0 0 2px #b45309,0 2px 6px rgba(0,0,0,.45)!important;animation:blinkorange .7s infinite!important}
   body:not(.mode-edit) .mk.ssi-defaut-alim .dot{background:#f59e0b!important;color:#3a2400!important;box-shadow:0 0 0 2px #b45309,0 2px 6px rgba(0,0,0,.45)!important;animation:none!important}
+  /* défaut de position = rouge clignotant cerclé d'orange (distinct du défaut de sécurité) */
+  body:not(.mode-edit) .mk.ssi-defaut-position .dot{background:var(--red)!important;color:#fff!important;box-shadow:0 0 0 2px #f59e0b,0 2px 6px rgba(0,0,0,.45)!important;animation:blink .6s infinite!important}
+  /* Menu contextuel (clic droit formateur) : état d'un élément, point par point */
+  .ctxmenu{position:fixed;z-index:200;background:#fff;border:1px solid var(--n300);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.28);padding:6px;min-width:200px;font-size:.82rem}
+  .ctxmenu .hd{font-weight:700;color:var(--n700);padding:4px 8px 7px;border-bottom:1px solid var(--n200);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}
+  .ctxmenu button{display:block;width:100%;text-align:left;border:none;background:none;padding:7px 8px;border-radius:6px;cursor:pointer;color:var(--n800);font-size:.82rem}
+  .ctxmenu button:hover{background:var(--n100)}
+  .ctxmenu .sw{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:8px;vertical-align:middle;border:1px solid rgba(0,0,0,.25)}
   @keyframes blinkorange{50%{opacity:.25}}
   .empty{padding:54px 20px;text-align:center;color:#64748b;border:2px dashed var(--n300);border-radius:12px;background:#fff}
   .help{font-size:.78rem;color:var(--n600);margin-top:10px;line-height:1.5}
@@ -142,7 +150,7 @@
   <div class="help">
     <b>Jeu :</b> un clic envoie l'alarme au SSI du stagiaire (ECS : « Alarme feu &lt;local&gt; », voyant ALARME FEU rouge clignotant). Reclic = réarmement.<br>
     <b>Édition :</b> « Détecter » place les <b>DAI</b> (ronds) et <b>DM</b> (rectangles) rouges. « <b>Noms (OCR)</b> » propose les noms des locaux. Le sélecteur <b>« Clic ajoute »</b> choisit ce qu'un clic sur le plan ajoute : DAI, DM, <b>VH/VB</b> (ventilation → zone <b>ZF</b>), <b>CCF</b> (clapet → zone <b>ZC</b>) ou <b>🚪 Porte</b> (compartimentage → zone <b>ZC</b>). Pour une porte : glisse ses extrémités (●) pour la longueur/orientation, et choisis sa ZC + libellé. Clic point = sélectionner ; glisser = déplacer. <b>Sauvegarder</b>.<br>
-    <b>En Jeu :</b> cliquer une <b>VH/VB</b> met la <b>ZF en sécurité</b> (désenfumage), un <b>CCF</b> met la <b>ZC en sécurité</b> (compartimentage) ; + coffret CR du même n° ; voyant rouge sur le CMSI pendant l'alarme ; tous les symboles de la zone clignotent en bleu. Le bouton <b>CMD</b> de l'UCMC force aussi la zone (reflété sur le plan).
+    <b>En Jeu :</b> cliquer une <b>VH/VB</b> met la <b>ZF en sécurité</b> (désenfumage), un <b>CCF</b> met la <b>ZC en sécurité</b> (compartimentage) ; + coffret CR du même n° ; voyant rouge sur le CMSI pendant l'alarme ; tous les symboles de la zone clignotent en bleu. Le bouton <b>CMD</b> de l'UCMC force aussi la zone (reflété sur le plan).<br><b>Clic droit sur un élément</b> (clapet, porte, ventil., DAI/DM) : menu pour lui imposer un état <b>point par point</b> (en sécurité, <b>défaut de position</b>, défaut de sécurité…) — le message s'affiche sur l'écran SMSI (ex. « Clapet coupe-feu ZC5 : défaut de position »). Réarmement : clic gauche = toute la zone, ou clic droit → <b>Réarmer</b> élément par élément.
   </div>
 
   <div class="log" id="log">› Prêt.</div>
@@ -213,6 +221,8 @@ document.title=TITLE;$('title').textContent=TITLE;
 if(UAE){document.body.classList.add('uae');const sub=document.querySelector('.head .sub');if(sub)sub.textContent='Visualisation temps réel de l’état du SSI sur le plan';}
 if(PLAYONLY){document.body.classList.add('playonly');const sub=document.querySelector('.head .sub');if(sub)sub.textContent='Mode jeu — cliquez un DAI/DM ou un symbole pour déclencher';}
 
+let ELEM_OV={}; // surcharges d'état par élément (clé 'M'+idx / 'D'+idx → état), pilotées au clic droit
+
 // ── Transport : BroadcastChannel (robuste), repli sur window.opener ──
 let BUS=null;try{BUS=new BroadcastChannel('mib-ssi-plan');}catch(_){}
 function opener(){try{return window.opener&&!window.opener.closed?window.opener:null;}catch(_){return null;}}
@@ -237,16 +247,19 @@ function applyState(data){
     if(st==='defaut-securite')return 'defaut-securite';
     if(st==='defaut-attente')return 'defaut-attente';
     return 'attente';};
+  if(data.elements)ELEM_OV=data.elements||{}; // surcharges d'état par élément (clic droit formateur)
   let changed=false;
-  MARKERS.forEach(m=>{
+  MARKERS.forEach((m,idx)=>{
     if(isSym(m)){
       // Clapet CCF (ou VH/VB) : peut couvrir 2 zones. En sécurité si l'UNE OU l'AUTRE l'est.
       const zt=symZoneType(m);
       const z1=zoneOf(zt,m.zf||1);
       const z2=(m.type==='CCF'&&m.zf2)?zoneOf(zt,m.zf2):null;
       const aOf=z=>!!(z&&(z.state==='securite'||z.state==='defaut-securite'));
-      const a=aOf(z1)||aOf(z2);
-      const ssi=aOf(z1)?ssiZone(z1):(aOf(z2)?ssiZone(z2):ssiZone(z1)); // la zone active prime
+      let a=aOf(z1)||aOf(z2);
+      let ssi=aOf(z1)?ssiZone(z1):(aOf(z2)?ssiZone(z2):ssiZone(z1)); // la zone active prime
+      const ov=ELEM_OV['M'+idx]; // surcharge élément (prioritaire)
+      if(ov){ssi=ov;a=(ov==='securite'||ov==='defaut-securite'||ov==='defaut-position');}
       if(a!==!!m._zfactive){m._zfactive=a;changed=true;}
       if(ssi!==m._ssi){m._ssi=ssi;changed=true;}
       return;
@@ -257,15 +270,19 @@ function applyState(data){
     else if(d&&(d.fault==='securite'||d.faultSecurite))ssi='defaut-securite';
     else if(d&&(d.fault==='attente'||d.faultAttente))ssi='defaut-attente';
     else if(t)ssi='securite';
+    const ovd=ELEM_OV['M'+idx]; // surcharge élément (prioritaire sur l'état zone/détecteur)
+    if(ovd)ssi=ovd;
     if(t!==!!m._fired||hs!==!!m._hs||ssi!==m._ssi){m._fired=t;m._hs=hs;m._ssi=ssi;changed=true;}
   });
   let dchanged=false;
   const zcState=n=>{const z=(data.ZC||[]).find(x=>x.id===n);return z?z.state:'attente';};
-  DOORS.forEach(dr=>{
+  DOORS.forEach((dr,idx)=>{
     // Porte coupe-feu : peut être entre 2 ZC. En sécurité si l'UNE OU l'AUTRE l'est.
     const st1=zcState(dr.zc||1),st2=dr.zc2?zcState(dr.zc2):'attente';
-    const a=(st1==='securite'||st1==='defaut-securite')||(st2==='securite'||st2==='defaut-securite');
-    const f=(st1==='defaut-securite')||(st2==='defaut-securite');
+    let a=(st1==='securite'||st1==='defaut-securite')||(st2==='securite'||st2==='defaut-securite');
+    let f=(st1==='defaut-securite')||(st2==='defaut-securite');
+    const ov=ELEM_OV['D'+idx]; // surcharge élément (prioritaire)
+    if(ov){a=(ov!=='attente');f=(ov==='defaut-securite'||ov==='defaut-position');}
     if(a!==!!dr._active||f!==!!dr._fault){dr._active=a;dr._fault=f;dchanged=true;}});
   if(changed&&dragging===null)applyMarkerStates();
   if(dchanged&&dragDoor===null)renderDoors();
@@ -423,7 +440,12 @@ function renderDoors(){
   const W=img.naturalWidth,sw=Math.max(3,W*0.006),hr=Math.max(5,W*0.009);
   let html='';
   DOORS.forEach((d,i)=>{
-    const show=(MODE==='edit')||d._active;if(!show)return;
+    const show=(MODE==='edit')||d._active;
+    if(!show){
+      // Formateur en mode Jeu : porte au repos non dessinée mais cliquable au clic droit (menu état).
+      if(!UAE&&MODE==='play')html+=`<line data-door="${i}" x1="${d.x1}" y1="${d.y1}" x2="${d.x2}" y2="${d.y2}" stroke="#000" stroke-opacity="0.001" stroke-width="${sw*2.4}" style="pointer-events:stroke;cursor:context-menu"/>`;
+      return;
+    }
     const sel=(i===selDoor&&MODE==='edit');
     const mx=(d.x1+d.x2)/2,my=(d.y1+d.y2)/2,g=0.08;
     const ax=mx+(d.x1-mx)*g,ay=my+(d.y1-my)*g,bx=mx+(d.x2-mx)*g,by=my+(d.y2-my)*g;
@@ -760,6 +782,73 @@ function fire(idx){
   }
   m._fired=!m._fired;m._ssi=m._fired?'securite':'attente';applyMarkerStates();logLine('🔌 (test local) '+tag(m));toast('Non relié au formateur');
 }
+
+// ── Menu contextuel (clic droit formateur en mode Jeu) : état d'un élément, point par point ──
+// Sets d'états proposés selon le type d'élément. (Le clic GAUCHE garde l'action « zone entière ».)
+const STATES_DAS=[
+  {s:'securite',t:'En sécurité (activé)',c:'#dc2626'},
+  {s:'defaut-position',t:'Défaut de position',c:'#dc2626'},
+  {s:'defaut-securite',t:'Défaut de sécurité',c:'#dc2626'},
+  {s:'defaut-alim',t:'Défaut d’alimentation',c:'#f59e0b'},
+  {s:'attente',t:'Réarmer (attente)',c:'#22c55e'}
+];
+const STATES_DOOR=[
+  {s:'securite',t:'En sécurité (fermée)',c:'#dc2626'},
+  {s:'defaut-position',t:'Défaut de position',c:'#dc2626'},
+  {s:'defaut-securite',t:'Défaut de sécurité',c:'#dc2626'},
+  {s:'attente',t:'Réarmer (attente)',c:'#22c55e'}
+];
+const STATES_DET=[
+  {s:'defaut-securite',t:'Défaut de sécurité',c:'#dc2626'},
+  {s:'defaut-attente',t:'Défaut (dérangement)',c:'#f59e0b'},
+  {s:'defaut-alim',t:'Défaut d’alimentation',c:'#f59e0b'},
+  {s:'attente',t:'Réarmer (attente)',c:'#22c55e'}
+];
+function elemMenuLabel(m){
+  if(m.type==='CCF')return 'Clapet coupe-feu '+(m.addr||('ZC'+(m.zf||1)+(m.zf2?('/'+m.zf2):'')));
+  if(m.type==='VH'||m.type==='VB')return (m.type==='VH'?'Ventilation haute ':'Ventilation basse ')+(m.addr||('ZF'+(m.zf||1)));
+  return tag(m)+(m.addr?(' '+m.addr):'');
+}
+function closeElementMenu(){const e=document.getElementById('ctxmenu');if(e)e.remove();}
+function openElementMenu(px,py,kind,idx){
+  closeElementMenu();
+  const isDoor=(kind==='door');
+  const el=isDoor?DOORS[idx]:MARKERS[idx]; if(!el)return;
+  const key=(isDoor?'D':'M')+idx;
+  const label=isDoor?('Porte coupe-feu '+(el.label||('ZC'+(el.zc||1)+(el.zc2?('/'+el.zc2):'')))):elemMenuLabel(el);
+  const states=isDoor?STATES_DOOR:(isSym(el)?STATES_DAS:STATES_DET);
+  const m=document.createElement('div');m.className='ctxmenu';m.id='ctxmenu';
+  m.innerHTML='<div class="hd">'+label+'</div>'+states.map(o=>'<button data-s="'+o.s+'"><span class="sw" style="background:'+o.c+'"></span>'+o.t+'</button>').join('');
+  document.body.appendChild(m);
+  // positionnement dans la fenêtre
+  const r=m.getBoundingClientRect();
+  let x=px,y=py;if(x+r.width>innerWidth-6)x=innerWidth-r.width-6;if(y+r.height>innerHeight-6)y=innerHeight-r.height-6;
+  m.style.left=Math.max(6,x)+'px';m.style.top=Math.max(6,y)+'px';
+  m.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{applyElementState(kind,idx,b.dataset.s,label,(!isDoor&&el.addr)?el.addr:'');closeElementMenu();}));
+}
+function applyElementState(kind,idx,state,label,addr){
+  if(UAE)return;
+  const key=(kind==='door'?'D':'M')+idx;
+  if(state==='attente')delete ELEM_OV[key];else ELEM_OV[key]=state;
+  // Retour visuel immédiat côté formateur (réconcilié par l'état renvoyé par l'onglet formateur).
+  if(kind==='door'){const d=DOORS[idx];if(d){d._active=(state!=='attente');d._fault=(state==='defaut-securite'||state==='defaut-position');}renderDoors();}
+  else{const m=MARKERS[idx];if(m){m._ssi=(state==='attente')?'attente':state;if(isSym(m))m._zfactive=(state==='securite'||state==='defaut-securite'||state==='defaut-position');}applyMarkerStates();}
+  renderMediaThumbs();
+  const sent=post({kind:'set-element',key,label,addr,state});
+  logLine('🛠️ '+label+(addr?(' '+addr):'')+' → '+state+(sent?'':' (onglet formateur non détecté)'));
+}
+document.addEventListener('click',()=>closeElementMenu());
+document.addEventListener('keydown',ev=>{if(ev.key==='Escape')closeElementMenu();});
+$('stage').addEventListener('contextmenu',ev=>{
+  if(UAE||MODE!=='play')return; // formateur en mode Jeu uniquement
+  const mk=ev.target.closest&&ev.target.closest('.mk');if(!mk)return;
+  ev.preventDefault();openElementMenu(ev.clientX,ev.clientY,'marker',+mk.dataset.idx);
+});
+$('doors-svg').addEventListener('contextmenu',ev=>{
+  if(UAE||MODE!=='play')return;
+  const t=ev.target;if(!t||t.dataset.door===undefined)return;
+  ev.preventDefault();openElementMenu(ev.clientX,ev.clientY,'door',+t.dataset.door);
+});
 
 function clearMarkers(){MARKERS=[];DOORS=[];selectMarker(-1);selectDoor(-1);renderDoors();logLine('Points et portes effacés.');}
 function saveAll(){

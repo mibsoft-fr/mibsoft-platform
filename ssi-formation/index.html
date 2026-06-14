@@ -1622,7 +1622,9 @@ return;
 if(m.kind==='trigger-zf'){
 triggerZfFromPlan(m.zoneType||'smoke',(m.zone||m.zf),m.label,m.symbol);
 broadcastPlanState();
+return;
 }
+if(m.kind==='set-element'){setElementState(m.key,m.label,m.addr,m.state);broadcastPlanState();return;}
 };
 return PLAN_BUS;
 }
@@ -1784,12 +1786,25 @@ if(STATE.smsi.relayBoxes.find(r=>r.id===zone))changeZoneState('relay',zone,next)
 logAction(`${symbol||pfx} ${pfx}${zone}`,next==='securite'?'En sécurité':'Réarmé','formateur');
 return{active:!active};
 }
-// État courant (détecteurs + zones ZF/ZC), lu par le plan pour synchroniser le
-// clignotement (y compris CMD côté stagiaire et réarmement manuel).
+// Fonction manuelle ÉLÉMENT PAR ÉLÉMENT (clic droit sur le plan) : applique un état à un seul
+// dispositif (clapet, porte, ventilateur, détecteur) sans toucher toute la zone, et affiche le
+// message correspondant sur l'écran SMSI (ex. « Clapet coupe-feu ZC5 : défaut de position »).
+function setElementState(key,label,addr,state){
+if(STATE.userType!=='formateur')return;
+STATE.elementStates=STATE.elementStates||{};
+if(!state||state==='attente')delete STATE.elementStates[key];
+else STATE.elementStates[key]=state;
+const lbl=(label||'Élément')+(addr?(' '+addr):'');
+const STL={'securite':'en sécurité','defaut-position':'défaut de position','defaut-securite':'défaut de sécurité','defaut-attente':'défaut (dérangement)','defaut-alim':'défaut d\'alimentation','attente':'réarmé (attente)'};
+addSmsiMessage(`${lbl} : ${STL[state]||state}`);
+try{logAction(lbl,STL[state]||state,'formateur');}catch(_){}
+}
+// État courant (détecteurs + zones ZF/ZC + surcharges par élément), lu par le plan pour synchroniser
+// le clignotement (y compris CMD côté stagiaire et réarmement manuel).
 function getDetectorsForPlan(){
 const map=a=>a.map(d=>({id:d.id,address:d.address,zone:d.zone,triggered:!!d.triggered,hs:d.outOfService||d.state==='hors-service'}));
 const zmap=a=>a.map(z=>({id:z.id,state:z.state,commandActive:!!z.commandActive}));
-return{DAI:map(STATE.sdi.detectors),DM:map(STATE.sdi.manualAlarms),ZF:zmap(STATE.smsi.smokeZones),ZC:zmap(STATE.smsi.compartmentZones),sessionActive:!!STATE.sessionActive,mode:STATE.sessionMode||'formation'};
+return{DAI:map(STATE.sdi.detectors),DM:map(STATE.sdi.manualAlarms),ZF:zmap(STATE.smsi.smokeZones),ZC:zmap(STATE.smsi.compartmentZones),elements:STATE.elementStates||{},sessionActive:!!STATE.sessionActive,mode:STATE.sessionMode||'formation'};
 }
 
 // Pré-charge les infos de la session de formation (titre, dates) puis ouvre la
