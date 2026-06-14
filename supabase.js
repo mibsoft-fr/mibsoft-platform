@@ -391,13 +391,29 @@ const MIBLog = {
   debug: (msg, ctx) => MIBLog._post('debug', msg, ctx)
 };
 
-// Capture automatique des erreurs JS non gérées (toutes pages qui chargent supabase.js)
+// Capture automatique des erreurs JS non gérées (toutes pages qui chargent supabase.js).
+// Anti-flood : une même erreur n'est journalisée qu'une fois par minute, sinon une erreur
+// récurrente (ex. boucle de rendu, ressource externe qui échoue) remplit app_logs et fait
+// dépasser les seuils du monitoring (« X erreurs en 5 min ») → alertes mail/SMS en rafale.
 if (typeof window !== 'undefined') {
+  const _errSeen = new Map();
+  const _shouldLog = (key) => {
+    const now = Date.now();
+    const last = _errSeen.get(key) || 0;
+    if (now - last < 60000) return false;          // même message : 1 log / minute max
+    _errSeen.set(key, now);
+    if (_errSeen.size > 50) _errSeen.clear();        // garde la map petite
+    return true;
+  };
   window.addEventListener('error', (e) => {
-    MIBLog.error(e.message || 'window.error', { filename: e.filename, lineno: e.lineno, colno: e.colno, stack: e.error?.stack?.slice(0, 500) });
+    const msg = e.message || 'window.error';
+    if (!_shouldLog(msg)) return;
+    MIBLog.error(msg, { filename: e.filename, lineno: e.lineno, colno: e.colno, stack: e.error?.stack?.slice(0, 500) });
   });
   window.addEventListener('unhandledrejection', (e) => {
-    MIBLog.error('unhandledrejection: ' + (e.reason?.message || e.reason || 'unknown'), { stack: e.reason?.stack?.slice(0, 500) });
+    const msg = 'unhandledrejection: ' + (e.reason?.message || e.reason || 'unknown');
+    if (!_shouldLog(msg)) return;
+    MIBLog.error(msg, { stack: e.reason?.stack?.slice(0, 500) });
   });
 }
 
