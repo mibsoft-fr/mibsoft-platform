@@ -1958,7 +1958,15 @@ async function publishAdminLevel(estabKey,levelKey){
     if(r.error)throw new Error(r.error);
     alert('✅ Niveau publié (modèle commun).');
     const t=(window._adminTypes||[]).find(x=>x.key===estabKey);if(t)renderAdminLevels(t);
-  }catch(e){alert('❌ Publication refusée : '+(e.message||e)+'\n(Réservé au super-admin.)');}
+  }catch(e){
+    const m=((e&&e.message)||e)+'';
+    if(m==='NO_SESSION'||m==='TOKEN_EXPIRED'||/jwt|expir/i.test(m))
+      alert('⚠️ Session expirée. Rafraîchissez la page (F5) pour vous reconnecter, puis republiez.');
+    else if(/NOT_SUPER_ADMIN/.test(m))
+      alert('❌ Publication refusée : ce compte n\'est pas super-admin. Reconnectez-vous avec le compte super-administrateur.');
+    else
+      alert('❌ Publication refusée : '+m);
+  }
 }
 
 async function deleteAdminLevel(estabKey,levelKey){
