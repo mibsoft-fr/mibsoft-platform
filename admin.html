@@ -17,8 +17,22 @@
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>window._sbFactory=window.supabase;/* sauve createClient avant que supabase.js n'écrase window.supabase */</script>
 <script src="config.js"></script>
 <script src="supabase.js"></script>
+<script>
+// Isole l'auth super-admin dans une clé de stockage DÉDIÉE. Sinon, comme le centre, le formateur et
+// l'admin se connectent tous via Supabase Auth sur la même clé par défaut, un onglet centre/formateur
+// ouvert dans le même navigateur écrasait la session super-admin (le SDK synchronise la session entre
+// onglets) → la publication envoyait un token non-super-admin → « ce compte n'est pas super-admin ».
+if (window._sbFactory && window.supabase && window.supabase.supabaseUrl) {
+  const _admLock = (() => { let p = Promise.resolve(); return (_n, _t, fn) => { const r = p.then(fn, fn); p = r.then(() => {}, () => {}); return r; }; })();
+  window.supabase = window._sbFactory.createClient(window.supabase.supabaseUrl, window.supabase.supabaseKey, {
+    realtime: { params: { eventsPerSecond: 10 } },
+    auth: { storageKey: 'sb-mib-admin-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, lock: _admLock }
+  });
+}
+</script>
 <style>
 :root {
   --bg: var(--bg-page); --card: var(--bg-surface);

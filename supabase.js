@@ -35,30 +35,23 @@ window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, 
 // par expirer (≈1 h) et il fallait se reconnecter. On rafraîchit de façon PROACTIVE — au retour sur
 // l'onglet, au retour réseau, et périodiquement — AVANT l'expiration. Plus besoin de se reconnecter.
 if (typeof window !== 'undefined') {
-  const _SBKEY = 'sb-ozfkmlokovxigfnwjeuk-auth-token';
   let _keeperBusy = false;
-  const _tokenExp = () => {
-    try {
-      const o = JSON.parse(localStorage.getItem(_SBKEY) || 'null');
-      const s = o && (o.currentSession || o);
-      const at = s && s.access_token;
-      if (!at) return 0;
-      return JSON.parse(atob(at.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp || 0;
-    } catch (_) { return 0; }
-  };
   const keepSession = async (force) => {
     if (_keeperBusy) return;
-    const exp = _tokenExp();
-    if (!exp) return;                                  // pas connecté : rien à faire
-    const now = Math.floor(Date.now() / 1000);
-    if (!force && exp - now > 600) return;             // encore > 10 min de validité : on laisse
     _keeperBusy = true;
     try {
+      // getSession() lit la session du client courant (clé de stockage du rôle, pas une clé en dur).
+      const { data } = await supabase.auth.getSession();
+      const s = data && data.session;
+      if (!s || !s.access_token) return;               // pas connecté : rien à faire
+      const exp = s.expires_at || 0;
+      const now = Math.floor(Date.now() / 1000);
+      if (!force && exp - now > 600) return;            // encore > 10 min de validité : on laisse
       await Promise.race([
         supabase.auth.refreshSession().catch(() => {}),
-        new Promise(r => setTimeout(r, 8000))          // garde-fou anti-blocage
+        new Promise(r => setTimeout(r, 8000))           // garde-fou anti-blocage
       ]);
-    } finally { _keeperBusy = false; }
+    } catch (_) { /* ignore */ } finally { _keeperBusy = false; }
   };
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepSession(false); });
   window.addEventListener('focus', () => keepSession(false));
@@ -97,16 +90,17 @@ const STORAGE = {
 // serveur reçoit un JWT périmé qui a perdu le claim super-admin → NOT_SUPER_ADMIN + impression de
 // « perte de connexion » au bout d'~1 h. Renvoie {ok:true,url} ou {error}.
 async function edgeUploadObject(bucket, path, blobOrFile, contentType) {
-  const SBKEY = 'sb-ozfkmlokovxigfnwjeuk-auth-token';
-  const readTok = () => {
+  // Lit la session du CLIENT COURANT (via getSession), pas une clé localStorage en dur : ainsi on
+  // envoie toujours le bon token, même quand une page utilise une clé de stockage dédiée (ex. admin
+  // super-admin isolé du centre/formateur) — sinon un onglet d'un autre rôle « écrasait » la session
+  // partagée et le serveur recevait un token non-super-admin → NOT_SUPER_ADMIN.
+  const readTok = async () => {
     try {
-      const o = JSON.parse(localStorage.getItem(SBKEY) || 'null');
-      const s = o && (o.currentSession || o);
+      const { data } = await supabase.auth.getSession();
+      const s = data && data.session;
       const at = s && s.access_token;
       if (!at) return null;
-      let exp = 0;
-      try { exp = JSON.parse(atob(at.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp || 0; } catch (_) {}
-      return { token: at, exp };
+      return { token: at, exp: s.expires_at || 0 };
     } catch (_) { return null; }
   };
   // Rafraîchit la session sans risque de blocage multi-onglets (course navigator.locks) : timeout 8 s.
@@ -135,10 +129,10 @@ async function edgeUploadObject(bucket, path, blobOrFile, contentType) {
     } finally { clearTimeout(to); }
   };
 
-  let tk = readTok();
+  let tk = await readTok();
   const now = Math.floor(Date.now() / 1000);
   // Token absent ou expirant dans < 120 s : on rafraîchit AVANT l'appel.
-  if (!tk || !tk.exp || tk.exp - now < 120) { await refresh(); tk = readTok() || tk; }
+  if (!tk || !tk.exp || tk.exp - now < 120) { await refresh(); tk = (await readTok()) || tk; }
   if (!tk || !tk.token) return { error: 'NO_SESSION' };
 
   let r = await send(tk.token);
@@ -149,7 +143,7 @@ async function edgeUploadObject(bucket, path, blobOrFile, contentType) {
   const authish = r.status === 401 || /jwt|expir|token|NOT_SUPER_ADMIN|NOT_ALLOWED/i.test(e);
   if (authish) {
     await refresh();
-    const t2 = readTok();
+    const t2 = await readTok();
     if (t2 && t2.token && t2.token !== tk.token) {
       r = await send(t2.token);
       if (r.ok) return { ok: true, url: r.j.url };
