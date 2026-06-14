@@ -1666,17 +1666,24 @@ const paths=[];
 if(cid)paths.push(cid+'/'+estabKey+'/'+levelKey+'.json');
 paths.push('shared/'+estabKey+'/'+levelKey+'.json');
 if(levelKey==='rdc'){if(cid)paths.push(cid+'/'+estabKey+'.json');paths.push('shared/'+estabKey+'.json');}
+const base=sb.supabaseUrl,anon=sb.supabaseKey;
+let tok='';try{const{data}=await sb.auth.getSession();tok=(data&&data.session&&data.session.access_token)||'';}catch(_){}
+const store=(obj)=>{const st='mib_plan_'+estabKey+'/'+levelKey;if(obj.image)localStorage.setItem(st+'_img',obj.image);localStorage.setItem(st,JSON.stringify(obj.markers||[]));localStorage.setItem(st+'_doors',JSON.stringify(obj.doors||[]));};
 for(const p of paths){
+let got=null,hardMiss=false;
+// 1) Téléchargement ANTI-CACHE : sans ça, l'UAE garde l'ancienne version publiée tant que le cache
+//    HTTP du fichier n'a pas expiré (≈1 h) → « UAE pas à jour ». cache:'no-store' + buster ?t= force
+//    la toute dernière version à chaque ouverture.
 try{
-const{data,error}=await sb.storage.from(PLAN_BUCKET).download(p);
-if(error||!data)continue;
-const obj=JSON.parse(await data.text());
-const st='mib_plan_'+estabKey+'/'+levelKey;
-if(obj.image)localStorage.setItem(st+'_img',obj.image);
-localStorage.setItem(st,JSON.stringify(obj.markers||[]));
-localStorage.setItem(st+'_doors',JSON.stringify(obj.doors||[]));
-return true;
-}catch(e){console.warn('dl level',p,e);}
+const url=base+'/storage/v1/object/'+PLAN_BUCKET+'/'+p.split('/').map(encodeURIComponent).join('/')+'?t='+Date.now();
+const res=await fetch(url,{headers:{apikey:anon,Authorization:'Bearer '+(tok||anon)},cache:'no-store'});
+if(res.ok)got=await res.text();
+else if(res.status===400||res.status===404)hardMiss=true; // objet absent à ce chemin
+}catch(_){/* erreur réseau → on tentera le repli SDK */}
+if(got){try{store(JSON.parse(got));return true;}catch(_){}}
+if(hardMiss)continue; // inutile de retenter en SDK : l'objet n'existe pas à ce chemin
+// 2) Repli SDK seulement si le fetch direct n'a pas pu conclure (peut renvoyer une version en cache).
+try{const{data,error}=await sb.storage.from(PLAN_BUCKET).download(p);if(!error&&data){store(JSON.parse(await data.text()));return true;}}catch(e){console.warn('dl level',p,e);}
 }
 return false;
 }
