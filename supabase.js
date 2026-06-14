@@ -42,32 +42,69 @@ const STORAGE = {
 
 // Upload fiable via l'Edge Function (clé service_role, contourne la RLS Storage).
 // Vérifie les droits côté serveur (super-admin pour « shared/ », centre/formateur pour son scope).
-// Lit le token directement dans le localStorage partagé (aucun verrou navigator.locks → pas de
-// blocage multi-onglets). Renvoie {ok:true,url} ou {error}.
+// IMPORTANT : on rafraîchit le token AVANT l'appel s'il est expiré/proche de l'expiration, sinon le
+// serveur reçoit un JWT périmé qui a perdu le claim super-admin → NOT_SUPER_ADMIN + impression de
+// « perte de connexion » au bout d'~1 h. Renvoie {ok:true,url} ou {error}.
 async function edgeUploadObject(bucket, path, blobOrFile, contentType) {
   const SBKEY = 'sb-ozfkmlokovxigfnwjeuk-auth-token';
-  let token = '';
-  try { const o = JSON.parse(localStorage.getItem(SBKEY) || 'null'); const s = o && (o.currentSession || o); token = (s && s.access_token) || ''; } catch (_) {}
-  if (!token) return { error: 'NO_SESSION' };
-  const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 45000);
-  try {
-    const res = await fetch(SUPABASE_URL + '/functions/v1/ssi-media-upload', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'apikey': SUPABASE_ANON_KEY,
-        'x-bucket': bucket,
-        'x-path': path,
-        'x-content-type': contentType || 'application/octet-stream'
-      },
-      body: blobOrFile, signal: ctrl.signal
-    });
-    let j = {}; try { j = await res.json(); } catch (_) {}
-    if (res.ok && j && j.ok) return { ok: true, url: j.url };
-    return { error: (j && j.error) || ('HTTP ' + res.status) };
-  } catch (e) {
-    return { error: (e && e.name === 'AbortError') ? 'délai dépassé' : ((e && e.message) || (e + '')) };
-  } finally { clearTimeout(to); }
+  const readTok = () => {
+    try {
+      const o = JSON.parse(localStorage.getItem(SBKEY) || 'null');
+      const s = o && (o.currentSession || o);
+      const at = s && s.access_token;
+      if (!at) return null;
+      let exp = 0;
+      try { exp = JSON.parse(atob(at.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp || 0; } catch (_) {}
+      return { token: at, exp };
+    } catch (_) { return null; }
+  };
+  // Rafraîchit la session sans risque de blocage multi-onglets (course navigator.locks) : timeout 8 s.
+  const refresh = () => Promise.race([
+    supabase.auth.refreshSession().catch(() => {}),
+    new Promise(r => setTimeout(r, 8000))
+  ]);
+  const send = async (token) => {
+    const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 45000);
+    try {
+      const res = await fetch(SUPABASE_URL + '/functions/v1/ssi-media-upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'apikey': SUPABASE_ANON_KEY,
+          'x-bucket': bucket,
+          'x-path': path,
+          'x-content-type': contentType || 'application/octet-stream'
+        },
+        body: blobOrFile, signal: ctrl.signal
+      });
+      let j = {}; try { j = await res.json(); } catch (_) {}
+      return { status: res.status, ok: res.ok && j && j.ok, j };
+    } catch (e) {
+      return { status: 0, ok: false, j: { error: (e && e.name === 'AbortError') ? 'délai dépassé' : ((e && e.message) || (e + '')) } };
+    } finally { clearTimeout(to); }
+  };
+
+  let tk = readTok();
+  const now = Math.floor(Date.now() / 1000);
+  // Token absent ou expirant dans < 120 s : on rafraîchit AVANT l'appel.
+  if (!tk || !tk.exp || tk.exp - now < 120) { await refresh(); tk = readTok() || tk; }
+  if (!tk || !tk.token) return { error: 'NO_SESSION' };
+
+  let r = await send(tk.token);
+  if (r.ok) return { ok: true, url: r.j.url };
+  // Reprise unique : si le serveur refuse pour cause d'authentification (token périmé / claim manquant),
+  // on force un refresh et on réessaie avec le nouveau token.
+  const e = (r.j && r.j.error) || '';
+  const authish = r.status === 401 || /jwt|expir|token|NOT_SUPER_ADMIN|NOT_ALLOWED/i.test(e);
+  if (authish) {
+    await refresh();
+    const t2 = readTok();
+    if (t2 && t2.token && t2.token !== tk.token) {
+      r = await send(t2.token);
+      if (r.ok) return { ok: true, url: r.j.url };
+    }
+  }
+  return { error: (r.j && r.j.error) || ('HTTP ' + r.status) };
 }
 
 // ============================================================
