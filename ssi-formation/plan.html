@@ -153,6 +153,7 @@
   <label>Type</label>
   <select id="ed-type" onchange="applyEditor()"><option value="DAI">🔴 DAI (auto)</option><option value="DM">🟥 DM (manuel)</option><option value="VH">🟦 VH ventil. haute</option><option value="VB">🟦 VB ventil. basse</option><option value="CCF">🔵 CCF clapet coupe-feu</option></select>
   <div id="ed-zf-row" style="display:none"><label id="ed-zf-label">Zone</label><select id="ed-zf" onchange="applyEditor()"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+  <div id="ed-zf2-row" style="display:none"><label>Zone 2 (clapet entre 2 ZC, optionnel)</label><select id="ed-zf2" onchange="applyEditor()"><option value="">(aucune)</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
   <div id="ed-link-row" style="display:none"><label id="ed-link-label">Mise en sécurité</label><select id="ed-link" onchange="applyEditor()"><option value="">(aucun)</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
   <div id="ed-link2-row" style="display:none"><label>Compartimentage ZC</label><select id="ed-link2" onchange="applyEditor()"><option value="">(aucun)</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
   <label>Local / adresse</label>
@@ -168,6 +169,8 @@
   <h4>Porte sélectionnée</h4>
   <label>Compartimentage ZC</label>
   <select id="door-zc" onchange="applyDoorEditor()"><option value="1">ZC1</option><option value="2">ZC2</option><option value="3">ZC3</option><option value="4">ZC4</option><option value="5">ZC5</option></select>
+  <label>ZC 2 (porte entre 2 ZC, optionnel)</label>
+  <select id="door-zc2" onchange="applyDoorEditor()"><option value="">(aucune)</option><option value="1">ZC1</option><option value="2">ZC2</option><option value="3">ZC3</option><option value="4">ZC4</option><option value="5">ZC5</option></select>
   <label>Libellé</label>
   <input id="door-label" type="text" placeholder="ex. porte couloir X" oninput="applyDoorEditor()">
   <div style="font-size:.7rem;color:var(--n600);margin-top:8px">Glisse une extrémité (●) pour régler longueur/orientation.</div>
@@ -202,7 +205,7 @@ let toastT;function toast(t){const e=$('toast');e.textContent=t;e.classList.add(
 const isSym=m=>m.type==='VH'||m.type==='VB'||m.type==='CCF';
 const symZoneType=m=>m.type==='CCF'?'compartment':'smoke';  // CCF -> ZC, VH/VB -> ZF
 const symPfx=m=>m.type==='CCF'?'ZC':'ZF';
-const tag=m=>isSym(m)?(symPfx(m)+(m.zf||1)):(m.type+String(m.id).padStart(2,'0'));
+const tag=m=>isSym(m)?(symPfx(m)+(m.zf||1)+(m.type==='CCF'&&m.zf2?('/'+m.zf2):'')):(m.type+String(m.id).padStart(2,'0'));
 const dotText=m=>isSym(m)?m.type:String(m.id);
 
 const TITLE=(UAE?'UAE — ':'Plan — ')+(LABELS[PLAN_KEY]||PLAN_KEY);
@@ -237,9 +240,13 @@ function applyState(data){
   let changed=false;
   MARKERS.forEach(m=>{
     if(isSym(m)){
-      const z=zoneOf(symZoneType(m),m.zf||1);
-      const a=!!(z&&(z.state==='securite'||z.state==='defaut-securite'));
-      const ssi=ssiZone(z);
+      // Clapet CCF (ou VH/VB) : peut couvrir 2 zones. En sécurité si l'UNE OU l'AUTRE l'est.
+      const zt=symZoneType(m);
+      const z1=zoneOf(zt,m.zf||1);
+      const z2=(m.type==='CCF'&&m.zf2)?zoneOf(zt,m.zf2):null;
+      const aOf=z=>!!(z&&(z.state==='securite'||z.state==='defaut-securite'));
+      const a=aOf(z1)||aOf(z2);
+      const ssi=aOf(z1)?ssiZone(z1):(aOf(z2)?ssiZone(z2):ssiZone(z1)); // la zone active prime
       if(a!==!!m._zfactive){m._zfactive=a;changed=true;}
       if(ssi!==m._ssi){m._ssi=ssi;changed=true;}
       return;
@@ -254,7 +261,12 @@ function applyState(data){
   });
   let dchanged=false;
   const zcState=n=>{const z=(data.ZC||[]).find(x=>x.id===n);return z?z.state:'attente';};
-  DOORS.forEach(dr=>{const st=zcState(dr.zc||1);const a=(st==='securite'||st==='defaut-securite');const f=(st==='defaut-securite');if(a!==!!dr._active||f!==!!dr._fault){dr._active=a;dr._fault=f;dchanged=true;}});
+  DOORS.forEach(dr=>{
+    // Porte coupe-feu : peut être entre 2 ZC. En sécurité si l'UNE OU l'AUTRE l'est.
+    const st1=zcState(dr.zc||1),st2=dr.zc2?zcState(dr.zc2):'attente';
+    const a=(st1==='securite'||st1==='defaut-securite')||(st2==='securite'||st2==='defaut-securite');
+    const f=(st1==='defaut-securite')||(st2==='defaut-securite');
+    if(a!==!!dr._active||f!==!!dr._fault){dr._active=a;dr._fault=f;dchanged=true;}});
   if(changed&&dragging===null)applyMarkerStates();
   if(dchanged&&dragDoor===null)renderDoors();
   if((changed||dchanged)&&dragging===null&&dragDoor===null)renderMediaThumbs();
@@ -425,7 +437,7 @@ function renderDoors(){
       html+=`<line data-door="${i}" x1="${d.x1}" y1="${d.y1}" x2="${d.x2}" y2="${d.y2}" stroke="${sel?'#111':'#fff'}" stroke-opacity="${sel?0.5:0.01}" stroke-width="${sw*2.4}" style="pointer-events:stroke;cursor:pointer"/>`;
       html+=`<circle data-door="${i}" data-end="1" cx="${d.x1}" cy="${d.y1}" r="${hr}" fill="#fff" stroke="#111" stroke-width="${sw*0.5}" style="pointer-events:all;cursor:grab"/>`;
       html+=`<circle data-door="${i}" data-end="2" cx="${d.x2}" cy="${d.y2}" r="${hr}" fill="#fff" stroke="#111" stroke-width="${sw*0.5}" style="pointer-events:all;cursor:grab"/>`;
-      html+=`<text x="${mx}" y="${my-hr*1.5}" fill="#111" font-size="${W*0.013}" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:${sw*0.7}px;font-weight:700">ZC${d.zc||1}${d.label?(' '+d.label):''}</text>`;
+      html+=`<text x="${mx}" y="${my-hr*1.5}" fill="#111" font-size="${W*0.013}" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:${sw*0.7}px;font-weight:700">ZC${d.zc||1}${d.zc2?('/'+d.zc2):''}${d.label?(' '+d.label):''}</text>`;
     }
   });
   svg.innerHTML=html;
@@ -433,12 +445,12 @@ function renderDoors(){
 }
 function selectDoor(i){selDoor=i;selected=-1;$('editor').classList.remove('show');const de=$('door-editor');
   if(i<0||MODE!=='edit'){de.classList.remove('show');renderDoors();renderMediaThumbs(true);return;}
-  $('door-zc').value=DOORS[i].zc||1;$('door-label').value=DOORS[i].label||'';
+  $('door-zc').value=DOORS[i].zc||1;$('door-zc2').value=DOORS[i].zc2||'';$('door-label').value=DOORS[i].label||'';
   const st=$('door-media-status');if(st)st.textContent='';if($('door-media-file'))$('door-media-file').value='';
   renderMediaList(DOORS[i],'door-media-list');
   de.classList.add('show');renderMarkers();renderDoors();renderMediaThumbs(true);
   setTimeout(()=>{const a=$('door-label');a.focus();a.select();},0);}
-function applyDoorEditor(){if(selDoor<0)return;DOORS[selDoor].zc=+$('door-zc').value||1;DOORS[selDoor].label=$('door-label').value;renderDoors();}
+function applyDoorEditor(){if(selDoor<0)return;DOORS[selDoor].zc=+$('door-zc').value||1;DOORS[selDoor].zc2=$('door-zc2').value?+$('door-zc2').value:0;DOORS[selDoor].label=$('door-label').value;renderDoors();}
 function deleteDoor(){if(selDoor<0)return;DOORS.splice(selDoor,1);selDoor=-1;$('door-editor').classList.remove('show');renderDoors();logLine('Porte supprimée.');}
 // drag des extrémités + sélection (délégation sur le svg)
 $('doors-svg').addEventListener('mousedown',ev=>{
@@ -452,6 +464,7 @@ function selectMarker(idx){selected=idx;const ed=$('editor');selDoor=-1;$('door-
   if(idx<0||MODE!=='edit'){ed.classList.remove('show');renderMarkers();return;}
   const m=MARKERS[idx];const sym=isSym(m);$('ed-type').value=m.type;$('ed-addr').value=m.addr||'';
   $('ed-zf-row').style.display=sym?'block':'none';if(sym){$('ed-zf').value=m.zf||1;$('ed-zf-label').textContent='Zone '+symPfx(m);}
+  $('ed-zf2-row').style.display=(m.type==='CCF')?'block':'none';if(m.type==='CCF')$('ed-zf2').value=m.zf2||'';
   $('ed-link-row').style.display=sym?'none':'block';
   $('ed-link2-row').style.display=(!sym&&m.type==='DAI')?'block':'none';
   if(!sym){if(m.type==='DM'){$('ed-link-label').textContent='Compartimentage ZC';$('ed-link').value=m.lzc||'';}else{$('ed-link-label').textContent='Désenfumage ZF';$('ed-link').value=m.lzf||'';$('ed-link2').value=m.lzc||'';}}
@@ -461,10 +474,10 @@ function selectMarker(idx){selected=idx;const ed=$('editor');selDoor=-1;$('door-
 function applyEditor(){if(selected<0)return;const m=MARKERS[selected];const prev=m.type;m.type=$('ed-type').value;m.addr=$('ed-addr').value;
   if(m.type!==prev){renumber();renderMarkers();selectMarker(selected);return;}
   const sym=isSym(m);
-  if(sym){m.zf=+$('ed-zf').value||1;$('ed-zf-label').textContent='Zone '+symPfx(m);}
+  if(sym){m.zf=+$('ed-zf').value||1;m.zf2=(m.type==='CCF'&&$('ed-zf2').value)?+$('ed-zf2').value:0;$('ed-zf-label').textContent='Zone '+symPfx(m);}
   else if(m.type==='DM'){m.lzc=$('ed-link').value?+$('ed-link').value:0;m.lzf=0;}
   else{m.lzf=$('ed-link').value?+$('ed-link').value:0;m.lzc=$('ed-link2').value?+$('ed-link2').value:0;}
-  $('ed-zf-row').style.display=sym?'block':'none';$('ed-link-row').style.display=sym?'none':'block';$('ed-link2-row').style.display=(!sym&&m.type==='DAI')?'block':'none';
+  $('ed-zf-row').style.display=sym?'block':'none';$('ed-zf2-row').style.display=(m.type==='CCF')?'block':'none';$('ed-link-row').style.display=sym?'none':'block';$('ed-link2-row').style.display=(!sym&&m.type==='DAI')?'block':'none';
   renumber();renderMarkers();}
 function deleteSelected(){if(selected<0)return;MARKERS.splice(selected,1);renumber();selectMarker(-1);logLine('Point supprimé.');}
 
@@ -648,7 +661,7 @@ async function handleMediaUpload(file){
   el.medias=el.medias||[];el.medias.push({kind,url:mediaPublicUrl(path),path});
   if($(fileId))$(fileId).value='';
   renderMediaList(el,listId);renderMediaThumbs(true);
-  const name=isDoor?('PCF'+(el.zc?(' ZC'+el.zc):'')):tag(el);
+  const name=isDoor?('PCF ZC'+(el.zc||1)+(el.zc2?('/'+el.zc2):'')):tag(el);
   setS('✅ Média ajouté ('+el.medias.length+'). 💾 Sauvegarder puis Publier.');
   logLine('🖼️ Média ajouté à '+name+'.');
 }
@@ -670,7 +683,7 @@ function renderMediaThumbs(force){
     items.push({el,arr:el.medias,ax,ay,label});
   };
   MARKERS.forEach((m,idx)=>{if(!(m.medias&&m.medias.length))return;consider(m,!!(m._ssi&&m._ssi!=='attente'),idx===selected,m.x,m.y,tag(m));});
-  DOORS.forEach((d,idx)=>{if(!(d.medias&&d.medias.length))return;consider(d,!!d._active,idx===selDoor,(d.x1+d.x2)/2,(d.y1+d.y2)/2,'PCF'+(d.zc?(' ZC'+d.zc):'')+(d.label?(' '+d.label):''));});
+  DOORS.forEach((d,idx)=>{if(!(d.medias&&d.medias.length))return;consider(d,!!d._active,idx===selDoor,(d.x1+d.x2)/2,(d.y1+d.y2)/2,'PCF ZC'+(d.zc||1)+(d.zc2?('/'+d.zc2):'')+(d.label?(' '+d.label):''));});
   const sig=items.map(it=>it.label+'#'+it.arr.map(a=>a.url).join(',')+'@'+(it.el.mediaPos?(Math.round(it.el.mediaPos.x)+','+Math.round(it.el.mediaPos.y)):('~'+Math.round(it.ax)+','+Math.round(it.ay)))).join('|')+(editing?'|E':'|P');
   if(!force&&sig===_thumbSig)return;_thumbSig=sig;
   stage.querySelectorAll('.media-grp').forEach(e=>e.remove());
@@ -750,8 +763,8 @@ function fire(idx){
 
 function clearMarkers(){MARKERS=[];DOORS=[];selectMarker(-1);selectDoor(-1);renderDoors();logLine('Points et portes effacés.');}
 function saveAll(){
-  try{localStorage.setItem(STORE,JSON.stringify(MARKERS.map(m=>({x:m.x,y:m.y,type:m.type,id:m.id,addr:m.addr||'',zf:m.zf||1,lzc:m.lzc||0,lzf:m.lzf||0,medias:m.medias||[],mediaPos:m.mediaPos||null}))));
-  localStorage.setItem(STORE+'_doors',JSON.stringify(DOORS.map(d=>({x1:d.x1,y1:d.y1,x2:d.x2,y2:d.y2,zc:d.zc||1,label:d.label||'',medias:d.medias||[],mediaPos:d.mediaPos||null}))));
+  try{localStorage.setItem(STORE,JSON.stringify(MARKERS.map(m=>({x:m.x,y:m.y,type:m.type,id:m.id,addr:m.addr||'',zf:m.zf||1,zf2:m.zf2||0,lzc:m.lzc||0,lzf:m.lzf||0,medias:m.medias||[],mediaPos:m.mediaPos||null}))));
+  localStorage.setItem(STORE+'_doors',JSON.stringify(DOORS.map(d=>({x1:d.x1,y1:d.y1,x2:d.x2,y2:d.y2,zc:d.zc||1,zc2:d.zc2||0,label:d.label||'',medias:d.medias||[],mediaPos:d.mediaPos||null}))));
   toast('Plan sauvegardé');logLine('💾 Sauvegardé ('+MARKERS.length+' points, '+DOORS.length+' porte(s)).');}catch(e){logLine('⚠️ Sauvegarde impossible.');}
   // pousse les adresses des DAI/DM au SSI pour qu'elles soient déjà en place
   MARKERS.forEach(m=>{if(m.addr&&!isSym(m))post({kind:'set-address',type:m.type,id:m.id,address:m.addr});});
