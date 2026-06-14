@@ -1155,14 +1155,18 @@ else if(zoneType==='smoke'){zone=STATE.smsi.smokeZones.find(z=>z.id===id);if(zon
 else if(zoneType==='relay'){zone=STATE.smsi.relayBoxes.find(z=>z.id===id);if(zone){zone.state=state;if(state==='attente')zone.commandActive=false;updateRelayLeds(zone);addSmsiMessage(`${zone.address}: ${state}`);}}
 }
 
+// Priorité d'affichage du voyant de zone quand l'état FONCTIONNEL de la zone et le défaut agrégé des
+// ÉLÉMENTS (clic droit) coexistent : un défaut de sécurité (rouge clignotant) prime sur une simple
+// mise en sécurité (rouge fixe), elle-même prioritaire sur les dérangements orange.
+const VOYANT_RANK={'defaut-securite':5,'securite':4,'defaut-position':3,'defaut-attente':2,'defaut-alim':1,'attente':0};
+function effVoyant(state,elem){const a=state||'attente',b=elem||'attente';return ((VOYANT_RANK[b]||0)>(VOYANT_RANK[a]||0))?b:a;}
 function updateZoneLeds(zone){
 zone.ledRed={on:false,blink:false};zone.ledOrange={on:false,blink:false};zone.ledGreen={on:false,blink:false};
-// Une fonction activée (sécurité) = voyant ROUGE FIXE, qu'il y ait ou non alarme feu.
-// Défaut sécurité/position = ROUGE CLIGNOTANT. (Désenfumage/compartimentage activés.)
 // Sécurité = ROUGE fixe · défaut sécurité = ROUGE clignotant · défaut position/attente = ORANGE
-// clignotant · défaut alimentation = ORANGE fixe. Si la zone n'est pas commandée, le voyant reflète
-// le défaut agrégé des éléments (clic droit sur le plan) via _elemVoyant.
-const eff=(zone.state&&zone.state!=='attente')?zone.state:(zone._elemVoyant||'attente');
+// clignotant · défaut alimentation = ORANGE fixe. On combine l'état de la zone et le défaut agrégé
+// des éléments (clic droit) en gardant le plus prioritaire → un défaut de sécurité d'un dispositif
+// fait clignoter le voyant en rouge même si la zone est déjà en sécurité (alarme).
+const eff=effVoyant(zone.state,zone._elemVoyant);
 switch(eff){
 case 'securite':zone.ledRed={on:true,blink:false};break;
 case 'defaut-securite':zone.ledRed={on:true,blink:true};break;
@@ -1175,7 +1179,7 @@ case 'attente':default:break;
 
 function updateRelayLeds(relay){
 relay.ledRed={on:false,blink:false};relay.ledOrange={on:false,blink:false};relay.ledGreen={on:false,blink:false};
-const eff=(relay.state&&relay.state!=='attente')?relay.state:(relay._elemVoyant||'attente');
+const eff=effVoyant(relay.state,relay._elemVoyant);
 switch(eff){
 case 'securite':relay.ledRed={on:true,blink:false};break;
 case 'defaut-securite':relay.ledRed={on:true,blink:true};break;

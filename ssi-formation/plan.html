@@ -821,7 +821,7 @@ function openElementMenu(px,py,kind,idx){
   const r=m.getBoundingClientRect();
   let x=px,y=py;if(x+r.width>innerWidth-6)x=innerWidth-r.width-6;if(y+r.height>innerHeight-6)y=innerHeight-r.height-6;
   m.style.left=Math.max(6,x)+'px';m.style.top=Math.max(6,y)+'px';
-  m.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{applyElementState(kind,idx,b.dataset.s,label,(!isDoor&&el.addr)?el.addr:'');closeElementMenu();}));
+  m.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{applyElementState(kind,idx,b.dataset.s,label,'');closeElementMenu();}));
 }
 // Zone(s) du dispositif → pour allumer le voyant de zone correspondant sur le CMSI.
 function elemZones(kind,idx){
