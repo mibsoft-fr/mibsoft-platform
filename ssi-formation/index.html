@@ -1094,6 +1094,7 @@ case 'SMSI_BATTERY_CHANGE':STATE.smsi.batteryState=data.state;break;
 case 'SMSI_ALARM_CHANGE':STATE.smsi.alarmState=data.state;break;
 case 'SMSI_POWER_CHANGE':STATE.smsi.powerState=data.state;break;
 case 'SET_ZONE_STATE':setZoneState(data.zoneType,data.id,data.state);break;
+case 'SET_ELEMENT_STATE':setElementState(data.key,data.label,data.addr,data.state,data.zones,false);break;
 case 'UPDATE_ZONE_ADDRESS':updateZoneAddress(data.zoneType,data.id,data.address);break;
 case 'DETECTOR_OUT_OF_SERVICE':
 {const detArray=data.type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const det=detArray.find(d=>d.id===data.id);if(det){det.outOfService=data.outOfService;}}break;
@@ -1158,22 +1159,29 @@ function updateZoneLeds(zone){
 zone.ledRed={on:false,blink:false};zone.ledOrange={on:false,blink:false};zone.ledGreen={on:false,blink:false};
 // Une fonction activée (sécurité) = voyant ROUGE FIXE, qu'il y ait ou non alarme feu.
 // Défaut sécurité/position = ROUGE CLIGNOTANT. (Désenfumage/compartimentage activés.)
-switch(zone.state){
+// Sécurité = ROUGE fixe · défaut sécurité = ROUGE clignotant · défaut position/attente = ORANGE
+// clignotant · défaut alimentation = ORANGE fixe. Si la zone n'est pas commandée, le voyant reflète
+// le défaut agrégé des éléments (clic droit sur le plan) via _elemVoyant.
+const eff=(zone.state&&zone.state!=='attente')?zone.state:(zone._elemVoyant||'attente');
+switch(eff){
 case 'securite':zone.ledRed={on:true,blink:false};break;
 case 'defaut-securite':zone.ledRed={on:true,blink:true};break;
-case 'defaut-alim':zone.ledOrange={on:true,blink:true};break;
-case 'defaut-attente':zone.ledOrange={on:true,blink:false};break;
+case 'defaut-position':zone.ledOrange={on:true,blink:true};break;
+case 'defaut-attente':zone.ledOrange={on:true,blink:true};break;
+case 'defaut-alim':zone.ledOrange={on:true,blink:false};break;
 case 'attente':default:break;
 }
 }
 
 function updateRelayLeds(relay){
 relay.ledRed={on:false,blink:false};relay.ledOrange={on:false,blink:false};relay.ledGreen={on:false,blink:false};
-switch(relay.state){
+const eff=(relay.state&&relay.state!=='attente')?relay.state:(relay._elemVoyant||'attente');
+switch(eff){
 case 'securite':relay.ledRed={on:true,blink:false};break;
 case 'defaut-securite':relay.ledRed={on:true,blink:true};break;
-case 'defaut-alim':relay.ledOrange={on:true,blink:true};break;
-case 'defaut-attente':relay.ledOrange={on:true,blink:false};break;
+case 'defaut-position':relay.ledOrange={on:true,blink:true};break;
+case 'defaut-attente':relay.ledOrange={on:true,blink:true};break;
+case 'defaut-alim':relay.ledOrange={on:true,blink:false};break;
 case 'attente':default:break;
 }
 }
@@ -1624,7 +1632,7 @@ triggerZfFromPlan(m.zoneType||'smoke',(m.zone||m.zf),m.label,m.symbol);
 broadcastPlanState();
 return;
 }
-if(m.kind==='set-element'){setElementState(m.key,m.label,m.addr,m.state);broadcastPlanState();return;}
+if(m.kind==='set-element'){setElementState(m.key,m.label,m.addr,m.state,m.zones,true);return;}
 };
 return PLAN_BUS;
 }
@@ -1789,15 +1797,39 @@ return{active:!active};
 // Fonction manuelle ÉLÉMENT PAR ÉLÉMENT (clic droit sur le plan) : applique un état à un seul
 // dispositif (clapet, porte, ventilateur, détecteur) sans toucher toute la zone, et affiche le
 // message correspondant sur l'écran SMSI (ex. « Clapet coupe-feu ZC5 : défaut de position »).
-function setElementState(key,label,addr,state){
-if(STATE.userType!=='formateur')return;
+// Recalcule le voyant CMSI d'une zone à partir des éléments en défaut qui lui sont rattachés
+// (sans toucher l'état FONCTIONNEL de la zone → le plan reste piloté élément par élément).
+function recomputeZoneVoyant(zoneType,id){
+const zarr=zoneType==='compartment'?STATE.smsi.compartmentZones:(zoneType==='smoke'?STATE.smsi.smokeZones:STATE.smsi.relayBoxes);
+const z=zarr&&zarr.find(x=>x.id===id);if(!z)return;
+const contrib=(STATE.elemVoyants&&STATE.elemVoyants[zoneType+':'+id])||{};
+const states=Object.values(contrib);
+const order=['securite','defaut-securite','defaut-position','defaut-attente','defaut-alim'];
+let best='';for(const s of order){if(states.indexOf(s)>=0){best=s;break;}}
+z._elemVoyant=best;
+(zoneType==='relay'?updateRelayLeds:updateZoneLeds)(z);
+}
+// Fonction manuelle ÉLÉMENT PAR ÉLÉMENT (clic droit sur le plan) : applique un état à un seul
+// dispositif (clapet, porte, ventilateur, détecteur). Affiche le message sur l'écran SMSI ET allume
+// le voyant de la/les zone(s) du dispositif sur le CMSI. Propagé au stagiaire (propagate=true côté
+// formateur) pour que sa vue reflète l'état dès le début de session.
+function setElementState(key,label,addr,state,zones,propagate){
 STATE.elementStates=STATE.elementStates||{};
 if(!state||state==='attente')delete STATE.elementStates[key];
 else STATE.elementStates[key]=state;
+// voyants CMSI des zones rattachées
+STATE.elemVoyants=STATE.elemVoyants||{};
+(zones||[]).forEach(zn=>{
+const mk=zn.t+':'+zn.id;const c=STATE.elemVoyants[mk]=STATE.elemVoyants[mk]||{};
+if(!state||state==='attente')delete c[key];else c[key]=state;
+recomputeZoneVoyant(zn.t,zn.id);
+});
 const lbl=(label||'Élément')+(addr?(' '+addr):'');
 const STL={'securite':'en sécurité','defaut-position':'défaut de position','defaut-securite':'défaut de sécurité','defaut-attente':'défaut (dérangement)','defaut-alim':'défaut d\'alimentation','attente':'réarmé (attente)'};
 addSmsiMessage(`${lbl} : ${STL[state]||state}`);
-try{logAction(lbl,STL[state]||state,'formateur');}catch(_){}
+if(propagate){try{logAction(lbl,STL[state]||state,'formateur');}catch(_){}try{sendMessage('SET_ELEMENT_STATE',{key,label,addr,state,zones});}catch(_){}}
+try{broadcastPlanState();}catch(_){}
+try{render();}catch(_){}
 }
 // État courant (détecteurs + zones ZF/ZC + surcharges par élément), lu par le plan pour synchroniser
 // le clignotement (y compris CMD côté stagiaire et réarmement manuel).

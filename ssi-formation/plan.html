@@ -87,8 +87,8 @@
   body:not(.mode-edit) .mk.ssi-defaut-securite .dot{background:var(--red)!important;color:#fff!important;box-shadow:0 0 0 2px #7f1d1d,0 2px 6px rgba(0,0,0,.45)!important;animation:blink .6s infinite!important}
   body:not(.mode-edit) .mk.ssi-defaut-attente .dot{background:#f59e0b!important;color:#3a2400!important;box-shadow:0 0 0 2px #b45309,0 2px 6px rgba(0,0,0,.45)!important;animation:blinkorange .7s infinite!important}
   body:not(.mode-edit) .mk.ssi-defaut-alim .dot{background:#f59e0b!important;color:#3a2400!important;box-shadow:0 0 0 2px #b45309,0 2px 6px rgba(0,0,0,.45)!important;animation:none!important}
-  /* défaut de position = rouge clignotant cerclé d'orange (distinct du défaut de sécurité) */
-  body:not(.mode-edit) .mk.ssi-defaut-position .dot{background:var(--red)!important;color:#fff!important;box-shadow:0 0 0 2px #f59e0b,0 2px 6px rgba(0,0,0,.45)!important;animation:blink .6s infinite!important}
+  /* défaut de position / d'attente = ORANGE CLIGNOTANT · défaut d'alimentation = orange fixe */
+  body:not(.mode-edit) .mk.ssi-defaut-position .dot{background:#f59e0b!important;color:#3a2400!important;box-shadow:0 0 0 2px #b45309,0 2px 6px rgba(0,0,0,.45)!important;animation:blinkorange .7s infinite!important}
   /* Menu contextuel (clic droit formateur) : état d'un élément, point par point */
   .ctxmenu{position:fixed;z-index:200;background:#fff;border:1px solid var(--n300);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.28);padding:6px;min-width:200px;font-size:.82rem}
   .ctxmenu .hd{font-weight:700;color:var(--n700);padding:4px 8px 7px;border-bottom:1px solid var(--n200);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}
@@ -282,7 +282,8 @@ function applyState(data){
     let a=(st1==='securite'||st1==='defaut-securite')||(st2==='securite'||st2==='defaut-securite');
     let f=(st1==='defaut-securite')||(st2==='defaut-securite');
     const ov=ELEM_OV['D'+idx]; // surcharge élément (prioritaire)
-    if(ov){a=(ov!=='attente');f=(ov==='defaut-securite'||ov==='defaut-position');}
+    if(ov){const pos=(ov==='securite'||ov==='defaut-securite'||ov==='defaut-position');a=pos;f=(ov==='defaut-securite'||ov==='defaut-position');}
+    // (défaut d'attente / d'alimentation : porte au repos visuellement, le voyant CMSI orange suffit)
     if(a!==!!dr._active||f!==!!dr._fault){dr._active=a;dr._fault=f;dchanged=true;}});
   if(changed&&dragging===null)applyMarkerStates();
   if(dchanged&&dragDoor===null)renderDoors();
@@ -786,22 +787,18 @@ function fire(idx){
 // ── Menu contextuel (clic droit formateur en mode Jeu) : état d'un élément, point par point ──
 // Sets d'états proposés selon le type d'élément. (Le clic GAUCHE garde l'action « zone entière ».)
 const STATES_DAS=[
-  {s:'securite',t:'En sécurité (activé)',c:'#dc2626'},
-  {s:'defaut-position',t:'Défaut de position',c:'#dc2626'},
-  {s:'defaut-securite',t:'Défaut de sécurité',c:'#dc2626'},
-  {s:'defaut-alim',t:'Défaut d’alimentation',c:'#f59e0b'},
+  {s:'securite',t:'En sécurité (rouge fixe)',c:'#dc2626'},
+  {s:'defaut-securite',t:'Défaut de sécurité (rouge clignotant)',c:'#dc2626'},
+  {s:'defaut-position',t:'Défaut de position (orange clignotant)',c:'#f59e0b'},
+  {s:'defaut-attente',t:'Défaut d’attente / dérangement (orange clignotant)',c:'#f59e0b'},
+  {s:'defaut-alim',t:'Défaut d’alimentation (orange fixe)',c:'#f59e0b'},
   {s:'attente',t:'Réarmer (attente)',c:'#22c55e'}
 ];
-const STATES_DOOR=[
-  {s:'securite',t:'En sécurité (fermée)',c:'#dc2626'},
-  {s:'defaut-position',t:'Défaut de position',c:'#dc2626'},
-  {s:'defaut-securite',t:'Défaut de sécurité',c:'#dc2626'},
-  {s:'attente',t:'Réarmer (attente)',c:'#22c55e'}
-];
+const STATES_DOOR=STATES_DAS;
 const STATES_DET=[
-  {s:'defaut-securite',t:'Défaut de sécurité',c:'#dc2626'},
-  {s:'defaut-attente',t:'Défaut (dérangement)',c:'#f59e0b'},
-  {s:'defaut-alim',t:'Défaut d’alimentation',c:'#f59e0b'},
+  {s:'defaut-securite',t:'Défaut de sécurité (rouge clignotant)',c:'#dc2626'},
+  {s:'defaut-attente',t:'Défaut (dérangement) (orange clignotant)',c:'#f59e0b'},
+  {s:'defaut-alim',t:'Défaut d’alimentation (orange fixe)',c:'#f59e0b'},
   {s:'attente',t:'Réarmer (attente)',c:'#22c55e'}
 ];
 function elemMenuLabel(m){
@@ -826,15 +823,23 @@ function openElementMenu(px,py,kind,idx){
   m.style.left=Math.max(6,x)+'px';m.style.top=Math.max(6,y)+'px';
   m.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{applyElementState(kind,idx,b.dataset.s,label,(!isDoor&&el.addr)?el.addr:'');closeElementMenu();}));
 }
+// Zone(s) du dispositif → pour allumer le voyant de zone correspondant sur le CMSI.
+function elemZones(kind,idx){
+  if(kind==='door'){const d=DOORS[idx];if(!d)return[];const z=[{t:'compartment',id:d.zc||1}];if(d.zc2)z.push({t:'compartment',id:d.zc2});return z;}
+  const m=MARKERS[idx];if(!m)return[];
+  if(m.type==='CCF'){const z=[{t:'compartment',id:m.zf||1}];if(m.zf2)z.push({t:'compartment',id:m.zf2});return z;}
+  if(m.type==='VH'||m.type==='VB')return[{t:'smoke',id:m.zf||1}];
+  return []; // DAI/DM : défaut détecteur (côté SDI), pas de voyant de zone CMSI
+}
 function applyElementState(kind,idx,state,label,addr){
   if(UAE)return;
   const key=(kind==='door'?'D':'M')+idx;
   if(state==='attente')delete ELEM_OV[key];else ELEM_OV[key]=state;
   // Retour visuel immédiat côté formateur (réconcilié par l'état renvoyé par l'onglet formateur).
-  if(kind==='door'){const d=DOORS[idx];if(d){d._active=(state!=='attente');d._fault=(state==='defaut-securite'||state==='defaut-position');}renderDoors();}
+  if(kind==='door'){const d=DOORS[idx];if(d){const pos=(state==='securite'||state==='defaut-securite'||state==='defaut-position');d._active=pos;d._fault=(state==='defaut-securite'||state==='defaut-position');}renderDoors();}
   else{const m=MARKERS[idx];if(m){m._ssi=(state==='attente')?'attente':state;if(isSym(m))m._zfactive=(state==='securite'||state==='defaut-securite'||state==='defaut-position');}applyMarkerStates();}
   renderMediaThumbs();
-  const sent=post({kind:'set-element',key,label,addr,state});
+  const sent=post({kind:'set-element',key,label,addr,state,zones:elemZones(kind,idx)});
   logLine('🛠️ '+label+(addr?(' '+addr):'')+' → '+state+(sent?'':' (onglet formateur non détecté)'));
 }
 document.addEventListener('click',()=>closeElementMenu());
