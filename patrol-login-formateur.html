@@ -246,7 +246,7 @@
       </div>
       <div>
         <label class="label">Code PIN</label>
-        <input type="password" id="inp-pin" class="input" placeholder="••••••" maxlength="6" inputmode="numeric">
+        <div style="position:relative"><input type="password" id="inp-pin" class="input" placeholder="••••••" maxlength="6" inputmode="numeric" style="padding-right:40px"><button type="button" tabindex="-1" onclick="var i=document.getElementById('inp-pin');i.type=i.type==='password'?'text':'password'" aria-label="Afficher/masquer" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:16px;opacity:.6;padding:2px;line-height:1">👁</button></div>
       </div>
       <button class="btn btn-primary" id="btn-login" onclick="doLogin()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
