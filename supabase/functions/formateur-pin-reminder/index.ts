@@ -87,10 +87,12 @@ Deno.serve(async (req) => {
   for (const aid of authIds) {
     await admin.auth.admin.updateUserById(aid, { password: newPin });
   }
-  // Pour les lignes sans auth_user_id (jamais bootstrappées), on délègue.
+  // Pour les lignes sans auth_user_id (jamais bootstrappées), on délègue. Le pin_clair vient d'être
+  // mis à jour ci-dessus, donc auth-sync (qui lit pin_clair) crée l'auth user avec le bon PIN — plus
+  // besoin de passer new_pin (capability retirée d'auth-sync pour des raisons de sécurité).
   const orphan = (formateurs as any[]).filter(f => !f.auth_user_id);
   for (const f of orphan) {
-    await admin.functions.invoke('formateur-auth-sync', { body: { formateur_id: f.id, new_pin: newPin } });
+    await admin.functions.invoke('formateur-auth-sync', { body: { formateur_id: f.id } });
   }
 
   const updated = (formateurs as any[]).map(f => ({

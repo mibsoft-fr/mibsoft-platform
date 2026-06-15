@@ -1163,6 +1163,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
           <option value="SSIAP3">SSIAP 3 — Chef de service</option>
         </select>
       </div>
+      <div id="s-pin-info" class="hidden" style="background:linear-gradient(145deg,#f0fdf4,#dcfce7);border-radius:12px;padding:12px;text-align:center;font-weight:700;color:#059669;font-size:.9rem;letter-spacing:.1em;"></div>
       <!-- Résultat création stagiaire -->
       <div id="s-result" class="hidden">
         <div class="sep"></div>
@@ -2049,12 +2050,11 @@ function buildStagiaireCard(prenom, nom, pin, url, niveau) {
 
 window.printStagiaireCard = function() { window.print(); };
 
-window.editStagiaire = function(id) {
-  const sid = id; const s = allStagiaires.find(x => x.id === sid);
-  // Si pas dans allStagiaires (chargé depuis participants), chercher dans currentParticipants
-  const stag = s || (currentParticipants.find(p=>p.stagiaire_id===sid)||{}).stagiaires;
+window.editStagiaire = async function(id) {
+  // Lecture fraîche (récupère le pin_clair pour l'afficher au centre, comme pour le formateur).
+  const { data: stag } = await supabase.from('stagiaires').select('*').eq('id', id).single();
   if (!stag) return;
-  editingStagiaireId = sid;
+  editingStagiaireId = id;
   document.getElementById('modal-s-title').textContent = 'Modifier le stagiaire';
   document.getElementById('s-prenom').value = stag.prenom||'';
   document.getElementById('s-nom').value = stag.nom||'';
@@ -2062,6 +2062,8 @@ window.editStagiaire = function(id) {
   document.getElementById('s-tel').value = stag.telephone || '';
   document.getElementById('s-niveau').value = stag.niveau || 'SSIAP1';
   document.getElementById('s-niveau').disabled = false; // toujours modifiable en édition
+  const sPinInfo = document.getElementById('s-pin-info');
+  if (sPinInfo) { sPinInfo.textContent = stag.pin_clair ? ('PIN actuel : ' + stag.pin_clair) : 'PIN non disponible'; sPinInfo.classList.remove('hidden'); }
   document.getElementById('s-msg').classList.add('hidden');
   document.getElementById('s-result').classList.add('hidden');
   document.getElementById('s-form-actions').classList.remove('hidden');
@@ -2709,6 +2711,7 @@ window.openModal = function(id) {
   if (id === 'modal-add-stagiaire') {
     editingStagiaireId = null;
     document.getElementById('modal-s-title').textContent = 'Nouveau stagiaire';
+    const sp = document.getElementById('s-pin-info'); if (sp) sp.classList.add('hidden');
     ['s-prenom','s-nom','s-email','s-tel'].forEach(i => document.getElementById(i).value='');
     // Pré-remplir niveau depuis la session courante (non modifiable)
     const niveauSel = document.getElementById('s-niveau');
