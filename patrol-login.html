@@ -242,19 +242,11 @@ window.addEventListener("DOMContentLoaded", async function() {
     CENTER = cr.data;
     document.getElementById("subtitle").textContent = CENTER.nom || "Connexion";
 
-    var q = window.supabase.from("patrol_data").select("agents").eq("center_id", centerId);
-    if (sessionId) q = q.eq("session_id", sessionId);
-    else q = q.is("session_id", null);
-    var pr = await q.maybeSingle();
-
-    DB_AGENTS = (pr.data && pr.data.agents) ? pr.data.agents.filter(function(a){return a.actif;}) : [];
-
-    if (!DB_AGENTS.length) {
-      var fr = await window.supabase.rpc("get_patrol_agents_from_formateurs", { p_center_id: centerId });
-      DB_AGENTS = (fr.data||[]).map(function(f){
-        return { id:f.id, nom:f.nom, prenom:f.prenom, qualification:"SSIAP 2", actif:true, type:"formateur", entreprise:CENTER.nom||"", pinHash:f.pin_hash||null, pinClair:f.pin_clair||null };
-      });
-    }
+    // PIN compare cote serveur : la liste ne contient AUCUN PIN (ni clair ni hash).
+    var alr = await window.supabase.rpc("patrol_agents_list", { p_center_id: centerId, p_session_id: sessionId || null });
+    DB_AGENTS = (alr.data || []).map(function(a){
+      return { id:a.id, nom:a.nom, prenom:a.prenom, qualification:a.qualification||"Agent", actif:true, type:a.type||"agent", entreprise:a.entreprise||"" };
+    });
 
     DB_AGENTS.sort(function(a,b){
       var o = {"SSIAP 3":0,"SSIAP 2":1,"SSIAP 1":2,"Administrateur":-1};
@@ -290,16 +282,24 @@ async function doLogin() {
   var agent = DB_AGENTS.find(function(a){ return String(a.id) === String(agentId); });
   if (!agent) { showErr("Agent introuvable."); restoreBtn(); return; }
 
-  var ok = false;
+  var rr;
   try {
-    if (agent.pinHash) {
-      var h = await UTILS.hash(pin);
-      ok = (h === agent.pinHash);
-    }
-    if (!ok && agent.pinClair) ok = (pin === agent.pinClair);
+    rr = await window.supabase.rpc("patrol_resolve", {
+      p_center_id: CENTER.id,
+      p_session_id: new URLSearchParams(window.location.search).get("session") || null,
+      p_agent_id: String(agentId),
+      p_pin: pin
+    });
   } catch(e){ console.error(e); }
-
-  if (!ok) { showErr("Code PIN incorrect."); restoreBtn(); return; }
+  var row = (rr && rr.data && rr.data[0]) ? rr.data[0] : null;
+  if (!row || (rr && rr.error)) { showErr("Erreur de connexion. Réessayez."); restoreBtn(); return; }
+  if (row.locked) { showErr("Trop de tentatives. Réessayez dans quelques minutes."); restoreBtn(); return; }
+  if (!row.ok) { showErr("Code PIN incorrect."); restoreBtn(); return; }
+  // Identite faisant autorite (renvoyee par le serveur)
+  agent.nom = row.nom || agent.nom;
+  agent.prenom = row.prenom || agent.prenom;
+  agent.qualification = row.qualification || agent.qualification;
+  agent.type = row.type || agent.type;
 
   var params = new URLSearchParams(window.location.search);
   var sessionId = params.get("session") || null;

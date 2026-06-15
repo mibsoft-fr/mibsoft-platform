@@ -315,8 +315,6 @@ window.addEventListener("DOMContentLoaded", async function() {
       var o = document.createElement("option");
       o.value = f.id;
       o.textContent = f.prenom + " " + f.nom;
-      o.dataset.pinHash = f.pin_hash || "";
-      o.dataset.pinClair = f.pin_clair || "";
       o.dataset.prenom = f.prenom;
       o.dataset.nom = f.nom;
       sel.appendChild(o);
@@ -340,18 +338,16 @@ async function doLogin() {
   btn.innerHTML = "<span class=\"spin\"></span>";
   btn.disabled = true;
 
-  var ok = false;
+  var rr;
   try {
-    var pinHash = opt.dataset.pinHash;
-    var pinClair = opt.dataset.pinClair;
-    if (pinHash) {
-      var h = await UTILS.hash(pin);
-      ok = (h === pinHash);
-    }
-    if (!ok && pinClair) ok = (pin === pinClair);
+    rr = await sb.rpc("patrol_resolve", {
+      p_center_id: CENTER_ID, p_session_id: null, p_agent_id: String(fid), p_pin: pin
+    });
   } catch(e) { console.error(e); }
-
-  if (!ok) {
+  var row = (rr && rr.data && rr.data[0]) ? rr.data[0] : null;
+  if (!row || (rr && rr.error)) { showErr("err-login", "Erreur de connexion."); restoreLoginBtn(); return; }
+  if (row.locked) { showErr("err-login", "Trop de tentatives. Réessayez plus tard."); restoreLoginBtn(); return; }
+  if (!row.ok) {
     showErr("err-login", "Code PIN incorrect.");
     restoreLoginBtn();
     return;
