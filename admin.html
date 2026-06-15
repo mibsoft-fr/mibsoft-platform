@@ -377,12 +377,12 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
     <div class="space-y-4">
       <div>
         <label class="lbl">Nouveau mot de passe</label>
-        <input type="password" id="rec-pwd" class="inp" placeholder="••••••••••••">
+        <div style="position:relative;"><input type="password" id="rec-pwd" class="inp" placeholder="••••••••••••" style="padding-right:46px;"><button type="button" tabindex="-1" onclick="togglePwd('rec-pwd')" aria-label="Afficher/masquer" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text3);">👁</button></div>
       </div>
       <div>
         <label class="lbl">Confirmer le mot de passe</label>
-        <input type="password" id="rec-pwd2" class="inp" placeholder="••••••••••••"
-          onkeydown="if(event.key==='Enter')submitRecovery()">
+        <div style="position:relative;"><input type="password" id="rec-pwd2" class="inp" placeholder="••••••••••••" style="padding-right:46px;"
+          onkeydown="if(event.key==='Enter')submitRecovery()"><button type="button" tabindex="-1" onclick="togglePwd('rec-pwd2')" aria-label="Afficher/masquer" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text3);">👁</button></div>
       </div>
       <div id="rec-err" class="alert-err hidden"></div>
       <div id="rec-ok" class="alert-ok hidden"></div>
@@ -1139,8 +1139,8 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
       <button onclick="closeModal('modal-change-pwd')" style="width:32px;height:32px;border-radius:50%;background:#f3f4f6;border:none;cursor:pointer;font-size:1rem;">✕</button>
     </div>
     <div class="space-y-3">
-      <div><label class="lbl">Nouveau mot de passe</label><input type="password" id="cp-pwd" class="inp" placeholder="Au moins 8 caractères"></div>
-      <div><label class="lbl">Confirmer le mot de passe</label><input type="password" id="cp-pwd2" class="inp" placeholder="••••••••••••" onkeydown="if(event.key==='Enter')changeMyPassword()"></div>
+      <div><label class="lbl">Nouveau mot de passe</label><div style="position:relative;"><input type="password" id="cp-pwd" class="inp" placeholder="Au moins 8 caractères" style="padding-right:46px;"><button type="button" tabindex="-1" onclick="togglePwd('cp-pwd')" aria-label="Afficher/masquer" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text3);">👁</button></div></div>
+      <div><label class="lbl">Confirmer le mot de passe</label><div style="position:relative;"><input type="password" id="cp-pwd2" class="inp" placeholder="••••••••••••" style="padding-right:46px;" onkeydown="if(event.key==='Enter')changeMyPassword()"><button type="button" tabindex="-1" onclick="togglePwd('cp-pwd2')" aria-label="Afficher/masquer" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text3);">👁</button></div></div>
       <div id="cp-msg" class="hidden"></div>
       <div class="flex gap-3 mt-1">
         <button onclick="closeModal('modal-change-pwd')" class="btn btn-gray flex-1">Annuler</button>
@@ -1270,7 +1270,7 @@ async function changeMyPassword(){
   setTimeout(()=>{ closeModal('modal-change-pwd'); msg.classList.add('hidden'); }, 1300);
 }
 
-function togglePwd(){const i=document.getElementById('login-pwd');i.type=i.type==='password'?'text':'password';}
+function togglePwd(id){const i=document.getElementById(id||'login-pwd');if(i)i.type=i.type==='password'?'text':'password';}
 async function logout(){
   await supabase.auth.signOut();
   document.getElementById('page-app').classList.add('hidden');
