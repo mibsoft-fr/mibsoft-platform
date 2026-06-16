@@ -69,7 +69,7 @@
   #doors-svg .dfault{animation:doorblink .7s infinite}
   @keyframes doorblink{50%{opacity:.2}}
   .mk{position:absolute;width:28px;height:28px;transform:translate(-50%,-50%);cursor:pointer;display:flex;align-items:center;justify-content:center}
-  .mk .dot{width:28px;height:28px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.45);transition:transform .08s}
+  .mk .dot{width:30px;height:30px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:800;letter-spacing:-.3px;box-shadow:0 2px 6px rgba(0,0,0,.45);transition:transform .08s}
   .mk:hover .dot{transform:scale(1.15)}
   .mk.dai .dot{background:var(--red);box-shadow:0 0 0 2px var(--red),0 2px 6px rgba(0,0,0,.4)}
   .mk.dm .dot{background:var(--red);width:34px;height:22px;border-radius:4px;box-shadow:0 0 0 2px var(--red),0 2px 6px rgba(0,0,0,.4)}
@@ -85,7 +85,8 @@
   /* Marqueurs matériel (Patrol) : couleurs alignées sur les badges de l'éditeur d'établissement */
   .mk.ria .dot{background:#dc2626;box-shadow:0 0 0 2px #991b1b,0 2px 6px rgba(0,0,0,.4)}
   .mk.ext .dot{background:#ea580c;box-shadow:0 0 0 2px #9a3412,0 2px 6px rgba(0,0,0,.4)}
-  .mk.baes .dot{background:#16a34a;box-shadow:0 0 0 2px #15803d,0 2px 6px rgba(0,0,0,.4)}
+  /* BAES : rectangulaire (bloc d'éclairage de sécurité) */
+  .mk.baes .dot{background:#16a34a;width:36px;height:22px;border-radius:4px;box-shadow:0 0 0 2px #15803d,0 2px 6px rgba(0,0,0,.4)}
   .mk.zfactive .dot{animation:blinkblue .7s infinite}
   @keyframes blinkblue{50%{background:#bae6fd;box-shadow:0 0 0 3px #38bdf8,0 0 12px #38bdf8}}
   /* ── États SSI (vue Jeu / UAE uniquement) : la couleur d'état prime sur la couleur de type ──
@@ -225,10 +226,12 @@ const isSym=m=>m.type==='VH'||m.type==='VB'||m.type==='CCF';
 // Marqueurs « matériel » (RIA / extincteur / BAES) : purement informatifs pour la capture
 // d'établissement Patrol — exclus de la logique SSI (alarmes, zones, états).
 const isMat=m=>m.type==='RIA'||m.type==='EXT'||m.type==='BAES';
+// Code affiché sur la pastille (le numéro, lui, reste sur l'étiquette). BAES -> "ES".
+const CODE={DAI:'DAI',DM:'DM',VH:'VH',VB:'VB',CCF:'CCF',RIA:'RIA',EXT:'EXT',BAES:'ES'};
 const symZoneType=m=>m.type==='CCF'?'compartment':'smoke';  // CCF -> ZC, VH/VB -> ZF
 const symPfx=m=>m.type==='CCF'?'ZC':'ZF';
-const tag=m=>isMat(m)?m.type:(isSym(m)?(symPfx(m)+(m.zf||1)+(m.type==='CCF'&&m.zf2?('/'+m.zf2):'')):(m.type+String(m.id).padStart(2,'0')));
-const dotText=m=>isMat(m)?({RIA:'R',EXT:'E',BAES:'B'}[m.type]||'•'):(isSym(m)?m.type:String(m.id));
+const tag=m=>isSym(m)?(symPfx(m)+(m.zf||1)+(m.type==='CCF'&&m.zf2?('/'+m.zf2):'')):((CODE[m.type]||m.type)+String(m.id).padStart(2,'0'));
+const dotText=m=>CODE[m.type]||m.type;
 // Échappement HTML pour toute donnée de plan (adresses, libellés de portes/clapets) injectée en
 // innerHTML — évite le XSS via un libellé de plan piégé qui s'exécuterait sur l'UAE/le formateur.
 const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -316,7 +319,7 @@ function refreshLink(){
 
 // Numérotation automatique : DAI et DM numérotés 1..N dans l'ordre de placement.
 // (En mode exploitation réelle on rebranchera un choix manuel du numéro ici.)
-function renumber(){let a=0,m=0;MARKERS.forEach(k=>{if(k.type==='DAI')k.id=++a;else if(k.type==='DM')k.id=++m;});
+function renumber(){const c={DAI:0,DM:0,RIA:0,EXT:0,BAES:0};MARKERS.forEach(k=>{if(c[k.type]!==undefined)k.id=++c[k.type];});
   const tooMany=MARKERS.filter(k=>(k.type==='DAI'||k.type==='DM')&&k.id>10);if(tooMany.length)toast('Plus de 10 '+(tooMany[0].type)+' : au-delà de 10, non géré par le SSI');}
 
 function setMode(m){MODE=m;document.body.classList.remove('mode-play','mode-edit');document.body.classList.add('mode-'+m);$('m-play').classList.toggle('on',m==='play');$('m-edit').classList.toggle('on',m==='edit');if(m==='play'){selectMarker(-1);selectDoor(-1);}logLine('Mode : '+(m==='edit'?'Édition':'Jeu'));renderMarkers();renderDoors();}
@@ -396,6 +399,15 @@ async function getOcrLabels(onProgress){
   const labels=clusterWords(words).filter(L=>L.text.length>=3);
   _ocrCache={src:img.src,labels};
   return labels;
+}
+// Localisation automatique d'un point : reprend le libellé OCR le plus proche déjà connu
+// (cache rempli par « Noms (OCR) » ou une capture). À ajuster ensuite dans l'éditeur de point.
+function autoName(m){
+  if(!m||m.addr)return;
+  const labels=_ocrCache&&_ocrCache.labels;if(!labels||!labels.length)return;
+  const img=$('plan');let best=null,bd=Infinity;
+  for(const L of labels){const d=Math.hypot(L.cx-m.x,L.cy-m.y);if(d<bd){bd=d;best=L;}}
+  if(best&&bd<img.naturalWidth*0.14)m.addr=best.text;
 }
 async function detectNames(){
   if(!MARKERS.length){toast('Détecte d’abord les points');return;}
@@ -853,9 +865,9 @@ $('stage').addEventListener('click',ev=>{
   const kind=($('add-kind')&&$('add-kind').value)||'DAI';
   if(kind==='PORTE'){const w=img.naturalWidth*0.08;DOORS.push({x1:Math.max(0,x-w),y1:y,x2:Math.min(img.naturalWidth,x+w),y2:y,zc:1,label:''});selectDoor(DOORS.length-1);logLine('Porte ajoutée (ZC1). Règle ses extrémités et sa zone.');return;}
   if(kind==='VH'||kind==='VB'||kind==='CCF'){MARKERS.push({x,y,type:kind,id:0,zf:1,addr:''});}
-  else if(kind==='RIA'||kind==='EXT'||kind==='BAES'){MARKERS.push({x,y,type:kind,id:0,addr:''});} // matériel : pas de n° SSI
-  else{MARKERS.push({x,y,type:kind,id:0,addr:''});renumber();}
-  selectMarker(MARKERS.length-1);logLine('Ajouté : '+tag(MARKERS[MARKERS.length-1])+'.');});
+  else{MARKERS.push({x,y,type:kind,id:0,addr:''});renumber();} // DAI/DM/RIA/EXT/BAES : numérotés par type
+  autoName(MARKERS[MARKERS.length-1]); // localisation auto depuis l'OCR connu (à ajuster)
+  selectMarker(MARKERS.length-1);logLine('Ajouté : '+tag(MARKERS[MARKERS.length-1])+(MARKERS[MARKERS.length-1].addr?(' · '+MARKERS[MARKERS.length-1].addr):'')+'.');});
 
 // ── déclenchement (mode Jeu) ──
 function fire(idx){
