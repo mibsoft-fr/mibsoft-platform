@@ -60,6 +60,11 @@
   .ed-media-cur img,.ed-media-cur video{display:block;width:100%;max-height:120px;object-fit:cover}
   .stage{position:relative;display:inline-block;max-width:100%;border:1px solid var(--n200);border-radius:12px;overflow:hidden;background:#fff;line-height:0}
   #plan{max-width:100%;display:block;-webkit-user-drag:none;user-select:none}
+  /* Capture de zone (→ établissement Patrol) : curseur viseur + rectangle de sélection */
+  body.capturing #plan{cursor:crosshair}
+  body.capturing .mk{pointer-events:none}
+  .capbox{position:absolute;z-index:80;border:2px dashed #2563eb;background:rgba(37,99,235,.12);pointer-events:none;border-radius:4px}
+  #btn-capture.on{background:#2563eb;color:#fff;border-color:#2563eb}
   #doors-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
   #doors-svg .dfault{animation:doorblink .7s infinite}
   @keyframes doorblink{50%{opacity:.2}}
@@ -129,6 +134,7 @@
     <input id="file" type="file" accept="image/*" style="display:none" onchange="loadFile(this.files[0])">
     <button class="btn alt edit-only" onclick="detect()" title="Ronds = DAI, rectangles = DM">🔴 Détecter (ronds→DAI, rect.→DM)</button>
     <button class="btn edit-only" id="btn-ocr" onclick="detectNames()" title="Lit les noms des locaux sur le plan">🔤 Noms (OCR)</button>
+    <button class="btn alt edit-only" id="btn-capture" onclick="toggleCapture()" title="Trace un rectangle : récupère locaux (OCR) + éléments → éditeur d'établissement">▭ Capturer une zone</button>
     <label class="sld edit-only">Clic ajoute <select id="add-kind"><option value="DAI">🔴 DAI</option><option value="DM">🟥 DM</option><option value="VH">🟦 VH</option><option value="VB">🟦 VB</option><option value="CCF">🔵 CCF</option><option value="PORTE">🚪 Porte</option></select></label>
     <label class="sld edit-only">Sensibilité <input id="rMin" type="range" min="80" max="200" value="110"></label>
     <label class="sld edit-only">Taille mini <input id="minA" type="range" min="5" max="400" value="30"></label>
@@ -150,6 +156,7 @@
   <div class="help">
     <b>Jeu :</b> un clic envoie l'alarme au SSI du stagiaire (ECS : « Alarme feu &lt;local&gt; », voyant ALARME FEU rouge clignotant). Reclic = réarmement.<br>
     <b>Édition :</b> « Détecter » place les <b>DAI</b> (ronds) et <b>DM</b> (rectangles) rouges. « <b>Noms (OCR)</b> » propose les noms des locaux. Le sélecteur <b>« Clic ajoute »</b> choisit ce qu'un clic sur le plan ajoute : DAI, DM, <b>VH/VB</b> (ventilation → zone <b>ZF</b>), <b>CCF</b> (clapet → zone <b>ZC</b>) ou <b>🚪 Porte</b> (compartimentage → zone <b>ZC</b>). Pour une porte : glisse ses extrémités (●) pour la longueur/orientation, et choisis sa ZC + libellé. Clic point = sélectionner ; glisser = déplacer. <b>Sauvegarder</b>.<br>
+    <b>▭ Capturer une zone :</b> trace un rectangle (mail, aile…) — les <b>noms de boutiques/locaux</b> (OCR) et les <b>éléments</b> à l'intérieur sont récupérés, puis importés en un clic dans l'éditeur d'établissement Patrol (« 📥 Importer du plan »).<br>
     <b>En Jeu :</b> cliquer une <b>VH/VB</b> met la <b>ZF en sécurité</b> (désenfumage), un <b>CCF</b> met la <b>ZC en sécurité</b> (compartimentage) ; + coffret CR du même n° ; voyant rouge sur le CMSI pendant l'alarme ; tous les symboles de la zone clignotent en bleu. Le bouton <b>CMD</b> de l'UCMC force aussi la zone (reflété sur le plan).<br><b>Clic droit sur un élément</b> (clapet, porte, ventil., DAI/DM) : menu pour lui imposer un état <b>point par point</b> (en sécurité, <b>défaut de position</b>, défaut de sécurité…) — le message s'affiche sur l'écran SMSI (ex. « Clapet coupe-feu ZC5 : défaut de position »). Réarmement : clic gauche = toute la zone, ou clic droit → <b>Réarmer</b> élément par élément.
   </div>
 
@@ -369,6 +376,19 @@ function clusterWords(words){
     return {text:cleanName(ws.map(w=>w.text).join(' ')),cx:(x0+x1)/2,cy:(y0+y1)/2};});
 }
 let OCR_RUNNING=false;
+// Cache des libellés OCR pour l'image courante : partagé entre « Noms (OCR) » et « Capturer une zone »
+// (évite de relancer le moteur ~10 Mo à chaque capture). Renvoie [{text,cx,cy}].
+let _ocrCache={src:null,labels:null};
+async function getOcrLabels(onProgress){
+  const img=$('plan');if(!img.naturalWidth)throw new Error('aucun plan');
+  if(_ocrCache.src===img.src&&_ocrCache.labels)return _ocrCache.labels;
+  await ensureTesseract();
+  const res=await Tesseract.recognize(img.src,'fra',{...TESS_OPTS,logger:m=>{if(m.status==='recognizing text'&&m.progress!=null&&onProgress)onProgress(m.progress);}});
+  const words=(res.data.words||[]).filter(w=>w&&w.text&&w.confidence>40&&/[\p{L}]{3,}/u.test(w.text));
+  const labels=clusterWords(words).filter(L=>L.text.length>=3);
+  _ocrCache={src:img.src,labels};
+  return labels;
+}
 async function detectNames(){
   if(!MARKERS.length){toast('Détecte d’abord les points');return;}
   const img=$('plan');if(!img.naturalWidth)return;
@@ -376,11 +396,8 @@ async function detectNames(){
   const btn=$('btn-ocr'),old=btn.textContent;btn.textContent='⏳ OCR…';btn.disabled=true;
   logLine('🔤 OCR en cours… (1er lancement : téléchargement du moteur, ~10 Mo, patiente)');
   try{
-    await ensureTesseract();
-    const res=await Tesseract.recognize(img.src,'fra',{...TESS_OPTS,logger:m=>{if(m.status==='recognizing text'&&m.progress!=null)btn.textContent='⏳ OCR '+Math.round(m.progress*100)+'%';}});
-    const words=(res.data.words||[]).filter(w=>w&&w.text&&w.confidence>40&&/[\p{L}]{3,}/u.test(w.text));
-    if(!words.length){logLine('🔤 OCR exécuté mais 0 mot lisible détecté (texte trop petit ou image floue). Saisie manuelle.');toast('Aucun texte lisible');return;}
-    const labels=clusterWords(words).filter(L=>L.text.length>=3);
+    const labels=await getOcrLabels(p=>{btn.textContent='⏳ OCR '+Math.round(p*100)+'%';});
+    if(!labels.length){logLine('🔤 OCR exécuté mais 0 mot lisible détecté (texte trop petit ou image floue). Saisie manuelle.');toast('Aucun texte lisible');return;}
     let n=0,skip=0;
     MARKERS.forEach(m=>{
       if(m.addr){skip++;return;} // ne pas écraser une saisie existante
@@ -396,6 +413,80 @@ async function detectNames(){
     logLine('⚠️ OCR bloqué : '+(e&&e.message||e)+'. (Souvent la CSP du site qui bloque le moteur OCR.) Saisis les noms à la main.');
     toast('OCR bloqué — saisie manuelle');
   }finally{OCR_RUNNING=false;btn.textContent=old;btn.disabled=false;}
+}
+
+// ── Capture d'une zone → éditeur d'établissement (Patrol) ──────────────────────
+// On trace un rectangle sur le plan : on récupère les NOMS de locaux (OCR + adresses
+// des points) et les ÉLÉMENTS (DAI/DM/VH/VB/CCF) à l'intérieur. Le tout est déposé en
+// localStorage (clé partagée d'origine) où patrol-etablissement.html vient l'importer.
+let CAPTURE_MODE=false,_capStart=null,_capBox=null;
+const ETAB_CAP_KEY='mib_etab_capture_'+PLAN_KEY;
+function toggleCapture(){
+  CAPTURE_MODE=!CAPTURE_MODE;
+  document.body.classList.toggle('capturing',CAPTURE_MODE);
+  $('btn-capture').classList.toggle('on',CAPTURE_MODE);
+  if(CAPTURE_MODE){selectMarker(-1);selectDoor(-1);
+    toast('Trace un rectangle autour d’une zone (mail, aile…)');
+    logLine('▭ Capture activée : trace un rectangle. Relâche pour récupérer locaux + éléments. (Reclique le bouton pour quitter.)');
+  } else { if(_capBox){_capBox.remove();_capBox=null;} _capStart=null; logLine('▭ Capture terminée.'); }
+}
+function _capClient2box(cx,cy){
+  const stage=$('stage'),sr=stage.getBoundingClientRect();
+  const img=$('plan'),ir=img.getBoundingClientRect();
+  const x=Math.max(ir.left,Math.min(ir.right,cx)),y=Math.max(ir.top,Math.min(ir.bottom,cy));
+  return {x:x-sr.left,y:y-sr.top};
+}
+$('stage').addEventListener('mousedown',ev=>{
+  if(!CAPTURE_MODE||MODE!=='edit')return;
+  ev.preventDefault();ev.stopPropagation();
+  _capStart={cx:ev.clientX,cy:ev.clientY};
+  _capBox=document.createElement('div');_capBox.className='capbox';$('stage').appendChild(_capBox);
+  const p=_capClient2box(ev.clientX,ev.clientY);_capBox.style.left=p.x+'px';_capBox.style.top=p.y+'px';_capBox.style.width='0';_capBox.style.height='0';
+},true);
+document.addEventListener('mousemove',ev=>{
+  if(!_capStart||!_capBox)return;
+  const a=_capClient2box(_capStart.cx,_capStart.cy),b=_capClient2box(ev.clientX,ev.clientY);
+  _capBox.style.left=Math.min(a.x,b.x)+'px';_capBox.style.top=Math.min(a.y,b.y)+'px';
+  _capBox.style.width=Math.abs(a.x-b.x)+'px';_capBox.style.height=Math.abs(a.y-b.y)+'px';
+});
+document.addEventListener('mouseup',ev=>{ if(_capStart)finishCapture(ev); });
+
+const ELEM_LABEL={DAI:'Détecteur (DAI)',DM:'Déclencheur manuel (DM)',VH:'Ventilation haute',VB:'Ventilation basse',CCF:'Clapet coupe-feu'};
+async function finishCapture(ev){
+  const startC=_capStart;_capStart=null;
+  const box=_capBox;_capBox=null;
+  const img=$('plan'),r=img.getBoundingClientRect();
+  const toNat=(cx,cy)=>({x:(Math.max(r.left,Math.min(r.right,cx))-r.left)/r.width*img.naturalWidth,
+                         y:(Math.max(r.top,Math.min(r.bottom,cy))-r.top)/r.height*img.naturalHeight});
+  const a=toNat(startC.cx,startC.cy),b=toNat(ev.clientX,ev.clientY);
+  const x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),y0=Math.min(a.y,b.y),y1=Math.max(a.y,b.y);
+  const removeBox=()=>{if(box)box.remove();};
+  if((x1-x0)<img.naturalWidth*0.02||(y1-y0)<img.naturalHeight*0.02){removeBox();toast('Zone trop petite — recommence');return;}
+  // éléments à l'intérieur
+  const inside=MARKERS.filter(m=>m.x>=x0&&m.x<=x1&&m.y>=y0&&m.y<=y1)
+    .map(m=>({type:m.type,addr:(m.addr||'').trim(),tag:tag(m)}));
+  // noms OCR à l'intérieur (lance le moteur si besoin)
+  let labels=[];
+  const btn=$('btn-capture'),old=btn.textContent;btn.textContent='⏳ OCR…';btn.disabled=true;
+  try{ const all=await getOcrLabels(p=>{btn.textContent='⏳ OCR '+Math.round(p*100)+'%';});
+       labels=all.filter(L=>L.cx>=x0&&L.cx<=x1&&L.cy>=y0&&L.cy<=y1).map(L=>L.text);
+  }catch(e){ logLine('⚠️ OCR indisponible pour la capture ('+(e&&e.message||e)+') — locaux pris seulement sur les noms des points.'); }
+  finally{ btn.textContent=old;btn.disabled=false; }
+  // locaux = noms OCR + adresses des éléments (dédoublonnés, insensibles à la casse)
+  const seen={},locaux=[];
+  [...labels,...inside.map(e=>e.addr)].forEach(nm=>{nm=(nm||'').trim();if(!nm)return;const k=nm.toLowerCase();if(seen[k])return;seen[k]=1;locaux.push(nm);});
+  removeBox();
+  if(!locaux.length&&!inside.length){toast('Rien trouvé dans cette zone');logLine('▭ Capture : aucun nom ni élément dans le rectangle.');return;}
+  const def=locaux[0]||'Zone';
+  const zoneName=(prompt('Nom de cette zone (ex. Mail RDC, Galerie marchande) :',def)||'').trim();
+  if(!zoneName){toast('Capture annulée');return;}
+  const cap={id:'cap-'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36),
+             level:(typeof VIEW_CUR!=='undefined'&&VIEW_CUR)||'',
+             zone:zoneName,locaux:locaux,elements:inside};
+  let buf=[];try{buf=JSON.parse(localStorage.getItem(ETAB_CAP_KEY)||'[]');}catch(_){}
+  buf.push(cap);try{localStorage.setItem(ETAB_CAP_KEY,JSON.stringify(buf));}catch(_){toast('Stockage plein');return;}
+  toast('Zone « '+zoneName+' » capturée ('+locaux.length+' locaux, '+inside.length+' élém.)');
+  logLine('▭ Capturé : « '+zoneName+' » → '+locaux.length+' local(aux), '+inside.length+' élément(s). Ouvre l’éditeur d’établissement → « 📥 Importer du plan ».');
 }
 
 function renderMarkers(){
@@ -748,7 +839,7 @@ document.addEventListener('mousemove',ev=>{
   const mk=$('stage').querySelectorAll('.mk')[dragging];if(mk){mk.style.left=(x/img.naturalWidth*100)+'%';mk.style.top=(y/img.naturalHeight*100)+'%';}});
 document.addEventListener('mouseup',()=>{dragging=null;dragDoor=null;});
 $('stage').addEventListener('click',ev=>{
-  if(MODE!=='edit'||dragMoved){dragMoved=false;return;}
+  if(MODE!=='edit'||dragMoved||CAPTURE_MODE){dragMoved=false;return;}
   const img=$('plan');if(ev.target!==img)return;const r=img.getBoundingClientRect();
   const x=(ev.clientX-r.left)/r.width*img.naturalWidth,y=(ev.clientY-r.top)/r.height*img.naturalHeight;
   const kind=($('add-kind')&&$('add-kind').value)||'DAI';

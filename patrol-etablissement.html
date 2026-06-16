@@ -45,6 +45,14 @@
   .toast.show { opacity:1; }
   .savebar { position:sticky; bottom:0; background:rgba(255,255,255,.95); backdrop-filter:blur(6px); border-top:1px solid #e2e8f0; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; margin:16px -16px -80px; }
   .gate { text-align:center; padding:60px 20px; color:#64748b; }
+  /* modal import */
+  .ov { position:fixed; inset:0; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; z-index:60; padding:16px; }
+  .ov.show { display:flex; }
+  .modal { background:#fff; border-radius:16px; max-width:560px; width:100%; max-height:88vh; overflow:auto; box-shadow:0 20px 60px rgba(0,0,0,.3); padding:20px; }
+  .modal h3 { margin:0 0 4px; font-size:1.05rem; }
+  .cap-item { border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin:8px 0; display:flex; gap:10px; align-items:flex-start; }
+  .cap-item input[type=checkbox]{ margin-top:3px; width:16px; height:16px; }
+  .cap-item .meta { font-size:.78rem; color:#64748b; }
 </style>
 </head>
 <body>
@@ -75,7 +83,10 @@
       <div class="card">
         <div class="row" style="justify-content:space-between;margin-bottom:10px;">
           <div class="lbl" style="font-size:1rem;">🏗️ Structure des lieux</div>
-          <button class="btn btn-gray btn-sm" onclick="addBatiment()">+ Bâtiment</button>
+          <span>
+            <button class="btn btn-blue btn-sm" id="btn-import" onclick="importerDuPlan()" title="Récupère les zones capturées sur le plan">📥 Importer du plan</button>
+            <button class="btn btn-gray btn-sm" onclick="addBatiment()">+ Bâtiment</button>
+          </span>
         </div>
         <div id="tree"></div>
       </div>
@@ -107,6 +118,28 @@
   </div>
 </div>
 <div id="toast" class="toast"></div>
+
+<!-- Modal : import des zones capturées sur le plan -->
+<div id="import-ov" class="ov">
+  <div class="modal">
+    <h3>📥 Importer du plan</h3>
+    <p class="muted" style="margin:0 0 12px;">Zones tracées sur le plan (« ▭ Capturer une zone »). Choisis la destination puis importe.</p>
+    <div class="row" style="margin-bottom:12px;">
+      <label class="lbl">Bâtiment&nbsp;</label>
+      <select id="imp-bat" class="inp" onchange="renderImpNiveaux()"></select>
+      <label class="lbl">Niveau&nbsp;</label>
+      <select id="imp-niv" class="inp"></select>
+    </div>
+    <div id="imp-list"></div>
+    <div class="row" style="justify-content:space-between;margin-top:14px;">
+      <button class="btn btn-red btn-sm" onclick="viderCaptures()">🗑️ Vider les captures</button>
+      <span>
+        <button class="btn btn-gray btn-sm" onclick="fermerImport()">Annuler</button>
+        <button class="btn btn-green" onclick="confirmerImport()">📥 Importer la sélection</button>
+      </span>
+    </div>
+  </div>
+</div>
 
 <script>
 var sb = window.supabase;
@@ -280,6 +313,81 @@ function render(){
       + "<td><span class=\"qr\" style=\"font-family:monospace;font-size:.72rem;color:#64748b;\">"+esc(m.codeQR)+"</span></td>"
       + "<td><button class=\"btn btn-red btn-sm\" onclick=\"delMateriel('"+m.id+"')\">🗑️</button></td></tr>";
   }).join("") : "<tr><td colspan=\"5\" class=\"muted\">Aucun matériel</td></tr>";
+}
+
+// ════════════ IMPORT DEPUIS LE PLAN ════════════
+// Le plan (ssi-formation/plan.html, même origine) dépose les zones tracées en localStorage.
+// On les lit, on laisse choisir bâtiment+niveau, et on crée zones/locaux/matériels.
+function capKey(){ return "mib_etab_capture_"+(PLAN_KEY||""); }
+function readCaptures(){ try{ return JSON.parse(localStorage.getItem(capKey())||"[]")||[]; }catch(_){ return []; } }
+// Type d'élément SSI du plan → type de matériel Patrol (l'utilisateur ajuste ensuite).
+var ELEM2MAT = { VH:"Désenfumage", VB:"Désenfumage", CCF:"Désenfumage", DAI:"Autre", DM:"Autre" };
+
+function importerDuPlan(){
+  if(!PLAN_KEY){ toast("Sélectionne d'abord un plan."); return; }
+  var caps = readCaptures();
+  if(!caps.length){ toast("Aucune zone capturée. Sur le plan : « ▭ Capturer une zone »."); return; }
+  if(!ETAB.batiments.length){ addBatiment(); }
+  var selB = document.getElementById("imp-bat");
+  selB.innerHTML = ETAB.batiments.map(function(b){ return "<option value=\""+b.id+"\">"+esc(b.nom)+"</option>"; }).join("");
+  renderImpNiveaux();
+  renderImpList(caps);
+  document.getElementById("import-ov").classList.add("show");
+}
+function renderImpNiveaux(){
+  var b = findBat(document.getElementById("imp-bat").value) || ETAB.batiments[0];
+  var selN = document.getElementById("imp-niv");
+  if(!b.niveaux.length){ b.niveaux.push({ key:uid("niv"), nom:"RDC", zones:[] }); }
+  selN.innerHTML = b.niveaux.map(function(n){ return "<option value=\""+n.key+"\">"+esc(n.nom)+"</option>"; }).join("");
+}
+function renderImpList(caps){
+  var box = document.getElementById("imp-list");
+  box.innerHTML = caps.map(function(c,i){
+    var nbE = (c.elements||[]).length, nbL = (c.locaux||[]).length;
+    var apercu = (c.locaux||[]).slice(0,5).map(esc).join(", ") + ((c.locaux||[]).length>5?"…":"");
+    return "<label class=\"cap-item\"><input type=\"checkbox\" data-i=\""+i+"\" checked>"
+      + "<span><b>"+esc(c.zone)+"</b>"
+      + "<div class=\"meta\">"+nbL+" local(aux)"+(apercu?" — "+apercu:"")+" · "+nbE+" élément(s)</div></span></label>";
+  }).join("") || "<div class=\"muted\">Aucune zone.</div>";
+}
+function fermerImport(){ document.getElementById("import-ov").classList.remove("show"); }
+function viderCaptures(){
+  if(!confirm("Supprimer toutes les zones capturées sur le plan ? (n'efface rien dans l'établissement)")) return;
+  try{ localStorage.removeItem(capKey()); }catch(_){}
+  fermerImport(); toast("Captures vidées.");
+}
+function confirmerImport(){
+  var caps = readCaptures();
+  var b = findBat(document.getElementById("imp-bat").value); if(!b) return;
+  var n = b.niveaux.find(function(x){ return x.key===document.getElementById("imp-niv").value; }); if(!n) return;
+  var chosen = Array.prototype.slice.call(document.querySelectorAll("#imp-list input[type=checkbox]:checked"))
+                 .map(function(cb){ return caps[+cb.dataset.i]; }).filter(Boolean);
+  if(!chosen.length){ toast("Coche au moins une zone."); return; }
+  var nZ=0, nL=0, nM=0;
+  chosen.forEach(function(c){
+    var zone = { id:uid("zone"), nom:c.zone, locaux:[] }; nZ++;
+    var byName = {};
+    (c.locaux||[]).forEach(function(nm){
+      var loc = { id:uid("loc"), nom:nm, codeQR:qrLocal() };
+      zone.locaux.push(loc); byName[nm.toLowerCase()] = loc; nL++;
+    });
+    // élément → matériel, rattaché au local de même nom (sinon 1er local, sinon local créé)
+    (c.elements||[]).forEach(function(e){
+      var loc = (e.addr && byName[e.addr.toLowerCase()]) || zone.locaux[0];
+      if(!loc){ loc = { id:uid("loc"), nom:c.zone, codeQR:qrLocal() }; zone.locaux.push(loc); nL++; }
+      var type = ELEM2MAT[e.type] || "Autre";
+      MATERIELS.push({ id:uid("mat"), nom:(e.addr||e.tag||type), type:type, statut:"Opérationnel",
+        codeQR:qrMat(type), localId:loc.id,
+        localisation: b.nom+" > "+n.nom+" > "+zone.nom+" > "+loc.nom });
+      nM++;
+    });
+    n.zones.push(zone);
+  });
+  // retire les captures importées du buffer
+  var keep = caps.filter(function(c){ return chosen.indexOf(c)<0; });
+  try{ localStorage.setItem(capKey(), JSON.stringify(keep)); }catch(_){}
+  fermerImport(); markDirty(); render();
+  toast("Importé : "+nZ+" zone(s), "+nL+" local(aux), "+nM+" matériel(s) ✓");
 }
 
 // ════════════ SAVE ════════════
