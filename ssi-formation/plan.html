@@ -65,6 +65,13 @@
   body.capturing .mk{pointer-events:none}
   .capbox{position:absolute;z-index:80;border:2px dashed #2563eb;background:rgba(37,99,235,.12);pointer-events:none;border-radius:4px}
   #btn-capture.on{background:#2563eb;color:#fff;border-color:#2563eb}
+  /* Zones capturées (persistantes) : cadre + étiquette nom, visibles en Édition */
+  .capzone{position:absolute;z-index:54;border:2px solid #2563eb;background:rgba(37,99,235,.07);border-radius:4px;pointer-events:none}
+  .capzone .cz-lbl{position:absolute;top:0;left:-2px;transform:translateY(-100%);background:#2563eb;color:#fff;font:700 10px system-ui;padding:2px 7px;border-radius:6px 6px 6px 0;white-space:nowrap;pointer-events:auto;box-shadow:0 2px 5px rgba(0,0,0,.3)}
+  .capzone .cz-meta{opacity:.8;font-weight:600;margin:0 2px}
+  .capzone .cz-x{cursor:pointer;font-weight:900;padding:0 2px;border-radius:3px}
+  .capzone .cz-x:hover{background:rgba(255,255,255,.25)}
+  body:not(.mode-edit) .capzone{display:none}
   #doors-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
   #doors-svg .dfault{animation:doorblink .7s infinite}
   @keyframes doorblink{50%{opacity:.2}}
@@ -330,7 +337,7 @@ function loadFile(f){if(!f)return;const r=new FileReader();r.onload=e=>{
   setMode('edit');
   logLine('📁 Nouveau plan importé. Lance « Détecter » puis « Noms (OCR) », et Sauvegarde.');
 };r.readAsDataURL(f);}
-function onPlanLoaded(){$('hostEmpty').style.display='none';$('stage').style.display='inline-block';renderMarkers();renderDoors();}
+function onPlanLoaded(){$('hostEmpty').style.display='none';$('stage').style.display='inline-block';renderMarkers();renderDoors();renderCaptures();}
 
 // ── Auto-détection ronds rouges ──
 function detect(){
@@ -449,6 +456,7 @@ function toggleCapture(){
     toast('Trace un rectangle autour d’une zone (mail, aile…)');
     logLine('▭ Capture activée : trace un rectangle. Relâche pour récupérer locaux + éléments. (Reclique le bouton pour quitter.)');
   } else { if(_capBox){_capBox.remove();_capBox=null;} _capStart=null; logLine('▭ Capture terminée.'); }
+  updateCaptureBtn();
 }
 function _capClient2box(cx,cy){
   const stage=$('stage'),sr=stage.getBoundingClientRect();
@@ -458,6 +466,7 @@ function _capClient2box(cx,cy){
 }
 $('stage').addEventListener('mousedown',ev=>{
   if(!CAPTURE_MODE||MODE!=='edit')return;
+  if(ev.target.closest&&ev.target.closest('.cz-lbl'))return; // clic sur l'étiquette d'une zone (✕) : pas un nouveau rectangle
   ev.preventDefault();ev.stopPropagation();
   _capStart={cx:ev.clientX,cy:ev.clientY};
   _capBox=document.createElement('div');_capBox.className='capbox';$('stage').appendChild(_capBox);
@@ -501,11 +510,44 @@ async function finishCapture(ev){
   if(!zoneName){toast('Capture annulée');return;}
   const cap={id:'cap-'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36),
              level:(typeof VIEW_CUR!=='undefined'&&VIEW_CUR)||'',
-             zone:zoneName,locaux:locaux,elements:inside};
+             zone:zoneName,locaux:locaux,elements:inside,
+             rect:{x0:x0,y0:y0,x1:x1,y1:y1}};
   let buf=[];try{buf=JSON.parse(localStorage.getItem(ETAB_CAP_KEY)||'[]');}catch(_){}
   buf.push(cap);try{localStorage.setItem(ETAB_CAP_KEY,JSON.stringify(buf));}catch(_){toast('Stockage plein');return;}
+  renderCaptures();
   toast('Zone « '+zoneName+' » capturée ('+locaux.length+' locaux, '+inside.length+' élém.)');
-  logLine('▭ Capturé : « '+zoneName+' » → '+locaux.length+' local(aux), '+inside.length+' élément(s). Ouvre l’éditeur d’établissement → « 📥 Importer du plan ».');
+  logLine('▭ Capturé : « '+zoneName+' » → '+locaux.length+' local(aux), '+inside.length+' élément(s). Encadré en bleu sur le plan. Ouvre l’éditeur d’établissement → « 📥 Importer du plan ».');
+}
+
+// Lit les zones capturées (buffer localStorage) pour ce plan.
+function readCaptures(){ try{ return JSON.parse(localStorage.getItem(ETAB_CAP_KEY)||'[]')||[]; }catch(_){ return []; } }
+// Dessine les zones capturées de façon persistante (cadre bleu + nom + ✕) — visible en Édition.
+function renderCaptures(){
+  const stage=$('stage'),img=$('plan');if(!stage)return;
+  stage.querySelectorAll('.capzone').forEach(e=>e.remove());
+  if(!img.naturalWidth)return;
+  const W=img.naturalWidth,H=img.naturalHeight,caps=readCaptures();
+  caps.forEach(c=>{
+    if(!c.rect)return;
+    const r=c.rect,box=document.createElement('div');box.className='capzone';
+    box.style.left=(r.x0/W*100)+'%';box.style.top=(r.y0/H*100)+'%';
+    box.style.width=((r.x1-r.x0)/W*100)+'%';box.style.height=((r.y1-r.y0)/H*100)+'%';
+    const lbl=document.createElement('div');lbl.className='cz-lbl';
+    lbl.innerHTML=esc(c.zone)+' <span class="cz-meta">'+(c.locaux||[]).length+'L·'+(c.elements||[]).length+'E</span> <span class="cz-x" title="Supprimer cette zone capturée">✕</span>';
+    lbl.querySelector('.cz-x').addEventListener('click',ev=>{ev.stopPropagation();removeCapture(c.id);});
+    box.appendChild(lbl);stage.appendChild(box);
+  });
+  updateCaptureBtn();
+}
+function removeCapture(id){
+  const keep=readCaptures().filter(c=>c.id!==id);
+  try{localStorage.setItem(ETAB_CAP_KEY,JSON.stringify(keep));}catch(_){}
+  renderCaptures();logLine('▭ Zone capturée supprimée.');
+}
+function updateCaptureBtn(){
+  const btn=$('btn-capture');if(!btn)return;
+  const n=readCaptures().length;
+  btn.textContent=(CAPTURE_MODE?'▭ Capture… ':'▭ Capturer une zone')+(n?(' ('+n+')'):'');
 }
 
 function renderMarkers(){
