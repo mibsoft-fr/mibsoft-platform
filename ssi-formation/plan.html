@@ -82,6 +82,10 @@
   .mk .xmark{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:26px;font-weight:900;color:#111;text-shadow:0 0 3px #fff,0 0 4px #fff,0 0 4px #fff;pointer-events:none;line-height:1}
   .mk.vh .dot,.mk.vb .dot{background:#38bdf8;color:#082f49;width:34px;height:22px;border-radius:4px;font-size:11px;box-shadow:0 0 0 2px #0284c7,0 2px 6px rgba(0,0,0,.4)}
   .mk.ccf .dot{background:#1d4ed8;color:#fff;width:30px;height:30px;border-radius:50%;font-size:9px;box-shadow:0 0 0 2px #1e3a8a,0 2px 6px rgba(0,0,0,.4)}
+  /* Marqueurs matériel (Patrol) : couleurs alignées sur les badges de l'éditeur d'établissement */
+  .mk.ria .dot{background:#dc2626;box-shadow:0 0 0 2px #991b1b,0 2px 6px rgba(0,0,0,.4)}
+  .mk.ext .dot{background:#ea580c;box-shadow:0 0 0 2px #9a3412,0 2px 6px rgba(0,0,0,.4)}
+  .mk.baes .dot{background:#16a34a;box-shadow:0 0 0 2px #15803d,0 2px 6px rgba(0,0,0,.4)}
   .mk.zfactive .dot{animation:blinkblue .7s infinite}
   @keyframes blinkblue{50%{background:#bae6fd;box-shadow:0 0 0 3px #38bdf8,0 0 12px #38bdf8}}
   /* ── États SSI (vue Jeu / UAE uniquement) : la couleur d'état prime sur la couleur de type ──
@@ -135,7 +139,7 @@
     <button class="btn alt edit-only" onclick="detect()" title="Ronds = DAI, rectangles = DM">🔴 Détecter (ronds→DAI, rect.→DM)</button>
     <button class="btn edit-only" id="btn-ocr" onclick="detectNames()" title="Lit les noms des locaux sur le plan">🔤 Noms (OCR)</button>
     <button class="btn alt edit-only" id="btn-capture" onclick="toggleCapture()" title="Trace un rectangle : récupère locaux (OCR) + éléments → éditeur d'établissement">▭ Capturer une zone</button>
-    <label class="sld edit-only">Clic ajoute <select id="add-kind"><option value="DAI">🔴 DAI</option><option value="DM">🟥 DM</option><option value="VH">🟦 VH</option><option value="VB">🟦 VB</option><option value="CCF">🔵 CCF</option><option value="PORTE">🚪 Porte</option></select></label>
+    <label class="sld edit-only">Clic ajoute <select id="add-kind"><option value="DAI">🔴 DAI</option><option value="DM">🟥 DM</option><option value="VH">🟦 VH</option><option value="VB">🟦 VB</option><option value="CCF">🔵 CCF</option><option value="PORTE">🚪 Porte</option><optgroup label="Matériel (Patrol)"><option value="RIA">🧯 RIA</option><option value="EXT">🧯 Extincteur</option><option value="BAES">🟢 BAES</option></optgroup></select></label>
     <label class="sld edit-only">Sensibilité <input id="rMin" type="range" min="80" max="200" value="110"></label>
     <label class="sld edit-only">Taille mini <input id="minA" type="range" min="5" max="400" value="30"></label>
     <button class="btn grey edit-only" onclick="clearMarkers()">🗑️ Effacer</button>
@@ -166,7 +170,7 @@
 <div class="editor" id="editor">
   <h4>Point sélectionné</h4>
   <label>Type</label>
-  <select id="ed-type" onchange="applyEditor()"><option value="DAI">🔴 DAI (auto)</option><option value="DM">🟥 DM (manuel)</option><option value="VH">🟦 VH ventil. haute</option><option value="VB">🟦 VB ventil. basse</option><option value="CCF">🔵 CCF clapet coupe-feu</option></select>
+  <select id="ed-type" onchange="applyEditor()"><option value="DAI">🔴 DAI (auto)</option><option value="DM">🟥 DM (manuel)</option><option value="VH">🟦 VH ventil. haute</option><option value="VB">🟦 VB ventil. basse</option><option value="CCF">🔵 CCF clapet coupe-feu</option><option value="RIA">🧯 RIA (matériel)</option><option value="EXT">🧯 Extincteur (matériel)</option><option value="BAES">🟢 BAES (matériel)</option></select>
   <div id="ed-zf-row" style="display:none"><label id="ed-zf-label">Zone</label><select id="ed-zf" onchange="applyEditor()"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
   <div id="ed-zf2-row" style="display:none"><label>Zone 2 (clapet entre 2 ZC, optionnel)</label><select id="ed-zf2" onchange="applyEditor()"><option value="">(aucune)</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
   <div id="ed-link-row" style="display:none"><label id="ed-link-label">Mise en sécurité</label><select id="ed-link" onchange="applyEditor()"><option value="">(aucun)</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
@@ -218,10 +222,13 @@ const $=id=>document.getElementById(id);
 function logLine(t){const l=$('log');l.innerHTML+='\n› '+t;l.scrollTop=l.scrollHeight;}
 let toastT;function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('show'),1900);}
 const isSym=m=>m.type==='VH'||m.type==='VB'||m.type==='CCF';
+// Marqueurs « matériel » (RIA / extincteur / BAES) : purement informatifs pour la capture
+// d'établissement Patrol — exclus de la logique SSI (alarmes, zones, états).
+const isMat=m=>m.type==='RIA'||m.type==='EXT'||m.type==='BAES';
 const symZoneType=m=>m.type==='CCF'?'compartment':'smoke';  // CCF -> ZC, VH/VB -> ZF
 const symPfx=m=>m.type==='CCF'?'ZC':'ZF';
-const tag=m=>isSym(m)?(symPfx(m)+(m.zf||1)+(m.type==='CCF'&&m.zf2?('/'+m.zf2):'')):(m.type+String(m.id).padStart(2,'0'));
-const dotText=m=>isSym(m)?m.type:String(m.id);
+const tag=m=>isMat(m)?m.type:(isSym(m)?(symPfx(m)+(m.zf||1)+(m.type==='CCF'&&m.zf2?('/'+m.zf2):'')):(m.type+String(m.id).padStart(2,'0')));
+const dotText=m=>isMat(m)?({RIA:'R',EXT:'E',BAES:'B'}[m.type]||'•'):(isSym(m)?m.type:String(m.id));
 // Échappement HTML pour toute donnée de plan (adresses, libellés de portes/clapets) injectée en
 // innerHTML — évite le XSS via un libellé de plan piégé qui s'exécuterait sur l'UAE/le formateur.
 const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -260,6 +267,7 @@ function applyState(data){
   if(data.elements)ELEM_OV=data.elements||{}; // surcharges d'état par élément (clic droit formateur)
   let changed=false;
   MARKERS.forEach((m,idx)=>{
+    if(isMat(m))return; // matériel Patrol : aucun état SSI, look fixe
     if(isSym(m)){
       // Clapet CCF (ou VH/VB) : peut couvrir 2 zones. En sécurité si l'UNE OU l'AUTRE l'est.
       const zt=symZoneType(m);
@@ -451,7 +459,6 @@ document.addEventListener('mousemove',ev=>{
 });
 document.addEventListener('mouseup',ev=>{ if(_capStart)finishCapture(ev); });
 
-const ELEM_LABEL={DAI:'Détecteur (DAI)',DM:'Déclencheur manuel (DM)',VH:'Ventilation haute',VB:'Ventilation basse',CCF:'Clapet coupe-feu'};
 async function finishCapture(ev){
   const startC=_capStart;_capStart=null;
   const box=_capBox;_capBox=null;
@@ -494,8 +501,8 @@ function renderMarkers(){
   stage.querySelectorAll('.mk').forEach(e=>e.remove());
   MARKERS.forEach((m,idx)=>{
     const wrap=document.createElement('div');
-    const kindClass={DAI:'dai',DM:'dm',VH:'vh',VB:'vb',CCF:'ccf'}[m.type]||'dai';
-    wrap.className='mk '+kindClass+(idx===selected?' sel':'')+(m._hs?' hs':'')+' ssi-'+(m._ssi||'attente');
+    const kindClass={DAI:'dai',DM:'dm',VH:'vh',VB:'vb',CCF:'ccf',RIA:'ria',EXT:'ext',BAES:'baes'}[m.type]||'dai';
+    wrap.className='mk '+kindClass+(idx===selected?' sel':'')+(m._hs?' hs':'')+(isMat(m)?'':' ssi-'+(m._ssi||'attente'));
     wrap.dataset.idx=idx;
     wrap.style.left=(m.x/img.naturalWidth*100)+'%';wrap.style.top=(m.y/img.naturalHeight*100)+'%';
     wrap.title=tag(m)+(m.addr?(' — '+m.addr):'')+(m._hs?' (hors service)':'');
@@ -522,8 +529,8 @@ function applyMarkerStates(){
     const m=MARKERS[idx],wrap=els[idx];if(!wrap)continue;
     const hasX=!!wrap.querySelector('.xmark');
     if(!!m._hs!==hasX){renderMarkers();return;} // structure modifiée → rebuild complet (rare)
-    const kindClass={DAI:'dai',DM:'dm',VH:'vh',VB:'vb',CCF:'ccf'}[m.type]||'dai';
-    const cls='mk '+kindClass+(idx===selected?' sel':'')+(m._hs?' hs':'')+' ssi-'+(m._ssi||'attente');
+    const kindClass={DAI:'dai',DM:'dm',VH:'vh',VB:'vb',CCF:'ccf',RIA:'ria',EXT:'ext',BAES:'baes'}[m.type]||'dai';
+    const cls='mk '+kindClass+(idx===selected?' sel':'')+(m._hs?' hs':'')+(isMat(m)?'':' ssi-'+(m._ssi||'attente'));
     if(wrap.className!==cls)wrap.className=cls; // n'écrit que si différent → pas de restart d'animation
   }
 }
@@ -579,22 +586,23 @@ $('doors-svg').addEventListener('mousedown',ev=>{
 // ── Sélection / éditeur ──
 function selectMarker(idx){selected=idx;const ed=$('editor');selDoor=-1;$('door-editor').classList.remove('show');
   if(idx<0||MODE!=='edit'){ed.classList.remove('show');renderMarkers();return;}
-  const m=MARKERS[idx];const sym=isSym(m);$('ed-type').value=m.type;$('ed-addr').value=m.addr||'';
+  const m=MARKERS[idx];const sym=isSym(m),mat=isMat(m);$('ed-type').value=m.type;$('ed-addr').value=m.addr||'';
   $('ed-zf-row').style.display=sym?'block':'none';if(sym){$('ed-zf').value=m.zf||1;$('ed-zf-label').textContent='Zone '+symPfx(m);}
   $('ed-zf2-row').style.display=(m.type==='CCF')?'block':'none';if(m.type==='CCF')$('ed-zf2').value=m.zf2||'';
-  $('ed-link-row').style.display=sym?'none':'block';
-  $('ed-link2-row').style.display=(!sym&&m.type==='DAI')?'block':'none';
-  if(!sym){if(m.type==='DM'){$('ed-link-label').textContent='Compartimentage ZC';$('ed-link').value=m.lzc||'';}else{$('ed-link-label').textContent='Désenfumage ZF';$('ed-link').value=m.lzf||'';$('ed-link2').value=m.lzc||'';}}
+  $('ed-link-row').style.display=(!sym&&!mat)?'block':'none';
+  $('ed-link2-row').style.display=(!sym&&!mat&&m.type==='DAI')?'block':'none';
+  if(!sym&&!mat){if(m.type==='DM'){$('ed-link-label').textContent='Compartimentage ZC';$('ed-link').value=m.lzc||'';}else{$('ed-link-label').textContent='Désenfumage ZF';$('ed-link').value=m.lzf||'';$('ed-link2').value=m.lzc||'';}}
   renderMarkerMediaEditor(m);
   ed.classList.add('show');renderMarkers();
   setTimeout(()=>{const a=$('ed-addr');a.focus();a.select();},0);}
 function applyEditor(){if(selected<0)return;const m=MARKERS[selected];const prev=m.type;m.type=$('ed-type').value;m.addr=$('ed-addr').value;
   if(m.type!==prev){renumber();renderMarkers();selectMarker(selected);return;}
-  const sym=isSym(m);
+  const sym=isSym(m),mat=isMat(m);
   if(sym){m.zf=+$('ed-zf').value||1;m.zf2=(m.type==='CCF'&&$('ed-zf2').value)?+$('ed-zf2').value:0;$('ed-zf-label').textContent='Zone '+symPfx(m);}
+  else if(mat){/* matériel : pas de zone/lien SSI */}
   else if(m.type==='DM'){m.lzc=$('ed-link').value?+$('ed-link').value:0;m.lzf=0;}
   else{m.lzf=$('ed-link').value?+$('ed-link').value:0;m.lzc=$('ed-link2').value?+$('ed-link2').value:0;}
-  $('ed-zf-row').style.display=sym?'block':'none';$('ed-zf2-row').style.display=(m.type==='CCF')?'block':'none';$('ed-link-row').style.display=sym?'none':'block';$('ed-link2-row').style.display=(!sym&&m.type==='DAI')?'block':'none';
+  $('ed-zf-row').style.display=sym?'block':'none';$('ed-zf2-row').style.display=(m.type==='CCF')?'block':'none';$('ed-link-row').style.display=(!sym&&!mat)?'block':'none';$('ed-link2-row').style.display=(!sym&&!mat&&m.type==='DAI')?'block':'none';
   renumber();renderMarkers();}
 function deleteSelected(){if(selected<0)return;MARKERS.splice(selected,1);renumber();selectMarker(-1);logLine('Point supprimé.');}
 
@@ -845,6 +853,7 @@ $('stage').addEventListener('click',ev=>{
   const kind=($('add-kind')&&$('add-kind').value)||'DAI';
   if(kind==='PORTE'){const w=img.naturalWidth*0.08;DOORS.push({x1:Math.max(0,x-w),y1:y,x2:Math.min(img.naturalWidth,x+w),y2:y,zc:1,label:''});selectDoor(DOORS.length-1);logLine('Porte ajoutée (ZC1). Règle ses extrémités et sa zone.');return;}
   if(kind==='VH'||kind==='VB'||kind==='CCF'){MARKERS.push({x,y,type:kind,id:0,zf:1,addr:''});}
+  else if(kind==='RIA'||kind==='EXT'||kind==='BAES'){MARKERS.push({x,y,type:kind,id:0,addr:''});} // matériel : pas de n° SSI
   else{MARKERS.push({x,y,type:kind,id:0,addr:''});renumber();}
   selectMarker(MARKERS.length-1);logLine('Ajouté : '+tag(MARKERS[MARKERS.length-1])+'.');});
 
@@ -852,6 +861,7 @@ $('stage').addEventListener('click',ev=>{
 function fire(idx){
   if(UAE)return; // vue stagiaire : lecture seule, aucun déclenchement
   const m=MARKERS[idx];
+  if(isMat(m)){toast(tag(m)+(m.addr?(' · '+m.addr):'')+' — matériel (non déclenchable)');return;} // RIA/EXT/BAES : informatif
   if(isSym(m)){ // VH/VB -> ZF (désenfumage) ; CCF -> ZC (compartimentage) ; + coffret CR
     const zone=m.zf||1,zoneType=symZoneType(m),pfx=symPfx(m);
     if(!m.addr)toast('Astuce : nomme la zone ('+pfx+') en Édition');

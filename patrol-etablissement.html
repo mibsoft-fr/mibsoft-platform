@@ -321,7 +321,7 @@ function render(){
 function capKey(){ return "mib_etab_capture_"+(PLAN_KEY||""); }
 function readCaptures(){ try{ return JSON.parse(localStorage.getItem(capKey())||"[]")||[]; }catch(_){ return []; } }
 // Type d'élément SSI du plan → type de matériel Patrol (l'utilisateur ajuste ensuite).
-var ELEM2MAT = { VH:"Désenfumage", VB:"Désenfumage", CCF:"Désenfumage", DAI:"Autre", DM:"Autre" };
+var ELEM2MAT = { RIA:"RIA", EXT:"Extincteur", BAES:"BAES", VH:"Désenfumage", VB:"Désenfumage", CCF:"Désenfumage", DAI:"Autre", DM:"Autre" };
 
 function importerDuPlan(){
   if(!PLAN_KEY){ toast("Sélectionne d'abord un plan."); return; }
