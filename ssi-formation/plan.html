@@ -226,8 +226,8 @@ const isSym=m=>m.type==='VH'||m.type==='VB'||m.type==='CCF';
 // Marqueurs « matériel » (RIA / extincteur / BAES) : purement informatifs pour la capture
 // d'établissement Patrol — exclus de la logique SSI (alarmes, zones, états).
 const isMat=m=>m.type==='RIA'||m.type==='EXT'||m.type==='BAES';
-// Code affiché sur la pastille (le numéro, lui, reste sur l'étiquette). BAES -> "ES".
-const CODE={DAI:'DAI',DM:'DM',VH:'VH',VB:'VB',CCF:'CCF',RIA:'RIA',EXT:'EXT',BAES:'ES'};
+// Code affiché sur la pastille (le numéro, lui, reste sur l'étiquette). BAES -> "BES".
+const CODE={DAI:'DAI',DM:'DM',VH:'VH',VB:'VB',CCF:'CCF',RIA:'RIA',EXT:'EXT',BAES:'BES'};
 const symZoneType=m=>m.type==='CCF'?'compartment':'smoke';  // CCF -> ZC, VH/VB -> ZF
 const symPfx=m=>m.type==='CCF'?'ZC':'ZF';
 const tag=m=>isSym(m)?(symPfx(m)+(m.zf||1)+(m.type==='CCF'&&m.zf2?('/'+m.zf2):'')):((CODE[m.type]||m.type)+String(m.id).padStart(2,'0'));
