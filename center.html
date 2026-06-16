@@ -1569,6 +1569,7 @@ window.loadCenterPlans = async function(){
       + '<td>'+(levels.length ? levels.map(l=>'<span style="display:inline-block;background:#eef2ff;color:#3730a3;border-radius:6px;padding:1px 7px;margin:1px;font-size:.78rem;">'+l.label+'</span>').join(' ') : '<span style="color:#94a3b8;">aucun niveau</span>')+'</td>'
       + '<td style="white-space:nowrap;">'
       + '<button onclick="openCenterLevels(\''+t.key+'\')" class="btn btn-blue btn-sm">🗂️ Gérer les niveaux</button> '
+      + '<button onclick="window.open(\'patrol-etablissement.html?center='+CENTER.id+'&plan='+t.key+'\',\'_blank\')" class="btn btn-green btn-sm" title="Configurer la structure et les matériels pour SSIAP Patrol">🏢 Établissement Patrol</button> '
       + '<button onclick="removeCenterPlanType(\''+t.key+'\',\''+labelEsc+'\')" class="btn btn-gray btn-sm" title="Retirer cet établissement">✖</button>'
       + '</td></tr>';
   }).join('');
