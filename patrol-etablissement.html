@@ -318,8 +318,21 @@ function render(){
 // ════════════ IMPORT DEPUIS LE PLAN ════════════
 // Le plan (ssi-formation/plan.html, même origine) dépose les zones tracées en localStorage.
 // On les lit, on laisse choisir bâtiment+niveau, et on crée zones/locaux/matériels.
-function capKey(){ return "mib_etab_capture_"+(PLAN_KEY||""); }
-function readCaptures(){ try{ return JSON.parse(localStorage.getItem(capKey())||"[]")||[]; }catch(_){ return []; } }
+// Le plan range les captures sous la clé de base (« mib_etab_capture_<plan> »). On récupère aussi
+// les anciennes captures par niveau (« <plan>/rdc », …) pour ne rien perdre.
+function captureKeys(){
+  var base = (PLAN_KEY||"").split("/")[0]; if(!base) return [];
+  var pfx = "mib_etab_capture_"+base, keys=[];
+  for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k===pfx || k.indexOf(pfx+"/")===0) keys.push(k); }
+  return keys;
+}
+function readCaptures(){
+  var out=[];
+  captureKeys().forEach(function(k){
+    try{ (JSON.parse(localStorage.getItem(k)||"[]")||[]).forEach(function(c){ c.__src=k; out.push(c); }); }catch(_){}
+  });
+  return out;
+}
 // Type d'élément SSI du plan → type de matériel Patrol (l'utilisateur ajuste ensuite).
 var ELEM2MAT = { RIA:"RIA", EXT:"Extincteur", BAES:"BAES", VH:"Désenfumage", VB:"Désenfumage", CCF:"Désenfumage", DAI:"Autre", DM:"Autre" };
 
@@ -353,7 +366,7 @@ function renderImpList(caps){
 function fermerImport(){ document.getElementById("import-ov").classList.remove("show"); }
 function viderCaptures(){
   if(!confirm("Supprimer toutes les zones capturées sur le plan ? (n'efface rien dans l'établissement)")) return;
-  try{ localStorage.removeItem(capKey()); }catch(_){}
+  captureKeys().forEach(function(k){ try{ localStorage.removeItem(k); }catch(_){} });
   fermerImport(); toast("Captures vidées.");
 }
 function confirmerImport(){
@@ -383,9 +396,14 @@ function confirmerImport(){
     });
     n.zones.push(zone);
   });
-  // retire les captures importées du buffer
-  var keep = caps.filter(function(c){ return chosen.indexOf(c)<0; });
-  try{ localStorage.setItem(capKey(), JSON.stringify(keep)); }catch(_){}
+  // retire les captures importées de leurs buffers respectifs (base et/ou niveaux)
+  var bySrc={};
+  caps.forEach(function(c){ (bySrc[c.__src]=bySrc[c.__src]||[]).push(c); });
+  Object.keys(bySrc).forEach(function(k){
+    var keep = bySrc[k].filter(function(c){ return chosen.indexOf(c)<0; })
+      .map(function(c){ var o={}; for(var p in c){ if(p!=="__src") o[p]=c[p]; } return o; });
+    try{ localStorage.setItem(k, JSON.stringify(keep)); }catch(_){}
+  });
   fermerImport(); markDirty(); render();
   toast("Importé : "+nZ+" zone(s), "+nL+" local(aux), "+nM+" matériel(s) ✓");
 }
