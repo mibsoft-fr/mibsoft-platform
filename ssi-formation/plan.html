@@ -147,6 +147,7 @@
     <button class="btn alt edit-only" onclick="detect()" title="Ronds = DAI, rectangles = DM">🔴 Détecter (ronds→DAI, rect.→DM)</button>
     <button class="btn edit-only" id="btn-ocr" onclick="detectNames()" title="Lit les noms des locaux sur le plan">🔤 Noms (OCR)</button>
     <button class="btn alt edit-only" id="btn-capture" onclick="toggleCapture()" title="Trace un rectangle : récupère locaux (OCR) + éléments → éditeur d'établissement">▭ Capturer une zone</button>
+    <button class="btn alt edit-only" id="btn-capture-all" onclick="captureAllMarkers()" title="Capture TOUS les pictos SSI du plan comme matériels (ils se rattachent aux locaux de même nom dans l'éditeur)">🧯 Matériels</button>
     <label class="sld edit-only">Clic ajoute <select id="add-kind"><option value="DAI">🔴 DAI</option><option value="DM">🟥 DM</option><option value="VH">🟦 VH</option><option value="VB">🟦 VB</option><option value="CCF">🔵 CCF</option><option value="PORTE">🚪 Porte</option><optgroup label="Matériel (Patrol)"><option value="RIA">🧯 RIA</option><option value="EXT">🧯 Extincteur</option><option value="BAES">🟢 BAES</option></optgroup></select></label>
     <label class="sld edit-only">Sensibilité <input id="rMin" type="range" min="80" max="200" value="110"></label>
     <label class="sld edit-only">Taille mini <input id="minA" type="range" min="5" max="400" value="30"></label>
@@ -524,6 +525,23 @@ async function finishCapture(ev){
 }
 
 // Lit les zones capturées (buffer localStorage) pour ce plan.
+// Capture TOUS les pictos du plan d'un coup (sans tracer de rectangle) : chaque picto
+// devient un matériel, rattaché au local de même nom dans l'éditeur d'établissement.
+function captureAllMarkers(){
+  const img=$('plan'); if(!img||!img.naturalWidth){toast('Importe d’abord un plan');return;}
+  if(!MARKERS.length){toast('Aucun picto SSI sur ce plan');return;}
+  const inside=MARKERS.map(m=>({type:m.type,addr:(m.addr||'').trim(),tag:tag(m)}));
+  const lvl=PLAN_LEVEL||((typeof VIEW_CUR!=='undefined'&&VIEW_CUR)||'');
+  const zoneName=(prompt('Nom de ce lot de matériels :','Matériels'+(lvl?(' '+lvl):''))||'').trim();
+  if(!zoneName){toast('Capture annulée');return;}
+  const cap={id:'cap-'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36),
+             level:lvl, zone:zoneName, locaux:[], elements:inside, rect:null, allMarkers:true};
+  let buf=[];try{buf=JSON.parse(localStorage.getItem(ETAB_CAP_KEY)||'[]');}catch(_){}
+  buf.push(cap);try{localStorage.setItem(ETAB_CAP_KEY,JSON.stringify(buf));}catch(_){toast('Stockage plein');return;}
+  renderCaptures();
+  toast(inside.length+' matériel(s) capturé(s)');
+  logLine('🧯 '+inside.length+' matériel(s) capturé(s) (« '+zoneName+' »). Dans l’éditeur d’établissement Patrol : « 📥 Importer du plan » — ils se rattachent aux locaux de même nom.');
+}
 function readCaptures(){ try{ return JSON.parse(localStorage.getItem(ETAB_CAP_KEY)||'[]')||[]; }catch(_){ return []; } }
 // Dessine les zones capturées de façon persistante (cadre bleu + nom + ✕) — visible en Édition.
 function renderCaptures(){

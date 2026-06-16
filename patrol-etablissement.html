@@ -258,6 +258,20 @@ function allLocaux(){
   var out=[]; ETAB.batiments.forEach(function(b){ b.niveaux.forEach(function(n){ n.zones.forEach(function(z){ z.locaux.forEach(function(l){
     out.push({ id:l.id, label: b.nom+" › "+n.nom+" › "+z.nom+" › "+l.nom }); }); }); }); }); return out;
 }
+// L'adresse d'un picto vaut « CODE - Boutique » (ex. « EXT04 - Cafétéria ») : on en tire
+// le nom du matériel (CODE) et le local cible (Boutique) pour le rattachement par nom.
+function splitAddr(addr){
+  addr=(addr||"").trim(); if(!addr) return { code:"", loc:"" };
+  var parts=addr.split(/\s*[-–—]\s*/);
+  if(parts.length>=2 && parts[0].trim()) return { code:parts[0].trim(), loc:parts.slice(1).join(" - ").trim() };
+  return { code:addr, loc:addr };
+}
+// Index global nom-de-local → {b,n,z,l} sur tout l'établissement (pour rattacher un matériel
+// à un local déjà présent, où qu'il soit, sans recréer de doublon).
+function globalLocauxIndex(){
+  var idx={}; ETAB.batiments.forEach(function(b){ b.niveaux.forEach(function(n){ n.zones.forEach(function(z){ z.locaux.forEach(function(l){
+    var k=(l.nom||"").toLowerCase(); if(k && !idx[k]) idx[k]={ b:b, n:n, z:z, l:l }; }); }); }); }); return idx;
+}
 function addMateriel(){
   var nom=document.getElementById("m-nom").value.trim();
   var type=document.getElementById("m-type").value;
@@ -365,10 +379,12 @@ function renderImpList(caps){
   var box = document.getElementById("imp-list");
   box.innerHTML = caps.map(function(c,i){
     var nbE = (c.elements||[]).length, nbL = (c.locaux||[]).length;
-    var apercu = (c.locaux||[]).slice(0,5).map(esc).join(", ") + ((c.locaux||[]).length>5?"…":"");
+    var src = nbL ? (c.locaux||[]) : (c.elements||[]).map(function(e){ return e.addr||e.tag||e.type; });
+    var apercu = src.slice(0,5).map(esc).join(", ") + (src.length>5?"…":"");
+    var icon = c.allMarkers ? "🧯 " : "";
     return "<label class=\"cap-item\"><input type=\"checkbox\" data-i=\""+i+"\" checked>"
-      + "<span><b>"+esc(c.zone)+"</b>"
-      + "<div class=\"meta\">"+nbL+" local(aux)"+(apercu?" — "+apercu:"")+" · "+nbE+" élément(s)</div></span></label>";
+      + "<span><b>"+icon+esc(c.zone)+"</b>"
+      + "<div class=\"meta\">"+nbL+" local(aux) · "+nbE+" matériel(s)"+(apercu?" — "+apercu:"")+"</div></span></label>";
   }).join("") || "<div class=\"muted\">Aucune zone.</div>";
 }
 function fermerImport(){ document.getElementById("import-ov").classList.remove("show"); }
@@ -385,24 +401,38 @@ function confirmerImport(){
                  .map(function(cb){ return caps[+cb.dataset.i]; }).filter(Boolean);
   if(!chosen.length){ toast("Coche au moins une zone."); return; }
   var nZ=0, nL=0, nM=0;
+  var gIdx = globalLocauxIndex();   // locaux déjà présents (toutes zones) pour rattachement par nom
   chosen.forEach(function(c){
-    var zone = { id:uid("zone"), nom:c.zone, locaux:[] }; nZ++;
+    var zone = { id:uid("zone"), nom:c.zone, locaux:[] };
     var byName = {};
-    (c.locaux||[]).forEach(function(nm){
+    function addLoc(nm, parent){
       var loc = { id:uid("loc"), nom:nm, codeQR:qrLocal() };
-      zone.locaux.push(loc); byName[nm.toLowerCase()] = loc; nL++;
-    });
-    // élément → matériel, rattaché au local de même nom (sinon 1er local, sinon local créé)
+      parent.locaux.push(loc); byName[(nm||"").toLowerCase()] = loc;
+      gIdx[(nm||"").toLowerCase()] = gIdx[(nm||"").toLowerCase()] || { b:b, n:n, z:zone, l:loc };
+      nL++; return loc;
+    }
+    (c.locaux||[]).forEach(function(nm){ addLoc(nm, zone); });
+    // élément → matériel. Rattaché au local de même nom (dans la zone, puis partout dans
+    // l'établissement), sinon au 1er local de la zone, sinon un local est créé.
     (c.elements||[]).forEach(function(e){
-      var loc = (e.addr && byName[e.addr.toLowerCase()]) || zone.locaux[0];
-      if(!loc){ loc = { id:uid("loc"), nom:c.zone, codeQR:qrLocal() }; zone.locaux.push(loc); nL++; }
+      var sa = splitAddr(e.addr);
+      var lname = (sa.loc||"").toLowerCase();
       var type = ELEM2MAT[e.type] || "Autre";
-      MATERIELS.push({ id:uid("mat"), nom:(e.addr||e.tag||type), type:type, statut:"Opérationnel",
-        codeQR:qrMat(type), localId:loc.id,
-        localisation: b.nom+" > "+n.nom+" > "+zone.nom+" > "+loc.nom });
+      var matNom = sa.code || e.tag || type;
+      var here = (lname && byName[lname]) || (e.addr && byName[(e.addr||"").toLowerCase()]);
+      var g = !here && lname && gIdx[lname];
+      var path, lid;
+      if (here)      { lid=here.id; path=b.nom+" > "+n.nom+" > "+zone.nom+" > "+here.nom; }
+      else if (g)    { lid=g.l.id;  path=g.b.nom+" > "+g.n.nom+" > "+g.z.nom+" > "+g.l.nom; }
+      else {
+        var loc = zone.locaux[0] || addLoc(sa.loc||c.zone, zone);
+        lid=loc.id; path=b.nom+" > "+n.nom+" > "+zone.nom+" > "+loc.nom;
+      }
+      MATERIELS.push({ id:uid("mat"), nom:matNom, type:type, statut:"Opérationnel",
+        codeQR:qrMat(type), localId:lid, localisation:path });
       nM++;
     });
-    n.zones.push(zone);
+    if (zone.locaux.length) { n.zones.push(zone); nZ++; }   // pas de zone vide (capture « matériels seuls »)
   });
   // retire les captures importées de leurs buffers respectifs (base et/ou niveaux)
   var bySrc={};
