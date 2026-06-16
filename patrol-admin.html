@@ -1171,7 +1171,7 @@ async function importerEtablissementDepuisPlan() {
     });
     await sauvegarder();
     toast("Structure importee : "+(etab.nom||planKey)+" (+"+added+" materiel)","ok");
-    renderEtabResume(); renderMateriels();
+    renderAdmin(); renderMateriels();
   } catch(e) { console.error(e); toast("Erreur lors de l'import.","err"); }
 }
 
