@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SSIAP Patrol — Établissement</title>
+<link rel="stylesheet" href="design-tokens.css">
+<link rel="stylesheet" href="mib-design.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="supabase.js"></script>
+<style>
+  body { background: var(--bg-app, #f1f5f9); margin:0; font-family:'Inter',system-ui,sans-serif; color:#0f172a; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 24px 16px 80px; }
+  .head { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+  .head .ic { width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#10b981,#2563eb);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.3rem; }
+  .head h1 { font-size:1.25rem; font-weight:800; margin:0; }
+  .head p { margin:2px 0 0; font-size:.82rem; color:#64748b; }
+  .card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:18px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .inp, select.inp { padding:10px 12px; border:1px solid #cbd5e1; border-radius:9px; font-size:.9rem; background:#fff; }
+  .inp:focus { outline:none; border-color:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,.15); }
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:9px 14px; border-radius:9px; border:1px solid transparent; font-weight:700; font-size:.85rem; cursor:pointer; }
+  .btn-green { background:linear-gradient(135deg,#10b981,#059669); color:#fff; }
+  .btn-blue { background:#2563eb; color:#fff; }
+  .btn-gray { background:#f1f5f9; color:#475569; border-color:#e2e8f0; }
+  .btn-red  { background:#fef2f2; color:#dc2626; border-color:#fecaca; }
+  .btn-sm { padding:5px 9px; font-size:.78rem; }
+  .muted { color:#94a3b8; font-size:.82rem; }
+  /* arbre */
+  .bat { border:1px solid #e2e8f0; border-radius:12px; padding:12px; margin-bottom:12px; background:#f8fafc; }
+  .niv { border-left:3px solid #2563eb; margin:8px 0 8px 6px; padding:6px 0 6px 12px; }
+  .zone { border-left:3px solid #10b981; margin:6px 0 6px 10px; padding:4px 0 4px 12px; }
+  .local { display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:4px 8px; margin:4px 6px 0 0; font-size:.82rem; }
+  .local .qr { font-size:.68rem; color:#94a3b8; font-family:monospace; }
+  .lbl { font-weight:700; font-size:.9rem; }
+  .niv .lbl { color:#1d4ed8; }
+  .zone .lbl { color:#047857; }
+  .tag { font-size:.7rem; font-weight:700; padding:2px 7px; border-radius:99px; }
+  .tag-RIA{background:#fee2e2;color:#b91c1c}.tag-Extincteur{background:#ffedd5;color:#c2410c}
+  .tag-BAES{background:#dcfce7;color:#15803d}.tag-Désenfumage{background:#f3e8ff;color:#7e22ce}.tag-Autre{background:#e2e8f0;color:#475569}
+  table { width:100%; border-collapse:collapse; }
+  th,td { text-align:left; padding:8px 10px; font-size:.84rem; border-bottom:1px solid #f1f5f9; }
+  th { color:#64748b; font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#0f172a; color:#fff; padding:10px 18px; border-radius:10px; font-size:.85rem; opacity:0; transition:.2s; z-index:50; }
+  .toast.show { opacity:1; }
+  .savebar { position:sticky; bottom:0; background:rgba(255,255,255,.95); backdrop-filter:blur(6px); border-top:1px solid #e2e8f0; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; margin:16px -16px -80px; }
+  .gate { text-align:center; padding:60px 20px; color:#64748b; }
+  /* modal import */
+  .ov { position:fixed; inset:0; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; z-index:60; padding:16px; }
+  .ov.show { display:flex; }
+  .modal { background:#fff; border-radius:16px; max-width:560px; width:100%; max-height:88vh; overflow:auto; box-shadow:0 20px 60px rgba(0,0,0,.3); padding:20px; }
+  .modal h3 { margin:0 0 4px; font-size:1.05rem; }
+  .cap-item { border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin:8px 0; display:flex; gap:10px; align-items:flex-start; }
+  .cap-item input[type=checkbox]{ margin-top:3px; width:16px; height:16px; }
+  .cap-item .meta { font-size:.78rem; color:#64748b; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="ic">🏢</div>
+    <div>
+      <h1>Établissement SSIAP Patrol</h1>
+      <p id="sub">Bâtiment → Niveau → Zone → Local · structure + matériels (QR)</p>
+    </div>
+  </div>
+
+  <div id="gate" class="gate">Vérification de la session…</div>
+
+  <div id="app" style="display:none;">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <div class="row">
+          <label class="lbl">Plan&nbsp;</label>
+          <select id="sel-plan" class="inp"><option value="">Chargement…</option></select>
+        </div>
+        <div class="muted" id="etab-info"></div>
+      </div>
+    </div>
+
+    <div id="editor" style="display:none;">
+      <!-- ARBRE -->
+      <div class="card">
+        <div class="row" style="justify-content:space-between;margin-bottom:10px;">
+          <div class="lbl" style="font-size:1rem;">🏗️ Structure des lieux</div>
+          <span>
+            <button class="btn btn-blue btn-sm" id="btn-import" onclick="importerDuPlan()" title="Récupère les zones capturées sur le plan">📥 Importer du plan</button>
+            <button class="btn btn-gray btn-sm" onclick="addBatiment()">+ Bâtiment</button>
+          </span>
+        </div>
+        <div id="tree"></div>
+      </div>
+
+      <!-- MATERIELS -->
+      <div class="card">
+        <div class="row" style="justify-content:space-between;margin-bottom:10px;">
+          <div class="lbl" style="font-size:1rem;">🧯 Matériels</div>
+        </div>
+        <div class="row" style="margin-bottom:10px;align-items:flex-end;">
+          <input id="m-nom" class="inp" placeholder="Nom (ex. RIA Réserve 1)" style="min-width:200px;">
+          <select id="m-type" class="inp">
+            <option>RIA</option><option>Extincteur</option><option>BAES</option><option>Désenfumage</option><option>Autre</option>
+          </select>
+          <select id="m-local" class="inp" style="min-width:220px;"><option value="">— Local —</option></select>
+          <button class="btn btn-green btn-sm" onclick="addMateriel()">+ Ajouter</button>
+        </div>
+        <table>
+          <thead><tr><th>Matériel</th><th>Type</th><th>Localisation</th><th>QR</th><th></th></tr></thead>
+          <tbody id="mat-body"><tr><td colspan="5" class="muted">Aucun matériel</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="savebar" id="savebar" style="display:none;">
+      <div class="muted" id="save-state">Modifications non enregistrées</div>
+      <button class="btn btn-blue" onclick="enregistrer()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<!-- Modal : import des zones capturées sur le plan -->
+<div id="import-ov" class="ov">
+  <div class="modal">
+    <h3>📥 Importer du plan</h3>
+    <p class="muted" style="margin:0 0 12px;">Zones tracées sur le plan (« ▭ Capturer une zone »). Choisis la destination puis importe.</p>
+    <div class="row" style="margin-bottom:12px;">
+      <label class="lbl">Bâtiment&nbsp;</label>
+      <select id="imp-bat" class="inp" onchange="renderImpNiveaux()"></select>
+      <label class="lbl">Niveau&nbsp;</label>
+      <select id="imp-niv" class="inp"></select>
+    </div>
+    <div id="imp-list"></div>
+    <div class="row" style="justify-content:space-between;margin-top:14px;">
+      <button class="btn btn-red btn-sm" onclick="viderCaptures()">🗑️ Vider les captures</button>
+      <span>
+        <button class="btn btn-gray btn-sm" onclick="fermerImport()">Annuler</button>
+        <button class="btn btn-green" onclick="confirmerImport()">📥 Importer la sélection</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<script>
+var sb = window.supabase;
+var CENTER_ID = new URLSearchParams(location.search).get("center") || "";
+var PLAN_KEY = null, PLAN_LABEL = "";
+var ETAB = { nom:"", batiments:[] };   // {id,nom,niveaux:[{key,nom,zones:[{id,nom,locaux:[{id,nom,codeQR}]}]}]}
+var MATERIELS = [];                     // {id,nom,type,statut,codeQR,localId,localisation}
+var PLANS = [];
+var dirty = false;
+
+function uid(p){ return (p||"id")+"-"+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36); }
+function esc(s){ return (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function toast(m){ var t=document.getElementById("toast"); t.textContent=m; t.classList.add("show"); setTimeout(function(){t.classList.remove("show");},2200); }
+function markDirty(){ dirty=true; document.getElementById("savebar").style.display="flex"; document.getElementById("save-state").textContent="Modifications non enregistrées"; }
+
+// ── QR codes stables (lieu / matériel) ──
+function qrLocal(){ return "LIEU-"+(PLAN_KEY||"X").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6)+"-"+Math.random().toString(36).slice(2,7).toUpperCase(); }
+function qrMat(type){ var t={RIA:"RIA",Extincteur:"EXT",BAES:"BAES","Désenfumage":"DESENF",Autre:"DIV"}[type]||"DIV"; return "MAT-"+t+"-"+Math.random().toString(36).slice(2,7).toUpperCase(); }
+
+// ════════════ BOOT ════════════
+(async function boot(){
+  try {
+    var s = await sb.auth.getSession();
+    if (!s || !s.data || !s.data.session) {
+      document.getElementById("gate").innerHTML = "Session expirée. Ouvrez cette page depuis votre <b>espace centre</b> (connecté).";
+      return;
+    }
+  } catch(e) {
+    document.getElementById("gate").innerHTML = "Connexion requise. Ouvrez cette page depuis votre espace centre.";
+    return;
+  }
+  if (!CENTER_ID) { document.getElementById("gate").innerHTML = "Centre manquant dans l'URL (?center=…)."; return; }
+  document.getElementById("gate").style.display="none";
+  document.getElementById("app").style.display="block";
+  await chargerPlans();
+})();
+
+async function chargerPlans(){
+  var sel = document.getElementById("sel-plan");
+  try {
+    var res = await sb.from("ssi_plan_types").select("key,label,center_id,levels,sort")
+      .or("center_id.eq."+CENTER_ID+",center_id.is.null").order("sort",{ascending:true});
+    PLANS = res.data || [];
+    sel.innerHTML = "<option value=\"\">Sélectionner un plan…</option>"
+      + PLANS.map(function(p){ return "<option value=\""+esc(p.key)+"\">"+esc(p.label)+"</option>"; }).join("");
+    sel.onchange = function(){ if (sel.value) ouvrirPlan(sel.value); };
+    var wanted = new URLSearchParams(location.search).get("plan");
+    if (wanted && PLANS.some(function(p){ return p.key===wanted; })) { sel.value = wanted; ouvrirPlan(wanted); }
+  } catch(e){ sel.innerHTML="<option value=\"\">(plans indisponibles)</option>"; }
+}
+
+async function ouvrirPlan(key){
+  if (dirty && !confirm("Changer de plan sans enregistrer ? Les modifications seront perdues.")) return;
+  PLAN_KEY = key;
+  var p = PLANS.find(function(x){ return x.key===key; }) || {};
+  PLAN_LABEL = p.label || key;
+  var levels = Array.isArray(p.levels) && p.levels.length ? p.levels : [{key:"rdc",label:"RDC"}];
+
+  // charger l'établissement existant pour ce centre+plan
+  var existing = null;
+  try {
+    var res = await sb.from("patrol_etablissements").select("nom,config,materiels")
+      .eq("plan_key", key).eq("center_id", CENTER_ID).maybeSingle();
+    existing = res.data;
+  } catch(e){}
+
+  if (existing && existing.config && Array.isArray(existing.config.batiments) && existing.config.batiments.length) {
+    ETAB = existing.config;
+    MATERIELS = existing.materiels || [];
+    document.getElementById("etab-info").textContent = "Établissement existant chargé.";
+  } else {
+    // amorcer : 1 bâtiment, niveaux = niveaux du plan, sans zones/locaux
+    ETAB = { nom: PLAN_LABEL, batiments: [ { id:uid("bat"), nom:"Bâtiment principal",
+      niveaux: levels.map(function(l){ return { key:l.key, nom:l.label, zones:[] }; }) } ] };
+    MATERIELS = [];
+    document.getElementById("etab-info").textContent = "Nouvel établissement (amorcé depuis les niveaux du plan).";
+  }
+  dirty = false;
+  document.getElementById("editor").style.display="block";
+  document.getElementById("savebar").style.display="none";
+  render();
+}
+
+// ════════════ CRUD ARBRE ════════════
+function findBat(id){ return ETAB.batiments.find(function(b){return b.id===id;}); }
+function addBatiment(){ ETAB.batiments.push({ id:uid("bat"), nom:"Nouveau bâtiment", niveaux:[] }); markDirty(); render(); }
+function renameBat(id){ var b=findBat(id); var v=prompt("Nom du bâtiment :", b.nom); if(v!=null){ b.nom=v.trim()||b.nom; markDirty(); render(); } }
+function delBat(id){ if(!confirm("Supprimer ce bâtiment et tout son contenu ?"))return; ETAB.batiments=ETAB.batiments.filter(function(b){return b.id!==id;}); markDirty(); render(); }
+
+function addNiveau(batId){ var b=findBat(batId); var v=prompt("Nom du niveau (ex. RDC, 1er étage) :",""); if(v&&v.trim()){ b.niveaux.push({ key:uid("niv"), nom:v.trim(), zones:[] }); markDirty(); render(); } }
+function renameNiveau(batId,key){ var b=findBat(batId); var n=b.niveaux.find(function(x){return x.key===key;}); var v=prompt("Nom du niveau :",n.nom); if(v!=null){ n.nom=v.trim()||n.nom; markDirty(); render(); } }
+function delNiveau(batId,key){ if(!confirm("Supprimer ce niveau ?"))return; var b=findBat(batId); b.niveaux=b.niveaux.filter(function(x){return x.key!==key;}); markDirty(); render(); }
+
+function addZone(batId,key){ var n=findBat(batId).niveaux.find(function(x){return x.key===key;}); var v=prompt("Nom de la zone (ex. Galerie, Réserves) :",""); if(v&&v.trim()){ n.zones.push({ id:uid("zone"), nom:v.trim(), locaux:[] }); markDirty(); render(); } }
+function renameZone(batId,key,zid){ var n=findBat(batId).niveaux.find(function(x){return x.key===key;}); var z=n.zones.find(function(x){return x.id===zid;}); var v=prompt("Nom de la zone :",z.nom); if(v!=null){ z.nom=v.trim()||z.nom; markDirty(); render(); } }
+function delZone(batId,key,zid){ if(!confirm("Supprimer cette zone ?"))return; var n=findBat(batId).niveaux.find(function(x){return x.key===key;}); n.zones=n.zones.filter(function(x){return x.id!==zid;}); markDirty(); render(); }
+
+function addLocal(batId,key,zid){ var z=findBat(batId).niveaux.find(function(x){return x.key===key;}).zones.find(function(x){return x.id===zid;}); var v=prompt("Nom du local (ex. Circulation X, Local technique) :",""); if(v&&v.trim()){ z.locaux.push({ id:uid("loc"), nom:v.trim(), codeQR:qrLocal() }); markDirty(); render(); } }
+function delLocal(batId,key,zid,lid){ if(!confirm("Supprimer ce local ?"))return; var z=findBat(batId).niveaux.find(function(x){return x.key===key;}).zones.find(function(x){return x.id===zid;}); z.locaux=z.locaux.filter(function(x){return x.id!==lid;}); MATERIELS=MATERIELS.filter(function(m){return m.localId!==lid;}); markDirty(); render(); }
+
+// ════════════ MATERIELS ════════════
+function pathOfLocal(lid){
+  for (var b of ETAB.batiments) for (var n of b.niveaux) for (var z of n.zones) for (var l of z.locaux)
+    if (l.id===lid) return { txt: b.nom+" > "+n.nom+" > "+z.nom+" > "+l.nom, nom:l.nom };
+  return null;
+}
+function allLocaux(){
+  var out=[]; ETAB.batiments.forEach(function(b){ b.niveaux.forEach(function(n){ n.zones.forEach(function(z){ z.locaux.forEach(function(l){
+    out.push({ id:l.id, label: b.nom+" › "+n.nom+" › "+z.nom+" › "+l.nom }); }); }); }); }); return out;
+}
+function addMateriel(){
+  var nom=document.getElementById("m-nom").value.trim();
+  var type=document.getElementById("m-type").value;
+  var lid=document.getElementById("m-local").value;
+  if(!nom){ toast("Nom du matériel requis."); return; }
+  if(!lid){ toast("Choisissez un local (créez-en un dans l'arbre)."); return; }
+  var p=pathOfLocal(lid);
+  MATERIELS.push({ id:uid("mat"), nom:nom, type:type, statut:"Opérationnel", codeQR:qrMat(type), localId:lid, localisation:p?p.txt:"" });
+  document.getElementById("m-nom").value="";
+  markDirty(); render();
+}
+function delMateriel(id){ MATERIELS=MATERIELS.filter(function(m){return m.id!==id;}); markDirty(); render(); }
+
+// ════════════ RENDER ════════════
+function render(){
+  // arbre
+  var html = ETAB.batiments.map(function(b){
+    return "<div class=\"bat\">"
+      + "<div class=\"row\" style=\"justify-content:space-between;\">"
+      + "<span class=\"lbl\">🏢 "+esc(b.nom)+"</span>"
+      + "<span><button class=\"btn btn-gray btn-sm\" onclick=\"addNiveau('"+b.id+"')\">+ Niveau</button> "
+      + "<button class=\"btn btn-gray btn-sm\" onclick=\"renameBat('"+b.id+"')\">✏️</button> "
+      + "<button class=\"btn btn-red btn-sm\" onclick=\"delBat('"+b.id+"')\">🗑️</button></span></div>"
+      + b.niveaux.map(function(n){
+          return "<div class=\"niv\"><div class=\"row\" style=\"justify-content:space-between;\">"
+            + "<span class=\"lbl\">📶 "+esc(n.nom)+"</span>"
+            + "<span><button class=\"btn btn-gray btn-sm\" onclick=\"addZone('"+b.id+"','"+n.key+"')\">+ Zone</button> "
+            + "<button class=\"btn btn-gray btn-sm\" onclick=\"renameNiveau('"+b.id+"','"+n.key+"')\">✏️</button> "
+            + "<button class=\"btn btn-red btn-sm\" onclick=\"delNiveau('"+b.id+"','"+n.key+"')\">🗑️</button></span></div>"
+            + n.zones.map(function(z){
+                return "<div class=\"zone\"><div class=\"row\" style=\"justify-content:space-between;\">"
+                  + "<span class=\"lbl\">🟢 "+esc(z.nom)+"</span>"
+                  + "<span><button class=\"btn btn-gray btn-sm\" onclick=\"addLocal('"+b.id+"','"+n.key+"','"+z.id+"')\">+ Local</button> "
+                  + "<button class=\"btn btn-gray btn-sm\" onclick=\"renameZone('"+b.id+"','"+n.key+"','"+z.id+"')\">✏️</button> "
+                  + "<button class=\"btn btn-red btn-sm\" onclick=\"delZone('"+b.id+"','"+n.key+"','"+z.id+"')\">🗑️</button></span></div>"
+                  + "<div>"+ (z.locaux.length? z.locaux.map(function(l){
+                      return "<span class=\"local\">📍 "+esc(l.nom)+" <span class=\"qr\">"+esc(l.codeQR)+"</span>"
+                        + "<button class=\"btn btn-red btn-sm\" style=\"padding:1px 6px;\" onclick=\"delLocal('"+b.id+"','"+n.key+"','"+z.id+"','"+l.id+"')\">×</button></span>";
+                    }).join("") : "<span class=\"muted\">aucun local</span>") +"</div>"
+                  + "</div>";
+              }).join("")
+            + (n.zones.length? "" : "<div class=\"muted\" style=\"margin-left:12px;\">aucune zone</div>")
+            + "</div>";
+        }).join("")
+      + (b.niveaux.length? "" : "<div class=\"muted\">aucun niveau</div>")
+      + "</div>";
+  }).join("");
+  document.getElementById("tree").innerHTML = html || "<div class=\"muted\">Aucun bâtiment. Cliquez « + Bâtiment ».</div>";
+
+  // dropdown locaux
+  var locs = allLocaux();
+  document.getElementById("m-local").innerHTML = "<option value=\"\">— Local —</option>"
+    + locs.map(function(l){ return "<option value=\""+l.id+"\">"+esc(l.label)+"</option>"; }).join("");
+
+  // table matériels
+  var tb = document.getElementById("mat-body");
+  tb.innerHTML = MATERIELS.length ? MATERIELS.map(function(m){
+    return "<tr><td style=\"font-weight:600;\">"+esc(m.nom)+"</td>"
+      + "<td><span class=\"tag tag-"+esc(m.type)+"\">"+esc(m.type)+"</span></td>"
+      + "<td class=\"muted\">"+esc(m.localisation||"—")+"</td>"
+      + "<td><span class=\"qr\" style=\"font-family:monospace;font-size:.72rem;color:#64748b;\">"+esc(m.codeQR)+"</span></td>"
+      + "<td><button class=\"btn btn-red btn-sm\" onclick=\"delMateriel('"+m.id+"')\">🗑️</button></td></tr>";
+  }).join("") : "<tr><td colspan=\"5\" class=\"muted\">Aucun matériel</td></tr>";
+}
+
+// ════════════ IMPORT DEPUIS LE PLAN ════════════
+// Le plan (ssi-formation/plan.html, même origine) dépose les zones tracées en localStorage.
+// On les lit, on laisse choisir bâtiment+niveau, et on crée zones/locaux/matériels.
+function capKey(){ return "mib_etab_capture_"+(PLAN_KEY||""); }
+function readCaptures(){ try{ return JSON.parse(localStorage.getItem(capKey())||"[]")||[]; }catch(_){ return []; } }
+// Type d'élément SSI du plan → type de matériel Patrol (l'utilisateur ajuste ensuite).
+var ELEM2MAT = { RIA:"RIA", EXT:"Extincteur", BAES:"BAES", VH:"Désenfumage", VB:"Désenfumage", CCF:"Désenfumage", DAI:"Autre", DM:"Autre" };
+
+function importerDuPlan(){
+  if(!PLAN_KEY){ toast("Sélectionne d'abord un plan."); return; }
+  var caps = readCaptures();
+  if(!caps.length){ toast("Aucune zone capturée. Sur le plan : « ▭ Capturer une zone »."); return; }
+  if(!ETAB.batiments.length){ addBatiment(); }
+  var selB = document.getElementById("imp-bat");
+  selB.innerHTML = ETAB.batiments.map(function(b){ return "<option value=\""+b.id+"\">"+esc(b.nom)+"</option>"; }).join("");
+  renderImpNiveaux();
+  renderImpList(caps);
+  document.getElementById("import-ov").classList.add("show");
+}
+function renderImpNiveaux(){
+  var b = findBat(document.getElementById("imp-bat").value) || ETAB.batiments[0];
+  var selN = document.getElementById("imp-niv");
+  if(!b.niveaux.length){ b.niveaux.push({ key:uid("niv"), nom:"RDC", zones:[] }); }
+  selN.innerHTML = b.niveaux.map(function(n){ return "<option value=\""+n.key+"\">"+esc(n.nom)+"</option>"; }).join("");
+}
+function renderImpList(caps){
+  var box = document.getElementById("imp-list");
+  box.innerHTML = caps.map(function(c,i){
+    var nbE = (c.elements||[]).length, nbL = (c.locaux||[]).length;
+    var apercu = (c.locaux||[]).slice(0,5).map(esc).join(", ") + ((c.locaux||[]).length>5?"…":"");
+    return "<label class=\"cap-item\"><input type=\"checkbox\" data-i=\""+i+"\" checked>"
+      + "<span><b>"+esc(c.zone)+"</b>"
+      + "<div class=\"meta\">"+nbL+" local(aux)"+(apercu?" — "+apercu:"")+" · "+nbE+" élément(s)</div></span></label>";
+  }).join("") || "<div class=\"muted\">Aucune zone.</div>";
+}
+function fermerImport(){ document.getElementById("import-ov").classList.remove("show"); }
+function viderCaptures(){
+  if(!confirm("Supprimer toutes les zones capturées sur le plan ? (n'efface rien dans l'établissement)")) return;
+  try{ localStorage.removeItem(capKey()); }catch(_){}
+  fermerImport(); toast("Captures vidées.");
+}
+function confirmerImport(){
+  var caps = readCaptures();
+  var b = findBat(document.getElementById("imp-bat").value); if(!b) return;
+  var n = b.niveaux.find(function(x){ return x.key===document.getElementById("imp-niv").value; }); if(!n) return;
+  var chosen = Array.prototype.slice.call(document.querySelectorAll("#imp-list input[type=checkbox]:checked"))
+                 .map(function(cb){ return caps[+cb.dataset.i]; }).filter(Boolean);
+  if(!chosen.length){ toast("Coche au moins une zone."); return; }
+  var nZ=0, nL=0, nM=0;
+  chosen.forEach(function(c){
+    var zone = { id:uid("zone"), nom:c.zone, locaux:[] }; nZ++;
+    var byName = {};
+    (c.locaux||[]).forEach(function(nm){
+      var loc = { id:uid("loc"), nom:nm, codeQR:qrLocal() };
+      zone.locaux.push(loc); byName[nm.toLowerCase()] = loc; nL++;
+    });
+    // élément → matériel, rattaché au local de même nom (sinon 1er local, sinon local créé)
+    (c.elements||[]).forEach(function(e){
+      var loc = (e.addr && byName[e.addr.toLowerCase()]) || zone.locaux[0];
+      if(!loc){ loc = { id:uid("loc"), nom:c.zone, codeQR:qrLocal() }; zone.locaux.push(loc); nL++; }
+      var type = ELEM2MAT[e.type] || "Autre";
+      MATERIELS.push({ id:uid("mat"), nom:(e.addr||e.tag||type), type:type, statut:"Opérationnel",
+        codeQR:qrMat(type), localId:loc.id,
+        localisation: b.nom+" > "+n.nom+" > "+zone.nom+" > "+loc.nom });
+      nM++;
+    });
+    n.zones.push(zone);
+  });
+  // retire les captures importées du buffer
+  var keep = caps.filter(function(c){ return chosen.indexOf(c)<0; });
+  try{ localStorage.setItem(capKey(), JSON.stringify(keep)); }catch(_){}
+  fermerImport(); markDirty(); render();
+  toast("Importé : "+nZ+" zone(s), "+nL+" local(aux), "+nM+" matériel(s) ✓");
+}
+
+// ════════════ SAVE ════════════
+async function enregistrer(){
+  if (!PLAN_KEY){ toast("Aucun plan sélectionné."); return; }
+  var btn = document.querySelector("#savebar .btn-blue"); btn.disabled=true; btn.textContent="⏳ Enregistrement…";
+  try {
+    var payload = { center_id:CENTER_ID, plan_key:PLAN_KEY, nom:(ETAB.nom||PLAN_LABEL),
+      config:ETAB, materiels:MATERIELS, updated_at:new Date().toISOString() };
+    var res = await sb.from("patrol_etablissements").upsert(payload, { onConflict:"center_id,plan_key" });
+    if (res.error) throw res.error;
+    dirty=false;
+    document.getElementById("save-state").textContent = "✅ Enregistré";
+    toast("Établissement enregistré ✓");
+  } catch(e){
+    console.error(e);
+    toast("Échec : "+(e.message||e));
+  } finally {
+    btn.disabled=false; btn.textContent="💾 Enregistrer";
+  }
+}
+</script>
+</body>
+</html>
