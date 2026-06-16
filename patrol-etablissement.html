@@ -144,6 +144,7 @@
 <script>
 var sb = window.supabase;
 var CENTER_ID = new URLSearchParams(location.search).get("center") || "";
+var TEMPLATE = new URLSearchParams(location.search).get("template") === "1"; // mode admin : modèle partagé (center_id null)
 var PLAN_KEY = null, PLAN_LABEL = "";
 var ETAB = { nom:"", batiments:[] };   // {id,nom,niveaux:[{key,nom,zones:[{id,nom,locaux:[{id,nom,codeQR}]}]}]}
 var MATERIELS = [];                     // {id,nom,type,statut,codeQR,localId,localisation}
@@ -171,17 +172,23 @@ function qrMat(type){ var t={RIA:"RIA",Extincteur:"EXT",BAES:"BAES","Désenfumag
     document.getElementById("gate").innerHTML = "Connexion requise. Ouvrez cette page depuis votre espace centre.";
     return;
   }
-  if (!CENTER_ID) { document.getElementById("gate").innerHTML = "Centre manquant dans l'URL (?center=…)."; return; }
+  if (!CENTER_ID && !TEMPLATE) { document.getElementById("gate").innerHTML = "Centre manquant dans l'URL (?center=…)."; return; }
   document.getElementById("gate").style.display="none";
   document.getElementById("app").style.display="block";
+  if (TEMPLATE) {
+    document.querySelector(".head h1").textContent = "Établissement MODÈLE (partagé)";
+    document.getElementById("sub").innerHTML = "Mode admin · structure héritée par <b>tous les centres</b> · Bâtiment → Niveau → Zone → Local";
+    document.querySelector(".head .ic").textContent = "🌐";
+  }
   await chargerPlans();
 })();
 
 async function chargerPlans(){
   var sel = document.getElementById("sel-plan");
   try {
-    var res = await sb.from("ssi_plan_types").select("key,label,center_id,levels,sort")
-      .or("center_id.eq."+CENTER_ID+",center_id.is.null").order("sort",{ascending:true});
+    var q = sb.from("ssi_plan_types").select("key,label,center_id,levels,sort");
+    q = TEMPLATE ? q.is("center_id", null) : q.or("center_id.eq."+CENTER_ID+",center_id.is.null");
+    var res = await q.order("sort",{ascending:true});
     PLANS = res.data || [];
     sel.innerHTML = "<option value=\"\">Sélectionner un plan…</option>"
       + PLANS.map(function(p){ return "<option value=\""+esc(p.key)+"\">"+esc(p.label)+"</option>"; }).join("");
@@ -201,8 +208,9 @@ async function ouvrirPlan(key){
   // charger l'établissement existant pour ce centre+plan
   var existing = null;
   try {
-    var res = await sb.from("patrol_etablissements").select("nom,config,materiels")
-      .eq("plan_key", key).eq("center_id", CENTER_ID).maybeSingle();
+    var qe = sb.from("patrol_etablissements").select("nom,config,materiels").eq("plan_key", key);
+    qe = TEMPLATE ? qe.is("center_id", null) : qe.eq("center_id", CENTER_ID);
+    var res = await qe.maybeSingle();
     existing = res.data;
   } catch(e){}
 
@@ -413,9 +421,17 @@ async function enregistrer(){
   if (!PLAN_KEY){ toast("Aucun plan sélectionné."); return; }
   var btn = document.querySelector("#savebar .btn-blue"); btn.disabled=true; btn.textContent="⏳ Enregistrement…";
   try {
-    var payload = { center_id:CENTER_ID, plan_key:PLAN_KEY, nom:(ETAB.nom||PLAN_LABEL),
+    var payload = { center_id:(TEMPLATE?null:CENTER_ID), plan_key:PLAN_KEY, nom:(ETAB.nom||PLAN_LABEL),
       config:ETAB, materiels:MATERIELS, updated_at:new Date().toISOString() };
-    var res = await sb.from("patrol_etablissements").upsert(payload, { onConflict:"center_id,plan_key" });
+    var res;
+    if (TEMPLATE) {
+      // center_id NULL : l'upsert onConflict ne matche pas les NULL → update explicite, sinon insert.
+      var ex = await sb.from("patrol_etablissements").select("id").is("center_id",null).eq("plan_key",PLAN_KEY).maybeSingle();
+      if (ex.data && ex.data.id) res = await sb.from("patrol_etablissements").update(payload).eq("id", ex.data.id);
+      else res = await sb.from("patrol_etablissements").insert(payload);
+    } else {
+      res = await sb.from("patrol_etablissements").upsert(payload, { onConflict:"center_id,plan_key" });
+    }
     if (res.error) throw res.error;
     dirty=false;
     document.getElementById("save-state").textContent = "✅ Enregistré";
