@@ -361,7 +361,7 @@ var ELEM2MAT = { RIA:"RIA", EXT:"Extincteur", BAES:"BAES", VH:"Désenfumage", VB
 function importerDuPlan(){
   if(!PLAN_KEY){ toast("Sélectionne d'abord un plan."); return; }
   var caps = readCaptures();
-  if(!caps.length){ toast("Aucune zone capturée. Sur le plan : « ▭ Capturer une zone »."); return; }
+  if(!caps.length){ toast("Rien à importer. Sur l'onglet du plan, clique d'abord « 🧯 Matériels » (tous les pictos) ou « ▭ Capturer une zone », puis reviens ici."); return; }
   if(!ETAB.batiments.length){ addBatiment(); }
   var selB = document.getElementById("imp-bat");
   selB.innerHTML = ETAB.batiments.map(function(b){ return "<option value=\""+b.id+"\">"+esc(b.nom)+"</option>"; }).join("");
