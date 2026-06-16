@@ -447,7 +447,11 @@ async function detectNames(){
 // des points) et les ÉLÉMENTS (DAI/DM/VH/VB/CCF) à l'intérieur. Le tout est déposé en
 // localStorage (clé partagée d'origine) où patrol-etablissement.html vient l'importer.
 let CAPTURE_MODE=false,_capStart=null,_capBox=null;
-const ETAB_CAP_KEY='mib_etab_capture_'+PLAN_KEY;
+// La capture est rangée sous la clé de PLAN DE BASE (sans le suffixe de niveau « /rdc »),
+// pour que l'éditeur d'établissement et patrol-admin (qui utilisent la clé de base) la retrouvent.
+const BASE_PLAN=PLAN_KEY.split('/')[0];
+const PLAN_LEVEL=PLAN_KEY.indexOf('/')>=0?PLAN_KEY.slice(PLAN_KEY.indexOf('/')+1):'';
+const ETAB_CAP_KEY='mib_etab_capture_'+BASE_PLAN;
 function toggleCapture(){
   CAPTURE_MODE=!CAPTURE_MODE;
   document.body.classList.toggle('capturing',CAPTURE_MODE);
@@ -509,7 +513,7 @@ async function finishCapture(ev){
   const zoneName=(prompt('Nom de cette zone (ex. Mail RDC, Galerie marchande) :',def)||'').trim();
   if(!zoneName){toast('Capture annulée');return;}
   const cap={id:'cap-'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36),
-             level:(typeof VIEW_CUR!=='undefined'&&VIEW_CUR)||'',
+             level:PLAN_LEVEL||((typeof VIEW_CUR!=='undefined'&&VIEW_CUR)||''),
              zone:zoneName,locaux:locaux,elements:inside,
              rect:{x0:x0,y0:y0,x1:x1,y1:y1}};
   let buf=[];try{buf=JSON.parse(localStorage.getItem(ETAB_CAP_KEY)||'[]');}catch(_){}
