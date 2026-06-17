@@ -1154,7 +1154,7 @@ async function importerEtablissementDepuisPlan() {
   var planKey = document.getElementById("etab-plan").value;
   if (!planKey) { toast("Choisissez un plan.","err"); return; }
   if (configEtab && (configEtab.batiments||[]).length
-      && !confirm("Remplacer la structure actuelle (niveaux/locaux) par celle du plan ?")) return;
+      && !confirm("Remplacer la structure ET les matériels actuels par ceux du plan ? (le statut des matériels conservés est préservé)")) return;
   try {
     var res = await sb.from("patrol_etablissements").select("nom,config,materiels,center_id")
       .eq("plan_key", planKey).or("center_id.eq."+CENTER.id+",center_id.is.null");
@@ -1164,17 +1164,18 @@ async function importerEtablissementDepuisPlan() {
     rows.sort(function(a,b){ return (a.center_id?0:1) - (b.center_id?0:1); });
     var etab = rows[0];
     configEtab = etab.config || { nom: etab.nom, batiments: [] };
-    var existing = {};
-    PTRDB.materiels.forEach(function(m){ if (m.codeQR) existing[m.codeQR]=true; });
-    var added = 0;
-    (etab.materiels||[]).forEach(function(m){
-      if (m.codeQR && existing[m.codeQR]) return;
-      PTRDB.materiels.push({ id: genId(), nom:m.nom, type:m.type, statut:m.statut||"Operationnel",
-        localisation:m.localisation||"", codeQR:m.codeQR||("MAT-"+genId()) });
-      added++;
+    // On REMPLACE les matériels par ceux de l'établissement (source de vérité), en conservant
+    // le statut des matériels déjà présents (rapprochés par QR) pour ne pas perdre l'historique.
+    var prevStatut = {};
+    PTRDB.materiels.forEach(function(m){ if (m.codeQR) prevStatut[m.codeQR]=m.statut; });
+    PTRDB.materiels = (etab.materiels||[]).map(function(m){
+      var qr = m.codeQR || ("MAT-"+genId());
+      return { id: genId(), nom:m.nom, type:m.type,
+        statut: prevStatut[qr] || m.statut || "Operationnel",
+        localisation:m.localisation||"", codeQR:qr };
     });
     await sauvegarder();
-    toast("Structure importee : "+(etab.nom||planKey)+" (+"+added+" materiel)","ok");
+    toast("Structure importee : "+(etab.nom||planKey)+" ("+PTRDB.materiels.length+" materiel)","ok");
     renderAdmin(); renderMateriels();
   } catch(e) { console.error(e); toast("Erreur lors de l'import.","err"); }
 }
