@@ -1013,6 +1013,16 @@ function majAlerteControle(){
   el.innerHTML="<span style='color:"+col+";font-weight:700;'>"+ic+" Contrôle annuel : "+esc(ci.label)+"</span>";
 }
 
+// Suppression unitaire d'un matériel (le centre gère ses propres matériels ;
+// la création/suppression côté modèle reste dans l'éditeur d'établissement admin).
+async function deleteMateriel(id) {
+  var m = PTRDB.materiels.find(function(x){ return String(x.id)===String(id); });
+  if (!m) return;
+  if (!confirm("Supprimer le matériel « "+m.nom+" » ?")) return;
+  PTRDB.materiels = PTRDB.materiels.filter(function(x){ return String(x.id)!==String(id); });
+  await sauvegarder(); toast("Matériel supprimé.","ok"); renderMateriels();
+}
+
 async function saveMateriel() {
   var nom = document.getElementById("mat-nom").value.trim();
   if (!nom) { toast("Nom requis.","err"); return; }
@@ -1137,7 +1147,8 @@ function renderMateriels() {
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+esc(m.localisation||"—")+"</td>"
       +"<td><span class=\"badge "+ci.badge+"\" style=\"font-size:.68rem;\">"+esc(ci.label)+"</span></td>"
       +"<td><span class=\"badge "+sc+"\">"+esc(m.statut)+"</span></td>"
-      +"<td><button onclick=\"showModalMateriel("+m.id+")\" class=\"btn btn-gray btn-sm\" title=\"Ouvrir la fiche\"><i class=\"fas fa-edit\"></i></button></td></tr>";
+      +"<td><button onclick=\"showModalMateriel("+m.id+")\" class=\"btn btn-gray btn-sm\" title=\"Ouvrir la fiche\"><i class=\"fas fa-edit\"></i></button> "
+      +"<button onclick=\"deleteMateriel("+m.id+")\" class=\"btn btn-red btn-sm\" title=\"Supprimer ce matériel\"><i class=\"fas fa-trash\"></i></button></td></tr>";
   }).join("");
   var all=document.getElementById("mat-check-all"); if(all) all.checked=false;
 }
