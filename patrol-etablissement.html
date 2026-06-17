@@ -98,6 +98,7 @@
           <div class="lbl" style="font-size:1rem;">🧯 Matériels</div>
           <span>
             <button class="btn btn-gray btn-sm" onclick="purgeOrphelins()" title="Supprime les matériels rattachés à un local qui n'existe plus dans la structure">🧹 Orphelins</button>
+            <button class="btn btn-gray btn-sm" onclick="dedupMateriels()" title="Supprime les matériels en double (même code QR, ou même nom+type+local)">🧩 Doublons</button>
             <button class="btn btn-red btn-sm" onclick="viderMateriels()" title="Supprime tous les matériels (pour réimporter proprement)">🗑️ Vider</button>
           </span>
         </div>
@@ -338,6 +339,20 @@ function purgeOrphelins(){
   if(!confirm("Supprimer "+orphans.length+" matériel(s) rattaché(s) à un local inexistant ?")) return;
   MATERIELS = MATERIELS.filter(function(m){ return m.localId && ids[m.localId]; });
   markDirty(); render(); toast(orphans.length+" matériel(s) orphelin(s) supprimé(s).");
+}
+// Supprime les doublons : même code QR, sinon même nom+type+local. On garde le 1er rencontré.
+function dedupMateriels(){
+  var seen={}, kept=[], removed=0;
+  MATERIELS.forEach(function(m){
+    var key = (m.codeQR && m.codeQR.trim())
+      ? "qr:"+m.codeQR.trim().toUpperCase()
+      : "k:"+(m.nom||"").trim().toLowerCase()+"|"+(m.type||"")+"|"+(m.localId||"");
+    if(seen[key]){ removed++; return; }
+    seen[key]=true; kept.push(m);
+  });
+  if(!removed){ toast("Aucun doublon détecté."); return; }
+  if(!confirm("Supprimer "+removed+" matériel(s) en double ?")) return;
+  MATERIELS=kept; markDirty(); render(); toast(removed+" doublon(s) supprimé(s).");
 }
 function viderMateriels(){
   if(!MATERIELS.length){ toast("Aucun matériel."); return; }

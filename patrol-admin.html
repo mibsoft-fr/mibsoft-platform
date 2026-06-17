@@ -455,6 +455,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button onclick="imprimerQR()" class="btn btn-gray btn-sm" title="Imprimer les QR codes des matériels filtrés"><i class="fas fa-qrcode"></i> Imprimer QR</button>
         <button onclick="imprimerFiches()" class="btn btn-gray btn-sm" title="Imprimer la fiche des matériels sélectionnés (ou tous les filtrés)"><i class="fas fa-print"></i> Imprimer fiches</button>
+        <button onclick="dedupMateriels()" class="btn btn-gray btn-sm" title="Supprimer les matériels en double (même code QR, ou même nom+type+localisation)"><i class="fas fa-clone"></i> Doublons</button>
         <button onclick="showModalMateriel()" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Ajouter</button>
       </div>
     </div>
@@ -1015,6 +1016,21 @@ function majAlerteControle(){
 
 // Suppression unitaire d'un matériel (le centre gère ses propres matériels ;
 // la création/suppression côté modèle reste dans l'éditeur d'établissement admin).
+// Supprime les doublons de la liste opérationnelle : même code QR, sinon même nom+type+localisation.
+async function dedupMateriels() {
+  var seen={}, kept=[], removed=0;
+  (PTRDB.materiels||[]).forEach(function(m){
+    var key = (m.codeQR && m.codeQR.trim())
+      ? "qr:"+m.codeQR.trim().toUpperCase()
+      : "k:"+(m.nom||"").trim().toLowerCase()+"|"+(m.type||"")+"|"+(m.localisation||"").trim().toLowerCase();
+    if(seen[key]){ removed++; return; }
+    seen[key]=true; kept.push(m);
+  });
+  if(!removed){ toast("Aucun doublon détecté.","ok"); return; }
+  if(!confirm("Supprimer "+removed+" matériel(s) en double ?")) return;
+  PTRDB.materiels=kept; await sauvegarder(); toast(removed+" doublon(s) supprimé(s).","ok"); renderMateriels();
+}
+
 async function deleteMateriel(id) {
   var m = PTRDB.materiels.find(function(x){ return String(x.id)===String(id); });
   if (!m) return;
