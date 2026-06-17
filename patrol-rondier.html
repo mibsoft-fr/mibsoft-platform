@@ -417,6 +417,16 @@ async function chargerDonnees() {
     if (data.consignes)     DATA.consignes    = data.consignes;
     if (data.main_courante) DATA.mainCourante = data.main_courante;
   }
+  // Repli « config de centre » : si la session courante n'a pas de matériels/consignes,
+  // on hérite de la dernière configuration connue du centre (toutes sessions confondues).
+  if (!DATA.materiels.length || !DATA.consignes.length) {
+    var fb = await sb.from("patrol_data").select("materiels,consignes,updated_at")
+      .eq("center_id", PATROL_SESSION.centerId).order("updated_at",{ascending:false}).limit(30);
+    (fb.data||[]).forEach(function(r){
+      if (!DATA.materiels.length && r.materiels && r.materiels.length) DATA.materiels = r.materiels;
+      if (!DATA.consignes.length && r.consignes && r.consignes.length) DATA.consignes = r.consignes;
+    });
+  }
 }
 
 async function sauvegarder() {
