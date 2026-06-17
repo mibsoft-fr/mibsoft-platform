@@ -417,10 +417,8 @@ window.addEventListener("DOMContentLoaded", async function() {
 });
 
 async function chargerDonnees() {
-  var q = sb.from("patrol_data").select("*").eq("center_id", PATROL_SESSION.centerId);
-  if (PATROL_SESSION.sessionId) q = q.eq("session_id", PATROL_SESSION.sessionId);
-  else q = q.is("session_id", null);
-  var {data} = await q.maybeSingle();
+  // patrol_data : clé primaire (center_id) → UNE ligne par centre (lecture/écriture par center_id).
+  var {data} = await sb.from("patrol_data").select("*").eq("center_id", PATROL_SESSION.centerId).maybeSingle();
   if (data) {
     if (data.agents)        DATA.agents       = data.agents;
     if (data.materiels)     DATA.materiels    = data.materiels;
@@ -429,16 +427,6 @@ async function chargerDonnees() {
     if (data.consignes)     DATA.consignes    = data.consignes;
     if (data.main_courante) DATA.mainCourante = data.main_courante;
   }
-  // Config de CENTRE (matériels, consignes) : toujours la plus récente du centre (toutes sessions),
-  // pour que le rondier voie le même parc que la console, à jour.
-  var fb = await sb.from("patrol_data").select("materiels,consignes,updated_at")
-    .eq("center_id", PATROL_SESSION.centerId).order("updated_at",{ascending:false}).limit(50);
-  var rows = fb.data || [];
-  function newestWith(pred){ for (var i=0;i<rows.length;i++){ if (pred(rows[i])) return rows[i]; } return null; }
-  var rM = newestWith(function(r){ return r.materiels && r.materiels.length; });
-  if (rM) DATA.materiels = rM.materiels;
-  var rC = newestWith(function(r){ return r.consignes && r.consignes.length; });
-  if (rC) DATA.consignes = rC.consignes;
 }
 
 async function sauvegarder() {
@@ -454,7 +442,8 @@ async function sauvegarder() {
     consignes: DATA.consignes,
     updated_at: new Date().toISOString()
   };
-  await sb.from("patrol_data").upsert(payload, {onConflict:"center_id,session_id"});
+  var { error } = await sb.from("patrol_data").upsert(payload, {onConflict:"center_id"});
+  if (error) console.error("patrol_data upsert (rondier):", error);
 }
 
 var syncChannel = null;
