@@ -226,6 +226,7 @@ async function ouvrirPlan(key){
     document.getElementById("etab-info").textContent = "Nouvel établissement (amorcé depuis les niveaux du plan).";
   }
   dirty = false;
+  normalizeEtab();
   document.getElementById("editor").style.display="block";
   document.getElementById("savebar").style.display="none";
   render();
@@ -285,23 +286,37 @@ function addMateriel(){
 }
 function delMateriel(id){ MATERIELS=MATERIELS.filter(function(m){return m.id!==id;}); markDirty(); render(); }
 
+// Garantit que tout bâtiment a .niveaux, tout niveau .zones, tout local .locaux
+// (un modèle ancien pouvait être enregistré sans ces tableaux → render plantait).
+function normalizeEtab(){
+  if(!ETAB || !Array.isArray(ETAB.batiments)) ETAB = { nom:(ETAB&&ETAB.nom)||PLAN_LABEL||"Établissement", batiments:[] };
+  ETAB.batiments.forEach(function(b){
+    if(!Array.isArray(b.niveaux)) b.niveaux=[];
+    b.niveaux.forEach(function(n){
+      if(!Array.isArray(n.zones)) n.zones=[];
+      n.zones.forEach(function(z){ if(!Array.isArray(z.locaux)) z.locaux=[]; });
+    });
+  });
+}
+
 // ════════════ RENDER ════════════
 function render(){
+  normalizeEtab();
   // arbre
-  var html = ETAB.batiments.map(function(b){
+  var html = (ETAB.batiments||[]).map(function(b){
     return "<div class=\"bat\">"
       + "<div class=\"row\" style=\"justify-content:space-between;\">"
       + "<span class=\"lbl\">🏢 "+esc(b.nom)+"</span>"
       + "<span><button class=\"btn btn-gray btn-sm\" onclick=\"addNiveau('"+b.id+"')\">+ Niveau</button> "
       + "<button class=\"btn btn-gray btn-sm\" onclick=\"renameBat('"+b.id+"')\">✏️</button> "
       + "<button class=\"btn btn-red btn-sm\" onclick=\"delBat('"+b.id+"')\">🗑️</button></span></div>"
-      + b.niveaux.map(function(n){
+      + (b.niveaux||[]).map(function(n){
           return "<div class=\"niv\"><div class=\"row\" style=\"justify-content:space-between;\">"
             + "<span class=\"lbl\">📶 "+esc(n.nom)+"</span>"
             + "<span><button class=\"btn btn-gray btn-sm\" onclick=\"addZone('"+b.id+"','"+n.key+"')\">+ Zone</button> "
             + "<button class=\"btn btn-gray btn-sm\" onclick=\"renameNiveau('"+b.id+"','"+n.key+"')\">✏️</button> "
             + "<button class=\"btn btn-red btn-sm\" onclick=\"delNiveau('"+b.id+"','"+n.key+"')\">🗑️</button></span></div>"
-            + n.zones.map(function(z){
+            + (n.zones||[]).map(function(z){
                 return "<div class=\"zone\"><div class=\"row\" style=\"justify-content:space-between;\">"
                   + "<span class=\"lbl\">🟢 "+esc(z.nom)+"</span>"
                   + "<span><button class=\"btn btn-gray btn-sm\" onclick=\"addLocal('"+b.id+"','"+n.key+"','"+z.id+"')\">+ Local</button> "
@@ -385,6 +400,8 @@ function importerDuPlan(){
 }
 function renderImpNiveaux(){
   var b = findBat(document.getElementById("imp-bat").value) || ETAB.batiments[0];
+  if(!b){ b = { id:uid("bat"), nom:"Bâtiment principal", niveaux:[] }; ETAB.batiments.push(b); }
+  if(!Array.isArray(b.niveaux)) b.niveaux=[];
   var selN = document.getElementById("imp-niv");
   if(!b.niveaux.length){ b.niveaux.push({ key:uid("niv"), nom:"RDC", zones:[] }); }
   selN.innerHTML = b.niveaux.map(function(n){ return "<option value=\""+n.key+"\">"+esc(n.nom)+"</option>"; }).join("");
