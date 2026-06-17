@@ -78,6 +78,9 @@
   .mk{position:absolute;width:28px;height:28px;transform:translate(-50%,-50%);cursor:pointer;display:flex;align-items:center;justify-content:center}
   .mk .dot{width:30px;height:30px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:800;letter-spacing:-.3px;box-shadow:0 2px 6px rgba(0,0,0,.45);transition:transform .08s}
   .mk:hover .dot{transform:scale(1.15)}
+  .mk.mat-op .dot{box-shadow:0 0 0 3px #16a34a,0 2px 6px rgba(0,0,0,.45)}
+  .mk.mat-averif .dot{box-shadow:0 0 0 3px #f59e0b,0 2px 6px rgba(0,0,0,.45)}
+  .mk.mat-hs .dot{box-shadow:0 0 0 3px #dc2626,0 2px 6px rgba(0,0,0,.45)}
   .mk.dai .dot{background:var(--red);box-shadow:0 0 0 2px var(--red),0 2px 6px rgba(0,0,0,.4)}
   .mk.dm .dot{background:var(--red);width:34px;height:22px;border-radius:4px;box-shadow:0 0 0 2px var(--red),0 2px 6px rgba(0,0,0,.4)}
   .mk.sel .dot{outline:3px dashed #111;outline-offset:2px}
@@ -578,7 +581,7 @@ function renderMarkers(){
   MARKERS.forEach((m,idx)=>{
     const wrap=document.createElement('div');
     const kindClass={DAI:'dai',DM:'dm',VH:'vh',VB:'vb',CCF:'ccf',RIA:'ria',EXT:'ext',BAES:'baes'}[m.type]||'dai';
-    wrap.className='mk '+kindClass+(idx===selected?' sel':'')+(m._hs?' hs':'')+(isMat(m)?'':' ssi-'+(m._ssi||'attente'));
+    wrap.className='mk '+kindClass+(idx===selected?' sel':'')+(m._hs?' hs':'')+(isMat(m)?'':' ssi-'+(m._ssi||'attente'))+matStateClass(m);
     wrap.dataset.idx=idx;
     wrap.style.left=(m.x/img.naturalWidth*100)+'%';wrap.style.top=(m.y/img.naturalHeight*100)+'%';
     wrap.title=tag(m)+(m.addr?(' — '+m.addr):'')+(m._hs?' (hors service)':'');
@@ -606,7 +609,7 @@ function applyMarkerStates(){
     const hasX=!!wrap.querySelector('.xmark');
     if(!!m._hs!==hasX){renderMarkers();return;} // structure modifiée → rebuild complet (rare)
     const kindClass={DAI:'dai',DM:'dm',VH:'vh',VB:'vb',CCF:'ccf',RIA:'ria',EXT:'ext',BAES:'baes'}[m.type]||'dai';
-    const cls='mk '+kindClass+(idx===selected?' sel':'')+(m._hs?' hs':'')+(isMat(m)?'':' ssi-'+(m._ssi||'attente'));
+    const cls='mk '+kindClass+(idx===selected?' sel':'')+(m._hs?' hs':'')+(isMat(m)?'':' ssi-'+(m._ssi||'attente'))+matStateClass(m);
     if(wrap.className!==cls)wrap.className=cls; // n'écrit que si différent → pas de restart d'animation
   }
 }
@@ -1024,10 +1027,84 @@ function applyElementState(kind,idx,state,label,addr){
 document.addEventListener('click',()=>closeElementMenu());
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape')closeElementMenu();});
 $('stage').addEventListener('contextmenu',ev=>{
-  if(UAE||MODE!=='play')return; // formateur en mode Jeu uniquement
   const mk=ev.target.closest&&ev.target.closest('.mk');if(!mk)return;
-  ev.preventDefault();openElementMenu(ev.clientX,ev.clientY,'marker',+mk.dataset.idx);
+  const idx=+mk.dataset.idx,m=MARKERS[idx];if(!m)return;
+  // Matériel (RIA/EXT/BAES) hors édition → menu « État matériel » (Patrol), y compris en vue UAE.
+  if(isMat(m)&&MODE!=='edit'){ev.preventDefault();openMatMenu(ev.clientX,ev.clientY,idx);return;}
+  if(UAE||MODE!=='play')return; // états SSI : formateur en mode Jeu uniquement
+  ev.preventDefault();openElementMenu(ev.clientX,ev.clientY,'marker',idx);
 });
+
+// ════════════ ÉTAT MATÉRIEL (Patrol) — clic droit sur un picto RIA/EXT/BAES ════════════
+let CUR_STORE=STORE;
+const STATES_MAT=[
+  {s:'Operationnel',t:'✅ Opérationnel',c:'#16a34a'},
+  {s:'A verifier',  t:'🟠 À vérifier', c:'#f59e0b'},
+  {s:'Hors Service',t:'⛔ Hors service',c:'#dc2626'}
+];
+function matStateClass(m){
+  if(!isMat(m)||!m._matStatut)return '';
+  return m._matStatut==='Hors Service'?' mat-hs':m._matStatut==='A verifier'?' mat-averif':' mat-op';
+}
+function matCode(m){ return ((m&&m.addr)||'').split(/\s*[-–—]\s*/)[0].trim().toUpperCase(); }
+function matStateKey(){ return CUR_STORE+'_matstate'; }
+function readMatState(){ try{ return JSON.parse(localStorage.getItem(matStateKey())||'{}')||{}; }catch(_){ return {}; } }
+function applyMatState(){
+  const map=readMatState();
+  MARKERS.forEach(m=>{ if(isMat(m)){ const c=matCode(m); const st=c&&map[c]; m._matStatut=st||null; m._hs=(st==='Hors Service'); } });
+}
+function openMatMenu(px,py,idx){
+  closeElementMenu();
+  const m=MARKERS[idx];if(!m)return;
+  const label=tag(m)+(m.addr?(' · '+m.addr):'');
+  const box=document.createElement('div');box.className='ctxmenu';box.id='ctxmenu';
+  box.innerHTML='<div class="hd">🧯 '+esc(label)+'</div>'
+    +STATES_MAT.map(o=>'<button data-s="'+o.s+'"><span class="sw" style="background:'+o.c+'"></span>'+o.t+'</button>').join('');
+  document.body.appendChild(box);
+  const r=box.getBoundingClientRect();let x=px,y=py;
+  if(x+r.width>innerWidth-6)x=innerWidth-r.width-6;if(y+r.height>innerHeight-6)y=innerHeight-r.height-6;
+  box.style.left=Math.max(6,x)+'px';box.style.top=Math.max(6,y)+'px';
+  box.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{setMatStatut(idx,b.dataset.s);closeElementMenu();}));
+}
+function setMatStatut(idx,statut){
+  const m=MARKERS[idx];if(!m)return;
+  const code=matCode(m);
+  m._matStatut=statut;m._hs=(statut==='Hors Service');
+  // persistance locale (par plan/niveau) → réaffichée au rechargement, visible en UAE
+  const map=readMatState();if(code){map[code]=statut;}try{localStorage.setItem(matStateKey(),JSON.stringify(map));}catch(_){}
+  applyMarkerStates();renderMarkers();
+  logLine('🧯 État matériel : '+tag(m)+(m.addr?(' '+m.addr):'')+' → '+statut);
+  syncMatToPatrol(code,statut,m);
+}
+// Écrit l'état dans la table opérationnelle Patrol (patrol_data, ouverte en anon) pour le centre
+// du plan (SCOPE = center_id). Match par CODE unique ; si 0 ou plusieurs, on n'écrit rien.
+async function syncMatToPatrol(code,statut,marker){
+  if(!code)return;
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(SCOPE)){ logLine('ℹ️ État gardé sur le plan (pas de centre lié pour la synchro Patrol).'); return; }
+  try{
+    const sb=await lazyClient();
+    const res=await sb.from('patrol_data').select('id,center_id,session_id,materiels,main_courante').eq('center_id',SCOPE);
+    const rows=(res&&res.data)||[];
+    if(!rows.length){ logLine('ℹ️ Aucune donnée Patrol pour ce centre (rien à synchroniser).'); return; }
+    const U=s=>(s||'').toString().toUpperCase();
+    let totalMatch=0,touched=0;
+    for(const row of rows){
+      const mats=Array.isArray(row.materiels)?row.materiels:[];
+      const hits=mats.filter(x=>U(x.nom)===code||U(x.numero)===code||U(x.codeQR).indexOf(code)>=0);
+      totalMatch+=hits.length;
+      if(hits.length===1){
+        const mt=hits[0];mt.statut=statut;mt.dernierControle=new Date().toISOString().split('T')[0];
+        const mc=Array.isArray(row.main_courante)?row.main_courante:[];
+        mc.unshift({id:Date.now()+Math.floor(Math.random()*1000),date:new Date().toISOString(),type:'Contrôle matériel (plan)',description:(mt.nom||code)+' → '+statut,agent:'Plan',agentId:null});
+        const up=await sb.from('patrol_data').update({materiels:mats,main_courante:mc.slice(0,500)}).eq('id',row.id);
+        if(!up.error)touched++;
+      }
+    }
+    if(touched)logLine('✅ Synchro Patrol : '+code+' → '+statut+' ('+touched+' session'+(touched>1?'s':'')+').');
+    else if(totalMatch>1)logLine('⚠️ '+code+' correspond à plusieurs matériels Patrol — non synchronisé (à désambiguïser).');
+    else logLine('ℹ️ '+code+' introuvable dans les matériels Patrol — état gardé sur le plan.');
+  }catch(e){ logLine('⚠️ Synchro Patrol impossible ('+(e&&e.message||e)+') — état gardé sur le plan.'); }
+}
 $('doors-svg').addEventListener('contextmenu',ev=>{
   if(UAE||MODE!=='play')return;
   const t=ev.target;if(!t||t.dataset.door===undefined)return;
@@ -1047,12 +1124,14 @@ function saveAll(){
 
 // Charge un jeu de données (image/points/portes) depuis une clé localStorage donnée.
 function loadFromStore(store){
+  CUR_STORE=store;
   const img=localStorage.getItem(store+'_img');$('plan').src=img||'';
   const mk=localStorage.getItem(store);MARKERS=[];
   if(mk){try{MARKERS=(JSON.parse(mk)||[]).map(m=>{const o={addr:'',zf:1,lzc:0,lzf:0,...m};if(m.link&&!o.lzc&&!o.lzf){if(m.type==='DM')o.lzc=m.link;else if(m.type==='DAI')o.lzf=m.link;}o.medias=Array.isArray(o.medias)?o.medias:(o.media?[o.media]:[]);return o;});}catch(_){MARKERS=[];}}
   renumber();
   const dd=localStorage.getItem(store+'_doors');DOORS=[];
   if(dd){try{DOORS=(JSON.parse(dd)||[]).map(d=>{const o={label:'',zc:1,...d};o.medias=Array.isArray(o.medias)?o.medias:(o.media?[o.media]:[]);return o;});}catch(_){DOORS=[];}}
+  applyMatState();
   renderMarkers();renderDoors();
   return !!img;
 }
