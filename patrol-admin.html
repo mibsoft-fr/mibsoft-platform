@@ -450,13 +450,27 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
 
   <!-- MATERIELS -->
   <div id="page-materiels" class="page fade-in">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
       <h2 style="font-size:1.1rem;font-weight:800;">Materiels</h2>
-      <button onclick="showModalMateriel()" class="btn btn-primary"><i class="fas fa-plus"></i> Ajouter</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="imprimerQR()" class="btn btn-gray btn-sm" title="Imprimer les QR codes des matériels filtrés"><i class="fas fa-qrcode"></i> Imprimer QR</button>
+        <button onclick="imprimerFiches()" class="btn btn-gray btn-sm" title="Imprimer la fiche des matériels sélectionnés (ou tous les filtrés)"><i class="fas fa-print"></i> Imprimer fiches</button>
+        <button onclick="showModalMateriel()" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Ajouter</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <input type="text" id="mat-search" class="input" placeholder="🔎 Rechercher (nom, numéro, adresse, QR, localisation…)" oninput="renderMateriels()" style="flex:1;min-width:220px;">
+      <select id="mat-filtre-type" class="input" onchange="renderMateriels()" style="max-width:200px;">
+        <option value="">Tous les types</option>
+        <option>Extincteur</option><option>RIA</option><option>BAES</option><option>Desenfumage</option><option>Detecteur</option><option>Porte CF</option><option>Autre</option>
+      </select>
     </div>
     <div class="card">
-      <div style="overflow-x:auto;"><table class="tbl"><thead><tr><th>Materiel</th><th>Type</th><th>Localisation</th><th>Statut</th><th>Actions</th></tr></thead>
-      <tbody id="tbl-materiels"><tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">Aucun materiel</td></tr></tbody></table></div>
+      <div style="overflow-x:auto;"><table class="tbl"><thead><tr>
+        <th style="width:32px;"><input type="checkbox" id="mat-check-all" onchange="toggleAllMat(this)" title="Tout sélectionner"></th>
+        <th>Materiel</th><th>N°</th><th>Type</th><th>Localisation</th><th>Dernier contrôle</th><th>Statut</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="tbl-materiels"><tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:24px;">Aucun materiel</td></tr></tbody></table></div>
     </div>
   </div>
 
@@ -573,8 +587,18 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
           <select id="mat-statut" class="input"><option>Operationnel</option><option>A verifier</option><option>Hors Service</option></select>
         </div>
       </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Numéro</label><input type="text" id="mat-numero" class="input" placeholder="Ex: EXT-04"></div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Date dernier contrôle</label><input type="date" id="mat-controle" class="input" onchange="majAlerteControle()"></div>
+      </div>
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Localisation</label><input type="text" id="mat-loc" class="input" placeholder="Batiment, etage, zone..."></div>
-      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Code QR (optionnel)</label><input type="text" id="mat-qr" class="input" placeholder="MAT-EXT-001"></div>
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Adresse / emplacement précis</label><input type="text" id="mat-adresse" class="input" placeholder="Ex: mur Est, près de la sortie 2"></div>
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Code QR</label><input type="text" id="mat-qr" class="input" placeholder="MAT-EXT-001" onchange="majQRPreview()"></div>
+      <div id="mat-controle-alerte" style="font-size:.78rem;"></div>
+      <div style="display:flex;align-items:center;gap:14px;background:#f8fafc;border-radius:10px;padding:10px;">
+        <div id="mat-qr-preview" style="width:90px;height:90px;flex:none;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:8px;"></div>
+        <div style="font-size:.72rem;color:#64748b;">Ce QR sera imprimé pour le matériel. Le rondier le flashe pendant sa ronde pour valider le point.</div>
+      </div>
       <input type="hidden" id="mat-id" value="">
       <div style="display:flex;gap:10px;margin-top:4px;">
         <button onclick="closeModal('modal-materiel')" class="btn btn-gray" style="flex:1;justify-content:center;">Annuler</button>
@@ -951,51 +975,171 @@ function renderEvenements() {
 // ═══ MATERIELS ═══
 function showModalMateriel(id) {
   document.getElementById("mat-id").value = id || "";
-  document.getElementById("modal-mat-title").textContent = id ? "Modifier Materiel" : "Nouveau Materiel";
+  document.getElementById("modal-mat-title").textContent = id ? "Fiche matériel" : "Nouveau Materiel";
+  var fields = { "mat-nom":"", "mat-numero":"", "mat-loc":"", "mat-adresse":"", "mat-qr":"", "mat-controle":"" };
   if (id) {
-    var m = PTRDB.materiels.find(function(x){ return x.id===id; });
+    var m = PTRDB.materiels.find(function(x){ return String(x.id)===String(id); });
     if (m) {
       document.getElementById("mat-nom").value = m.nom||"";
+      document.getElementById("mat-numero").value = m.numero||"";
       document.getElementById("mat-type").value = m.type||"Extincteur";
       document.getElementById("mat-statut").value = m.statut||"Operationnel";
       document.getElementById("mat-loc").value = m.localisation||"";
+      document.getElementById("mat-adresse").value = m.adresse||"";
       document.getElementById("mat-qr").value = m.codeQR||"";
+      document.getElementById("mat-controle").value = m.dernierControle||"";
     }
   } else {
-    ["mat-nom","mat-loc","mat-qr"].forEach(function(id){ document.getElementById(id).value=""; });
+    Object.keys(fields).forEach(function(k){ document.getElementById(k).value=fields[k]; });
     document.getElementById("mat-type").value="Extincteur";
     document.getElementById("mat-statut").value="Operationnel";
   }
   openModal("modal-materiel");
+  majQRPreview(); majAlerteControle();
+}
+// Rendu du QR dans l'aperçu de la fiche
+function majQRPreview(){
+  var box=document.getElementById("mat-qr-preview"); if(!box) return;
+  box.innerHTML="";
+  var txt=(document.getElementById("mat-qr").value||"").trim();
+  if(!txt){ box.innerHTML="<span style='font-size:.65rem;color:#94a3b8;'>QR auto</span>"; return; }
+  if(typeof QRCode!=="undefined"){ try{ new QRCode(box,{text:txt,width:84,height:84,colorDark:"#111827",colorLight:"#ffffff"}); }catch(e){} }
+}
+function majAlerteControle(){
+  var el=document.getElementById("mat-controle-alerte"); if(!el) return;
+  var ci=controleInfo({ dernierControle:(document.getElementById("mat-controle").value||"") });
+  var col=ci.etat==="retard"?"#dc2626":ci.etat==="bientot"?"#d97706":"#16a34a";
+  var ic =ci.etat==="retard"?"⚠️":ci.etat==="bientot"?"🟠":"✅";
+  el.innerHTML="<span style='color:"+col+";font-weight:700;'>"+ic+" Contrôle annuel : "+esc(ci.label)+"</span>";
 }
 
 async function saveMateriel() {
   var nom = document.getElementById("mat-nom").value.trim();
   if (!nom) { toast("Nom requis.","err"); return; }
   var existingId = document.getElementById("mat-id").value;
+  var vals = {
+    nom:nom, numero:document.getElementById("mat-numero").value.trim(),
+    type:document.getElementById("mat-type").value, statut:document.getElementById("mat-statut").value,
+    localisation:document.getElementById("mat-loc").value.trim(), adresse:document.getElementById("mat-adresse").value.trim(),
+    codeQR:document.getElementById("mat-qr").value.trim(), dernierControle:document.getElementById("mat-controle").value||""
+  };
   if (existingId) {
     var m = PTRDB.materiels.find(function(x){ return String(x.id)===String(existingId); });
-    if (m) { m.nom=nom; m.type=document.getElementById("mat-type").value; m.statut=document.getElementById("mat-statut").value; m.localisation=document.getElementById("mat-loc").value.trim(); m.codeQR=document.getElementById("mat-qr").value.trim(); }
+    if (m) Object.keys(vals).forEach(function(k){ m[k]=vals[k]; });
   } else {
     var newId = genId();
-    var qr = document.getElementById("mat-qr").value.trim() || "MAT-"+document.getElementById("mat-type").value.substring(0,3).toUpperCase()+"-"+String(newId).slice(-4);
-    PTRDB.materiels.push({ id:newId, nom:nom, type:document.getElementById("mat-type").value, statut:document.getElementById("mat-statut").value, localisation:document.getElementById("mat-loc").value.trim(), codeQR:qr });
+    vals.id = newId;
+    if (!vals.codeQR) vals.codeQR = "MAT-"+vals.type.substring(0,3).toUpperCase()+"-"+String(newId).slice(-4);
+    PTRDB.materiels.push(vals);
   }
   await sauvegarder(); closeModal("modal-materiel"); toast("Materiel enregistre !","ok"); renderMateriels();
 }
 
+// ── Impression QR codes (matériels filtrés) ──
+function qrDataURL(text, size){
+  if (typeof QRCode==="undefined") return "";
+  var tmp=document.createElement("div"); tmp.style.position="absolute"; tmp.style.left="-9999px"; document.body.appendChild(tmp);
+  try{ new QRCode(tmp,{text:(text||"-"),width:(size||140),height:(size||140),colorDark:"#000000",colorLight:"#ffffff"}); }catch(e){}
+  var c=tmp.querySelector("canvas"); var url=c?c.toDataURL("image/png"):(tmp.querySelector("img")||{}).src||"";
+  document.body.removeChild(tmp); return url;
+}
+function imprimerQR(){
+  var list=getFilteredMateriels();
+  if(!list.length){ toast("Aucun matériel à imprimer.","err"); return; }
+  var cells=list.map(function(m){
+    var url=qrDataURL(m.codeQR||m.nom,150);
+    return "<div class='qr'>"+(url?"<img src='"+url+"'>":"")+"<div class='nm'>"+esc(m.nom)+"</div>"
+      +"<div class='cd'>"+esc(m.codeQR||"")+"</div><div class='lo'>"+esc(m.localisation||"")+"</div></div>";
+  }).join("");
+  var css="body{font-family:Arial,Helvetica,sans-serif;margin:12px;}"
+    +".grid{display:flex;flex-wrap:wrap;gap:10px;}"
+    +".qr{width:170px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;text-align:center;page-break-inside:avoid;}"
+    +".qr img{width:150px;height:150px;}.nm{font-weight:700;font-size:13px;margin-top:6px;}"
+    +".cd{font-size:11px;color:#475569;font-family:monospace;}.lo{font-size:10px;color:#64748b;margin-top:2px;}"
+    +"h1{font-size:16px;}@media print{.no-print{display:none;}}";
+  var w=window.open("","_blank");
+  w.document.write("<html><head><title>QR matériels</title><style>"+css+"</style></head><body>"
+    +"<h1>QR codes — "+list.length+" matériel(s)</h1>"
+    +"<button class='no-print' onclick='window.print()'>🖨️ Imprimer</button>"
+    +"<div class='grid'>"+cells+"</div></body></html>");
+  w.document.close();
+}
+// ── Impression fiche(s) : matériels cochés, sinon tous les filtrés ──
+function imprimerFiches(){
+  var checked=Array.prototype.map.call(document.querySelectorAll(".mat-check:checked"),function(c){return c.dataset.id;});
+  var list = checked.length ? PTRDB.materiels.filter(function(m){ return checked.indexOf(String(m.id))>=0; }) : getFilteredMateriels();
+  if(!list.length){ toast("Aucune fiche à imprimer.","err"); return; }
+  var fiches=list.map(function(m){
+    var ci=controleInfo(m), url=qrDataURL(m.codeQR||m.nom,150);
+    function row(k,v){ return "<tr><td class='k'>"+k+"</td><td>"+esc(v||"—")+"</td></tr>"; }
+    return "<div class='fiche'>"
+      +"<div class='ft'><div><h2>"+esc(m.nom)+"</h2><div class='sub'>"+esc(m.type)+"</div></div>"
+      +(url?"<img src='"+url+"'>":"")+"</div>"
+      +"<table>"+row("Numéro",m.numero)+row("Type",m.type)+row("Localisation",m.localisation)
+      +row("Adresse",m.adresse)+row("Code QR",m.codeQR)+row("Statut",m.statut)
+      +row("Dernier contrôle",m.dernierControle||"Jamais")+row("Prochaine échéance",ci.next||"—")
+      +"</table>"
+      +"<div class='al' style='color:"+(ci.etat==="retard"?"#dc2626":ci.etat==="bientot"?"#d97706":"#16a34a")+"'>"
+      +(ci.etat==="retard"?"⚠️ Contrôle annuel en retard":ci.etat==="bientot"?"🟠 Échéance proche":"✅ Contrôle à jour")+"</div>"
+      +"</div>";
+  }).join("");
+  var css="body{font-family:Arial,Helvetica,sans-serif;margin:14px;}"
+    +".fiche{border:1px solid #cbd5e1;border-radius:10px;padding:14px;margin-bottom:14px;page-break-inside:avoid;}"
+    +".ft{display:flex;justify-content:space-between;align-items:flex-start;}"
+    +".ft h2{margin:0;font-size:18px;}.sub{color:#64748b;font-size:13px;}.ft img{width:120px;height:120px;}"
+    +"table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;}"
+    +"td{border-bottom:1px solid #eef2f7;padding:5px 4px;}td.k{color:#64748b;width:170px;font-weight:600;}"
+    +".al{margin-top:10px;font-weight:700;}@media print{.no-print{display:none;}}";
+  var w=window.open("","_blank");
+  w.document.write("<html><head><title>Fiches matériel</title><style>"+css+"</style></head><body>"
+    +"<button class='no-print' onclick='window.print()'>🖨️ Imprimer</button>"+fiches+"</body></html>");
+  w.document.close();
+}
+
+// Contrôle réglementaire : périodicité par défaut 12 mois (annuel). Retard si jamais
+// contrôlé ou si la dernière date + périodicité est dépassée.
+function controleInfo(m){
+  var per = m.periodiciteMois || 12;
+  if (!m.dernierControle) return { etat:"retard", label:"Jamais contrôlé", badge:"b-red", next:null };
+  var d = new Date(m.dernierControle); if (isNaN(d)) return { etat:"retard", label:"Date invalide", badge:"b-red", next:null };
+  var next = new Date(d); next.setMonth(next.getMonth()+per);
+  var jours = Math.round((next - new Date())/86400000);
+  var nextStr = next.toISOString().split("T")[0];
+  if (jours < 0)   return { etat:"retard",  label:"En retard ("+m.dernierControle+")", badge:"b-red",    next:nextStr };
+  if (jours <= 30) return { etat:"bientot", label:m.dernierControle+" · échéance "+nextStr, badge:"b-orange", next:nextStr };
+  return { etat:"ok", label:m.dernierControle+" · ok jusqu'au "+nextStr, badge:"b-green", next:nextStr };
+}
+function getFilteredMateriels(){
+  var qEl=document.getElementById("mat-search"), tEl=document.getElementById("mat-filtre-type");
+  var q=(qEl?qEl.value:"").trim().toLowerCase();
+  var t=(tEl?tEl.value:"");
+  return (PTRDB.materiels||[]).filter(function(m){
+    if (t && m.type!==t) return false;
+    if (!q) return true;
+    return [m.nom,m.type,m.numero,m.adresse,m.localisation,m.codeQR,m.statut].some(function(x){ return (x||"").toString().toLowerCase().indexOf(q)>=0; });
+  });
+}
+function toggleAllMat(cb){ Array.prototype.forEach.call(document.querySelectorAll(".mat-check"), function(c){ c.checked=cb.checked; }); }
+
 function renderMateriels() {
   var tbody = document.getElementById("tbl-materiels");
   if (!tbody) return;
-  if (!PTRDB.materiels.length) { tbody.innerHTML="<tr><td colspan=\"5\" style=\"text-align:center;color:#94a3b8;padding:24px;\">Aucun materiel</td></tr>"; return; }
-  tbody.innerHTML = PTRDB.materiels.map(function(m){
+  var list = getFilteredMateriels();
+  if (!list.length) { tbody.innerHTML="<tr><td colspan=\"8\" style=\"text-align:center;color:#94a3b8;padding:24px;\">Aucun materiel</td></tr>"; return; }
+  tbody.innerHTML = list.map(function(m){
     var sc = m.statut==="Operationnel"?"b-green":m.statut==="A verifier"?"b-orange":"b-red";
-    return "<tr><td style=\"font-weight:600;\">"+esc(m.nom)+"</td>"
-      +"<td style=\"font-size:.8rem;color:#64748b;\">"+m.type+"</td>"
+    var ci = controleInfo(m);
+    return "<tr>"
+      +"<td><input type=\"checkbox\" class=\"mat-check\" data-id=\""+m.id+"\"></td>"
+      +"<td style=\"font-weight:600;\">"+esc(m.nom)+"</td>"
+      +"<td style=\"font-size:.78rem;color:#64748b;\">"+esc(m.numero||"—")+"</td>"
+      +"<td style=\"font-size:.8rem;color:#64748b;\">"+esc(m.type)+"</td>"
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+esc(m.localisation||"—")+"</td>"
-      +"<td><span class=\"badge "+sc+"\">"+m.statut+"</span></td>"
-      +"<td><button onclick=\"showModalMateriel("+m.id+")\" class=\"btn btn-gray btn-sm\"><i class=\"fas fa-edit\"></i></button></td></tr>";
+      +"<td><span class=\"badge "+ci.badge+"\" style=\"font-size:.68rem;\">"+esc(ci.label)+"</span></td>"
+      +"<td><span class=\"badge "+sc+"\">"+esc(m.statut)+"</span></td>"
+      +"<td><button onclick=\"showModalMateriel("+m.id+")\" class=\"btn btn-gray btn-sm\" title=\"Ouvrir la fiche\"><i class=\"fas fa-edit\"></i></button></td></tr>";
   }).join("");
+  var all=document.getElementById("mat-check-all"); if(all) all.checked=false;
 }
 
 // ═══ CONSIGNES ═══
@@ -1165,14 +1309,15 @@ async function importerEtablissementDepuisPlan() {
     var etab = rows[0];
     configEtab = etab.config || { nom: etab.nom, batiments: [] };
     // On REMPLACE les matériels par ceux de l'établissement (source de vérité), en conservant
-    // le statut des matériels déjà présents (rapprochés par QR) pour ne pas perdre l'historique.
-    var prevStatut = {};
-    PTRDB.materiels.forEach(function(m){ if (m.codeQR) prevStatut[m.codeQR]=m.statut; });
+    // statut ET dernier contrôle des matériels déjà présents (rapprochés par QR).
+    var prev = {};
+    PTRDB.materiels.forEach(function(m){ if (m.codeQR) prev[m.codeQR]={statut:m.statut, dernierControle:m.dernierControle}; });
     PTRDB.materiels = (etab.materiels||[]).map(function(m){
-      var qr = m.codeQR || ("MAT-"+genId());
+      var qr = m.codeQR || ("MAT-"+genId()); var p = prev[qr]||{};
       return { id: genId(), nom:m.nom, type:m.type,
-        statut: prevStatut[qr] || m.statut || "Operationnel",
-        localisation:m.localisation||"", codeQR:qr };
+        numero:m.numero||"", adresse:m.adresse||"", localisation:m.localisation||"", codeQR:qr,
+        statut: p.statut || m.statut || "Operationnel",
+        dernierControle: p.dernierControle || m.dernierControle || "" };
     });
     await sauvegarder();
     toast("Structure importee : "+(etab.nom||planKey)+" ("+PTRDB.materiels.length+" materiel)","ok");
