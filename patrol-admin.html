@@ -743,26 +743,27 @@ async function chargerDonnees() {
     if (data.config)        configEtab       = data.config;
     if (data.types_rondes)  typesRondes      = data.types_rondes;
   }
-  // Persistance « par défaut » : le plan/les matériels/consignes/agents sont une CONFIG de centre,
-  // pas une donnée de session. À la reconnexion (nouvelle session ou aucune), si la ligne courante
-  // est vide, on hérite de la dernière configuration connue du centre (toutes sessions confondues).
-  // Les données opérationnelles (rondes, événements, main courante, prises) restent par session.
-  var needMat = !PTRDB.materiels.length;
-  var needCfg = !(configEtab && (configEtab.batiments||[]).length);
-  var needCons = !PTRDB.consignes.length, needTr = !typesRondes.length, needAg = !PTRDB.agents.length;
-  if (needMat || needCfg || needCons || needTr || needAg) {
-    var fb = await sb.from("patrol_data")
-      .select("materiels,config,consignes,types_rondes,agents,updated_at")
-      .eq("center_id", PATROL_SESSION.centerId)
-      .order("updated_at", {ascending:false}).limit(30);
-    (fb.data||[]).forEach(function(r){
-      if (needMat && r.materiels && r.materiels.length){ PTRDB.materiels = r.materiels; needMat=false; }
-      if (needCfg && r.config && (r.config.batiments||[]).length){ configEtab = r.config; needCfg=false; }
-      if (needCons && r.consignes && r.consignes.length){ PTRDB.consignes = r.consignes; needCons=false; }
-      if (needTr && r.types_rondes && r.types_rondes.length){ typesRondes = r.types_rondes; needTr=false; }
-      if (needAg && r.agents && r.agents.length){ PTRDB.agents = r.agents; needAg=false; }
-    });
-  }
+  // CONFIG DE CENTRE (plan, matériels, consignes, agents, types de rondes) : ce n'est PAS une donnée
+  // de session. On prend TOUJOURS la version la plus récente du centre (toutes sessions confondues),
+  // peu importe la session active. Ainsi une modification faite dans une session se retrouve partout,
+  // et rien n'est « perdu » à la déconnexion/reconnexion. Les données OPÉRATIONNELLES (rondes,
+  // événements, main courante, prises de poste) restent, elles, propres à la session (chargées ci-dessus).
+  var fb = await sb.from("patrol_data")
+    .select("materiels,config,consignes,types_rondes,agents,updated_at")
+    .eq("center_id", PATROL_SESSION.centerId)
+    .order("updated_at", {ascending:false}).limit(50);
+  var rows = fb.data || [];
+  function newestWith(pred){ for (var i=0;i<rows.length;i++){ if (pred(rows[i])) return rows[i]; } return null; }
+  var rM = newestWith(function(r){ return r.materiels && r.materiels.length; });
+  if (rM){ PTRDB.materiels = rM.materiels; if (rM.config && (rM.config.batiments||[]).length) configEtab = rM.config; }
+  var rCfg = newestWith(function(r){ return r.config && (r.config.batiments||[]).length; });
+  if (rCfg) configEtab = rCfg.config;
+  var rCons = newestWith(function(r){ return r.consignes && r.consignes.length; });
+  if (rCons) PTRDB.consignes = rCons.consignes;
+  var rTr = newestWith(function(r){ return r.types_rondes && r.types_rondes.length; });
+  if (rTr) typesRondes = rTr.types_rondes;
+  var rAg = newestWith(function(r){ return r.agents && r.agents.length; });
+  if (rAg) PTRDB.agents = rAg.agents;
 }
 
 async function sauvegarder() {
@@ -1197,8 +1198,10 @@ function renderMateriels() {
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+esc(m.localisation||"—")+"</td>"
       +"<td><span class=\"badge "+ci.badge+"\" style=\"font-size:.68rem;\">"+esc(ci.label)+"</span></td>"
       +"<td><span class=\"badge "+sc+"\">"+esc(m.statut)+"</span></td>"
-      +"<td><button onclick=\"showModalMateriel("+m.id+")\" class=\"btn btn-gray btn-sm\" title=\"Ouvrir la fiche\"><i class=\"fas fa-edit\"></i></button> "
-      +"<button onclick=\"deleteMateriel("+m.id+")\" class=\"btn btn-red btn-sm\" title=\"Supprimer ce matériel\"><i class=\"fas fa-trash\"></i></button></td></tr>";
+      +"<td><div style=\"display:flex;gap:5px;\">"
+      +"<button onclick=\"showModalMateriel("+m.id+")\" class=\"btn btn-blue btn-sm\" title=\"Modifier la fiche\">✏️</button>"
+      +"<button onclick=\"deleteMateriel("+m.id+")\" class=\"btn btn-red btn-sm\" title=\"Supprimer ce matériel\">🗑️</button>"
+      +"</div></td></tr>";
   }).join("");
   var all=document.getElementById("mat-check-all"); if(all) all.checked=false;
 }
