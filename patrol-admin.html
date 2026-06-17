@@ -729,6 +729,26 @@ async function chargerDonnees() {
     if (data.config)        configEtab       = data.config;
     if (data.types_rondes)  typesRondes      = data.types_rondes;
   }
+  // Persistance « par défaut » : le plan/les matériels/consignes/agents sont une CONFIG de centre,
+  // pas une donnée de session. À la reconnexion (nouvelle session ou aucune), si la ligne courante
+  // est vide, on hérite de la dernière configuration connue du centre (toutes sessions confondues).
+  // Les données opérationnelles (rondes, événements, main courante, prises) restent par session.
+  var needMat = !PTRDB.materiels.length;
+  var needCfg = !(configEtab && (configEtab.batiments||[]).length);
+  var needCons = !PTRDB.consignes.length, needTr = !typesRondes.length, needAg = !PTRDB.agents.length;
+  if (needMat || needCfg || needCons || needTr || needAg) {
+    var fb = await sb.from("patrol_data")
+      .select("materiels,config,consignes,types_rondes,agents,updated_at")
+      .eq("center_id", PATROL_SESSION.centerId)
+      .order("updated_at", {ascending:false}).limit(30);
+    (fb.data||[]).forEach(function(r){
+      if (needMat && r.materiels && r.materiels.length){ PTRDB.materiels = r.materiels; needMat=false; }
+      if (needCfg && r.config && (r.config.batiments||[]).length){ configEtab = r.config; needCfg=false; }
+      if (needCons && r.consignes && r.consignes.length){ PTRDB.consignes = r.consignes; needCons=false; }
+      if (needTr && r.types_rondes && r.types_rondes.length){ typesRondes = r.types_rondes; needTr=false; }
+      if (needAg && r.agents && r.agents.length){ PTRDB.agents = r.agents; needAg=false; }
+    });
+  }
 }
 
 async function sauvegarder() {
@@ -1335,14 +1355,22 @@ async function importerEtablissementDepuisPlan() {
     rows.sort(function(a,b){ return (a.center_id?0:1) - (b.center_id?0:1); });
     var etab = rows[0];
     configEtab = etab.config || { nom: etab.nom, batiments: [] };
-    // On REMPLACE les matériels par ceux de l'établissement (source de vérité), en conservant
-    // statut ET dernier contrôle des matériels déjà présents (rapprochés par QR).
+    // On REMPLACE les matériels par ceux de l'établissement (source de vérité), en conservant les
+    // infos saisies côté centre (statut, dernier contrôle, numéro, adresse). Rapprochement par code
+    // QR en priorité, sinon par nom+type+localisation (le QR peut changer si le modèle est régénéré).
     var prev = {};
-    PTRDB.materiels.forEach(function(m){ if (m.codeQR) prev[m.codeQR]={statut:m.statut, dernierControle:m.dernierControle}; });
+    var keyOf = function(m){ return "k:"+(m.nom||"").trim().toLowerCase()+"|"+(m.type||"")+"|"+(m.localisation||"").trim().toLowerCase(); };
+    PTRDB.materiels.forEach(function(m){
+      if (m.codeQR) prev["qr:"+m.codeQR.trim().toUpperCase()] = m;
+      var k = keyOf(m); if (!prev[k]) prev[k] = m;
+    });
     PTRDB.materiels = (etab.materiels||[]).map(function(m){
-      var qr = m.codeQR || ("MAT-"+genId()); var p = prev[qr]||{};
+      var qr = m.codeQR || ("MAT-"+genId());
+      var p = (m.codeQR && prev["qr:"+m.codeQR.trim().toUpperCase()]) || prev[keyOf(m)] || {};
       return { id: genId(), nom:m.nom, type:m.type,
-        numero:m.numero||"", adresse:m.adresse||"", localisation:m.localisation||"", codeQR:qr,
+        numero: p.numero || m.numero || "",
+        adresse: p.adresse || m.adresse || "",
+        localisation: m.localisation||"", codeQR: qr,
         statut: p.statut || m.statut || "Operationnel",
         dernierControle: p.dernierControle || m.dernierControle || "" };
     });
