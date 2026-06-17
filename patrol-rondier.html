@@ -607,6 +607,11 @@ async function validerPoint(statut) {
 
   if (statut === "OK") {
     point.valide=true; point.heureValidation=new Date().toISOString(); point.statut="OK";
+    if (point.materielId) {
+      var mat = DATA.materiels.find(function(m){ return m.id===point.materielId; });
+      if (mat) { mat.statut="Operationnel"; mat.dernierControle=new Date().toISOString().split("T")[0]; }
+    }
+    addMC("Ronde", "Point validé OK : "+point.nom+(point.localisation?" ("+point.localisation+")":""), PATROL_SESSION.agentId);
     if (navigator.vibrate) navigator.vibrate(150);
     await sauvegarder(); toast("✅ "+point.nom+" valide !","ok"); renderRondes();
   } else {
@@ -638,9 +643,9 @@ async function saveAnomalie(horsService) {
     var point = (r.pointsControle||[]).find(function(p){ return p.id===currentPointId; });
     if (point) { point.valide=true; point.heureValidation=new Date().toISOString(); point.statut=horsService?"HS":"Anomalie"; }
     r.anomalies.push({ id:genId(), pointId:currentPointId, pointNom:point?point.nom:"", description:desc, horsService:horsService, date:new Date().toISOString(), agentId:PATROL_SESSION.agentId });
-    if (horsService && point && point.materielId) {
+    if (point && point.materielId) {
       var mat = DATA.materiels.find(function(m){ return m.id===point.materielId; });
-      if (mat) { mat.statut="Hors Service"; mat.observation=desc; }
+      if (mat) { mat.statut = horsService?"Hors Service":"A verifier"; mat.observation=desc; mat.dernierControle=new Date().toISOString().split("T")[0]; }
     }
   } else {
     r.anomalies.push({ id:genId(), localisation:loc, description:desc, horsService:horsService, date:new Date().toISOString(), agentId:PATROL_SESSION.agentId });
@@ -700,12 +705,38 @@ function renderMateriels() {
     + "</div>"
     + DATA.materiels.map(function(m){
         var sc = m.statut==="Operationnel"?"b-green":m.statut==="A verifier"?"b-orange":"b-red";
-        return "<div class=\"card\" style=\"display:flex;align-items:center;gap:12px;\">"
+        return "<div class=\"card\" style=\"display:flex;align-items:center;gap:12px;cursor:pointer;\" onclick=\"ouvrirEtatMateriel("+m.id+")\">"
           + "<div style=\"width:38px;height:38px;background:#f8fafc;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1rem;\">🧯</div>"
           + "<div style=\"flex:1;\"><div style=\"font-weight:700;font-size:.85rem;\">"+esc(m.nom)+"</div><div style=\"font-size:.72rem;color:#94a3b8;\">"+esc(m.localisation||"—")+"</div></div>"
-          + "<span class=\"badge "+sc+"\">"+m.statut+"</span></div>";
+          + "<span class=\"badge "+sc+"\">"+m.statut+"</span><i class=\"fas fa-pen\" style=\"color:#cbd5e1;font-size:.7rem;margin-left:2px;\"></i></div>";
       }).join("")
+    + "<div style=\"text-align:center;font-size:.72rem;color:#94a3b8;margin-top:10px;\">Touchez un matériel pour changer son état</div>"
     + "</div>";
+}
+// Changer l'état d'un matériel depuis le rondier → met à jour la table matériel + la main courante.
+function ouvrirEtatMateriel(id){
+  var m = DATA.materiels.find(function(x){ return String(x.id)===String(id); }); if(!m) return;
+  function b(st,label,color){
+    return "<button class=\"btn\" style=\"width:100%;justify-content:center;margin-bottom:8px;background:"+color+";color:#fff;\""
+      +" onclick=\"this.closest('.modal-bg').remove();majEtatMateriel("+id+",'"+st+"')\">"+label+"</button>";
+  }
+  showInfo("État — "+esc(m.nom),
+    "<div style=\"font-size:.78rem;color:#64748b;margin-bottom:12px;\">"+esc(m.localisation||"")+"</div>"
+    + b("Operationnel","✅ Opérationnel","#16a34a")
+    + b("A verifier","🟠 À vérifier","#d97706")
+    + b("Hors Service","⛔ Hors service","#dc2626"));
+}
+function majEtatMateriel(id, statut){
+  var note = ""; if(statut!=="Operationnel"){ note = prompt("Observation (facultatif) :","")||""; }
+  setEtatMateriel(id, statut, note);
+}
+async function setEtatMateriel(id, statut, note){
+  var m = DATA.materiels.find(function(x){ return String(x.id)===String(id); }); if(!m) return;
+  m.statut = statut;
+  m.dernierControle = new Date().toISOString().split("T")[0];   // contrôle = aujourd'hui
+  if(note) m.observation = note;
+  addMC("Contrôle matériel", m.nom+(m.localisation?" ("+m.localisation+")":"")+" → "+statut+(note?" — "+note:""), PATROL_SESSION.agentId);
+  await sauvegarder(); renderMateriels(); toast("État mis à jour : "+statut,"ok");
 }
 
 // ═══ CONSIGNES ═══
