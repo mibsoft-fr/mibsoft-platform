@@ -85,6 +85,7 @@
           <div class="lbl" style="font-size:1rem;">🏗️ Structure des lieux</div>
           <span>
             <button class="btn btn-blue btn-sm" id="btn-import" onclick="importerDuPlan()" title="Récupère les zones capturées sur le plan">📥 Importer du plan</button>
+            <button class="btn btn-gray btn-sm" onclick="dedupLocaux()" title="Fusionne les zones et locaux de même nom (par niveau) et réaffecte les matériels">🧹 Dédupliquer</button>
             <button class="btn btn-gray btn-sm" onclick="addBatiment()">+ Bâtiment</button>
           </span>
         </div>
@@ -258,6 +259,46 @@ function pathOfLocal(lid){
 function allLocaux(){
   var out=[]; ETAB.batiments.forEach(function(b){ b.niveaux.forEach(function(n){ n.zones.forEach(function(z){ z.locaux.forEach(function(l){
     out.push({ id:l.id, label: b.nom+" › "+n.nom+" › "+z.nom+" › "+l.nom }); }); }); }); }); return out;
+}
+// Nettoyage : par niveau, fusionne les zones de même nom, puis dans chaque zone les locaux
+// de même nom (insensible casse/espaces). Les matériels des locaux supprimés sont réaffectés
+// au local conservé, et leur localisation mise à jour.
+function dedupLocaux(){
+  normalizeEtab();
+  if(!confirm("Fusionner les zones et locaux de même nom ? Les matériels sont conservés et réaffectés au local restant.")) return;
+  var norm=function(s){ return (s||"").trim().toLowerCase().replace(/\s+/g," "); };
+  var remap={}, mergedZone=0, mergedLoc=0;
+  ETAB.batiments.forEach(function(b){
+    b.niveaux.forEach(function(n){
+      // 1) zones de même nom → on concatène les locaux dans la 1re rencontrée
+      var zSeen={}, keptZ=[];
+      n.zones.forEach(function(z){
+        var k=norm(z.nom);
+        if(zSeen[k]){ zSeen[k].locaux = (zSeen[k].locaux||[]).concat(z.locaux||[]); mergedZone++; }
+        else { zSeen[k]=z; keptZ.push(z); }
+      });
+      n.zones=keptZ;
+      // 2) locaux de même nom dans chaque zone → on garde le 1er, on note le remap
+      n.zones.forEach(function(z){
+        var lSeen={}, keptL=[];
+        (z.locaux||[]).forEach(function(l){
+          var k=norm(l.nom);
+          if(lSeen[k]){ remap[l.id]=lSeen[k].id; mergedLoc++; }
+          else { lSeen[k]=l; keptL.push(l); }
+        });
+        z.locaux=keptL;
+      });
+    });
+  });
+  // chemin final de chaque local conservé
+  var idPath={};
+  ETAB.batiments.forEach(function(b){ b.niveaux.forEach(function(n){ n.zones.forEach(function(z){ z.locaux.forEach(function(l){
+    idPath[l.id]=b.nom+" > "+n.nom+" > "+z.nom+" > "+l.nom; }); }); }); });
+  var resolve=function(id){ var g=0; while(remap[id] && g++<100){ id=remap[id]; } return id; };
+  // réaffecter les matériels
+  MATERIELS.forEach(function(m){ m.localId=resolve(m.localId); if(idPath[m.localId]) m.localisation=idPath[m.localId]; });
+  markDirty(); render();
+  toast(mergedZone+mergedLoc ? ("Fusionné : "+mergedZone+" zone(s) + "+mergedLoc+" local(aux).") : "Rien à fusionner (aucun doublon).");
 }
 // L'adresse d'un picto vaut « CODE - Boutique » (ex. « EXT04 - Cafétéria ») : on en tire
 // le nom du matériel (CODE) et le local cible (Boutique) pour le rattachement par nom.
