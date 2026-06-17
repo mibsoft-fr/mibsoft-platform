@@ -348,12 +348,26 @@ function captureKeys(){
   for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k===pfx || k.indexOf(pfx+"/")===0) keys.push(k); }
   return keys;
 }
-function readCaptures(){
+// Toutes les clés de capture présentes (tous plans confondus) — filet de secours si la clé
+// exacte du plan courant ne correspond pas (PWA, niveau, casse…).
+function allCaptureKeys(){
+  var keys=[]; for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k && k.indexOf("mib_etab_capture_")===0) keys.push(k); }
+  return keys;
+}
+function readCapturesFrom(keys){
   var out=[];
-  captureKeys().forEach(function(k){
+  keys.forEach(function(k){
     try{ (JSON.parse(localStorage.getItem(k)||"[]")||[]).forEach(function(c){ c.__src=k; out.push(c); }); }catch(_){}
   });
   return out;
+}
+function readCaptures(){
+  var out = readCapturesFrom(captureKeys());
+  if(out.length) return out;
+  // Rien pour le plan courant : on propose ce qui existe ailleurs (mieux que « rien »).
+  var all = readCapturesFrom(allCaptureKeys());
+  if(all.length) try{ console.info("[import] aucune capture pour « "+PLAN_KEY+" » — "+all.length+" trouvée(s) sous d'autres clés :", allCaptureKeys()); }catch(_){}
+  return all;
 }
 // Type d'élément SSI du plan → type de matériel Patrol (l'utilisateur ajuste ensuite).
 var ELEM2MAT = { RIA:"RIA", EXT:"Extincteur", BAES:"BAES", VH:"Désenfumage", VB:"Désenfumage", CCF:"Désenfumage", DAI:"Autre", DM:"Autre" };
