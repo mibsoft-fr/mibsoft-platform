@@ -1153,6 +1153,24 @@ function setViewLevel(lk){
 }
 function readManifest(){try{const m=JSON.parse(localStorage.getItem(manifestKey)||'null');return Array.isArray(m)&&m.length?m:null;}catch(_){return null;}}
 
+// Récupère le plan publié sur le serveur (bucket ssi-plans) vers le localStorage, quand la copie
+// locale a disparu (ex. cache/données du site effacés). scope=shared → shared/<plan>.json ;
+// scope=<center_id> → <center_id>/<plan>.json. Écrit les mêmes clés que loadFromStore lit.
+async function recoverPlanFromServer(){
+  if(UAE||PLAYONLY||!SCOPE) return false;
+  try{
+    const sb=await lazyClient();
+    const base=(SCOPE==='shared')?'shared/':(SCOPE+'/');
+    const {data,error}=await sb.storage.from('ssi-plans').download(base+PLAN_KEY+'.json');
+    if(error||!data) return false;
+    const obj=JSON.parse(await data.text());
+    if(!obj) return false;
+    if(obj.image) localStorage.setItem(STORE+'_img',obj.image);
+    localStorage.setItem(STORE,JSON.stringify(obj.markers||[]));
+    localStorage.setItem(STORE+'_doors',JSON.stringify(obj.doors||[]));
+    return true;
+  }catch(e){ console.warn('recover plan',e); return false; }
+}
 // ── restauration + boucle de synchro ──
 (function(){
   const NEEDLOAD=UAE||PLAYONLY; // plan fourni par le serveur (écrit en localStorage par index.html)
@@ -1167,7 +1185,15 @@ function readManifest(){try{const m=JSON.parse(localStorage.getItem(manifestKey)
       window.addEventListener('storage',onStore);
       setTimeout(()=>{const o=document.getElementById('uaeWait');if(o)o.textContent='Plan indisponible — ce centre n’a pas encore de plan, et aucun modèle n’est publié.';},15000);
     }
-  } else if(!loadFromStore(STORE)&&!MARKERS.length){setMode('edit');}
+  } else if(!loadFromStore(STORE)&&!MARKERS.length){
+    // Copie locale absente (ex. données du site effacées) → on tente de récupérer la dernière
+    // version publiée sur le serveur avant de basculer en édition vide.
+    setMode('edit');
+    recoverPlanFromServer().then(ok=>{
+      if(ok){ loadFromStore(STORE); logLine('♻️ Plan récupéré depuis le serveur ('+MARKERS.length+' points).'); }
+      else { logLine('Aucune copie serveur trouvée pour ce plan — éditeur vierge.'); }
+    });
+  }
   else{logLine('Plan « '+(LABELS[PLAN_KEY]||PLAN_KEY)+' » chargé ('+MARKERS.length+' points).');}
   requestState();refreshLink();
   setInterval(()=>{requestState();refreshLink();},1200);

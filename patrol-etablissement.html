@@ -534,7 +534,7 @@ function confirmerImport(){
         lid=loc.id; path=b.nom+" > "+n.nom+" > "+zone.nom+" > "+loc.nom;
       }
       MATERIELS.push({ id:uid("mat"), nom:matNom, type:type, statut:"Opérationnel",
-        codeQR:qrMat(type), localId:lid, localisation:path });
+        numero:(e.tag||sa.code||"").trim(), codeQR:qrMat(type), localId:lid, localisation:path });
       nM++;
     });
     if (zone.locaux.length) { n.zones.push(zone); nZ++; }   // pas de zone vide (capture « matériels seuls »)
