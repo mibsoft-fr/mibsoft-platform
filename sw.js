@@ -3,7 +3,7 @@
  * Permet le fonctionnement hors-ligne et la mise en cache
  */
 
-const CACHE_NAME = 'ssi-formation-v3.0.7';
+const CACHE_NAME = 'ssi-formation-v3.1.0';
 const CACHE_URLS = [
   './',
   './index.html',
@@ -69,56 +69,58 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Ignore les requêtes Firebase (besoin du réseau)
+  // Ignore les requêtes Firebase / Supabase / API (besoin du réseau en direct)
   if (event.request.url.includes('firebaseio.com') ||
-      event.request.url.includes('googleapis.com')) {
+      event.request.url.includes('googleapis.com') ||
+      event.request.url.includes('supabase.co')) {
     return;
   }
 
+  // ── Pages HTML (navigation) : NETWORK-FIRST ──
+  // Une appli qui se met à jour souvent NE doit PAS servir un HTML périmé. On va d'abord
+  // chercher la dernière version en ligne ; le cache ne sert qu'en secours hors-ligne.
+  // (Avant : stale-while-revalidate sur tout → un F5 reservait l'ancienne page après déploiement.)
+  const isDoc = event.request.mode === 'navigate' || event.request.destination === 'document';
+  if (isDoc) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((c) => c || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // ── Ressources statiques (CSS/JS/CDN/images) : stale-while-revalidate ──
   event.respondWith(
     caches.match(event.request)
       .then((cachedResponse) => {
-        // Retourne le cache si disponible
         if (cachedResponse) {
-          // Mise à jour en arrière-plan (stale-while-revalidate)
           fetch(event.request)
             .then((response) => {
               if (response && response.status === 200) {
-                caches.open(CACHE_NAME)
-                  .then((cache) => {
-                    cache.put(event.request, response);
-                  });
+                caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response));
               }
             })
             .catch(() => {});
-
           return cachedResponse;
         }
 
-        // Sinon, fetch depuis le réseau
         return fetch(event.request)
           .then((response) => {
-            // Ne cache que les réponses valides
             if (!response || response.status !== 200 || response.type !== 'basic') {
               return response;
             }
-
-            // Clone la réponse pour le cache
             const responseToCache = response.clone();
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
             return response;
           })
-          .catch(() => {
-            // Mode hors-ligne - retourne une page d'erreur
-            if (event.request.destination === 'document') {
-              return caches.match('./index.html');
-            }
-            return new Response('Hors ligne', { status: 503 });
-          });
+          .catch(() => new Response('Hors ligne', { status: 503 }));
       })
   );
 });

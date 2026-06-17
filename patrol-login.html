@@ -2,6 +2,18 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<script>
+// Patrol = appli EN LIGNE : on désenregistre un éventuel ancien service worker (scope racine) qui
+// servirait un HTML périmé, sans toucher la PWA /ssi-formation/ (hors scope), puis on recharge 1 fois.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistration().then(function(reg){
+    if (reg && !sessionStorage.getItem('patrol_sw_cleared')) {
+      sessionStorage.setItem('patrol_sw_cleared','1');
+      reg.unregister().then(function(ok){ if (ok) location.reload(); });
+    }
+  }).catch(function(){});
+}
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>SSIAP Patrol — Connexion</title>
 <meta name="theme-color" content="#F8FAFC">
