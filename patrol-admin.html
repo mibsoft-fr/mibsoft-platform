@@ -1125,7 +1125,11 @@ function renderEtabResume() {
   if (!r) return;
   var nivs = [];
   (configEtab.batiments||[]).forEach(function(b){
-    (b.secteurs||[]).forEach(function(s){ nivs.push(esc(s.nom)+" ("+((s.zones||[]).length)+" locaux)"); });
+    // schema actuel : batiment > niveaux > zones > locaux (fallback ancien : secteurs > zones)
+    (b.niveaux||b.secteurs||[]).forEach(function(n){
+      var nbLoc = (n.zones||[]).reduce(function(s,z){ return s + ((z.locaux||z.zones||[]).length); }, 0);
+      nivs.push(esc(n.nom)+" ("+((n.zones||[]).length)+" zones, "+nbLoc+" locaux)");
+    });
   });
   r.innerHTML = nivs.length
     ? "<b>Structure actuelle :</b> "+esc(configEtab.nom||"")+" — "+nivs.join(" · ")+" · "+PTRDB.materiels.length+" materiel(s)."
