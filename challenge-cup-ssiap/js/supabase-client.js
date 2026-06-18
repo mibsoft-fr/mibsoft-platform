@@ -10,7 +10,9 @@
 //   </script>
 // =====================================================================
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// Même CDN que le reste de la plateforme MIB (jsdelivr, build ESM). Évite une dépendance
+// distincte (esm.sh) qui sortait de la CSP commune et cassait Challenge Cup indépendamment.
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // Pointe vers la Supabase MIB (instance unique partagée).
 // Toutes les tables Challenge Cup sont préfixées `cc_` pour cohabiter avec

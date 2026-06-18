@@ -17,7 +17,8 @@
 //   sessions/{code}/<field>     (status, currentBox, gameStatus, ...)
 // =====================================================================
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// Même CDN que le reste de la plateforme MIB (jsdelivr, build ESM) — voir supabase-client.js.
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // Pointe maintenant vers la Supabase MIB (instance unique partagée).
 // Toutes les tables Challenge Cup sont préfixées `cc_` pour cohabiter avec
