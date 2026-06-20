@@ -435,23 +435,23 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
           <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Centres clients, licences et modules.</p>
           <button class="btn btn-green btn-sm" onclick="event.stopPropagation();openCentreFormation()">Ouvrir l'admin →</button>
         </div>
-        <div class="card" style="padding:26px;opacity:.78;">
+        <div class="card" style="padding:26px;cursor:pointer;" onclick="openIndependantAdmin()">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div style="font-size:2rem;">👨‍🏫</div>
             <div style="font-size:2rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-formateurs">—</div>
           </div>
-          <h2 style="font-size:1.1rem;font-weight:800;margin-top:8px;">Formateur</h2>
-          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Formateurs actifs (app dédiée).</p>
-          <span class="badge b-gray">App dédiée</span>
+          <h2 style="font-size:1.1rem;font-weight:800;margin-top:8px;">Indépendant</h2>
+          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Formateurs indépendants ayant acheté une licence.</p>
+          <button class="btn btn-green btn-sm" onclick="event.stopPropagation();openIndependantAdmin()">Ouvrir l'admin →</button>
         </div>
-        <div class="card" style="padding:26px;opacity:.78;">
+        <div class="card" style="padding:26px;cursor:pointer;" onclick="openApprenantAdmin()">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div style="font-size:2rem;">👨‍🎓</div>
             <div style="font-size:2rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-stagiaires">—</div>
           </div>
-          <h2 style="font-size:1.1rem;font-weight:800;margin-top:8px;">Stagiaire</h2>
-          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Stagiaires actifs (app dédiée).</p>
-          <span class="badge b-gray">App dédiée</span>
+          <h2 style="font-size:1.1rem;font-weight:800;margin-top:8px;">Apprenant</h2>
+          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Apprenants ayant acheté une licence pour s'entraîner.</p>
+          <button class="btn btn-green btn-sm" onclick="event.stopPropagation();openApprenantAdmin()">Ouvrir l'admin →</button>
         </div>
       </div>
     </div>
@@ -1387,6 +1387,15 @@ window.openCentreFormation=function(){
   document.getElementById('page-landing').classList.add('hidden');
   document.getElementById('page-app').classList.remove('hidden');
   loadAll();
+};
+// « Indépendant » → admin des formateurs indépendants ayant acheté une licence.
+// (Dashboard dédié à construire — placeholder provisoire pour ne pas casser la navigation.)
+window.openIndependantAdmin=function(){
+  alert('Admin Indépendants — dashboard en cours de construction.');
+};
+// « Apprenant » → admin des apprenants ayant acheté une licence pour s'entraîner.
+window.openApprenantAdmin=function(){
+  alert('Admin Apprenants — dashboard en cours de construction.');
 };
 // Retour à l'accueil depuis l'admin (bouton dans la sidebar).
 window.backToLanding=function(){ showApp(); };
