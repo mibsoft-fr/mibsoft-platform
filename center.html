@@ -801,11 +801,13 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
 
       <!-- DASHBOARD -->
       <div id="tab-dashboard">
-        <div id="kpi-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div id="kpi-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
           <div class="kpi"><div class="kpi-icon">👨‍🏫</div><div class="kpi-val text-blue-600" id="kpi-f">—</div><div class="kpi-lbl">Formateurs</div></div>
           <div class="kpi"><div class="kpi-icon">👨‍🎓</div><div class="kpi-val text-green-600" id="kpi-s">—</div><div class="kpi-lbl">Stagiaires</div></div>
           <div class="kpi"><div class="kpi-icon">📋</div><div class="kpi-val text-purple-600" id="kpi-ses">—</div><div class="kpi-lbl">Sessions</div></div>
           <div class="kpi"><div class="kpi-icon">🏆</div><div class="kpi-val text-orange-600" id="kpi-cup">—</div><div class="kpi-lbl">Training Stagiaire</div></div>
+          <div class="kpi" style="cursor:pointer;" onclick="showTab('signalements')" title="Voir les signalements"><div class="kpi-icon">🚩</div><div class="kpi-val text-orange-600" id="kpi-sig">—</div><div class="kpi-lbl">Signalements</div></div>
+          <div class="kpi" style="cursor:pointer;" onclick="showTab('avis')" title="Voir les avis & retours"><div class="kpi-icon">💬</div><div class="kpi-val text-blue-600" id="kpi-avis">—</div><div class="kpi-lbl">Avis & Retours</div></div>
         </div>
         <div class="plan-banner pb-starter mb-6">
           <div>
@@ -1748,16 +1750,20 @@ window.loadAll = async function() {
   const cid = CENTER.id;
   const debut = new Date(new Date().setDate(1)).toISOString();
   try {
-    const [{ count: nf }, { count: ns }, { count: nses }, { count: ncup }] = await Promise.all([
+    const [{ count: nf }, { count: ns }, { count: nses }, { count: ncup }, { count: nsig }, { count: navis }] = await Promise.all([
       supabase.from('formateurs').select('*',{count:'exact',head:true}).eq('center_id',cid).eq('actif',true),
       supabase.from('stagiaires').select('*',{count:'exact',head:true}).eq('center_id',cid).eq('actif',true),
       supabase.from('sessions_formation').select('*',{count:'exact',head:true}).eq('center_id',cid),
       supabase.from('challenge_sessions').select('*',{count:'exact',head:true}).eq('center_id',cid).gte('created_at',debut),
+      supabase.from('cc_question_reports').select('*',{count:'exact',head:true}).or('center_id.eq.'+cid+',center_id.is.null').eq('status','nouveau'),
+      supabase.from('avis_retours').select('*',{count:'exact',head:true}).eq('center_id',cid),
     ]);
     document.getElementById('kpi-f').textContent = nf ?? 0;
     document.getElementById('kpi-s').textContent = ns ?? 0;
     document.getElementById('kpi-ses').textContent = nses ?? 0;
     document.getElementById('kpi-cup').textContent = ncup ?? 0;
+    const eSig=document.getElementById('kpi-sig'); if(eSig) eSig.textContent = nsig ?? 0;
+    const eAvis=document.getElementById('kpi-avis'); if(eAvis) eAvis.textContent = navis ?? 0;
     document.getElementById('dash-plan').textContent = 'Plan ' + (CENTER.plan || '—');
     document.getElementById('dash-expire-info').textContent = CENTER.license_expires_at ? 'Expire le ' + UTILS.dateStr(CENTER.license_expires_at) : '';
     const pf = Math.min(100, Math.round(((nf||0)/CENTER.max_formateurs)*100));
