@@ -172,6 +172,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
 .bp-pro { background: var(--success-100); color: var(--success-800); border: 1px solid #BBF7D0; }
 .bp-expert { background: #F3E8FF; color: #6B21A8; border: 1px solid #E9D5FF; }
 .bp-entreprise { background: var(--warning-100); color: var(--warning-800); border: 1px solid var(--warning-200); }
+.bp-independant { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
 .bs-active { background: var(--success-100); color: var(--success-800); border: 1px solid #BBF7D0; }
 .bs-suspended { background: var(--danger-100); color: var(--danger-800); border: 1px solid var(--danger-200); }
 .bs-expired { background: var(--neutral-100); color: var(--neutral-700); border: 1px solid var(--border-default); }
@@ -458,10 +459,40 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
   </div>
 </div>
 
+<!-- ═══════════ DASHBOARD INDÉPENDANTS ═══════════ -->
+<div id="page-independant" class="hidden relative z-10 min-h-screen p-4">
+  <div style="width:100%;max-width:1100px;margin:0 auto;">
+    <button onclick="indepBack()" class="btn btn-gray btn-sm" style="margin:8px 0 16px;">← Retour aux univers</button>
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="logo-t" style="font-size:1.6rem;font-weight:800;">👨‍🏫 Indépendants</h1>
+        <p style="color:var(--text2,#64748b);font-size:.85rem;margin-top:2px;">Formateurs indépendants ayant acheté une licence.</p>
+      </div>
+      <button onclick="loadIndependants(this)" class="btn btn-green btn-sm">🔄 Actualiser</button>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <div class="kpi"><div class="kpi-icon">👤</div><div style="font-size:1.7rem;font-weight:800;" id="indep-kpi-total">—</div><div style="font-size:.72rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">Indépendants</div></div>
+      <div class="kpi"><div class="kpi-icon">✅</div><div style="font-size:1.7rem;font-weight:800;" id="indep-kpi-actifs">—</div><div style="font-size:.72rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">Actifs</div></div>
+      <div class="kpi"><div class="kpi-icon">⏸️</div><div style="font-size:1.7rem;font-weight:800;" id="indep-kpi-suspendus">—</div><div style="font-size:.72rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">Suspendus</div></div>
+    </div>
+
+    <div class="card p-5">
+      <h3 style="font-weight:700;margin-bottom:14px;">Licences indépendantes</h3>
+      <div class="overflow-x-auto">
+        <table class="tbl" id="tbl-independants">
+          <thead><tr>
+            <th>Nom</th><th>Email</th><th>Plan</th><th>Cycle</th><th>Statut</th><th>Expire le</th><th>Clé</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="body-independants"><tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ APP PRINCIPALE ═══════════ -->
 <div id="page-app" class="hidden relative z-10 flex min-h-screen">
-
-  <!-- SIDEBAR -->
   <div class="sidebar flex-shrink-0" id="sidebar">
     <div class="flex items-center gap-2 mb-8">
       <div style="width:38px;height:38px;border-radius:var(--radius-md);background:var(--gradient-primary);display:flex;align-items:center;justify-content:center;font-size:1.1rem;box-shadow:0 4px 12px -2px rgba(16,185,129,.4);color:#fff;">⚙</div>
@@ -1361,15 +1392,15 @@ function showApp(){
 // KPIs de la page d'accueil (activité par univers).
 async function loadLandingKpis(){
   try{
-    const [c, f, s, ent] = await Promise.all([
+    const [c, indep, s, ent] = await Promise.all([
       supabase.from('centers').select('*',{count:'exact',head:true}),
-      supabase.from('formateurs').select('*',{count:'exact',head:true}).eq('actif',true),
+      supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_type','independant'),
       supabase.from('stagiaires').select('*',{count:'exact',head:true}).eq('actif',true),
       supabase.from('centers').select('themes')
     ]);
     const setN=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=(v??0);};
     setN('kpi-l-centres', c.count); setN('kpi-l-centres-q', c.count);
-    setN('kpi-l-formateurs', f.count); setN('kpi-l-stagiaires', s.count);
+    setN('kpi-l-formateurs', indep.count); setN('kpi-l-stagiaires', s.count);
     const entCount=(ent.data||[]).filter(r=>r.themes&&(r.themes.cse||r.themes.hse)).length;
     setN('kpi-l-entreprises', entCount);
   }catch(e){ console.warn('[landing kpis]', e); }
@@ -1388,14 +1419,64 @@ window.openCentreFormation=function(){
   document.getElementById('page-app').classList.remove('hidden');
   loadAll();
 };
-// « Indépendant » → admin des formateurs indépendants ayant acheté une licence.
-// (Dashboard dédié à construire — placeholder provisoire pour ne pas casser la navigation.)
+// « Indépendant » → dashboard des formateurs indépendants ayant acheté une licence
+// (= centers avec license_type='independant').
 window.openIndependantAdmin=function(){
-  alert('Admin Indépendants — dashboard en cours de construction.');
+  document.getElementById('page-landing').classList.add('hidden');
+  document.getElementById('page-independant').classList.remove('hidden');
+  loadIndependantsCore();
 };
-// « Apprenant » → admin des apprenants ayant acheté une licence pour s'entraîner.
+window.indepBack=function(){
+  document.getElementById('page-independant').classList.add('hidden');
+  document.getElementById('page-landing').classList.remove('hidden');
+};
+async function loadIndependantsCore(){
+  const tbody=document.getElementById('body-independants'); if(!tbody) return;
+  try{
+    const{data,error}=await supabase.from('centers')
+      .select('id,nom,email,plan,billing_cycle,license_status,license_expires_at,license_key')
+      .eq('license_type','independant').order('created_at',{ascending:false});
+    if(error)throw error;
+    const rows=data||[];
+    document.getElementById('indep-kpi-total').textContent=rows.length;
+    document.getElementById('indep-kpi-actifs').textContent=rows.filter(c=>c.license_status==='active').length;
+    document.getElementById('indep-kpi-suspendus').textContent=rows.filter(c=>c.license_status==='suspended').length;
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px;">Aucun indépendant pour le moment.</td></tr>';return;}
+    tbody.innerHTML=rows.map(c=>`<tr>
+      <td><strong>${esc(c.nom||'—')}</strong></td>
+      <td style="font-size:.8rem;">${esc(c.email||'—')}</td>
+      <td><span class="badge-plan bp-${esc(c.plan||'')}">${esc(c.plan||'—')}</span></td>
+      <td style="font-size:.8rem;">${c.billing_cycle==='mensuel'?'📅 Mensuel':'📆 Annuel'}</td>
+      <td>${statusBadge(c.license_status)}</td>
+      <td style="font-size:.8rem;">${c.license_expires_at?UTILS.dateStr(c.license_expires_at):'—'}</td>
+      <td><code style="font-size:.72rem;background:#f3f4f6;padding:3px 8px;border-radius:6px;">${esc(c.license_key||'—')}</code></td>
+      <td style="white-space:nowrap;">
+        <button onclick="indepExtend('${c.id}')" class="btn btn-blue btn-sm">📅 Prolonger</button>
+        <button onclick="indepToggle('${c.id}','${c.license_status}')" class="btn ${c.license_status==='active'?'btn-red':'btn-green'} btn-sm">${c.license_status==='active'?'⏸ Suspendre':'▶ Réactiver'}</button>
+      </td>
+    </tr>`).join('');
+  }catch(e){console.error(e);tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--red);padding:20px;">Erreur de chargement.</td></tr>';}
+}
+window.loadIndependants=function(btn){ return btn?withSpin(btn,loadIndependantsCore):loadIndependantsCore(); };
+window.indepExtend=async function(id){
+  const mois=prompt('Prolonger de combien de mois ?','12');
+  if(!mois||isNaN(mois))return;
+  const{data}=await supabase.from('centers').select('license_expires_at').eq('id',id).single();
+  const base=data?.license_expires_at?new Date(data.license_expires_at):new Date();
+  if(base<new Date())base.setTime(Date.now());
+  base.setMonth(base.getMonth()+parseInt(mois));
+  await supabase.from('centers').update({license_expires_at:base.toISOString(),license_status:'active'}).eq('id',id);
+  loadIndependantsCore();alert(`✅ Licence prolongée jusqu'au ${UTILS.dateStr(base)}`);
+};
+window.indepToggle=async function(id,current){
+  const newStatus=current==='active'?'suspended':'active';
+  if(!confirm(`${newStatus==='suspended'?'Suspendre':'Réactiver'} cet indépendant ?`))return;
+  await supabase.from('centers').update({license_status:newStatus}).eq('id',id);
+  loadIndependantsCore();
+};
+// « Apprenant » → admin des apprenants ayant acheté une licence (flux d'achat à créer).
 window.openApprenantAdmin=function(){
-  alert('Admin Apprenants — dashboard en cours de construction.');
+  alert('Admin Apprenants — disponible une fois le flux d\'achat individuel « Apprenant » en place.');
 };
 // Retour à l'accueil depuis l'admin (bouton dans la sidebar).
 window.backToLanding=function(){ showApp(); };
