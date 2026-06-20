@@ -640,7 +640,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
         <button onclick="openModal('modal-gen-licence')" class="btn btn-blue">🔑 Générer une licence</button>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="grid grid-cols-1 gap-4 mb-6">
         <!-- Plans et limites -->
         <div class="card p-5">
           <h3 style="font-weight:700;margin-bottom:14px;">📋 Plans disponibles</h3>
@@ -666,24 +666,6 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
               <span style="font-size:.8rem;color:var(--text2);">Illimité · Multi-centres · Sur devis</span>
             </div>
           </div>
-        </div>
-
-        <!-- Licence indépendant -->
-        <div class="card p-5">
-          <h3 style="font-weight:700;margin-bottom:14px;">👤 Licence Indépendant</h3>
-          <p style="font-size:.82rem;color:var(--text2);margin-bottom:14px;line-height:1.6;">Formateur indépendant sans centre — licence mensuelle sans renouvellement automatique.</p>
-          <div class="space-y-2" style="font-size:.82rem;">
-            <div style="display:flex;gap:8px;align-items:center;"><span style="color:var(--green);">✅</span> 1 formateur (lui-même)</div>
-            <div style="display:flex;gap:8px;align-items:center;"><span style="color:var(--green);">✅</span> Jusqu'à 20 stagiaires</div>
-            <div style="display:flex;gap:8px;align-items:center;"><span style="color:var(--green);">✅</span> Quiz auto-entraînement</div>
-            <div style="display:flex;gap:8px;align-items:center;"><span style="color:var(--green);">✅</span> Training Salle</div>
-            <div style="display:flex;gap:8px;align-items:center;"><span style="color:var(--text3);">⭕</span> Facturation mensuelle manuelle</div>
-            <div style="display:flex;gap:8px;align-items:center;"><span style="color:var(--text3);">⭕</span> Pas de renouvellement auto</div>
-          </div>
-          <div class="sep"></div>
-          <button onclick="openModal('modal-gen-licence');document.getElementById('gen-type').value='independant'" class="btn btn-orange btn-sm">
-            Créer licence indépendant →
-          </button>
         </div>
       </div>
 
@@ -958,7 +940,6 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
           <label class="lbl">Type de licence</label>
           <select id="nc-type" class="inp">
             <option value="centre">Centre</option>
-            <option value="independant">Indépendant</option>
           </select>
         </div>
       </div>
@@ -1029,7 +1010,6 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
           <label class="lbl">Type</label>
           <select id="gen-type" class="inp">
             <option value="centre">Centre</option>
-            <option value="independant">Indépendant</option>
           </select>
         </div>
       </div>
@@ -1176,7 +1156,6 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
         <label class="lbl">Type licence</label>
         <select id="cc-type" class="inp">
           <option value="centre">Centre</option>
-          <option value="independant">Indépendant</option>
           <option value="essai">Essai</option>
         </select>
       </div>
