@@ -33,10 +33,16 @@ Supabase Dashboard → **Project Settings → Edge Functions → Secrets** (proj
 |---|---|
 | `STRIPE_SECRET_KEY` | `sk_live_…` (étape 1) |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_…` **live** (étape 4) |
+| `APP_URL` | `https://mibsoft.fr` (domaine unique) |
+| `VITRINE_URL` | `https://mibsoft.fr` (domaine unique) |
+| `MAILGUN_DOMAIN` | `mibsoft.fr` (doit être vérifié dans Mailgun) |
 
-Inchangés (déjà bons) : `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `MAILGUN_API_KEY`,
-`MAILGUN_DOMAIN` (`mibsoft.fr`), `MAILGUN_HOST` (`api.eu.mailgun.net`),
-`APP_URL` (`https://mibsoft.fr`), `VITRINE_URL` (`https://mibsoft.fr`).
+> ⚠️ Vérifier que `APP_URL`, `VITRINE_URL` et `MAILGUN_DOMAIN` valent bien `mibsoft.fr` (et plus
+> `mib-prevention.fr`). Les fonctions ont déjà ces valeurs **par défaut** dans le code, mais un
+> secret existant les écrase — donc à contrôler dans le dashboard.
+
+Inchangés : `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `MAILGUN_API_KEY`,
+`MAILGUN_HOST` (`api.eu.mailgun.net`).
 
 > ⚠️ Vérifier que le **domaine Mailgun est vérifié en production** (SPF/DKIM) sinon les emails de bienvenue partiront en spam ou seront rejetés.
 
