@@ -92,7 +92,8 @@
         .pulse-anim{animation:pulse 1s ease-in-out infinite}
         .shield-anim{animation:shield .5s ease-in-out infinite}
         .shake-wrong{animation:shake-wrong 0.4s ease-in-out}
-        .glass-morphism{background:rgba(255,255,255,.15);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2)}
+        /* Cartes blanches opaques : le contenu (texte foncé) reste lisible sur le fond de marque sombre. */
+        .glass-morphism{background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.6);box-shadow:0 10px 30px -8px rgba(2,6,23,.45)}
         .neon-text{text-shadow:0 0 10px rgba(59,130,246,.8),0 0 20px rgba(59,130,246,.6),0 0 30px rgba(59,130,246,.4)}
         .answer-option{transition:all .3s;cursor:pointer;border:3px solid transparent;user-select:none}
         .answer-option:hover{transform:translateY(-3px);box-shadow:0 6px 12px rgba(0,0,0,.2)}
@@ -225,11 +226,13 @@
         }
         /* Body : background institutionnel doux + halos vigil/marine */
         body{
+            /* Fond de marque MIB (identique à la page d'accueil) : dégradé vert→bleu + halos vifs. */
             background:
-                radial-gradient(900px 600px at -10% -10%, rgba(16,185,129,0.10), transparent 60%),
-                radial-gradient(900px 700px at 110% 0%, rgba(37,99,235,0.10), transparent 65%),
-                radial-gradient(700px 500px at 50% 110%, rgba(30,58,138,0.07), transparent 70%),
-                #F8FAFC !important;
+                radial-gradient(900px 600px at -10% -10%, rgba(16,185,129,0.22), transparent 60%),
+                radial-gradient(900px 700px at 110% 0%, rgba(37,99,235,0.22), transparent 65%),
+                radial-gradient(700px 500px at 50% 110%, rgba(30,58,138,0.18), transparent 70%),
+                linear-gradient(135deg, #064E3B 0%, #0F172A 35%, #1E3A8A 70%, #1E40AF 100%) !important;
+            background-attachment: fixed !important;
             font-family: 'Inter','Plus Jakarta Sans', system-ui, sans-serif;
         }
         /* Titres en font display brand */
@@ -364,7 +367,7 @@
     </style>
     <script>if(window.tailwind)tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#3B82F6',secondary:'#6366F1'}}}}</script>
 </head>
-<body class="h-full bg-gradient-to-br from-blue-100 via-indigo-50 to-cyan-100">
+<body class="h-full">
 <a href="/index.html" aria-label="Accueil MIBsoft" data-mib-logo style="position:fixed;left:12px;bottom:12px;z-index:2147483000;display:block;line-height:0;opacity:.9;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))"><img src="/logo/icon.png" alt="MIBsoft" width="34" height="34" style="display:block"></a>
 
 <!-- Loader anti-flash (visible uniquement si html.mib-cc-bypass — défini par script en <head>) -->
@@ -402,11 +405,11 @@
     <!-- DASHBOARD SUPERVISEUR -->
     <div id="supervisor-dashboard" class="hidden max-w-6xl mx-auto">
         <div class="text-center mb-4 md:mb-6">
-            <h1 class="text-2xl md:text-5xl font-bold text-primary neon-text mb-2 flex items-center justify-center gap-3 flex-wrap">
+            <h1 class="text-2xl md:text-5xl font-bold neon-text mb-2 flex items-center justify-center gap-3 flex-wrap" style="color:#fff;">
                 <img src="/logo/icon.png" alt="MIB" style="height:1.1em;width:auto;vertical-align:middle;filter:drop-shadow(0 2px 4px rgba(0,0,0,.2));">
                 <span id="cc-dash-title">Challenge Cup</span>
             </h1>
-            <p class="text-sm md:text-lg text-gray-600">Gestion de la session</p>
+            <p class="text-sm md:text-lg text-gray-200">Gestion de la session</p>
         </div>
         <!-- CONFIGURATION DE LA SESSION -->
         <div class="glass-morphism rounded-3xl shadow-2xl p-4 mb-6">
