@@ -14,6 +14,12 @@
 -- Tant que active=false, le plan répond proprement « prix_non_configuré »
 -- côté checkout et n'est donc pas vendable par erreur.
 
+-- La contrainte d'origine n'autorisait que 'mensuel'/'annuel' : on ajoute 'unique'
+-- (cycle des plans en paiement unique comme « apprenant »).
+alter table public.stripe_prices drop constraint if exists stripe_prices_cycle_check;
+alter table public.stripe_prices add constraint stripe_prices_cycle_check
+  check (cycle = any (array['mensuel'::text, 'annuel'::text, 'unique'::text]));
+
 insert into public.stripe_prices (plan, cycle, amount_cents, active, stripe_price_id)
 select 'apprenant', 'unique', 1000, false, 'price_REMPLACER_PAR_LE_PRIX_STRIPE'
 where not exists (
