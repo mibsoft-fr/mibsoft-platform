@@ -1559,6 +1559,16 @@ const ADMIN_THEMES = [
   { key:'gp',       label:'GP',       active:false, modules:[{key:'challenge_cup',label:'Challenge Cup'}] },
 ];
 const THEME_BY_KEY = Object.fromEntries(ADMIN_THEMES.map(t=>[t.key,t]));
+const ALL_SSIAP_KEYS = THEME_BY_KEY.ssiap.modules.map(m=>m.key);
+// Presets de thèmes/modules par plan (modèle hybride : pré-remplis à la création, ajustables).
+const PLAN_THEME_PRESETS = {
+  demo:       { ssiap:['module_ssi_autoformation','module_challenge_cup'], themes:{} },
+  starter:    { ssiap:['module_ssi_autoformation','module_patrol','module_challenge_cup','module_auto_entrainement','module_quiz_salle'], themes:{} },
+  pro:        { ssiap:ALL_SSIAP_KEYS.slice(), themes:{} },
+  expert:     { ssiap:ALL_SSIAP_KEYS.slice(), themes:{} },
+  entreprise: { ssiap:ALL_SSIAP_KEYS.slice(), themes:{ cse:['reglementation','recherche_causes','visite_securite','challenge_cup'], hse:['reglementation','recherche_causes'] } },
+};
+function presetForPlan(plan){ return PLAN_THEME_PRESETS[plan] || PLAN_THEME_PRESETS.starter; }
 // SSIAP est "activé" si au moins un de ses modules booléens est vrai.
 function ssiapEnabled(c){ return THEME_BY_KEY.ssiap.modules.some(m=>!!c[m.key]); }
 // Pastilles des thèmes actifs sur la ligne du centre.
@@ -1612,15 +1622,20 @@ function collectThemesFrom(root){
   payload.themes=themes;
   return payload;
 }
-// Rendu du sélecteur de thèmes dans le formulaire de création (SSIAP coché par défaut).
-window.renderCreateThemes=function(){
+// Rendu du sélecteur de thèmes dans le formulaire de création.
+// Pré-rempli depuis le preset du plan (modèle hybride) ; reste entièrement ajustable.
+window.renderCreateThemes=function(preset){
   const root=document.getElementById('cc-themes-body'); if(!root) return;
+  if(!preset){ const plan=(document.getElementById('cc-plan')||{}).value; preset=presetForPlan(plan); }
+  const ssiapOn=(preset.ssiap||[]); const themesOn=(preset.themes||{});
   root.innerHTML=ADMIN_THEMES.map(t=>{
     const tag = t.active ? '<span class="badge b-green" style="font-size:.6rem;">Actif</span>' : '<span class="badge b-gray" style="font-size:.6rem;">À venir</span>';
-    const headToggle = t.active ? '' : `<label style="display:inline-flex;align-items:center;gap:6px;font-size:.78rem;cursor:pointer;"><input type="checkbox" data-theme-enable="${t.key}"> Activer le thème</label>`;
+    const themeChecked = t.active ? true : !!themesOn[t.key];
+    const headToggle = t.active ? '' : `<label style="display:inline-flex;align-items:center;gap:6px;font-size:.78rem;cursor:pointer;"><input type="checkbox" data-theme-enable="${t.key}" ${themeChecked?'checked':''}> Activer le thème</label>`;
     const mods=t.modules.map(m=>{
+      const checked = t.active ? ssiapOn.includes(m.key) : (Array.isArray(themesOn[t.key]) && themesOn[t.key].includes(m.key));
       const attr = t.active ? `data-ssiap="${m.key}"` : `data-theme-mod="${t.key}:${m.key}"`;
-      return `<label style="display:inline-flex;align-items:center;gap:6px;font-size:.8rem;cursor:pointer;padding:3px 0;"><input type="checkbox" ${attr} ${t.active?'checked':''}> ${esc(m.label)}</label>`;
+      return `<label style="display:inline-flex;align-items:center;gap:6px;font-size:.8rem;cursor:pointer;padding:3px 0;"><input type="checkbox" ${attr} ${checked?'checked':''}> ${esc(m.label)}</label>`;
     }).join('');
     return `<div style="border:1px solid var(--border-default,#e2e8f0);border-radius:10px;padding:10px;margin-bottom:8px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;"><div style="font-weight:800;">${esc(t.label)} ${tag}</div>${headToggle}</div>
@@ -1736,6 +1751,8 @@ function applyPlanDefaults(){
     exp = addMonths(today, mois);
   }
   document.getElementById('cc-exp').value = toDateInput(exp);
+  // Modèle hybride : pré-remplir les thèmes/modules selon le preset du plan (ajustable ensuite).
+  if(document.getElementById('cc-themes-body')) renderCreateThemes(presetForPlan(plan));
 }
 
 function toggleCCMode(){
