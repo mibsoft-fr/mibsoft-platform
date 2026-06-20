@@ -822,6 +822,21 @@
         <button id="back-to-game-btn" class="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-lg font-bold py-4 rounded-xl shadow-lg">← Retour au jeu</button>
     </div>
 
+    <!-- MODALE CONSULTATION D'UNE QUESTION (lecture seule, entière) -->
+    <div id="qview-modal" class="hidden fixed inset-0 z-[10000] items-center justify-center p-4" style="background:rgba(2,6,23,.55)">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6">
+            <div class="flex items-start justify-between gap-3 mb-4">
+                <div id="qview-title">Question</div>
+                <button onclick="closeQuestionModal()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none flex-shrink-0">✕</button>
+            </div>
+            <div id="qview-body"></div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button onclick="qviewReport()" class="px-5 py-2 bg-orange-500 text-white rounded-lg font-bold">🚩 Signaler au centre</button>
+                <button onclick="closeQuestionModal()" class="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold">Fermer</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODALE SIGNALEMENT D'UNE QUESTION (vers le centre) -->
     <div id="report-modal" class="hidden fixed inset-0 z-[10000] items-center justify-center p-4" style="background:rgba(2,6,23,.55)">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
@@ -2545,7 +2560,7 @@ const ADMIN_TYPE_COLORS={'quiz':'bg-blue-100 text-blue-800','true-false':'bg-gre
 // Une ligne de question : consultation seule → 👁️ voir la fiche, 🚩 signaler au centre.
 function renderAdminQuestionRow(bIdx,g,gIdx){
     const tC=ADMIN_TYPE_COLORS;
-    return `<div class="bg-blue-50 rounded-xl"><div class="p-4 flex items-center justify-between gap-3 cursor-pointer rounded-xl hover:bg-indigo-50" onclick="toggleEditor(${bIdx},${gIdx})"><div class="flex items-center gap-3 flex-1 min-w-0"><span class="px-2 py-0.5 rounded text-xs font-bold ${tC[g.type]||'bg-gray-100'} flex-shrink-0">${getGameTypeLabel(g.type)}</span><span class="font-bold text-gray-800 text-sm truncate">${g.question}</span></div><div class="flex gap-2 flex-shrink-0"><button onclick="event.stopPropagation();toggleEditor(${bIdx},${gIdx})" class="px-3 py-1 bg-indigo-500 text-white rounded-lg text-xs font-bold" title="Voir la fiche">👁️</button><button onclick="event.stopPropagation();openReportModal(${bIdx},${gIdx})" class="px-3 py-1 bg-orange-500 text-white rounded-lg text-xs font-bold" title="Signaler au centre">🚩</button></div></div><div class="q-editor-body" id="qbody-${bIdx}-${gIdx}">${renderQuestionPreview(g)}</div></div>`;
+    return `<div class="bg-blue-50 rounded-xl"><div class="p-4 flex items-center justify-between gap-3 cursor-pointer rounded-xl hover:bg-indigo-50" onclick="openQuestionModal(${bIdx},${gIdx})"><div class="flex items-center gap-3 flex-1 min-w-0"><span class="px-2 py-0.5 rounded text-xs font-bold ${tC[g.type]||'bg-gray-100'} flex-shrink-0">${getGameTypeLabel(g.type)}</span><span class="font-bold text-gray-800 text-sm truncate">${g.question}</span></div><div class="flex gap-2 flex-shrink-0"><button onclick="event.stopPropagation();openQuestionModal(${bIdx},${gIdx})" class="px-3 py-1 bg-indigo-500 text-white rounded-lg text-xs font-bold" title="Voir la question en entier">👁️</button><button onclick="event.stopPropagation();openReportModal(${bIdx},${gIdx})" class="px-3 py-1 bg-orange-500 text-white rounded-lg text-xs font-bold" title="Signaler au centre">🚩</button></div></div></div>`;
 }
 function renderAdminQuestions(boxIdx){
     adminCurrentBox=boxIdx;BOXES_DATA.forEach((_,i)=>{const btn=document.getElementById('box-filter-'+i);if(btn)btn.style.outline=i===boxIdx?'3px solid white':'none';});
@@ -2571,6 +2586,17 @@ window.searchAdminQuestions=function(term){
     });});
     document.getElementById('admin-questions-container').innerHTML=`<div class="mb-3 text-sm font-bold text-gray-600">${rows.length} résultat(s) pour « ${term} »</div><div class="space-y-3">${rows.join('')||'<div class="text-gray-400 text-center py-8">Aucune question trouvée.</div>'}</div>`;
 };
+// ── Consultation d'une question en modale (lecture seule, entière) ──
+let _qviewTarget=null;
+window.openQuestionModal=function(bIdx,gIdx){
+    const g=BOXES_DATA[bIdx]&&BOXES_DATA[bIdx].games&&BOXES_DATA[bIdx].games[gIdx];if(!g)return;
+    _qviewTarget={bIdx,gIdx};
+    document.getElementById('qview-title').innerHTML=`<span class="px-2 py-0.5 rounded text-xs font-bold ${ADMIN_TYPE_COLORS[g.type]||'bg-gray-100'}">${getGameTypeLabel(g.type)}</span>`;
+    document.getElementById('qview-body').innerHTML=renderQuestionPreview(g);
+    const m=document.getElementById('qview-modal');m.classList.remove('hidden');m.style.display='flex';
+};
+window.closeQuestionModal=function(){const m=document.getElementById('qview-modal');m.classList.add('hidden');m.style.display='none';};
+window.qviewReport=function(){if(!_qviewTarget)return;const t=_qviewTarget;closeQuestionModal();openReportModal(t.bIdx,t.gIdx);};
 // ── Signalement d'une question vers le centre ──
 let _reportTarget=null;
 window.openReportModal=function(bIdx,gIdx){
