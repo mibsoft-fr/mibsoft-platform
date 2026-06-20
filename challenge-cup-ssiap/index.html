@@ -402,18 +402,11 @@
     <!-- DASHBOARD SUPERVISEUR -->
     <div id="supervisor-dashboard" class="hidden max-w-6xl mx-auto">
         <div class="text-center mb-4 md:mb-6">
-            <h1 class="text-2xl md:text-5xl font-bold text-primary neon-text mb-2">🛡️ Tableau de Bord SSIAP</h1>
-            <p class="text-sm md:text-lg text-gray-600">Gestion de la session Challenge Cup</p>
-        </div>
-        <!-- FILTRE NIVEAU -->
-        <div class="glass-morphism rounded-3xl shadow-2xl p-6 mb-6">
-            <h3 class="text-xl font-bold text-gray-800 mb-4 text-center">🎓 Sélectionnez le niveau de formation</h3>
-            <div class="flex flex-wrap justify-center gap-3 mb-4">
-                <button id="level-btn-1" class="level-badge active-1" onclick="selectSSIAPLevel(1)">🛡️ SSIAP 1 — Équipier</button>
-                <button id="level-btn-2" class="level-badge inactive" onclick="selectSSIAPLevel(2)">🛡️🛡️ SSIAP 2 — Chef d'équipe</button>
-                <button id="level-btn-3" class="level-badge inactive" onclick="selectSSIAPLevel(3)">🛡️🛡️🛡️ SSIAP 3 — Chef de service</button>
-            </div>
-            <div class="text-center"><span class="inline-block px-4 py-2 bg-white rounded-xl shadow font-bold text-primary" id="level-active-label">🛡️ Niveau actif : SSIAP 1 — Équipier de sécurité</span></div>
+            <h1 class="text-2xl md:text-5xl font-bold text-primary neon-text mb-2 flex items-center justify-center gap-3 flex-wrap">
+                <img src="/logo/icon.png" alt="MIB" style="height:1.1em;width:auto;vertical-align:middle;filter:drop-shadow(0 2px 4px rgba(0,0,0,.2));">
+                <span id="cc-dash-title">Challenge Cup</span>
+            </h1>
+            <p class="text-sm md:text-lg text-gray-600">Gestion de la session</p>
         </div>
         <!-- CONFIGURATION DE LA SESSION -->
         <div class="glass-morphism rounded-3xl shadow-2xl p-4 mb-6">
@@ -1065,6 +1058,7 @@ function selectSSIAPLevel(level){
         }
     });
     const label=document.getElementById('level-active-label');if(label)label.textContent=LEVEL_LABELS[level]+(window.MIB_LOCK_SSIAP_LEVEL?' 🔒':'');
+    const dt=document.getElementById('cc-dash-title');if(dt)dt.textContent='Challenge Cup '+LEVEL_SHORT[level];
     const bL=document.getElementById('boxes-level-label');if(bL)bL.textContent=LEVEL_SHORT[level];
     const tL=document.getElementById('trainee-level-badge');if(tL)tL.textContent='🛡️ '+LEVEL_SHORT[level];
     if(database&&sessionId)database.ref(`sessions/${sessionId}/ssiapLevel`).set(level);
@@ -1446,6 +1440,7 @@ document.getElementById('supervisor-login-form').addEventListener('submit',async
 document.getElementById('password-toggle').addEventListener('click',e=>{e.preventDefault();const input=document.getElementById('supervisor-password');input.type=input.type==='password'?'text':'password';});
 function initializeSupervisor(){
     showScreen('supervisor-dashboard');
+    const dt=document.getElementById('cc-dash-title');if(dt)dt.textContent='Challenge Cup '+(LEVEL_SHORT[SELECTED_SSIAP_LEVEL]||'');
     document.getElementById('session-id-display').textContent=sessionId;
     const qrEl=document.getElementById('qrcode-container');qrEl.innerHTML='';
     new QRCode(qrEl,{text:window.location.href.split('?')[0]+'?session='+sessionId,width:220,height:220,colorDark:'#3B82F6',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});
