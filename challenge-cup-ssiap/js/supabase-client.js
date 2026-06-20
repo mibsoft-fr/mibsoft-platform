@@ -459,8 +459,17 @@ export const bridge = {
 };
 
 // ---------------------------------------------------------------------
+// SIGNALEMENTS de questions (formateur Challenge Cup → centre)
+// ---------------------------------------------------------------------
+export const reports = {
+  async create(payload) {
+    return ok(c().from('cc_question_reports').insert(payload), 'reports.create');
+  },
+};
+
+// ---------------------------------------------------------------------
 // AGGREGATE EXPORT
 // ---------------------------------------------------------------------
 
-export const supa = { auth, catalogue, sessions, teams, answers, logs, media, admin, bridge };
+export const supa = { auth, catalogue, sessions, teams, answers, logs, media, admin, bridge, reports };
 export default supa;
