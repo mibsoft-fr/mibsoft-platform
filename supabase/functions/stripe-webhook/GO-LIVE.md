@@ -2,7 +2,7 @@
 
 > État actuel : tout fonctionne en **mode test** (`sk_test_…`, cartes `4242`).
 > Cette checklist fait passer le flux en **mode live** pour encaisser de vrais paiements.
-> Projet Supabase : `ozfkmlokovxigfnwjeuk` · Domaines : vitrine `mib-prevention.fr`, app `app.mib-prevention.fr`.
+> Projet Supabase : `ozfkmlokovxigfnwjeuk` · Domaines : domaine unique `mibsoft.fr`.
 
 ---
 
@@ -35,8 +35,8 @@ Supabase Dashboard → **Project Settings → Edge Functions → Secrets** (proj
 | `STRIPE_WEBHOOK_SECRET` | `whsec_…` **live** (étape 4) |
 
 Inchangés (déjà bons) : `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `MAILGUN_API_KEY`,
-`MAILGUN_DOMAIN` (`mib-prevention.fr`), `MAILGUN_HOST` (`api.eu.mailgun.net`),
-`APP_URL` (`https://app.mib-prevention.fr`), `VITRINE_URL` (`https://mib-prevention.fr`).
+`MAILGUN_DOMAIN` (`mibsoft.fr`), `MAILGUN_HOST` (`api.eu.mailgun.net`),
+`APP_URL` (`https://mibsoft.fr`), `VITRINE_URL` (`https://mibsoft.fr`).
 
 > ⚠️ Vérifier que le **domaine Mailgun est vérifié en production** (SPF/DKIM) sinon les emails de bienvenue partiront en spam ou seront rejetés.
 
@@ -86,12 +86,12 @@ Dashboard Stripe (mode **live**) → **Developers → Webhooks → Add endpoint*
 ## 5. Déployer les pages vitrines sur le bon domaine
 
 Les URLs de retour Checkout sont construites à partir de l'origine appelante, donc les pages
-doivent exister à la racine du domaine vitrine **`mib-prevention.fr`** :
+doivent exister à la racine du domaine **`mibsoft.fr`** :
 - [ ] `pricing.html` (depuis `vitrine/pricing.html`)
 - [ ] `paiement-succes.html` (depuis `vitrine/paiement-succes.html`) — cible de `success_url`
 - [ ] `paiement-annule.html` (depuis `vitrine/paiement-annule.html`) — cible de `cancel_url`
 
-> Le CORS de `stripe-create-checkout` autorise déjà `mib-prevention.fr`, `app.mib-prevention.fr`,
+> Le CORS de `stripe-create-checkout` autorise déjà `mibsoft.fr`, `www.mibsoft.fr`,
 > `localhost` et les préviews Vercel `mib-platform-ssiap*`. Si la vitrine est servie depuis un
 > **autre domaine**, il faut l'ajouter à `isOriginAllowed()` dans la fonction.
 
@@ -99,7 +99,7 @@ doivent exister à la racine du domaine vitrine **`mib-prevention.fr`** :
 
 ## 6. Test end-to-end en LIVE
 
-- [ ] Ouvrir `https://mib-prevention.fr/pricing.html`
+- [ ] Ouvrir `https://mibsoft.fr/pricing.html`
 - [ ] Choisir un plan → saisir email + nom → **Continuer**
 - [ ] Régler avec une **vraie carte** (le `4242` ne marche qu'en test) — prendre le plan le moins cher (Indépendant 69 €) pour limiter
 - [ ] Vérifier la redirection vers `paiement-succes.html`
