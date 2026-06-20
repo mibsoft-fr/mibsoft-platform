@@ -401,15 +401,21 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
     </div>
 
     <div id="landing-univers" class="grid grid-cols-1 md:grid-cols-2 gap-5">
-      <div class="card" style="padding:26px;opacity:.62;">
-        <div style="font-size:2rem;margin-bottom:8px;">🏢</div>
-        <h2 style="font-size:1.15rem;font-weight:800;">Entreprise</h2>
+      <div class="card" style="padding:26px;opacity:.78;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:2rem;">🏢</div>
+          <div style="text-align:right;"><div style="font-size:1.8rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-entreprises">—</div><div style="font-size:.66rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">entreprises activées</div></div>
+        </div>
+        <h2 style="font-size:1.15rem;font-weight:800;margin-top:8px;">Entreprise</h2>
         <p style="color:var(--text2,#64748b);font-size:.85rem;margin:6px 0 12px;">CSE, HSE, recherche des causes, visites de sécurité, réglementation…</p>
         <span class="badge b-gray">À venir</span>
       </div>
       <div class="card" style="padding:26px;cursor:pointer;" onclick="landingShowFormation()">
-        <div style="font-size:2rem;margin-bottom:8px;">🎓</div>
-        <h2 style="font-size:1.15rem;font-weight:800;">Formation</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:2rem;">🎓</div>
+          <div style="text-align:right;"><div style="font-size:1.8rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-centres-q">—</div><div style="font-size:.66rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">centres de formation</div></div>
+        </div>
+        <h2 style="font-size:1.15rem;font-weight:800;margin-top:8px;">Formation</h2>
         <p style="color:var(--text2,#64748b);font-size:.85rem;margin:6px 0 12px;">Centres de formation, formateurs, stagiaires.</p>
         <button class="btn btn-green btn-sm" onclick="event.stopPropagation();landingShowFormation()">Ouvrir →</button>
       </div>
@@ -419,21 +425,30 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
       <button onclick="landingBack()" class="btn btn-gray btn-sm" style="margin-bottom:16px;">← Retour aux univers</button>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div class="card" style="padding:26px;cursor:pointer;" onclick="openCentreFormation()">
-          <div style="font-size:2rem;margin-bottom:8px;">🏫</div>
-          <h2 style="font-size:1.15rem;font-weight:800;">Centre de formation</h2>
-          <p style="color:var(--text2,#64748b);font-size:.85rem;margin:6px 0 12px;">Gestion des centres clients, licences et modules.</p>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-size:2rem;">🏫</div>
+            <div style="font-size:2rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-centres">—</div>
+          </div>
+          <h2 style="font-size:1.1rem;font-weight:800;margin-top:8px;">Centre de formation</h2>
+          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Centres clients, licences et modules.</p>
           <button class="btn btn-green btn-sm" onclick="event.stopPropagation();openCentreFormation()">Ouvrir l'admin →</button>
         </div>
-        <div class="card" style="padding:26px;opacity:.62;">
-          <div style="font-size:2rem;margin-bottom:8px;">👨‍🏫</div>
-          <h2 style="font-size:1.15rem;font-weight:800;">Formateur</h2>
-          <p style="color:var(--text2,#64748b);font-size:.85rem;margin:6px 0 12px;">Espace formateur (application dédiée).</p>
+        <div class="card" style="padding:26px;opacity:.78;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-size:2rem;">👨‍🏫</div>
+            <div style="font-size:2rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-formateurs">—</div>
+          </div>
+          <h2 style="font-size:1.1rem;font-weight:800;margin-top:8px;">Formateur</h2>
+          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Formateurs actifs (app dédiée).</p>
           <span class="badge b-gray">App dédiée</span>
         </div>
-        <div class="card" style="padding:26px;opacity:.62;">
-          <div style="font-size:2rem;margin-bottom:8px;">👨‍🎓</div>
-          <h2 style="font-size:1.15rem;font-weight:800;">Stagiaire</h2>
-          <p style="color:var(--text2,#64748b);font-size:.85rem;margin:6px 0 12px;">Espace stagiaire (application dédiée).</p>
+        <div class="card" style="padding:26px;opacity:.78;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-size:2rem;">👨‍🎓</div>
+            <div style="font-size:2rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-stagiaires">—</div>
+          </div>
+          <h2 style="font-size:1.1rem;font-weight:800;margin-top:8px;">Stagiaire</h2>
+          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Stagiaires actifs (app dédiée).</p>
           <span class="badge b-gray">App dédiée</span>
         </div>
       </div>
@@ -1359,6 +1374,23 @@ function showApp(){
   document.getElementById('landing-univers').classList.remove('hidden');
   document.getElementById('landing-formation').classList.add('hidden');
   document.getElementById('page-landing').classList.remove('hidden');
+  loadLandingKpis();
+}
+// KPIs de la page d'accueil (activité par univers).
+async function loadLandingKpis(){
+  try{
+    const [c, f, s, ent] = await Promise.all([
+      supabase.from('centers').select('*',{count:'exact',head:true}),
+      supabase.from('formateurs').select('*',{count:'exact',head:true}).eq('actif',true),
+      supabase.from('stagiaires').select('*',{count:'exact',head:true}).eq('actif',true),
+      supabase.from('centers').select('themes')
+    ]);
+    const setN=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=(v??0);};
+    setN('kpi-l-centres', c.count); setN('kpi-l-centres-q', c.count);
+    setN('kpi-l-formateurs', f.count); setN('kpi-l-stagiaires', s.count);
+    const entCount=(ent.data||[]).filter(r=>r.themes&&(r.themes.cse||r.themes.hse)).length;
+    setN('kpi-l-entreprises', entCount);
+  }catch(e){ console.warn('[landing kpis]', e); }
 }
 window.landingShowFormation=function(){
   document.getElementById('landing-univers').classList.add('hidden');
