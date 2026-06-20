@@ -768,6 +768,15 @@ window.addEventListener('DOMContentLoaded', function() {
     PRENOM = s.stagiaire_prenom || s.stagiaire_nom || '';
     document.getElementById('top-stag').textContent = s.stagiaire_nom || '';
     document.getElementById('home-titre').textContent = 'Bonjour ' + PRENOM + ' !';
+  } else {
+    // Contexte « apprenant » (licence individuelle achetée en self-service)
+    var ap = SESSION.load('apprenant');
+    if (ap) {
+      CENTER_ID = CENTER_ID || ap.center_id;
+      PRENOM = ap.nom || '';
+      document.getElementById('top-stag').textContent = ap.nom || 'Apprenant';
+      document.getElementById('home-titre').textContent = PRENOM ? ('Bonjour ' + PRENOM + ' !') : 'Auto-entraînement';
+    }
   }
   if (NIVEAU_PARAM) {
     selectedNiveau = NIVEAU_PARAM;
@@ -1696,6 +1705,7 @@ function goHome() {
 function goBack() {
   if (!document.getElementById('scr-home').classList.contains('hidden')) {
     if (STAGIAIRE_ID) window.location.href = 'stagiaire.html';
+    else if (SESSION.load('apprenant')) window.location.href = 'apprenant.html';
     else window.history.back();
   } else if (confirm('Abandonner la session ?')) {
     clearGameTimer();

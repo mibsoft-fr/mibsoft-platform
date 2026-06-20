@@ -86,7 +86,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     cycle = sub.items.data[0]?.price?.recurring?.interval === 'month' ? 'mensuel' : 'annuel';
     expiresAt = new Date(sub.current_period_end * 1000).toISOString();
   } else if (session.mode === 'payment') {
-    expiresAt = new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString();
+    // Paiement unique : « apprenant » donne 1 mois d'accès, sinon 1 an par défaut.
+    cycle = (meta.cycle || 'unique').toLowerCase();
+    const exp = new Date();
+    if (planMeta === 'apprenant') exp.setMonth(exp.getMonth() + 1);
+    else exp.setFullYear(exp.getFullYear() + 1);
+    expiresAt = exp.toISOString();
   }
 
   const { data: existingCentre } = await admin.from('centers').select('id, auth_user_id').eq('email', email).maybeSingle();
@@ -103,7 +108,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   const licenseKey = genLicenseKey();
   const quotas = quotasForPlan(planMeta);
-  const licenseType = planMeta === 'independant' ? 'formateur' : 'centre';
+  const licenseType = planMeta === 'independant' ? 'formateur'
+    : planMeta === 'apprenant' ? 'apprenant'
+    : 'centre';
 
   const tempPwd = crypto.randomUUID();
   const { data: created, error: cerr } = await admin.auth.admin.createUser({
@@ -137,9 +144,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     throw new Error('centre_insert: ' + ierr.message);
   }
 
+  const loginPage = licenseType === 'formateur' ? 'login-formateur'
+    : licenseType === 'apprenant' ? 'login-apprenant'
+    : 'login-centre';
+
   await admin.from('profiles').upsert({
     user_id: authUserId,
-    role: licenseType === 'formateur' ? 'formateur' : 'centre',
+    role: licenseType,
     center_id: centre.id,
     linked_id: centre.id
   });
@@ -147,9 +158,9 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const { data: linkData } = await admin.auth.admin.generateLink({
     type: 'recovery',
     email,
-    options: { redirectTo: `${APP_URL}/${licenseType === 'formateur' ? 'login-formateur' : 'login-centre'}.html` }
+    options: { redirectTo: `${APP_URL}/${loginPage}.html` }
   });
-  const magicLink = linkData?.properties?.action_link || `${APP_URL}/login-centre.html`;
+  const magicLink = linkData?.properties?.action_link || `${APP_URL}/${loginPage}.html`;
 
   if (MAILGUN_API_KEY) {
     await sendWelcomeEmail({ email, nomCentre, licenseKey, plan: planMeta, magicLink, licenseType });
@@ -197,6 +208,7 @@ function genLicenseKey(): string {
 function quotasForPlan(plan: string) {
   return ({
     demo:        { max_formateurs: 1,  max_stagiaires: 5 },
+    apprenant:   { max_formateurs: 0,  max_stagiaires: 1 },
     independant: { max_formateurs: 1,  max_stagiaires: 30 },
     starter:     { max_formateurs: 3,  max_stagiaires: 30 },
     pro:         { max_formateurs: 10, max_stagiaires: 100 },
@@ -209,7 +221,7 @@ async function sendWelcomeEmail({ email, nomCentre, licenseKey, plan, magicLink,
   const html = `
     <h2 style="font-family:Georgia,serif;color:#1A2842;">Bienvenue chez MIB Prévention</h2>
     <p>Bonjour,</p>
-    <p>Votre paiement pour le plan <strong>${escapeHtml(plan.toUpperCase())}</strong> a été validé. ${licenseType === 'formateur' ? 'Votre compte formateur indépendant' : `Votre centre <strong>${escapeHtml(nomCentre)}</strong>`} est maintenant activé.</p>
+    <p>Votre paiement pour le plan <strong>${escapeHtml(plan.toUpperCase())}</strong> a été validé. ${licenseType === 'formateur' ? 'Votre compte formateur indépendant' : licenseType === 'apprenant' ? 'Votre accès apprenant (entraînement individuel, 1 mois)' : `Votre centre <strong>${escapeHtml(nomCentre)}</strong>`} est maintenant activé.</p>
     <h3>Vos identifiants</h3>
     <ul>
       <li>Email de connexion : <code>${escapeHtml(email)}</code></li>

@@ -56,11 +56,14 @@ Deno.serve(async (req) => {
     const callerOrigin = req.headers.get('origin') || '';
     const returnUrlPrefix = isOriginAllowed(callerOrigin) ? callerOrigin : VITRINE_URL_DEFAULT;
 
-    const allowedPlans = ['independant','starter','pro','expert'];
+    const allowedPlans = ['independant','starter','pro','expert','apprenant'];
     if (!allowedPlans.includes(plan)) {
       return json({ error: 'plan_invalide', message: `Plans acceptés : ${allowedPlans.join(', ')}. Pour entreprise contactez-nous.` }, 400, cors);
     }
-    if (!['mensuel','annuel'].includes(cycle)) {
+    // Le plan « apprenant » est un paiement unique (accès individuel limité dans le temps).
+    const isOneTime = plan === 'apprenant';
+    const effCycle = isOneTime ? 'unique' : cycle;
+    if (!isOneTime && !['mensuel','annuel'].includes(cycle)) {
       return json({ error: 'cycle_invalide' }, 400, cors);
     }
     if (plan === 'independant' && cycle !== 'mensuel') {
@@ -75,14 +78,14 @@ Deno.serve(async (req) => {
 
     const { data: existing } = await admin.from('centers').select('id, license_status, plan').eq('email', email).maybeSingle();
     if (existing && existing.license_status === 'active') {
-      return json({ error: 'email_déjà_actif', message: 'Un centre actif existe déjà pour cet email. Connectez-vous ou contactez-nous.' }, 409, cors);
+      return json({ error: 'email_déjà_actif', message: 'Un compte actif existe déjà pour cet email. Connectez-vous ou contactez-nous.' }, 409, cors);
     }
 
     const { data: priceRow, error: perr } = await admin
       .from('stripe_prices')
       .select('stripe_price_id, amount_cents')
       .eq('plan', plan)
-      .eq('cycle', cycle)
+      .eq('cycle', effCycle)
       .eq('active', true)
       .maybeSingle();
     if (perr) throw perr;
@@ -91,7 +94,7 @@ Deno.serve(async (req) => {
     }
 
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
+      mode: isOneTime ? 'payment' : 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceRow.stripe_price_id, quantity: 1 }],
       customer_email: email,
@@ -101,8 +104,10 @@ Deno.serve(async (req) => {
       allow_promotion_codes: true,
       billing_address_collection: 'required',
       locale: 'fr',
-      metadata: { plan, cycle, nom_centre: nomCentre, email, source: callerOrigin || 'vitrine' },
-      subscription_data: { metadata: { plan, cycle, nom_centre: nomCentre, email } }
+      metadata: { plan, cycle: effCycle, nom_centre: nomCentre, email, source: callerOrigin || 'vitrine' },
+      ...(isOneTime
+        ? { customer_creation: 'always' }
+        : { subscription_data: { metadata: { plan, cycle: effCycle, nom_centre: nomCentre, email } } })
     });
 
     return json({ url: session.url, session_id: session.id }, 200, cors);

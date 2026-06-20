@@ -110,6 +110,19 @@ footer{text-align:center;margin-top:50px;font-size:.78rem;color:var(--text3);}
       <button class="btn-choose" onclick="choisirPlan('independant')">Choisir Indépendant</button>
     </div>
     <div class="plan">
+      <div class="plan-name">Apprenant</div>
+      <div class="plan-target">Particulier qui s'entraîne seul</div>
+      <div class="plan-price"><span class="amount" data-price="apprenant">10</span><span class="currency">€</span></div>
+      <div class="plan-period"><span class="ht">HT</span> · paiement unique · 1 mois d'accès</div>
+      <ul>
+        <li>Accès individuel 1 mois</li>
+        <li>QCM auto-entraînement SSIAP</li>
+        <li>Suivi de votre progression</li>
+        <li>Sans engagement — paiement unique</li>
+      </ul>
+      <button class="btn-choose" onclick="choisirPlan('apprenant')">Choisir Apprenant</button>
+    </div>
+    <div class="plan">
       <div class="plan-name">Starter</div>
       <div class="plan-target">Petit centre — 1 à 3 formateurs</div>
       <div class="plan-price"><span class="amount" data-price="starter">160</span><span class="currency">€</span></div>
@@ -188,7 +201,7 @@ footer{text-align:center;margin-top:50px;font-size:.78rem;color:var(--text3);}
     <div class="modal-sub">Quelques informations avant le paiement.</div>
     <div class="modal-summary" id="modal-summary">Plan Pro · Annuel · 2 600 € HT/an</div>
     <div class="err" id="modal-err"></div>
-    <label>Nom de votre centre / structure</label>
+    <label id="label-nom">Nom de votre centre / structure</label>
     <input type="text" id="inp-nom" placeholder="Centre Formation SSIAP Lyon" maxlength="120">
     <label>Email de connexion (admin)</label>
     <input type="email" id="inp-email" placeholder="contact@votre-centre.fr" autocomplete="email">
@@ -208,12 +221,18 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let cycleSelected = 'mensuel';
 let planSelected = null;
 const PRICES = {
+  apprenant:   { unique: 10 },
   independant: { mensuel: 69 },
   starter:     { mensuel: 160, annuel: 1600 },
   pro:         { mensuel: 260, annuel: 2600 },
   expert:      { mensuel: 360, annuel: 3600 }
 };
-const LABELS = { independant:'Indépendant', starter:'Starter', pro:'Pro', expert:'Expert' };
+const LABELS = { apprenant:'Apprenant', independant:'Indépendant', starter:'Starter', pro:'Pro', expert:'Expert' };
+function cycleFor(plan) {
+  if (plan === 'apprenant') return 'unique';
+  if (plan === 'independant') return 'mensuel';
+  return cycleSelected;
+}
 
 function setCycle(c) {
   cycleSelected = c;
@@ -229,10 +248,17 @@ function setCycle(c) {
 
 function choisirPlan(plan) {
   planSelected = plan;
-  const cycle = plan === 'independant' ? 'mensuel' : cycleSelected;
+  const isAppr = plan === 'apprenant';
+  const cycle = cycleFor(plan);
   const eur = PRICES[plan][cycle];
   document.getElementById('modal-title').textContent = `Choisir le plan ${LABELS[plan]}`;
-  document.getElementById('modal-summary').innerHTML = `<strong>${LABELS[plan]}</strong> · ${cycle === 'annuel' ? 'Annuel' : 'Mensuel'} · ${eur.toLocaleString('fr-FR')} € HT / ${cycle === 'annuel' ? 'an' : 'mois'}`;
+  document.getElementById('modal-summary').innerHTML = isAppr
+    ? `<strong>Apprenant</strong> · paiement unique · ${eur.toLocaleString('fr-FR')} € HT · 1 mois d'accès`
+    : `<strong>${LABELS[plan]}</strong> · ${cycle === 'annuel' ? 'Annuel' : 'Mensuel'} · ${eur.toLocaleString('fr-FR')} € HT / ${cycle === 'annuel' ? 'an' : 'mois'}`;
+  const lblNom = document.getElementById('label-nom');
+  const inpNom = document.getElementById('inp-nom');
+  if (lblNom) lblNom.textContent = isAppr ? 'Vos nom et prénom' : 'Nom de votre centre / structure';
+  if (inpNom) inpNom.placeholder = isAppr ? 'Jean Dupont' : 'Centre Formation SSIAP Lyon';
   document.getElementById('modal-err').classList.remove('show');
   document.getElementById('inp-nom').value = '';
   document.getElementById('inp-email').value = '';
@@ -254,7 +280,7 @@ async function lancerPaiement() {
   const email = document.getElementById('inp-email').value.trim().toLowerCase();
   const err = document.getElementById('modal-err');
   err.classList.remove('show');
-  if (nom.length < 2) { err.textContent = '❌ Nom du centre requis.'; err.classList.add('show'); return; }
+  if (nom.length < 2) { err.textContent = planSelected === 'apprenant' ? '❌ Votre nom est requis.' : '❌ Nom du centre requis.'; err.classList.add('show'); return; }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { err.textContent = '❌ Email invalide.'; err.classList.add('show'); return; }
 
   const btn = document.getElementById('btn-pay');
@@ -262,7 +288,7 @@ async function lancerPaiement() {
   btn.textContent = 'Redirection…';
 
   try {
-    const cycle = planSelected === 'independant' ? 'mensuel' : cycleSelected;
+    const cycle = cycleFor(planSelected);
     const r = await fetch(`${SUPABASE_URL}/functions/v1/stripe-create-checkout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },

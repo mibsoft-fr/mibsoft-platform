@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>MIB — Espace Apprenant</title>
+<meta name="theme-color" content="#F8FAFC">
+<link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="design-tokens.css">
+<link rel="stylesheet" href="mib-design.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="supabase.js"></script>
+
+<style>
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse 70% 50% at 10% 0%, rgba(16, 185, 129, 0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 90% 100%, rgba(37, 99, 235, 0.08) 0%, transparent 60%),
+      var(--bg-page);
+    padding: var(--space-4);
+  }
+  .wrap { width: 100%; max-width: 640px; margin: 0 auto; }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--space-4) 0 var(--space-6);
+  }
+  .who { display: flex; align-items: center; gap: var(--space-3); }
+  .avatar {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--gradient-primary); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; flex-shrink: 0;
+    box-shadow: 0 6px 14px -4px rgba(16, 185, 129, 0.45);
+  }
+  .who-name { font-family: var(--font-display); font-weight: var(--weight-extrabold); color: var(--text-1); font-size: var(--text-base); }
+  .who-sub { font-size: var(--text-xs); color: var(--text-3); margin-top: 2px; }
+  .btn-logout {
+    background: #fff; border: 1px solid var(--border-default);
+    border-radius: var(--radius-md); padding: 9px 14px;
+    font-family: var(--font-body); font-weight: var(--weight-bold); font-size: var(--text-xs);
+    color: var(--text-2); cursor: pointer; transition: all var(--duration-fast);
+  }
+  .btn-logout:hover { border-color: var(--danger-300); color: var(--danger-700); }
+
+  .hero {
+    background: var(--bg-surface);
+    border-radius: var(--radius-xl);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 14px 40px -16px rgba(15,23,42,.18);
+    padding: var(--space-7); margin-bottom: var(--space-5);
+    position: relative; overflow: hidden;
+  }
+  .hero::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background: var(--gradient-primary); }
+  .hero h1 { font-family: var(--font-display); font-size: var(--text-xl); font-weight: var(--weight-extrabold); color: var(--text-1); }
+  .hero p { font-size: var(--text-sm); color: var(--text-3); margin-top: var(--space-2); line-height: var(--lh-relaxed); }
+
+  .lic-row {
+    display: inline-flex; align-items: center; gap: var(--space-2);
+    margin-top: var(--space-4); padding: 8px 14px; border-radius: var(--radius-full);
+    font-size: var(--text-xs); font-weight: var(--weight-bold);
+    background: var(--success-50); color: var(--success-800); border: 1px solid var(--success-100);
+  }
+  .lic-row.warn { background: var(--warning-100); color: var(--warning-800); border-color: var(--warning-200); }
+
+  .module-card {
+    display: flex; align-items: center; gap: var(--space-4);
+    background: var(--bg-surface);
+    border-radius: var(--radius-xl);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 8px 24px -10px rgba(15,23,42,.16);
+    padding: var(--space-6); cursor: pointer; text-decoration: none;
+    transition: transform var(--duration-standard) var(--ease-out), box-shadow var(--duration-standard);
+  }
+  .module-card:hover { transform: translateY(-3px); box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 16px 32px -10px rgba(16,185,129,.25); }
+  .module-ic {
+    width: 56px; height: 56px; border-radius: var(--radius-lg);
+    background: var(--gradient-primary); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 1.6rem; flex-shrink: 0;
+    box-shadow: 0 8px 18px -6px rgba(16,185,129,.5);
+  }
+  .module-tt { font-family: var(--font-display); font-weight: var(--weight-extrabold); color: var(--text-1); font-size: var(--text-base); }
+  .module-ds { font-size: var(--text-sm); color: var(--text-3); margin-top: 2px; }
+  .module-arrow { margin-left: auto; color: var(--vigil-500); font-size: 1.3rem; }
+
+  .footnote { text-align: center; font-size: var(--text-xs); color: var(--text-4); margin-top: var(--space-6); }
+  .hidden { display: none !important; }
+  .loading-screen {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: var(--bg-page); z-index: 50; gap: var(--space-2); color: var(--text-3); font-size: var(--text-sm);
+  }
+  .spin { width: 20px; height: 20px; border: 2.5px solid var(--vigil-200); border-top-color: var(--vigil-600); border-radius: 50%; animation: sp .6s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loading"><span class="spin"></span> Chargement…</div>
+
+<div class="wrap hidden" id="app">
+
+  <div class="topbar">
+    <div class="who">
+      <div class="avatar">🎓</div>
+      <div>
+        <div class="who-name" id="who-name">Apprenant</div>
+        <div class="who-sub">Espace personnel d'entraînement</div>
+      </div>
+    </div>
+    <button class="btn-logout" onclick="logout()">Déconnexion</button>
+  </div>
+
+  <div class="hero">
+    <h1 id="hero-title">Bienvenue 👋</h1>
+    <p>Entraînez-vous au QCM SSIAP autant que vous le souhaitez pendant la durée de votre accès. Choisissez votre niveau et lancez une série de questions.</p>
+    <div class="lic-row" id="lic-row">Accès actif</div>
+  </div>
+
+  <a class="module-card" href="auto-entrainement.html">
+    <div class="module-ic">🎯</div>
+    <div>
+      <div class="module-tt">Auto-entraînement</div>
+      <div class="module-ds">QCM SSIAP 1 · 2 · 3 — questions corrigées et expliquées</div>
+    </div>
+    <div class="module-arrow">→</div>
+  </a>
+
+  <div class="footnote">MIBsoft — Formation &amp; Prévention Incendie</div>
+</div>
+
+<script>
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function logout(){
+  try { supabase.auth.signOut(); } catch(_) {}
+  SESSION.clear('apprenant');
+  window.location.href = 'login-apprenant.html';
+}
+
+(async function init(){
+  const sess = SESSION.load('apprenant');
+  if (!sess || !sess.center_id) { window.location.href = 'login-apprenant.html'; return; }
+
+  // Vérifie que la session Supabase est toujours valide.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) { SESSION.clear('apprenant'); window.location.href = 'login-apprenant.html'; return; }
+
+  // Re-vérifie le statut/expiration de la licence côté serveur.
+  let centre = null;
+  try {
+    const { data } = await supabase.from('centers')
+      .select('id,nom,license_status,license_expires_at,license_type')
+      .eq('auth_user_id', user.id).single();
+    centre = data;
+  } catch(_) {}
+
+  if (centre) {
+    const expired = centre.license_status !== 'active' ||
+      (centre.license_expires_at && new Date(centre.license_expires_at) < new Date());
+    if (centre.license_type !== 'apprenant' || expired) {
+      const lic = document.getElementById('lic-row');
+      lic.classList.add('warn');
+      lic.textContent = '⚠️ Accès expiré — rachetez une licence pour continuer';
+    } else if (centre.license_expires_at) {
+      document.getElementById('lic-row').textContent =
+        '✅ Accès actif jusqu\'au ' + UTILS.dateStr(centre.license_expires_at);
+    }
+    // Met à jour le nom au cas où.
+    if (centre.nom) sess.nom = centre.nom;
+  }
+
+  document.getElementById('who-name').textContent = sess.nom || 'Apprenant';
+  document.getElementById('hero-title').textContent = sess.nom ? ('Bienvenue ' + esc(sess.nom.split(' ')[0]) + ' 👋') : 'Bienvenue 👋';
+
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+})();
+</script>
+
+</body>
+</html>
