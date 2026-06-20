@@ -391,6 +391,56 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
   </div>
 </div>
 
+<!-- ═══════════ ACCUEIL : UNIVERS (Entreprise / Formation) ═══════════ -->
+<div id="page-landing" class="hidden relative z-10 min-h-screen flex items-center justify-center p-4">
+  <div style="width:100%;max-width:960px;">
+    <div class="text-center mb-8">
+      <div style="font-size:2.2rem;margin-bottom:6px;">⚙️</div>
+      <h1 style="font-size:1.7rem;font-weight:800;color:var(--text1,#0f172a);">MIBsoft — Administration</h1>
+      <p style="color:var(--text2,#64748b);margin-top:4px;">Choisissez un univers</p>
+    </div>
+
+    <div id="landing-univers" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div class="card" style="padding:26px;opacity:.62;">
+        <div style="font-size:2rem;margin-bottom:8px;">🏢</div>
+        <h2 style="font-size:1.15rem;font-weight:800;">Entreprise</h2>
+        <p style="color:var(--text2,#64748b);font-size:.85rem;margin:6px 0 12px;">CSE, HSE, recherche des causes, visites de sécurité, réglementation…</p>
+        <span class="badge b-gray">À venir</span>
+      </div>
+      <div class="card" style="padding:26px;cursor:pointer;" onclick="landingShowFormation()">
+        <div style="font-size:2rem;margin-bottom:8px;">🎓</div>
+        <h2 style="font-size:1.15rem;font-weight:800;">Formation</h2>
+        <p style="color:var(--text2,#64748b);font-size:.85rem;margin:6px 0 12px;">Centres de formation, formateurs, stagiaires.</p>
+        <button class="btn btn-green btn-sm" onclick="event.stopPropagation();landingShowFormation()">Ouvrir →</button>
+      </div>
+    </div>
+
+    <div id="landing-formation" class="hidden">
+      <button onclick="landingBack()" class="btn btn-gray btn-sm" style="margin-bottom:16px;">← Retour aux univers</button>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="card" style="padding:26px;cursor:pointer;" onclick="openCentreFormation()">
+          <div style="font-size:2rem;margin-bottom:8px;">🏫</div>
+          <h2 style="font-size:1.15rem;font-weight:800;">Centre de formation</h2>
+          <p style="color:var(--text2,#64748b);font-size:.85rem;margin:6px 0 12px;">Gestion des centres clients, licences et modules.</p>
+          <button class="btn btn-green btn-sm" onclick="event.stopPropagation();openCentreFormation()">Ouvrir l'admin →</button>
+        </div>
+        <div class="card" style="padding:26px;opacity:.62;">
+          <div style="font-size:2rem;margin-bottom:8px;">👨‍🏫</div>
+          <h2 style="font-size:1.15rem;font-weight:800;">Formateur</h2>
+          <p style="color:var(--text2,#64748b);font-size:.85rem;margin:6px 0 12px;">Espace formateur (application dédiée).</p>
+          <span class="badge b-gray">App dédiée</span>
+        </div>
+        <div class="card" style="padding:26px;opacity:.62;">
+          <div style="font-size:2rem;margin-bottom:8px;">👨‍🎓</div>
+          <h2 style="font-size:1.15rem;font-weight:800;">Stagiaire</h2>
+          <p style="color:var(--text2,#64748b);font-size:.85rem;margin:6px 0 12px;">Espace stagiaire (application dédiée).</p>
+          <span class="badge b-gray">App dédiée</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ APP PRINCIPALE ═══════════ -->
 <div id="page-app" class="hidden relative z-10 flex min-h-screen">
 
@@ -405,6 +455,9 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
     </div>
 
     <nav>
+      <div class="nav-item" onclick="backToLanding()" id="nav-univers" style="opacity:.85;">
+        <span class="nav-icon">🧭</span> Univers MIBsoft
+      </div>
       <div class="nav-item on" onclick="showTab('dashboard')" id="nav-dashboard">
         <span class="nav-icon">📊</span> Dashboard
       </div>
@@ -1280,10 +1333,29 @@ async function logout(){
 }
 
 function showApp(){
+  // Après login → écran d'accueil « univers » (Entreprise / Formation), pas directement l'admin.
   document.getElementById('page-login').classList.add('hidden');
+  document.getElementById('page-app').classList.add('hidden');
+  document.getElementById('landing-univers').classList.remove('hidden');
+  document.getElementById('landing-formation').classList.add('hidden');
+  document.getElementById('page-landing').classList.remove('hidden');
+}
+window.landingShowFormation=function(){
+  document.getElementById('landing-univers').classList.add('hidden');
+  document.getElementById('landing-formation').classList.remove('hidden');
+};
+window.landingBack=function(){
+  document.getElementById('landing-formation').classList.add('hidden');
+  document.getElementById('landing-univers').classList.remove('hidden');
+};
+// « Centre de formation » → ouvre l'admin actuelle (gestion des centres).
+window.openCentreFormation=function(){
+  document.getElementById('page-landing').classList.add('hidden');
   document.getElementById('page-app').classList.remove('hidden');
   loadAll();
-}
+};
+// Retour à l'accueil depuis l'admin (bouton dans la sidebar).
+window.backToLanding=function(){ showApp(); };
 
 // ============================================================
 // NAVIGATION
