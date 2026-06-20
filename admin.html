@@ -207,6 +207,8 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
   padding: var(--space-7);
   width: 100%; max-width: 520px;
   max-height: 90vh; overflow-y: auto;
+  /* Réserve la gouttière du scrollbar des deux côtés : marges gauche/droite équilibrées. */
+  scrollbar-gutter: stable both-edges;
   box-shadow: var(--shadow-xl);
   animation: mib-modal-in var(--duration-standard) var(--ease-out);
 }
@@ -1133,6 +1135,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
       <label class="lbl" style="margin-top:10px;margin-bottom:4px;">Motif de création</label>
       <select id="cc-payment" class="inp" style="font-size:.82rem;">
         <option value="virement">💰 Paiement par virement</option>
+        <option value="stripe">💳 Paiement par carte (Stripe)</option>
         <option value="especes">💵 Paiement espèces / chèque</option>
         <option value="essai">🎁 Essai gratuit</option>
         <option value="offert">🎀 Offert / partenariat</option>
