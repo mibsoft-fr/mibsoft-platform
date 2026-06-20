@@ -1177,6 +1177,10 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
       <div><label class="lbl">Code postal</label><input id="cc-cp" type="text" class="inp"></div>
       <div style="grid-column:1/-1;"><label class="lbl">Téléphone</label><input id="cc-tel" type="text" class="inp"></div>
     </div>
+    <div style="margin-top:10px;">
+      <label class="lbl">Thèmes &amp; modules de la licence</label>
+      <div id="cc-themes-body" style="border:1px solid var(--border-default,#e2e8f0);border-radius:12px;padding:10px;max-height:260px;overflow-y:auto;"></div>
+    </div>
     <div class="flex gap-3 mt-5">
       <button onclick="closeModal('modal-create-centre')" class="btn btn-gray flex-1">Annuler</button>
       <button onclick="submitCreateCentre()" class="btn btn-green flex-1" id="btn-cc">Créer →</button>
@@ -1561,21 +1565,39 @@ window.openThemesModal=function(cid){
   document.getElementById('themes-modal-body').dataset.cid=cid;
   openModal('modal-themes');
 };
-window.saveThemes=async function(){
-  const body=document.getElementById('themes-modal-body'); const cid=body.dataset.cid; if(!cid) return;
+// Collecte les choix thèmes/modules d'un conteneur (modale d'édition OU formulaire de création).
+// Renvoie { ...colonnes booléennes SSIAP, themes:{...} } prêt pour un update centers.
+function collectThemesFrom(root){
   const payload={};
-  // SSIAP → colonnes booléennes
-  THEME_BY_KEY.ssiap.modules.forEach(m=>{ const el=body.querySelector(`[data-ssiap="${m.key}"]`); payload[m.key]=!!(el&&el.checked); });
-  // Thèmes à venir → jsonb `themes`
+  THEME_BY_KEY.ssiap.modules.forEach(m=>{ const el=root.querySelector(`[data-ssiap="${m.key}"]`); payload[m.key]=!!(el&&el.checked); });
   const themes={};
   ADMIN_THEMES.filter(t=>!t.active).forEach(t=>{
-    const en=body.querySelector(`[data-theme-enable="${t.key}"]`);
+    const en=root.querySelector(`[data-theme-enable="${t.key}"]`);
     if(en&&en.checked){
-      const mods=t.modules.filter(m=>{ const el=body.querySelector(`[data-theme-mod="${t.key}:${m.key}"]`); return el&&el.checked; }).map(m=>m.key);
-      themes[t.key]=mods;
+      themes[t.key]=t.modules.filter(m=>{ const el=root.querySelector(`[data-theme-mod="${t.key}:${m.key}"]`); return el&&el.checked; }).map(m=>m.key);
     }
   });
   payload.themes=themes;
+  return payload;
+}
+// Rendu du sélecteur de thèmes dans le formulaire de création (SSIAP coché par défaut).
+window.renderCreateThemes=function(){
+  const root=document.getElementById('cc-themes-body'); if(!root) return;
+  root.innerHTML=ADMIN_THEMES.map(t=>{
+    const tag = t.active ? '<span class="badge b-green" style="font-size:.6rem;">Actif</span>' : '<span class="badge b-gray" style="font-size:.6rem;">À venir</span>';
+    const headToggle = t.active ? '' : `<label style="display:inline-flex;align-items:center;gap:6px;font-size:.78rem;cursor:pointer;"><input type="checkbox" data-theme-enable="${t.key}"> Activer le thème</label>`;
+    const mods=t.modules.map(m=>{
+      const attr = t.active ? `data-ssiap="${m.key}"` : `data-theme-mod="${t.key}:${m.key}"`;
+      return `<label style="display:inline-flex;align-items:center;gap:6px;font-size:.8rem;cursor:pointer;padding:3px 0;"><input type="checkbox" ${attr} ${t.active?'checked':''}> ${esc(m.label)}</label>`;
+    }).join('');
+    return `<div style="border:1px solid var(--border-default,#e2e8f0);border-radius:10px;padding:10px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;"><div style="font-weight:800;">${esc(t.label)} ${tag}</div>${headToggle}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0 14px;">${mods}</div></div>`;
+  }).join('');
+};
+window.saveThemes=async function(){
+  const body=document.getElementById('themes-modal-body'); const cid=body.dataset.cid; if(!cid) return;
+  const payload=collectThemesFrom(body);
   try{
     const { error } = await supabase.from('centers').update(payload).eq('id', cid);
     if(error) throw error;
@@ -1712,6 +1734,7 @@ function openCreateCentreModal(){
   document.getElementById('cc-status').value = 'active';
   document.getElementById('cc-alert').innerHTML = '';
   applyPlanDefaults(); // remplit quotas + date expiration auto
+  renderCreateThemes(); // sélecteur thèmes/modules (SSIAP coché par défaut)
   openModal('modal-create-centre');
 }
 
@@ -1789,6 +1812,17 @@ async function submitCreateCentre(){
     const bd = (body.mode === 'magic_link' && !body.email_sent) ? '#fbbf24' : '#86efac';
     alertEl.innerHTML = `<div style="padding:10px;border-radius:8px;background:${bg};color:${fg};font-size:.8rem;border:1px solid ${bd};">${msg}</div>`;
     await loadCentres();
+    // Applique les thèmes/modules choisis au centre fraîchement créé (retrouvé par clé licence).
+    // Best-effort : un échec ici n'empêche pas la création (réglable ensuite via 🎨).
+    try{
+      const created=(allCentres||[]).find(x=>x.license_key===payload.license_key);
+      if(created){
+        const themePayload=collectThemesFrom(document.getElementById('cc-themes-body'));
+        const { error:tErr } = await supabase.from('centers').update(themePayload).eq('id', created.id);
+        if(!tErr) Object.assign(created, themePayload);
+      }
+    }catch(tEx){ console.warn('[themes après création]', tEx); }
+    renderCentres(allCentres);
     setTimeout(() => closeModal('modal-create-centre'), 1500);
   } catch (e) {
     alertEl.innerHTML = `<div class="alert-err" style="padding:10px;border-radius:8px;font-size:.8rem;">❌ Erreur réseau : ${esc(e.message)}</div>`;
