@@ -241,7 +241,9 @@ export function reshapeQuestion(q) {
     imageKey:       q.image_key,
     imageDesc:      q.image_desc,
   };
-  for (const [k, v] of Object.entries(optional)) if (v != null) out[k] = v;
+  // Ignore les valeurs vides ET les chaînes parasites "null"/"undefined" (mauvaises données
+  // d'import) pour qu'elles ne s'affichent pas dans la fiche.
+  for (const [k, v] of Object.entries(optional)) if (v != null && v !== 'null' && v !== 'undefined') out[k] = v;
   if (opts.length)   out.options    = opts;
   if (items.length)  out.items      = items;
   if (pairs.length)  out.pairs      = pairs;
