@@ -798,11 +798,10 @@
 
     <!-- ADMINISTRATION -->
     <div id="admin-panel" class="hidden max-w-7xl mx-auto">
-        <div class="text-center mb-4 md:mb-6"><h1 class="text-2xl md:text-4xl font-bold text-primary neon-text mb-2">⚙️ Administration SSIAP</h1></div>
+        <div class="text-center mb-4 md:mb-6"><h1 class="text-2xl md:text-4xl font-bold neon-text mb-2" style="color:#fff;">⚙️ Administration SSIAP</h1></div>
         <div class="flex flex-wrap gap-2 mb-4 md:mb-6 justify-center">
             <button id="tab-settings" class="tab-btn active px-3 md:px-6 py-2 md:py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-bold shadow-lg text-sm md:text-base">⏱️ Paramètres</button>
             <button id="tab-questions" class="tab-btn px-3 md:px-6 py-2 md:py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-lg font-bold shadow-lg text-sm md:text-base">📝 Questions</button>
-            <button id="tab-logs" class="tab-btn px-3 md:px-6 py-2 md:py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg font-bold shadow-lg text-sm md:text-base">📋 Logs</button>
             <button id="close-admin-btn" class="px-3 md:px-6 py-2 md:py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-lg font-bold shadow-lg text-sm md:text-base">❌ Fermer</button>
         </div>
         <div id="content-settings" class="tab-content glass-morphism rounded-3xl shadow-2xl p-4 md:p-8 mb-6">
@@ -815,47 +814,31 @@
             <button id="save-settings-btn" class="mt-6 ssiap-gradient text-white text-lg font-bold py-3 px-8 rounded-xl shadow-lg">💾 Enregistrer</button>
         </div>
         <div id="content-questions" class="tab-content hidden glass-morphism rounded-3xl shadow-2xl p-4 md:p-8 mb-6">
-            <h2 class="text-lg md:text-2xl font-bold text-gray-800 mb-3 md:mb-4">📝 Gestion des Questions</h2>
-            <div class="flex flex-wrap gap-2 mb-4">
-                <button onclick="switchAdminLevel(1)" id="admin-level-btn-1" class="px-4 py-2 ssiap-gradient text-white rounded-lg font-bold text-sm">🛡️ SSIAP 1</button>
-                <button onclick="switchAdminLevel(2)" id="admin-level-btn-2" class="px-4 py-2 bg-indigo-500 text-white rounded-lg font-bold text-sm">🛡️🛡️ SSIAP 2</button>
-                <button onclick="switchAdminLevel(3)" id="admin-level-btn-3" class="px-4 py-2 bg-blue-900 text-white rounded-lg font-bold text-sm">🛡️🛡️🛡️ SSIAP 3</button>
-            </div>
+            <h2 class="text-lg md:text-2xl font-bold text-gray-800 mb-3 md:mb-4">📝 Questions <span id="admin-q-level-label" class="text-sm font-bold text-indigo-600"></span></h2>
+            <input type="text" id="admin-q-search" oninput="searchAdminQuestions(this.value)" placeholder="🔎 Rechercher une question…" class="w-full mb-4 px-4 py-3 border-2 border-gray-300 rounded-lg bg-white text-gray-800 focus:border-indigo-500 focus:outline-none">
             <div class="flex flex-wrap gap-2 mb-4" id="box-filter-btns"></div>
             <div id="admin-questions-container"></div>
         </div>
-        <div id="content-logs" class="tab-content hidden glass-morphism rounded-3xl shadow-2xl p-6 mb-6">
-            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <h2 class="text-2xl font-bold text-gray-800">📋 Journal de session</h2>
-                <div class="flex gap-2 flex-wrap">
-                    <select id="log-filter-level" class="px-3 py-2 border-2 border-gray-300 rounded-lg text-sm font-bold bg-white" onchange="renderLogs()">
-                        <option value="all">Tous les niveaux</option>
-                        <option value="error">🔴 Erreurs</option>
-                        <option value="warn">🟠 Avertissements</option>
-                        <option value="success">🟢 Succès</option>
-                        <option value="info">🔵 Info</option>
-                        <option value="debug">🟣 Debug</option>
-                    </select>
-                    <select id="log-filter-team" class="px-3 py-2 border-2 border-gray-300 rounded-lg text-sm font-bold bg-white" onchange="renderLogs()">
-                        <option value="all">Toutes les équipes</option>
-                    </select>
-                    <select id="log-filter-ssiap" class="px-3 py-2 border-2 border-gray-300 rounded-lg text-sm font-bold bg-white" onchange="renderLogs()">
-                        <option value="all">Tous niveaux SSIAP</option>
-                        <option value="1">🛡️ SSIAP 1</option>
-                        <option value="2">🛡️🛡️ SSIAP 2</option>
-                        <option value="3">🛡️🛡️🛡️ SSIAP 3</option>
-                    </select>
-                    <button onclick="refreshLogs()" class="px-4 py-2 bg-blue-500 text-white rounded-lg font-bold text-sm">🔄 Actualiser</button>
-                    <button onclick="exportLogsCSV()" class="px-4 py-2 bg-green-500 text-white rounded-lg font-bold text-sm">⬇️ Export CSV</button>
-                    <button onclick="clearLogs()" class="px-4 py-2 bg-red-500 text-white rounded-lg font-bold text-sm">🗑️ Effacer</button>
-                </div>
-            </div>
-            <div class="mb-3 flex gap-4 text-sm font-bold flex-wrap" id="log-stats"></div>
-            <div id="log-container" class="max-h-96 overflow-y-auto space-y-0.5 bg-gray-50 rounded-xl p-3">
-                <div class="text-gray-400 text-sm text-center py-8">Aucun log — cliquez sur Actualiser</div>
+        <button id="back-to-game-btn" class="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-lg font-bold py-4 rounded-xl shadow-lg">← Retour au jeu</button>
+    </div>
+
+    <!-- MODALE SIGNALEMENT D'UNE QUESTION (vers le centre) -->
+    <div id="report-modal" class="hidden fixed inset-0 z-[10000] items-center justify-center p-4" style="background:rgba(2,6,23,.55)">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-1">🚩 Signaler la question</h3>
+            <p class="text-sm text-gray-500 mb-4" id="report-q-text">—</p>
+            <label class="block text-sm font-bold text-gray-700 mb-1">Type de signalement</label>
+            <select id="report-type" class="w-full mb-3 px-3 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-800">
+                <option value="erreur">❌ Erreur dans la question</option>
+                <option value="modification">✏️ Demande de modification</option>
+            </select>
+            <label class="block text-sm font-bold text-gray-700 mb-1">Message au centre</label>
+            <textarea id="report-message" rows="4" placeholder="Décrivez l'erreur ou la modification souhaitée…" class="w-full mb-4 px-3 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-800"></textarea>
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeReportModal()" class="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold">Annuler</button>
+                <button onclick="submitReport()" class="px-5 py-2 ssiap-gradient text-white rounded-lg font-bold">📨 Envoyer au centre</button>
             </div>
         </div>
-        <button id="back-to-game-btn" class="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-lg font-bold py-4 rounded-xl shadow-lg">← Retour au jeu</button>
     </div>
 
     <!-- MODAL EDITEUR -->
@@ -2096,6 +2079,11 @@ window.addEventListener('DOMContentLoaded',()=>{
               window.SELECTED_SSIAP_LEVEL = ccAuth.ssiapLevel;
               window.MIB_LOCK_SSIAP_LEVEL = true;
             }
+            // Contexte formateur/centre (pour les signalements de questions vers le centre)
+            window.MIB_FORMATEUR = ccAuth.formateur || null;
+            window.MIB_FORMATEUR_ID = ccAuth.formateurId || null;
+            window.MIB_CENTER_ID = ccAuth.centerId || null;
+            window.MIB_SESSION_ID = ccAuth.sessionId || null;
             // Mode invitation : stocker le contexte MIB pour pré-création équipes nominatives
             if (ccAuth.mode === 'invitation' && Array.isArray(ccAuth.stagiaires) && ccAuth.stagiaires.length) {
               window.MIB_INVITATION_MODE = true;
@@ -2553,19 +2541,59 @@ document.getElementById('back-to-game-btn').addEventListener('click',()=>showScr
 document.querySelectorAll('.tab-btn').forEach(btn=>{btn.addEventListener('click',()=>{const tab=btn.id.replace('tab-','');document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(c=>c.classList.add('hidden'));btn.classList.add('active');document.getElementById('content-'+tab).classList.remove('hidden');if(tab==='logs')refreshLogs();});});
 function switchAdminLevel(level){adminCurrentLevel=level;BOXES_DATA=BOXES_BY_LEVEL[level];[1,2,3].forEach(l=>{const btn=document.getElementById(`admin-level-btn-${l}`);if(btn)btn.style.outline=l===level?'3px solid white':'none';});renderBoxFilterButtons();renderAdminQuestions(0);}
 function renderBoxFilterButtons(){const colors=['bg-red-500','bg-blue-600','bg-cyan-500','bg-emerald-500','bg-purple-500','bg-amber-500','bg-slate-600'];document.getElementById('box-filter-btns').innerHTML=BOXES_DATA.map((box,i)=>`<button onclick="renderAdminQuestions(${i})" id="box-filter-${i}" class="px-4 py-2 ${colors[i%colors.length]} text-white rounded-lg font-bold text-sm shadow transition-all hover:scale-105">${box.icon} ${box.title} <span class="opacity-75">(${box.games.length})</span></button>`).join('');}
+const ADMIN_TYPE_COLORS={'quiz':'bg-blue-100 text-blue-800','true-false':'bg-green-100 text-green-800','sequence':'bg-yellow-100 text-yellow-800','matching':'bg-purple-100 text-purple-800','find-intruder':'bg-pink-100 text-pink-800','multiple-select':'bg-indigo-100 text-indigo-800','scenario':'bg-orange-100 text-orange-800','ranking':'bg-teal-100 text-teal-800','fill-blank':'bg-rose-100 text-rose-800','categories':'bg-amber-100 text-amber-800','decision':'bg-sky-100 text-sky-800','image-identify':'bg-fuchsia-100 text-fuchsia-800'};
+// Une ligne de question : consultation seule → 👁️ voir la fiche, 🚩 signaler au centre.
+function renderAdminQuestionRow(bIdx,g,gIdx){
+    const tC=ADMIN_TYPE_COLORS;
+    return `<div class="bg-blue-50 rounded-xl"><div class="p-4 flex items-center justify-between gap-3 cursor-pointer rounded-xl hover:bg-indigo-50" onclick="toggleEditor(${bIdx},${gIdx})"><div class="flex items-center gap-3 flex-1 min-w-0"><span class="px-2 py-0.5 rounded text-xs font-bold ${tC[g.type]||'bg-gray-100'} flex-shrink-0">${getGameTypeLabel(g.type)}</span><span class="font-bold text-gray-800 text-sm truncate">${g.question}</span></div><div class="flex gap-2 flex-shrink-0"><button onclick="event.stopPropagation();toggleEditor(${bIdx},${gIdx})" class="px-3 py-1 bg-indigo-500 text-white rounded-lg text-xs font-bold" title="Voir la fiche">👁️</button><button onclick="event.stopPropagation();openReportModal(${bIdx},${gIdx})" class="px-3 py-1 bg-orange-500 text-white rounded-lg text-xs font-bold" title="Signaler au centre">🚩</button></div></div><div class="q-editor-body" id="qbody-${bIdx}-${gIdx}">${renderQuestionPreview(g)}</div></div>`;
+}
 function renderAdminQuestions(boxIdx){
     adminCurrentBox=boxIdx;BOXES_DATA.forEach((_,i)=>{const btn=document.getElementById('box-filter-'+i);if(btn)btn.style.outline=i===boxIdx?'3px solid white':'none';});
-    const box=BOXES_DATA[boxIdx];const tC={'quiz':'bg-blue-100 text-blue-800','true-false':'bg-green-100 text-green-800','sequence':'bg-yellow-100 text-yellow-800','matching':'bg-purple-100 text-purple-800','find-intruder':'bg-pink-100 text-pink-800','multiple-select':'bg-indigo-100 text-indigo-800','scenario':'bg-orange-100 text-orange-800','ranking':'bg-teal-100 text-teal-800','fill-blank':'bg-rose-100 text-rose-800','categories':'bg-amber-100 text-amber-800','decision':'bg-sky-100 text-sky-800','image-identify':'bg-fuchsia-100 text-fuchsia-800'};
-    // Statistiques des types
+    const ll=document.getElementById('admin-q-level-label');if(ll)ll.textContent='· '+(LEVEL_SHORT[adminCurrentLevel]||'');
+    const search=document.getElementById('admin-q-search');if(search&&search.value.trim()){searchAdminQuestions(search.value);return;}
+    const box=BOXES_DATA[boxIdx];const tC=ADMIN_TYPE_COLORS;
     const typeCount={};box.games.forEach(g=>{typeCount[g.type]=(typeCount[g.type]||0)+1;});
     const typeSummary=Object.entries(typeCount).map(([t,n])=>`<span class="px-2 py-1 text-xs font-bold ${tC[t]||'bg-gray-100'} rounded-lg">${getGameIcon(t)} ×${n}</span>`).join('');
     document.getElementById('admin-questions-container').innerHTML=`
         <div class="mb-4 p-4 bg-white rounded-xl">
-            <div class="flex items-center justify-between mb-3"><span class="font-bold text-gray-800">${box.icon} ${box.title} — ${box.games.length} questions (${LEVEL_SHORT[adminCurrentLevel]})</span><button onclick="addNewQuestion(${boxIdx})" class="px-4 py-2 bg-green-500 text-white rounded-lg font-bold text-sm">+ Ajouter</button></div>
+            <div class="font-bold text-gray-800 mb-3">${box.icon} ${box.title} — ${box.games.length} questions (${LEVEL_SHORT[adminCurrentLevel]})</div>
             <div class="flex flex-wrap gap-2 mb-1"><span class="text-xs font-bold text-gray-500 mr-2">Types présents :</span>${typeSummary}</div>
         </div>
-        <div class="space-y-3">${box.games.map((g,gIdx)=>`<div class="bg-blue-50 rounded-xl"><div class="p-4 flex items-center justify-between gap-3 cursor-pointer rounded-xl hover:bg-indigo-50" onclick="toggleEditor(${boxIdx},${gIdx})"><div class="flex items-center gap-3 flex-1 min-w-0"><span class="px-2 py-0.5 rounded text-xs font-bold ${tC[g.type]||'bg-gray-100'} flex-shrink-0">${getGameTypeLabel(g.type)}</span><span class="font-bold text-gray-800 text-sm truncate">${g.question}</span></div><div class="flex gap-2 flex-shrink-0"><button onclick="event.stopPropagation();openEditModal(${boxIdx},${gIdx})" class="px-3 py-1 bg-blue-500 text-white rounded-lg text-xs font-bold">✏️</button><button onclick="event.stopPropagation();deleteQuestion(${boxIdx},${gIdx})" class="px-3 py-1 bg-red-500 text-white rounded-lg text-xs font-bold">🗑️</button></div></div><div class="q-editor-body" id="qbody-${boxIdx}-${gIdx}">${renderQuestionPreview(g)}</div></div>`).join('')}</div>`;
+        <div class="space-y-3">${box.games.map((g,gIdx)=>renderAdminQuestionRow(boxIdx,g,gIdx)).join('')}</div>`;
 }
+// Recherche sur toutes les boîtes du niveau courant.
+window.searchAdminQuestions=function(term){
+    term=(term||'').trim().toLowerCase();
+    if(!term){renderAdminQuestions(adminCurrentBox||0);return;}
+    const rows=[];
+    (BOXES_DATA||[]).forEach((box,bIdx)=>{(box.games||[]).forEach((g,gIdx)=>{
+        if((g.question||'').toLowerCase().includes(term)||(g.explanation||'').toLowerCase().includes(term))rows.push(renderAdminQuestionRow(bIdx,g,gIdx));
+    });});
+    document.getElementById('admin-questions-container').innerHTML=`<div class="mb-3 text-sm font-bold text-gray-600">${rows.length} résultat(s) pour « ${term} »</div><div class="space-y-3">${rows.join('')||'<div class="text-gray-400 text-center py-8">Aucune question trouvée.</div>'}</div>`;
+};
+// ── Signalement d'une question vers le centre ──
+let _reportTarget=null;
+window.openReportModal=function(bIdx,gIdx){
+    const g=BOXES_DATA[bIdx]&&BOXES_DATA[bIdx].games&&BOXES_DATA[bIdx].games[gIdx];if(!g)return;
+    _reportTarget={id:g.id||null,text:g.question||'',boxTitle:(BOXES_DATA[bIdx].title||'')};
+    document.getElementById('report-q-text').textContent=g.question||'';
+    document.getElementById('report-type').value='erreur';
+    document.getElementById('report-message').value='';
+    const m=document.getElementById('report-modal');m.classList.remove('hidden');m.style.display='flex';
+};
+window.closeReportModal=function(){const m=document.getElementById('report-modal');m.classList.add('hidden');m.style.display='none';};
+window.submitReport=async function(){
+    if(!_reportTarget)return;
+    const msg=(document.getElementById('report-message').value||'').trim();
+    if(!msg){showCustomAlert('Merci de décrire le signalement.');return;}
+    const payload={question_id:_reportTarget.id,question_text:_reportTarget.text,ssiap_level:SELECTED_SSIAP_LEVEL||adminCurrentLevel||null,box_title:_reportTarget.boxTitle,type:document.getElementById('report-type').value,message:msg,formateur:window.MIB_FORMATEUR||null,formateur_id:window.MIB_FORMATEUR_ID||null,center_id:window.MIB_CENTER_ID||null,session_id:window.MIB_SESSION_ID||null};
+    try{
+        if(!window.supa||!window.supa.reports)throw new Error('API indisponible');
+        await window.supa.reports.create(payload);
+        closeReportModal();
+        showCustomAlert('✅ Signalement envoyé au centre. Merci !');
+    }catch(e){console.error('[report]',e);showCustomAlert('❌ Échec de l’envoi. Réessayez.');}
+};
 function renderQuestionPreview(g){let html=`<div class="text-sm text-gray-700 font-bold mb-3">${g.question}</div>`;if(g.scenario)html+=`<div class="bg-blue-50 p-3 rounded-lg mb-3 text-sm text-gray-600"><b>📋</b> ${g.scenario}</div>`;if(g.imageKey&&PICTOGRAMS[g.imageKey])html+=`<div style="width:50px;height:50px;border-radius:8px;overflow:hidden;margin-bottom:8px">${PICTOGRAMS[g.imageKey]}</div>`;if(g.options)html+=`<div class="space-y-1 mb-3">${g.options.map((o,i)=>`<div class="text-sm p-2 rounded-lg flex gap-2 ${(Array.isArray(g.correctAnswers)?g.correctAnswers.includes(i):g.correctAnswer===i)?'bg-green-50 text-green-800 font-bold':'bg-gray-50 text-gray-600'}"><span>${(Array.isArray(g.correctAnswers)?g.correctAnswers.includes(i):g.correctAnswer===i)?'✅':'○'}</span>${String.fromCharCode(65+i)}. ${o}</div>`).join('')}</div>`;if(g.items)html+=`<div class="space-y-1 mb-3">${g.items.map((item,i)=>`<div class="text-sm p-2 bg-yellow-50 text-yellow-800 rounded-lg">${i+1}. ${item}</div>`).join('')}</div>`;if(g.pairs)html+=`<div class="space-y-1 mb-3">${g.pairs.map(p=>`<div class="text-sm p-2 bg-purple-50 text-purple-800 rounded-lg">${p.left} → ${p.right}</div>`).join('')}</div>`;if(g.sentence)html+=`<div class="text-sm p-2 bg-rose-50 text-rose-800 rounded-lg mb-2 font-mono">${g.sentence}</div>`;if(g.explanation)html+=`<div class="text-sm p-3 bg-blue-50 text-blue-800 rounded-lg"><b>💡</b> ${g.explanation}</div>`;return html;}
 window.toggleEditor=function(bIdx,gIdx){document.getElementById(`qbody-${bIdx}-${gIdx}`)?.classList.toggle('open');};
 window.deleteQuestion=function(bIdx,gIdx){
