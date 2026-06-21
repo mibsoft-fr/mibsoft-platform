@@ -57,12 +57,13 @@
     border-radius: var(--radius-xl);
     border: 1px solid rgba(15, 23, 42, 0.08);
     box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 14px 40px -16px rgba(15,23,42,.18);
-    padding: var(--space-7); margin-bottom: var(--space-5);
+    padding: var(--space-6); margin-bottom: var(--space-5);
     position: relative; overflow: hidden;
   }
   .hero::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background: var(--gradient-primary); }
-  .hero h1 { font-family: var(--font-display); font-size: var(--text-xl); font-weight: var(--weight-extrabold); color: var(--text-1); }
-  .hero p { font-size: var(--text-sm); color: var(--text-3); margin-top: var(--space-2); line-height: var(--lh-relaxed); }
+  .hero h1 { font-family: var(--font-display); font-size: var(--text-xl); font-weight: var(--weight-extrabold); color: var(--text-1); margin: 0; }
+  .hero p { font-size: var(--text-sm); color: var(--text-3); margin: var(--space-2) 0 0; line-height: var(--lh-relaxed); }
+  .hero h1, .hero p, .lic-row { max-width: 100%; }
 
   .lic-row {
     display: inline-flex; align-items: center; gap: var(--space-2);
@@ -149,6 +150,9 @@ function logout(){
 (async function init(){
   const sess = SESSION.load('apprenant');
   if (!sess || !sess.center_id) { window.location.href = 'login-apprenant.html'; return; }
+  // L'espace apprenant est exclusif : on purge toute session d'un autre rôle
+  // pour qu'auto-entrainement.html ne reprenne pas une identité parasite.
+  SESSION.clear('stagiaire'); SESSION.clear('formateur'); SESSION.clear('centre');
 
   // Vérifie que la session Supabase est toujours valide.
   const { data: { user } } = await supabase.auth.getUser();

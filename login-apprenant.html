@@ -336,6 +336,9 @@ async function doLogin(){
     if(data.license_type!=='apprenant') throw new Error('nottype');
     if(data.license_status!=='active') throw new Error('expired');
     if(data.license_expires_at && new Date(data.license_expires_at)<new Date()) throw new Error('expired');
+    // Évite toute contamination d'identité (session stagiaire/formateur/centre restée
+    // sur le même navigateur) : on ne conserve QUE la session apprenant.
+    SESSION.clear('stagiaire'); SESSION.clear('formateur'); SESSION.clear('centre');
     SESSION.save('apprenant',{
       center_id:data.id, nom:data.nom, plan:data.plan,
       license_expires_at:data.license_expires_at, role:'apprenant'
