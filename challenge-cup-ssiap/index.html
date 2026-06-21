@@ -1165,7 +1165,8 @@ function renderSessionConfigUI(){
 function updateStartButtonLabel(){
     const btn=document.getElementById('start-game-btn');
     if(!btn)return;
-    if(sessionConfig.trainingMode)btn.textContent='🎓 Lancer Training Quiz';
+    if(Array.isArray(window.MIB_REMEDIATION_IDS)&&window.MIB_REMEDIATION_IDS.length)btn.textContent='🔁 Lancer la remédiation';
+    else if(sessionConfig.trainingMode)btn.textContent='🎓 Lancer Training Quiz';
     else if(sessionConfig.libreMode)btn.textContent='🎲 Lancer le Mode Libre';
     else btn.textContent='🚀 Lancer le Jeu';
 }
@@ -1493,7 +1494,10 @@ document.getElementById('start-game-btn').addEventListener('click',async()=>{
     }
     database.ref('sessions/'+sessionId+'/status').set('playing');
     database.ref('sessions/'+sessionId+'/ssiapLevel').set(SELECTED_SSIAP_LEVEL);
-    if(sessionConfig.trainingMode){
+    if(Array.isArray(window.MIB_REMEDIATION_IDS)&&window.MIB_REMEDIATION_IDS.length){
+        // Remédiation : rejouer uniquement les questions échouées transmises par MIB.
+        launchRemediationMode();
+    }else if(sessionConfig.trainingMode){
         // Quiz training mode (pure QCM from pool='quiz')
         launchTrainingMode();
     }else if(sessionConfig.libreMode){
@@ -1503,6 +1507,21 @@ document.getElementById('start-game-btn').addEventListener('click',async()=>{
         showBoxesScreen();
     }
 });
+// Remédiation MIB : ne joue que les questions échouées (par id) présentes dans la banque Challenge.
+function launchRemediationMode(){
+    const ids=new Set((window.MIB_REMEDIATION_IDS||[]).map(String));
+    const pool=[];
+    for(const m of BOXES_DATA){ for(const g of (m.games||[])){ if(ids.has(String(g.id)))pool.push(g); } }
+    if(!pool.length){
+        showCustomAlert('❌ Aucune des questions échouées n\'est disponible dans la banque Challenge (elles proviennent peut-être de l\'auto-entraînement). Lancement du mode normal.');
+        window.MIB_REMEDIATION_IDS=null; showBoxesScreen(); return;
+    }
+    const games=shuffle(pool);
+    currentBox=-1;currentGameIndex=0;
+    fireLog('info','REMEDIATION',`Remédiation : ${games.length} question(s) échouée(s) rejouée(s)`,{count:games.length,level:SELECTED_SSIAP_LEVEL});
+    database.ref('sessions/'+sessionId).update({currentBox:-1,currentGameIndex:0,gameStatus:'loading',randomizedGames:games});
+    loadGame();
+}
 function showBoxesScreen(){
     showScreenSafe('boxes-screen');
     document.getElementById('boxes-level-label').textContent=LEVEL_SHORT[SELECTED_SSIAP_LEVEL];
@@ -2121,6 +2140,9 @@ window.addEventListener('DOMContentLoaded',()=>{
             window.MIB_FORMATEUR_ID = ccAuth.formateurId || null;
             window.MIB_CENTER_ID = ccAuth.centerId || null;
             window.MIB_SESSION_ID = ccAuth.sessionId || null;
+            // Remédiation : liste d'ids de questions échouées à rejouer uniquement.
+            window.MIB_REMEDIATION_IDS = (Array.isArray(ccAuth.remediationQuestionIds) && ccAuth.remediationQuestionIds.length)
+              ? ccAuth.remediationQuestionIds.map(String) : null;
             // Mode invitation : stocker le contexte MIB pour pré-création équipes nominatives
             if (ccAuth.mode === 'invitation' && Array.isArray(ccAuth.stagiaires) && ccAuth.stagiaires.length) {
               window.MIB_INVITATION_MODE = true;
