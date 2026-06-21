@@ -1006,18 +1006,30 @@ async function loadMultiQuestionsForLevel(niveau){
   MULTI_CACHE[niveau] = mapped;
   return mapped;
 }
-// Tirage diversifié : groupe par type, mélange, puis interclasse (round-robin) pour
-// que les premières questions couvrent un maximum de types différents.
-function mjDiversify(arr){
+// Round-robin par type à l'intérieur d'un paquet (varie les types entre eux).
+function mjRoundRobin(items){
   var groups = {};
-  arr.forEach(function(q){ var t = q.type || 'quiz'; (groups[t] = groups[t] || []).push(q); });
-  var keys = Object.keys(groups);
+  items.forEach(function(q){ var t = q.type || 'quiz'; (groups[t] = groups[t] || []).push(q); });
+  var keys = shuffle(Object.keys(groups));
   keys.forEach(function(k){ groups[k] = shuffle(groups[k]); });
-  keys = shuffle(keys);
   var out = [], added = true;
-  while (added) {
-    added = false;
-    for (var i = 0; i < keys.length; i++) { var g = groups[keys[i]]; if (g.length) { out.push(g.shift()); added = true; } }
+  while (added) { added = false; for (var i = 0; i < keys.length; i++){ var g = groups[keys[i]]; if (g.length){ out.push(g.shift()); added = true; } } }
+  return out;
+}
+// Tirage diversifié multi-jeux : on sépare « manipulation » (ordre, association, trous,
+// catégories, décision, classement) et « à options » (QCM, vrai/faux, intrus, scénario…),
+// puis on intercale en FAVORISANT les manipulations (1 manip pour ~1 option) pour casser
+// la dominance des QCM. ~3 manip pour 2 options sur 5 questions.
+var MJ_MANIP_SET = { sequence:1, ranking:1, matching:1, 'fill-blank':1, categories:1, decision:1 };
+function mjDiversify(arr){
+  var manip = [], opt = [];
+  arr.forEach(function(q){ (MJ_MANIP_SET[q.type] ? manip : opt).push(q); });
+  manip = mjRoundRobin(manip);
+  opt = mjRoundRobin(opt);
+  var out = [], i = 0, j = 0;
+  while (i < manip.length || j < opt.length) {
+    if (i < manip.length) out.push(manip[i++]); // une manipulation d'abord
+    if (j < opt.length) out.push(opt[j++]);      // puis une à options
   }
   return out;
 }
