@@ -144,9 +144,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     throw new Error('centre_insert: ' + ierr.message);
   }
 
-  const loginPage = licenseType === 'formateur' ? 'login-formateur'
-    : licenseType === 'apprenant' ? 'login-apprenant'
-    : 'login-centre';
+  // Indépendant (license_type='formateur') et centre : compte email/mot de passe → login-centre
+  // (login-formateur.html est réservé aux formateurs d'un centre, connexion par PIN, sans
+  //  flux de définition de mot de passe). Apprenant → son espace dédié.
+  const loginPage = licenseType === 'apprenant' ? 'login-apprenant' : 'login-centre';
 
   await admin.from('profiles').upsert({
     user_id: authUserId,
