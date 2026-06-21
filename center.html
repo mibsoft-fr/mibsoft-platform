@@ -743,7 +743,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
   <!-- SIDEBAR -->
   <div class="sidebar" id="sidebar">
     <div class="flex items-center gap-3 mb-7">
-      <div style="width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:1.1rem;box-shadow:2px 2px 8px rgba(37,99,235,.35);">🏢</div>
+      <div id="sb-logo-ic" style="width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:1.1rem;box-shadow:2px 2px 8px rgba(37,99,235,.35);">🏢</div>
       <div>
         <div class="logo-t" style="font-size:.95rem;color:var(--text);" id="sb-centre-nom">Mon Centre</div>
         <div style="font-size:.65rem;color:var(--text3);" id="sb-plan-lbl">Plan —</div>
@@ -757,6 +757,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
       <div class="sep"></div>
       <div class="nav-item" onclick="showTab('plans')" id="nav-plans"><span class="nav-icon">🗺️</span>Mes plans</div>
       <div class="nav-item" onclick="showTab('modules')" id="nav-modules"><span class="nav-icon">🧩</span>Mes modules</div>
+      <div class="nav-item" id="nav-indep-entrainement" style="display:none;" onclick="window.location.href='auto-entrainement.html'"><span class="nav-icon">🎯</span>Auto-entraînement</div>
       <div class="nav-item" onclick="showTab('signalements')" id="nav-signalements"><span class="nav-icon">🚩</span>Signalements</div>
       <div class="nav-item" onclick="showTab('avis')" id="nav-avis"><span class="nav-icon">💬</span>Avis & Retours</div>
       <div class="nav-item" onclick="showTab('compte')" id="nav-compte"><span class="nav-icon">⚙️</span>Mon compte</div>
@@ -1445,9 +1446,15 @@ function capitalizeWords(str) {
   return str.replace(/\b\w/g, l => l.toUpperCase());
 }
 
+// Mode « Indépendant » : le compte est un formateur indépendant (license_type='independant').
+// On réutilise tout l'espace centre mais on masque l'administration centre (formateurs,
+// plans, signalements, avis, compte) et on rebrande la barre latérale.
+let IS_INDEP = false;
+
 window.addEventListener('DOMContentLoaded', async () => {
   const session = SESSION.load('centre');
   if (!session) { window.location.href = 'index.html'; return; }
+  IS_INDEP = session.independant === true;
   CENTER = {
     id: session.center_id, nom: session.center_nom, plan: session.plan,
     email: session.email || '', license_key: session.license_key || '',
@@ -1455,18 +1462,42 @@ window.addEventListener('DOMContentLoaded', async () => {
     max_formateurs: session.max_formateurs || 3,
     max_stagiaires: session.max_stagiaires || 30
   };
+  if (IS_INDEP) applyIndependantMode();
   updateSidebar();
   loadAll();
   try {
     const { data } = await supabase.from('centers').select('*').eq('id', session.center_id).maybeSingle();
-    if (data) { CENTER = data; updateSidebar(); loadAll(); }
+    if (data) {
+      CENTER = data;
+      if (data.license_type === 'independant') { IS_INDEP = true; applyIndependantMode(); }
+      updateSidebar();
+      loadAll();
+    }
   } catch(e) { console.error(e); }
 });
+
+// Onglets réservés à l'administration d'un centre (non pertinents pour un indépendant).
+const INDEP_HIDDEN_TABS = ['formateurs','plans','signalements','avis','compte'];
+
+window.applyIndependantMode = function() {
+  document.body.classList.add('independant-mode');
+  INDEP_HIDDEN_TABS.forEach(id => {
+    const n = document.getElementById('nav-' + id);
+    if (n) n.style.display = 'none';
+  });
+  const ic = document.getElementById('sb-logo-ic');
+  if (ic) { ic.textContent = '🧑‍🏫'; ic.style.background = 'var(--gradient-primary, linear-gradient(135deg,#10b981,#2563eb))'; }
+  const ent = document.getElementById('nav-indep-entrainement');
+  if (ent) ent.style.display = '';
+  // Si l'onglet actif est désormais masqué, revenir au tableau de bord.
+  const active = document.querySelector('.nav-item.on');
+  if (active && INDEP_HIDDEN_TABS.includes(active.id.replace('nav-',''))) showTab('dashboard');
+};
 
 function updateSidebar() {
   if (!CENTER) return;
   document.getElementById('sb-centre-nom').textContent = CENTER.nom;
-  document.getElementById('sb-plan-lbl').textContent = 'Plan ' + (CENTER.plan || '—');
+  document.getElementById('sb-plan-lbl').textContent = IS_INDEP ? 'Espace Indépendant' : ('Plan ' + (CENTER.plan || '—'));
   document.getElementById('top-expire').textContent = CENTER.license_expires_at ? UTILS.dateStr(CENTER.license_expires_at) : '—';
 }
 
