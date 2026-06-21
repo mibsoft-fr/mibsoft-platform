@@ -1072,6 +1072,27 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
             <p style="font-size:.72rem;color:var(--text3);margin-top:8px;text-align:center;">Conservez cette clé pour vous reconnecter</p>
           </div>
         </div>
+
+        <!-- Fiche formateur (indépendant uniquement) -->
+        <div class="card p-5" id="compte-indep-card" style="display:none;margin-top:20px;max-width:640px;">
+          <h3 style="font-size:.9rem;font-weight:700;margin-bottom:6px;">👤 Ma fiche formateur</h3>
+          <p style="font-size:.78rem;color:var(--text3);margin-bottom:14px;">Ces informations vous permettent d'être désigné(e) comme formateur lors de la création d'une session.</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div><label class="lbl">Prénom</label><input type="text" id="if-prenom" class="inp" placeholder="Jean"></div>
+            <div><label class="lbl">Nom</label><input type="text" id="if-nom" class="inp" placeholder="Dupont"></div>
+            <div><label class="lbl">Niveau de formation</label>
+              <select id="if-niveau" class="inp">
+                <option value="">— Sélectionner —</option>
+                <option value="SSIAP1">SSIAP 1</option>
+                <option value="SSIAP2">SSIAP 2</option>
+                <option value="SSIAP3">SSIAP 3</option>
+              </select>
+            </div>
+            <div><label class="lbl">Date de dernière mise à niveau</label><input type="date" id="if-recyclage" class="inp"></div>
+          </div>
+          <div id="if-msg" class="hidden" style="margin-top:12px;"></div>
+          <button onclick="saveIndepFormateur()" class="btn btn-green" id="btn-if-save" style="margin-top:14px;">💾 Enregistrer ma fiche</button>
+        </div>
       </div>
 
       <!-- STATISTIQUES -->
@@ -1477,7 +1498,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Onglets réservés à l'administration d'un centre (non pertinents pour un indépendant).
-const INDEP_HIDDEN_TABS = ['formateurs','plans','signalements','avis','compte'];
+// « compte » est conservé pour l'indépendant (infos compte + sa fiche formateur).
+const INDEP_HIDDEN_TABS = ['formateurs','plans','signalements','avis'];
 
 window.applyIndependantMode = function() {
   document.body.classList.add('independant-mode');
@@ -1489,9 +1511,20 @@ window.applyIndependantMode = function() {
   if (ic) { ic.textContent = '🧑‍🏫'; ic.style.background = 'var(--gradient-primary, linear-gradient(135deg,#10b981,#2563eb))'; }
   const ent = document.getElementById('nav-indep-entrainement');
   if (ent) ent.style.display = '';
-  // Si l'onglet actif est désormais masqué, revenir au tableau de bord.
+  // Libellés adaptés à l'indépendant
+  TAB_TITLES.dashboard = ['Tableau de bord indépendant','Vue générale de votre activité'];
+  TAB_TITLES.sessions  = ['Mes sessions','Gérez vos sessions et vos stagiaires'];
+  TAB_TITLES.compte    = ['Mon compte','Vos informations et votre fiche formateur'];
+  // Si l'onglet actif est désormais masqué, revenir au tableau de bord ; sinon rafraîchir le titre.
   const active = document.querySelector('.nav-item.on');
-  if (active && INDEP_HIDDEN_TABS.includes(active.id.replace('nav-',''))) showTab('dashboard');
+  if (active && INDEP_HIDDEN_TABS.includes(active.id.replace('nav-',''))) {
+    showTab('dashboard');
+  } else if (active) {
+    const t = active.id.replace('nav-','');
+    const ti = TAB_TITLES[t] || ['',''];
+    document.getElementById('top-title').textContent = ti[0];
+    document.getElementById('top-sub').textContent = ti[1];
+  }
 };
 
 function updateSidebar() {
@@ -2784,6 +2817,68 @@ window.renderCompte = function() {
   document.getElementById('info-plan').innerHTML = '<span class="badge b-blue">Plan ' + CENTER.plan + '</span>';
   document.getElementById('info-expire').textContent = CENTER.license_expires_at ? UTILS.dateStr(CENTER.license_expires_at) : '—';
   document.getElementById('info-key').textContent = CENTER.license_key || '—';
+  if (IS_INDEP) renderIndepFiche();
+};
+
+// Fiche formateur de l'indépendant (1 seul formateur = lui-même).
+window.renderIndepFiche = async function() {
+  const card = document.getElementById('compte-indep-card');
+  if (card) card.style.display = '';
+  try {
+    const { data } = await supabase.from('formateurs').select('*').eq('center_id', CENTER.id).order('created_at').limit(1).maybeSingle();
+    window._indepFormateur = data || null;
+    const f = data || {};
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+    set('if-prenom', f.prenom);
+    set('if-nom', f.nom);
+    set('if-niveau', f.niveau);
+    set('if-recyclage', f.date_dernier_recyclage);
+  } catch (e) { console.error(e); }
+};
+
+window.saveIndepFormateur = async function() {
+  const prenom = document.getElementById('if-prenom').value.trim();
+  const nom = document.getElementById('if-nom').value.trim();
+  const niveau = document.getElementById('if-niveau').value || null;
+  const recyclage = document.getElementById('if-recyclage').value || null;
+  const msg = document.getElementById('if-msg');
+  const btn = document.getElementById('btn-if-save');
+  const showMsg = (cls, txt) => { msg.className = cls; msg.textContent = txt; msg.classList.remove('hidden'); };
+  if (prenom.length < 2 || nom.length < 2) { showMsg('alert-err', '❌ Renseignez votre nom et prénom.'); return; }
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Enregistrement…';
+  try {
+    const existing = window._indepFormateur;
+    if (existing && existing.id) {
+      const { error } = await supabase.from('formateurs').update({
+        prenom, nom, niveau, date_dernier_recyclage: recyclage
+      }).eq('id', existing.id);
+      if (error) throw error;
+    } else {
+      // Génère un PIN (colonnes pin_hash/pin_clair de la table formateurs).
+      let pin = '', pinHash = '';
+      for (let a = 0; a < 20; a++) {
+        const c = String(Math.floor(100000 + Math.random() * 900000));
+        const ph = await UTILS.hash(c);
+        const { data: dup } = await supabase.from('formateurs').select('id').eq('center_id', CENTER.id).eq('pin_hash', ph);
+        if (!dup || !dup.length) { pin = c; pinHash = ph; break; }
+      }
+      const { error } = await supabase.from('formateurs').insert({
+        prenom, nom, email: CENTER.email || null, role: 'responsable',
+        niveau, date_dernier_recyclage: recyclage,
+        pin_hash: pinHash, pin_clair: pin,
+        center_id: CENTER.id, auth_user_id: CENTER.auth_user_id || null, actif: true
+      });
+      if (error) throw error;
+    }
+    allFormateurs = []; // force le rechargement dans le modal session
+    await renderIndepFiche();
+    showMsg('alert-ok', '✅ Fiche enregistrée. Vous pouvez maintenant créer une session avec vous-même comme formateur.');
+  } catch (e) {
+    console.error(e);
+    showMsg('alert-err', '❌ ' + (e.message || 'Erreur lors de l\'enregistrement.'));
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
 };
 
 // ============================================================
