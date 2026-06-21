@@ -975,6 +975,25 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
               <button onclick="launchChallengeIndep('invitation')" class="btn btn-green btn-sm">👤 Challenge salle (individuel)</button>
             </div>
           </div>
+          <!-- Résultats & questions échouées (indépendant) -->
+          <div class="card p-5" id="indep-results-card" style="display:none;">
+            <div class="flex flex-wrap justify-between items-center gap-3 mb-3">
+              <div>
+                <h3 style="font-size:.9rem;font-weight:700;">📊 Résultats &amp; questions échouées</h3>
+                <p style="font-size:.72rem;color:var(--text2);margin-top:2px;">Entraînement des stagiaires de cette session (auto-entraînement + challenge).</p>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button onclick="loadIndepResults()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
+                <button onclick="printIndepErrors()" class="btn btn-gray btn-sm">🖨️ Imprimer les erreurs</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3 mb-4">
+              <div class="card p-3 text-center"><div class="logo-t" style="font-size:1.4rem;color:#3b82f6;" id="ir-nb">—</div><div style="font-size:.68rem;color:var(--text3);">Entraînements</div></div>
+              <div class="card p-3 text-center"><div class="logo-t" style="font-size:1.4rem;color:#059669;" id="ir-moy">—</div><div style="font-size:.68rem;color:var(--text3);">Score moyen</div></div>
+              <div class="card p-3 text-center"><div class="logo-t" style="font-size:1.4rem;color:#ef4444;" id="ir-err">—</div><div style="font-size:.68rem;color:var(--text3);">Questions à revoir</div></div>
+            </div>
+            <div id="indep-errors-list"><p style="font-size:.82rem;color:var(--text3);padding:8px 0;">Cliquez sur « Actualiser » pour charger les résultats.</p></div>
+          </div>
           <!-- Gestion des stagiaires de la session -->
           <div class="card p-5">
             <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
@@ -2528,6 +2547,8 @@ window.openSessionDetail = async function(id) {
   document.getElementById('sessions-detail-view').classList.remove('hidden');
   const lc = document.getElementById('indep-launch-card');
   if (lc) lc.style.display = IS_INDEP ? '' : 'none';
+  const rc = document.getElementById('indep-results-card');
+  if (rc) rc.style.display = IS_INDEP ? '' : 'none';
   const tl = {INI:'Initial', REC:'Recyclage', RAN:'Remise à niveau'};
   const dateCode = currentSession.date_debut ? '.' + currentSession.date_debut.slice(8,10) + currentSession.date_debut.slice(5,7) + currentSession.date_debut.slice(2,4) : '';
   document.getElementById('detail-sess-title').textContent = currentSession.type_formation + '_' + currentSession.niveau + dateCode;
@@ -2540,6 +2561,7 @@ window.openSessionDetail = async function(id) {
   await loadParticipants();
   if (!allStagiaires.length) await loadStagiaires();
   renderStagiairesInSession();
+  if (IS_INDEP) loadIndepResults();
 };
 
 window.backToSessionsList = function() {
@@ -2575,6 +2597,71 @@ window.launchChallengeIndep = async function(mode) {
   }
   try { localStorage.setItem('mib_cc_auth', JSON.stringify(payload)); } catch (_) {}
   window.open('challenge-cup-ssiap/index.html', '_blank');
+};
+
+// ── Résultats & questions échouées par session (indépendant) ──
+// Source unifiée : entrainement_sessions / entrainement_reponses des stagiaires de la session
+// (auto-entraînement + challenge nominatif répliqué par le bridge cc_bridge_to_entrainement).
+function _irEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+window._indepErrors = [];
+window.loadIndepResults = async function(){
+  if(!currentSession) return;
+  const ids = (currentParticipants||[]).map(p=>p.stagiaire_id).filter(Boolean);
+  const errList = document.getElementById('indep-errors-list');
+  const setK = (nb,moy,err)=>{ document.getElementById('ir-nb').textContent=nb; document.getElementById('ir-moy').textContent=moy; document.getElementById('ir-err').textContent=err; };
+  if(!ids.length){ setK(0,'—',0); window._indepErrors=[]; errList.innerHTML='<p style="font-size:.82rem;color:var(--text3);padding:8px 0;">Aucun stagiaire inscrit à cette session.</p>'; return; }
+  errList.innerHTML='<p style="font-size:.82rem;color:var(--text3);padding:8px 0;">Chargement…</p>';
+  try{
+    const { data: sess } = await supabase.from('entrainement_sessions')
+      .select('id,score,max_score,status').in('stagiaire_id', ids).eq('status','terminee');
+    const sessions = sess||[];
+    let pctSum=0, n=0;
+    sessions.forEach(s=>{ if(s.max_score){ pctSum += (s.score/s.max_score*100); n++; } });
+    const moy = n? Math.round(pctSum/n) : 0;
+    let errors=[];
+    if(sessions.length){
+      const sessIds = sessions.map(s=>s.id);
+      const { data: reps } = await supabase.from('entrainement_reponses')
+        .select('question_id,reponse,est_correcte').in('session_id', sessIds).eq('est_correcte', false);
+      const seen=new Set();
+      (reps||[]).forEach(r=>{ const qid=String(r.question_id); if(seen.has(qid))return; seen.add(qid); errors.push(r); });
+    }
+    window._indepErrors = errors;
+    setK(sessions.length, sessions.length? (moy+'%') : '—', errors.length);
+    renderIndepErrors(errors, errList);
+  }catch(e){ console.error(e); errList.innerHTML='<p style="font-size:.82rem;color:#ef4444;padding:8px 0;">Erreur de chargement des résultats.</p>'; }
+};
+function renderIndepErrors(errors, el){
+  if(!errors.length){ el.innerHTML='<p style="font-size:.82rem;color:var(--text3);padding:8px 0;">Aucune question échouée à revoir pour le moment.</p>'; return; }
+  el.innerHTML = errors.map((r,i)=>{
+    const rep = r.reponse||{};
+    const q = rep.question || ('Question '+String(r.question_id).slice(0,8));
+    const bonne = rep.bonne || '';
+    const expl = rep.explication || '';
+    return '<div style="border:1px solid var(--border-default,#e5e7eb);border-radius:10px;padding:10px 12px;margin-bottom:8px;">'
+      + '<div style="font-weight:600;font-size:.86rem;">'+(i+1)+'. '+_irEsc(q)+'</div>'
+      + (bonne?'<div style="font-size:.8rem;color:#059669;margin-top:4px;">✅ '+_irEsc(bonne)+'</div>':'')
+      + (expl?'<div style="font-size:.78rem;color:var(--text2);margin-top:4px;">💡 '+_irEsc(expl)+'</div>':'')
+      + '</div>';
+  }).join('');
+}
+window.printIndepErrors = function(){
+  const errors = window._indepErrors||[];
+  if(!errors.length){ alert('Aucune question échouée à imprimer. Cliquez d\'abord sur « Actualiser ».'); return; }
+  const titre = 'Questions à revoir — ' + (document.getElementById('detail-sess-title')?.textContent||'session');
+  const rows = errors.map((r,i)=>{ const rep=r.reponse||{}; const q=rep.question||('Question '+String(r.question_id).slice(0,8)); const bonne=rep.bonne||''; const expl=rep.explication||'';
+    return '<div style="border:1px solid #d1d5db;border-radius:10px;padding:12px 14px;margin-bottom:10px;page-break-inside:avoid;">'
+      +'<div style="font-weight:700;">'+(i+1)+'. '+_irEsc(q)+'</div>'
+      +(bonne?'<div style="color:#059669;margin-top:5px;">Bonne réponse : '+_irEsc(bonne)+'</div>':'')
+      +(expl?'<div style="color:#374151;margin-top:5px;">Explication : '+_irEsc(expl)+'</div>':'')
+      +'</div>';
+  }).join('');
+  const w = window.open('', '_blank');
+  w.document.write('<html><head><title>'+titre+'</title><style>body{font-family:sans-serif;padding:20px;color:#111827;} h2{margin-bottom:4px;} @media print{button{display:none}}</style></head><body>'
+    +'<h2>'+titre+'</h2><p style="color:#6b7280;margin-bottom:16px;">'+errors.length+' question(s) à revoir — Généré le '+new Date().toLocaleDateString('fr-FR')+'</p>'
+    +'<p><button onclick="window.print()" style="background:#059669;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:700;">🖨️ Imprimer</button></p><br>'
+    +rows+'</body></html>');
+  w.document.close();
 };
 
 window.updateSessionStatut = async function(statut) {
