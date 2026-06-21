@@ -663,7 +663,15 @@ body {
       <button onclick="selectNb(40)" id="bnb40" class="nb-btn">40</button>
     </div>
   </div>
-  <div class="card p-4 mb-4">
+  <div class="card p-4 mb-3">
+    <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:10px;">Type de questions</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+      <button onclick="selectQType('qcm')" id="qt-qcm" class="nb-btn sel">📋 QCM</button>
+      <button onclick="selectQType('multi')" id="qt-multi" class="nb-btn">🎲 Multi-jeux</button>
+    </div>
+    <p id="qt-hint" style="font-size:.7rem;color:#6b7280;margin-top:8px;">QCM classique — questions à choix.</p>
+  </div>
+  <div class="card p-4 mb-4" id="parties-card">
     <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:10px;">Parties / S&#233;quences</div>
     <div id="filter-list"></div>
   </div>
@@ -900,6 +908,47 @@ async function loadQuestionsForLevel(niveau) {
   return QUESTIONS_CACHE[niveau];
 }
 
+// ── Multi-jeux : banque variée (cc_questions) — Phase A : types à base d'options ──
+window.CURRENT_QTYPE = 'qcm';
+var MULTI_CACHE = {};
+var MULTI_OPTION_TYPES = ['quiz','true-false','multiple-select','find-intruder','scenario'];
+function gameTypeLabelFr(t){ return {'quiz':'QCM','true-false':'Vrai / Faux','multiple-select':'Plusieurs réponses','find-intruder':"Trouve l'intrus",'scenario':'Mise en situation'}[t]||'Question'; }
+function selectQType(t){
+  window.CURRENT_QTYPE = (t === 'multi') ? 'multi' : 'qcm';
+  var isMulti = window.CURRENT_QTYPE === 'multi';
+  document.getElementById('qt-qcm').classList.toggle('sel', !isMulti);
+  document.getElementById('qt-multi').classList.toggle('sel', isMulti);
+  document.getElementById('qt-hint').textContent = isMulti
+    ? 'Variété : QCM, vrai/faux, plusieurs réponses, intrus, mise en situation.'
+    : 'QCM classique — questions à choix.';
+  var pc = document.getElementById('parties-card');
+  if (pc) { pc.style.opacity = isMulti ? '.45' : '1'; pc.title = isMulti ? 'Filtre non appliqué en multi-jeux' : ''; }
+}
+async function loadMultiQuestionsForLevel(niveau){
+  if (MULTI_CACHE[niveau]) return MULTI_CACHE[niveau];
+  var lvl = parseInt(niveau.replace('SSIAP',''), 10);
+  var modsRes = await supabase.from('cc_modules').select('id').eq('level', lvl).eq('is_active', true);
+  var modIds = (modsRes.data || []).map(function(m){ return m.id; });
+  if (!modIds.length) return [];
+  var qRes = await supabase.from('cc_questions')
+    .select('id,type,question,scenario,explanation,correct_answer,correct_answers,cc_question_options(option_index,option_text)')
+    .in('module_id', modIds).eq('is_active', true).eq('status', 'published').in('type', MULTI_OPTION_TYPES);
+  var raw = qRes.data || [];
+  var mapped = raw.filter(function(q){ return q.cc_question_options && q.cc_question_options.length >= 2; }).map(function(q){
+    var opts = q.cc_question_options.slice().sort(function(a,b){ return a.option_index - b.option_index; }).map(function(o){ return o.option_text; });
+    var ca;
+    if (Array.isArray(q.correct_answers) && q.correct_answers.length) ca = q.correct_answers;
+    else if (q.correct_answer != null) ca = [q.correct_answer];
+    else ca = [0];
+    var expl = '';
+    if (q.explanation) { expl = (typeof q.explanation === 'object') ? (q.explanation.complete || q.explanation.short || '') : String(q.explanation); }
+    var qtext = q.scenario ? ('📋 ' + q.scenario + '\n\n' + (q.question || '')) : (q.question || '');
+    return { id: q.id, type: q.type, question: qtext, options: opts, correctAnswers: ca, bonne_reponse: opts[ca[0]] || '', explication: expl, titre: gameTypeLabelFr(q.type), partieLabel: '', sequenceLabel: '', themeLabel: '', niveau: niveau, _source: 'cc' };
+  });
+  MULTI_CACHE[niveau] = mapped;
+  return mapped;
+}
+
 async function startSession(mode) {
   mode = (mode === 'game') ? 'game' : 'quiz';
   window.CURRENT_MODE = mode;
@@ -914,22 +963,27 @@ async function startSession(mode) {
   lastConfig = {niveau: selectedNiveau, nb: selectedNb, parties: new Set(selParties), seqs: new Set(selSeqs), mode: mode};
 
   try {
-    // 1) Charger la banque de questions depuis le JSON Challenge Cup
-    var all = await loadQuestionsForLevel(selectedNiveau);
-
-    // 2) Filtrer par parties sélectionnées (matching sur partieLabel)
-    var filtered = all;
-    if (selParties.size > 0) {
-      var partiesSelNoms = (STRUCT[selectedNiveau] || [])
-        .filter(function(p) { return selParties.has(p.id); })
-        .map(function(p) { return p.nom; });
-      if (partiesSelNoms.length) {
-        filtered = all.filter(function(q) { return partiesSelNoms.indexOf(q.partieLabel) !== -1; });
+    // 1) Charger la banque selon le type choisi
+    var all, filtered;
+    if (window.CURRENT_QTYPE === 'multi') {
+      // Multi-jeux : banque variée (cc_questions). Le filtre Parties/Séquences ne s'applique pas.
+      all = await loadMultiQuestionsForLevel(selectedNiveau);
+      filtered = all;
+    } else {
+      // QCM : banque JSON classique + filtre parties/séquences
+      all = await loadQuestionsForLevel(selectedNiveau);
+      filtered = all;
+      if (selParties.size > 0) {
+        var partiesSelNoms = (STRUCT[selectedNiveau] || [])
+          .filter(function(p) { return selParties.has(p.id); })
+          .map(function(p) { return p.nom; });
+        if (partiesSelNoms.length) {
+          filtered = all.filter(function(q) { return partiesSelNoms.indexOf(q.partieLabel) !== -1; });
+        }
       }
-    }
-    // 3) Filtrage séquence (optionnel — matching sur sequenceLabel)
-    if (selSeqs.size > 0) {
-      filtered = filtered.filter(function(q) { return selSeqs.has(q.sequenceLabel); });
+      if (selSeqs.size > 0) {
+        filtered = filtered.filter(function(q) { return selSeqs.has(q.sequenceLabel); });
+      }
     }
     if (!filtered.length) throw new Error('Aucune question dans cette sélection — essayez un filtre plus large.');
 
