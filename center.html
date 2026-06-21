@@ -757,6 +757,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
       <div class="sep"></div>
       <div class="nav-item" onclick="showTab('plans')" id="nav-plans"><span class="nav-icon">🗺️</span>Mes plans</div>
       <div class="nav-item" onclick="showTab('modules')" id="nav-modules"><span class="nav-icon">🧩</span>Mes modules</div>
+      <div class="nav-item" id="nav-avisstag" style="display:none;" onclick="showTab('avisstag')"><span class="nav-icon">💬</span>Avis stagiaires</div>
       <div class="nav-item" onclick="showTab('signalements')" id="nav-signalements"><span class="nav-icon">🚩</span>Signalements</div>
       <div class="nav-item" onclick="showTab('avis')" id="nav-avis"><span class="nav-icon">💬</span>Avis & Retours</div>
       <div class="nav-item" onclick="showTab('compte')" id="nav-compte"><span class="nav-icon">⚙️</span>Mon compte</div>
@@ -1121,6 +1122,20 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
           <div id="if-msg" class="hidden" style="margin-top:12px;"></div>
           <button onclick="saveIndepFormateur()" class="btn btn-green" id="btn-if-save" style="margin-top:14px;">💾 Enregistrer ma fiche</button>
         </div>
+      </div>
+
+      <!-- AVIS STAGIAIRES (indépendant) -->
+      <div id="tab-avisstag" class="hidden">
+        <div class="flex justify-between items-center mb-5">
+          <h2 style="font-size:.95rem;font-weight:700;">💬 Avis &amp; retours de vos stagiaires</h2>
+          <button onclick="loadIndepAvis()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
+        </div>
+        <div class="grid grid-cols-3 gap-3 mb-5">
+          <div class="card p-3 text-center"><div class="logo-t" style="font-size:1.4rem;color:#3b82f6;" id="ia-nb">—</div><div style="font-size:.68rem;color:var(--text3);">Avis reçus</div></div>
+          <div class="card p-3 text-center"><div class="logo-t" style="font-size:1.4rem;color:#059669;" id="ia-note">—</div><div style="font-size:.68rem;color:var(--text3);">Note moyenne</div></div>
+          <div class="card p-3 text-center"><div class="logo-t" style="font-size:1.4rem;color:#d97706;" id="ia-new">—</div><div style="font-size:.68rem;color:var(--text3);">Nouveaux</div></div>
+        </div>
+        <div id="body-avisstag"><p style="font-size:.85rem;color:var(--text3);padding:10px 0;">Chargement…</p></div>
       </div>
 
       <!-- STATISTIQUES -->
@@ -1537,6 +1552,7 @@ window.applyIndependantMode = function() {
   });
   const ic = document.getElementById('sb-logo-ic');
   if (ic) { ic.textContent = '🧑‍🏫'; ic.style.background = 'var(--gradient-primary, linear-gradient(135deg,#10b981,#2563eb))'; }
+  var na = document.getElementById('nav-avisstag'); if (na) na.style.display = '';
   // Libellés adaptés à l'indépendant
   TAB_TITLES.dashboard = ['Tableau de bord indépendant','Vue générale de votre activité'];
   TAB_TITLES.sessions  = ['Mes sessions','Gérez vos sessions et vos stagiaires'];
@@ -1565,7 +1581,7 @@ window.logout = function() { SESSION.clear('centre'); window.location.href = 'in
 // ============================================================
 // NAVIGATION
 // ============================================================
-const TABS = ['dashboard','formateurs','sessions','stats','plans','modules','signalements','avis','compte'];
+const TABS = ['dashboard','formateurs','sessions','stats','plans','modules','signalements','avis','compte','avisstag'];
 const TAB_TITLES = {
   dashboard:  ['Tableau de bord','Vue générale de votre centre'],
   formateurs: ['Formateurs','Gérez votre équipe pédagogique'],
@@ -1575,7 +1591,8 @@ const TAB_TITLES = {
   modules:    ['Modules actifs','Fonctionnalités de votre plan'],
   signalements:['Signalements','Erreurs et demandes des formateurs sur les questions Challenge Cup'],
   avis:       ['Avis & Retours','Vos retours et demandes au superviseur MIB'],
-  compte:     ['Mon compte','Informations et licence']
+  compte:     ['Mon compte','Informations et licence'],
+  avisstag:   ['Avis & retours','Retours de vos stagiaires']
 };
 
 window.showTab = function(t) {
@@ -1600,6 +1617,35 @@ window.showTab = function(t) {
   if (t === 'signalements') loadSignalements();
   if (t === 'compte') renderCompte();
   if (t === 'stats') loadStats();
+  if (t === 'avisstag') loadIndepAvis();
+};
+
+// Avis & retours des stagiaires (espace indépendant).
+window.loadIndepAvis = async function(){
+  var body = document.getElementById('body-avisstag'); if(!body) return;
+  body.innerHTML = '<p style="font-size:.85rem;color:var(--text3);padding:10px 0;">Chargement…</p>';
+  try{
+    var res = await supabase.from('avis_retours').select('*').eq('center_id', CENTER.id).eq('auteur_type','stagiaire').order('created_at',{ascending:false}).limit(200);
+    var rows = res.data || [];
+    var notes = rows.filter(function(a){return a.note;}).map(function(a){return a.note;});
+    document.getElementById('ia-nb').textContent = rows.length;
+    document.getElementById('ia-note').textContent = notes.length ? (notes.reduce(function(s,n){return s+n;},0)/notes.length).toFixed(1)+' ⭐' : '—';
+    document.getElementById('ia-new').textContent = rows.filter(function(a){return a.statut==='nouveau';}).length;
+    if(!rows.length){ body.innerHTML = '<p style="font-size:.85rem;color:var(--text3);padding:10px 0;">Aucun avis pour le moment.</p>'; return; }
+    var esc = function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+    body.innerHTML = rows.map(function(a){
+      var stars = a.note ? '⭐'.repeat(a.note) + '☆'.repeat(5-a.note) : '';
+      var dt = a.created_at ? UTILS.dateStr(a.created_at) : '';
+      return '<div class="card p-4 mb-2">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">'
+        + '<strong style="font-size:.88rem;">'+esc(a.auteur_nom||'Stagiaire')+'</strong>'
+        + '<span style="font-size:.78rem;color:#f59e0b;">'+stars+'</span></div>'
+        + (a.type?'<div style="font-size:.72rem;color:var(--text3);margin-top:2px;">'+esc(a.type)+'</div>':'')
+        + '<div style="font-size:.85rem;margin-top:6px;line-height:1.5;">'+esc(a.message||'')+'</div>'
+        + '<div style="font-size:.7rem;color:var(--text3);margin-top:6px;">'+dt+'</div>'
+        + '</div>';
+    }).join('');
+  }catch(e){ console.error(e); body.innerHTML = '<p style="font-size:.85rem;color:#ef4444;padding:10px 0;">Erreur de chargement.</p>'; }
 };
 
 // Signalements de questions Challenge Cup remontés par les formateurs (table cc_question_reports).
