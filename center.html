@@ -757,7 +757,6 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
       <div class="sep"></div>
       <div class="nav-item" onclick="showTab('plans')" id="nav-plans"><span class="nav-icon">🗺️</span>Mes plans</div>
       <div class="nav-item" onclick="showTab('modules')" id="nav-modules"><span class="nav-icon">🧩</span>Mes modules</div>
-      <div class="nav-item" id="nav-indep-entrainement" style="display:none;" onclick="window.location.href='auto-entrainement.html'"><span class="nav-icon">🎯</span>Auto-entraînement</div>
       <div class="nav-item" onclick="showTab('signalements')" id="nav-signalements"><span class="nav-icon">🚩</span>Signalements</div>
       <div class="nav-item" onclick="showTab('avis')" id="nav-avis"><span class="nav-icon">💬</span>Avis & Retours</div>
       <div class="nav-item" onclick="showTab('compte')" id="nav-compte"><span class="nav-icon">⚙️</span>Mon compte</div>
@@ -965,6 +964,15 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
                 <div style="font-size:.9rem;font-weight:600;margin-top:4px;" id="detail-formateur-nom">—</div>
               </div>
               <button onclick="openModal('modal-assign-formateur')" class="btn btn-blue btn-sm">✏️ Changer</button>
+            </div>
+          </div>
+          <!-- Lancement entraînement en salle (indépendant) -->
+          <div class="card p-5" id="indep-launch-card" style="display:none;">
+            <h3 style="font-size:.9rem;font-weight:700;margin-bottom:4px;">🎮 Entraînement en salle</h3>
+            <p style="font-size:.72rem;color:var(--text2);margin-bottom:12px;">Lancez un Challenge avec vos stagiaires (s'ouvre dans un nouvel onglet).</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button onclick="launchChallengeIndep('qr')" class="btn btn-blue btn-sm">🎯 Challenge salle (groupe)</button>
+              <button onclick="launchChallengeIndep('invitation')" class="btn btn-green btn-sm">👤 Challenge salle (individuel)</button>
             </div>
           </div>
           <!-- Gestion des stagiaires de la session -->
@@ -1509,8 +1517,6 @@ window.applyIndependantMode = function() {
   });
   const ic = document.getElementById('sb-logo-ic');
   if (ic) { ic.textContent = '🧑‍🏫'; ic.style.background = 'var(--gradient-primary, linear-gradient(135deg,#10b981,#2563eb))'; }
-  const ent = document.getElementById('nav-indep-entrainement');
-  if (ent) ent.style.display = '';
   // Libellés adaptés à l'indépendant
   TAB_TITLES.dashboard = ['Tableau de bord indépendant','Vue générale de votre activité'];
   TAB_TITLES.sessions  = ['Mes sessions','Gérez vos sessions et vos stagiaires'];
@@ -2520,6 +2526,8 @@ window.openSessionDetail = async function(id) {
   if (!currentSession) return;
   document.getElementById('sessions-list-view').classList.add('hidden');
   document.getElementById('sessions-detail-view').classList.remove('hidden');
+  const lc = document.getElementById('indep-launch-card');
+  if (lc) lc.style.display = IS_INDEP ? '' : 'none';
   const tl = {INI:'Initial', REC:'Recyclage', RAN:'Remise à niveau'};
   const dateCode = currentSession.date_debut ? '.' + currentSession.date_debut.slice(8,10) + currentSession.date_debut.slice(5,7) + currentSession.date_debut.slice(2,4) : '';
   document.getElementById('detail-sess-title').textContent = currentSession.type_formation + '_' + currentSession.niveau + dateCode;
@@ -2538,6 +2546,35 @@ window.backToSessionsList = function() {
   document.getElementById('sessions-detail-view').classList.add('hidden');
   document.getElementById('sessions-list-view').classList.remove('hidden');
   currentSession = null;
+};
+
+// Lancement du Challenge Cup en salle par l'indépendant (groupe = 'qr', individuel = 'invitation').
+// Reproduit le flux formateur : dépose mib_cc_auth dans localStorage puis ouvre l'app challenge.
+window.launchChallengeIndep = async function(mode) {
+  if (!currentSession) { alert('Ouvrez d\'abord une session.'); return; }
+  const niveau = currentSession.niveau || '';
+  const ssiapLevel = niveau === 'SSIAP1' ? 1 : niveau === 'SSIAP2' ? 2 : niveau === 'SSIAP3' ? 3 : null;
+  // Fiche formateur de l'indépendant (renseignée dans « Mon compte »).
+  let fNom = CENTER.nom, fId = null;
+  try {
+    const { data: f } = await supabase.from('formateurs').select('id,prenom,nom').eq('center_id', CENTER.id).order('created_at').limit(1).maybeSingle();
+    if (f) { fId = f.id; fNom = ((f.prenom || '') + ' ' + (f.nom || '')).trim() || CENTER.nom; }
+  } catch (_) {}
+  if (!fId) { alert('Renseignez d\'abord votre fiche formateur dans « Mon compte » avant de lancer un challenge.'); return; }
+  const payload = { ts: Date.now(), formateur: fNom, formateurId: fId, centerId: CENTER.id, ssiapLevel, sessionId: currentSession.id, mode };
+  if (mode === 'invitation') {
+    const stags = (currentParticipants || [])
+      .filter(p => p.stagiaire_id && p.stagiaires)
+      .map(p => ({ id: p.stagiaire_id, nom: p.stagiaires.nom, prenom: p.stagiaires.prenom, niveau: p.stagiaires.niveau }));
+    if (!stags.length) {
+      if (!confirm('Aucun stagiaire inscrit à cette session.\nOuvrir en mode groupe (QR libre) ?')) return;
+      payload.mode = 'qr';
+    } else {
+      payload.stagiaires = stags;
+    }
+  }
+  try { localStorage.setItem('mib_cc_auth', JSON.stringify(payload)); } catch (_) {}
+  window.open('challenge-cup-ssiap/index.html', '_blank');
 };
 
 window.updateSessionStatut = async function(statut) {
