@@ -1425,15 +1425,15 @@ function showApp(){
 // KPIs de la page d'accueil (activité par univers).
 async function loadLandingKpis(){
   try{
-    const [c, indep, s, ent] = await Promise.all([
+    const [c, indep, appr, ent] = await Promise.all([
       supabase.from('centers').select('*',{count:'exact',head:true}),
       supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_type','independant'),
-      supabase.from('stagiaires').select('*',{count:'exact',head:true}).eq('actif',true),
+      supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_type','apprenant'),
       supabase.from('centers').select('themes')
     ]);
     const setN=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=(v??0);};
     setN('kpi-l-centres', c.count); setN('kpi-l-centres-q', c.count);
-    setN('kpi-l-formateurs', indep.count); setN('kpi-l-stagiaires', s.count);
+    setN('kpi-l-formateurs', indep.count); setN('kpi-l-stagiaires', appr.count);
     const entCount=(ent.data||[]).filter(r=>r.themes&&(r.themes.cse||r.themes.hse)).length;
     setN('kpi-l-entreprises', entCount);
   }catch(e){ console.warn('[landing kpis]', e); }
