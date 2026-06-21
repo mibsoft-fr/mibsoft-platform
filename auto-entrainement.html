@@ -620,6 +620,33 @@ body {
 .game-mode #q-card::before {
   background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
 }
+/* ── Multi-jeux : types manipulation ── */
+.mj-hint{font-size:.78rem;font-weight:600;color:#4f46e5;background:#eef2ff;border-radius:8px;padding:7px 10px;margin-bottom:10px;}
+.mj-item,.mj-match{position:relative;background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:13px 14px;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .15s;}
+.mj-item:hover,.mj-match:hover{border-color:#a5b4fc;}
+.mj-item.sel{border-color:#6366f1;background:#eef2ff;}
+.mj-match.sel{border-color:#6366f1;background:#eef2ff;}
+.mj-match.matched{border-color:#10b981;background:#ecfdf5;color:#065f46;}
+.mj-num{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:#6366f1;color:#fff;font-size:.78rem;display:flex;align-items:center;justify-content:center;}
+.mj-order{margin-top:12px;background:#f9fafb;border-radius:8px;padding:9px 12px;font-size:.82rem;color:#374151;font-weight:600;min-height:20px;}
+.mj-sentence{background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:16px;font-size:1rem;line-height:2;text-align:center;margin-bottom:12px;}
+.mj-blank{display:inline-block;min-width:70px;border-bottom:2px dashed #6366f1;color:#6366f1;font-weight:700;cursor:pointer;padding:0 6px;}
+.mj-blank.filled{border-bottom-style:solid;background:#eef2ff;border-radius:6px;}
+.mj-words{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+.mj-word,.mj-catitem{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:.85rem;font-weight:700;cursor:pointer;}
+.mj-word.used{opacity:.35;}
+.mj-catitem{background:#eff6ff;color:#1d4ed8;border:2px solid #93c5fd;}
+.mj-catitem.sel{outline:3px solid #6366f1;}
+.mj-cat-head{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-weight:700;font-size:.78rem;text-align:center;padding:8px;border-radius:10px 10px 0 0;}
+.mj-cat-zone{border:2px dashed #c7d2fe;border-top:none;border-radius:0 0 10px 10px;min-height:60px;padding:6px;cursor:pointer;}
+.mj-cat-empty{font-size:.7rem;color:#9ca3af;text-align:center;padding:10px 0;}
+.mj-cat-tag{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border-radius:8px;padding:5px 8px;font-size:.76rem;font-weight:700;display:flex;justify-content:space-between;gap:6px;margin-bottom:4px;}
+.mj-cat-tag button{background:none;border:none;color:#fff;cursor:pointer;font-weight:700;}
+.mj-step{background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:14px;}
+.mj-step-q{font-weight:700;font-size:.9rem;margin-bottom:10px;text-align:center;}
+.mj-decopt{display:block;width:100%;text-align:left;background:#eef2ff;border:2px solid #c7d2fe;border-radius:10px;padding:11px 13px;margin-bottom:8px;font-size:.86rem;font-weight:600;cursor:pointer;}
+.mj-decopt:hover{border-color:#6366f1;}
+.mj-done{background:#ecfdf5;border:2px solid #6ee7b7;border-radius:10px;padding:12px;text-align:center;font-weight:700;color:#065f46;}
 </style>
 </head>
 <body>
@@ -908,21 +935,53 @@ async function loadQuestionsForLevel(niveau) {
   return QUESTIONS_CACHE[niveau];
 }
 
-// ── Multi-jeux : banque variée (cc_questions) — Phase A : types à base d'options ──
+// ── Multi-jeux : banque variée (cc_questions) — types à options + types manipulation ──
 window.CURRENT_QTYPE = 'qcm';
 var MULTI_CACHE = {};
-var MULTI_OPTION_TYPES = ['quiz','true-false','multiple-select','find-intruder','scenario'];
-function gameTypeLabelFr(t){ return {'quiz':'QCM','true-false':'Vrai / Faux','multiple-select':'Plusieurs réponses','find-intruder':"Trouve l'intrus",'scenario':'Mise en situation'}[t]||'Question'; }
+var MJ_MANIP_TYPES = ['sequence','ranking','matching','fill-blank','categories','decision'];
+function gameTypeLabelFr(t){ return {'quiz':'QCM','true-false':'Vrai / Faux','multiple-select':'Plusieurs réponses','find-intruder':"Trouve l'intrus",'scenario':'Mise en situation','image-identify':'Identifie l\'image','sequence':"Remets dans l'ordre",'ranking':'Classement','matching':'Association','fill-blank':'Texte à trous','categories':'Catégories','decision':'Arbre de décision'}[t]||'Question'; }
 function selectQType(t){
   window.CURRENT_QTYPE = (t === 'multi') ? 'multi' : 'qcm';
   var isMulti = window.CURRENT_QTYPE === 'multi';
   document.getElementById('qt-qcm').classList.toggle('sel', !isMulti);
   document.getElementById('qt-multi').classList.toggle('sel', isMulti);
   document.getElementById('qt-hint').textContent = isMulti
-    ? 'Variété : QCM, vrai/faux, plusieurs réponses, intrus, mise en situation.'
+    ? 'Tous les types : QCM, vrai/faux, intrus, ordre, association, texte à trous, catégories…'
     : 'QCM classique — questions à choix.';
   var pc = document.getElementById('parties-card');
   if (pc) { pc.style.opacity = isMulti ? '.45' : '1'; pc.title = isMulti ? 'Filtre non appliqué en multi-jeux' : ''; }
+}
+function mjSortIdx(arr, key){ return (arr || []).slice().sort(function(a,b){ return (a[key]||0) - (b[key]||0); }); }
+function mjExpl(q){ if(!q.explanation) return ''; return (typeof q.explanation==='object') ? (q.explanation.complete||q.explanation.short||'') : String(q.explanation); }
+function reshapeMulti(q){
+  var type = q.type;
+  var expl = mjExpl(q);
+  if (MJ_MANIP_TYPES.indexOf(type) >= 0) {
+    var items = mjSortIdx(q.cc_question_items, 'item_index').map(function(i){ return i.item_text; });
+    var pairs = mjSortIdx(q.cc_question_pairs, 'pair_index').map(function(p){ return { left: p.left_text, right: p.right_text }; });
+    var cats  = mjSortIdx(q.cc_question_categories, 'category_index').map(function(c){ return { id: c.category_id, label: c.category_label }; });
+    var cItems= mjSortIdx(q.cc_question_category_items, 'item_index').map(function(i){ return { text: i.item_text, category: i.correct_category }; });
+    var steps = mjSortIdx(q.cc_question_decision_steps, 'step_index').map(function(s){ return { question: s.step_question, options: s.options }; });
+    var game = { id:q.id, type:type, question:q.question||'', scenario:q.scenario||'', explanation:expl,
+      correctOrder:q.correct_order, correctBlanks:q.correct_blanks, correctPath:q.correct_path, wordBank:q.word_bank, sentence:q.sentence };
+    if (type === 'categories') { game.items = cItems; game.categories = cats; }
+    else if (items.length) game.items = items;
+    if (pairs.length) game.pairs = pairs;
+    if (steps.length) game.steps = steps;
+    if ((type==='sequence'||type==='ranking') && (!game.items || !game.correctOrder)) return null;
+    if (type==='matching' && !(game.pairs && game.pairs.length)) return null;
+    if (type==='fill-blank' && (!game.sentence || !game.wordBank || !game.correctBlanks)) return null;
+    if (type==='categories' && !(game.items && game.items.length && game.categories && game.categories.length)) return null;
+    if (type==='decision' && !(game.steps && game.steps.length && game.correctPath)) return null;
+    return { id:q.id, type:type, _manip:true, _game:game, question:(game.scenario||game.question||''), titre:gameTypeLabelFr(type), explication:expl, niveau:'', _source:'cc' };
+  }
+  // types à options (quiz, vrai/faux, multi, intrus, scénario, image)
+  var opts = mjSortIdx(q.cc_question_options, 'option_index').map(function(o){ return o.option_text; });
+  if (opts.length < 2) return null;
+  var ca = (Array.isArray(q.correct_answers) && q.correct_answers.length) ? q.correct_answers : (q.correct_answer != null ? [q.correct_answer] : [0]);
+  var qtext = q.scenario ? ('📋 ' + q.scenario + '\n\n' + (q.question || '')) : (q.question || '');
+  var image = (q.image_key || q.image_url) ? { imageKey:q.image_key, imageUrl:q.image_url, imageDesc:q.image_desc } : null;
+  return { id:q.id, type:type, question:qtext, options:opts, correctAnswers:ca, bonne_reponse:opts[ca[0]]||'', explication:expl, titre:gameTypeLabelFr(type), partieLabel:'', sequenceLabel:'', themeLabel:'', niveau:'', _image:image, _source:'cc' };
 }
 async function loadMultiQuestionsForLevel(niveau){
   if (MULTI_CACHE[niveau]) return MULTI_CACHE[niveau];
@@ -930,23 +989,219 @@ async function loadMultiQuestionsForLevel(niveau){
   var modsRes = await supabase.from('cc_modules').select('id').eq('level', lvl).eq('is_active', true);
   var modIds = (modsRes.data || []).map(function(m){ return m.id; });
   if (!modIds.length) return [];
-  var qRes = await supabase.from('cc_questions')
-    .select('id,type,question,scenario,explanation,correct_answer,correct_answers,cc_question_options(option_index,option_text)')
-    .in('module_id', modIds).eq('is_active', true).eq('status', 'published').in('type', MULTI_OPTION_TYPES);
-  var raw = qRes.data || [];
-  var mapped = raw.filter(function(q){ return q.cc_question_options && q.cc_question_options.length >= 2; }).map(function(q){
-    var opts = q.cc_question_options.slice().sort(function(a,b){ return a.option_index - b.option_index; }).map(function(o){ return o.option_text; });
-    var ca;
-    if (Array.isArray(q.correct_answers) && q.correct_answers.length) ca = q.correct_answers;
-    else if (q.correct_answer != null) ca = [q.correct_answer];
-    else ca = [0];
-    var expl = '';
-    if (q.explanation) { expl = (typeof q.explanation === 'object') ? (q.explanation.complete || q.explanation.short || '') : String(q.explanation); }
-    var qtext = q.scenario ? ('📋 ' + q.scenario + '\n\n' + (q.question || '')) : (q.question || '');
-    return { id: q.id, type: q.type, question: qtext, options: opts, correctAnswers: ca, bonne_reponse: opts[ca[0]] || '', explication: expl, titre: gameTypeLabelFr(q.type), partieLabel: '', sequenceLabel: '', themeLabel: '', niveau: niveau, _source: 'cc' };
-  });
+  var qRes = await supabase.from('cc_questions').select(
+    'id,type,question,scenario,explanation,correct_answer,correct_answers,correct_order,correct_blanks,correct_path,word_bank,sentence,image_url,image_key,image_desc,'
+    + 'cc_question_options(option_index,option_text),cc_question_items(item_index,item_text),cc_question_pairs(pair_index,left_text,right_text),'
+    + 'cc_question_categories(category_index,category_id,category_label),cc_question_category_items(item_index,item_text,correct_category),'
+    + 'cc_question_decision_steps(step_index,step_question,options)'
+  ).in('module_id', modIds).eq('is_active', true).eq('status', 'published');
+  var mapped = (qRes.data || []).map(reshapeMulti).filter(Boolean);
   MULTI_CACHE[niveau] = mapped;
   return mapped;
+}
+
+// ════ Moteur solo des types « manipulation » (porté du Challenge, sans réseau) ════
+var MJ_GAME = null, mjSeq = [], mjRank = [], mjPairs = {}, mjMatchL = null, mjMatchR = null, mjFill = [], mjCats = {}, mjCatSel = null, mjPath = [];
+function mjShuffle(a){ a = a.slice(); for (var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function mjEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function mjPrepare(g){
+  var game = JSON.parse(JSON.stringify(g));
+  if (game.type==='sequence' || game.type==='ranking') {
+    game.itemsWithIndex = mjShuffle((game.items||[]).map(function(it,i){ return { text: it, originalIndex: i }; }));
+  } else if (game.type==='matching') {
+    game.pairsLeft  = mjShuffle((game.pairs||[]).map(function(p,i){ return { text: p.left,  originalIndex: i }; }));
+    game.pairsRight = mjShuffle((game.pairs||[]).map(function(p,i){ return { text: p.right, originalIndex: i }; }));
+  } else if (game.type==='fill-blank') {
+    game.wordBankShuffled = mjShuffle((game.wordBank||[]).slice());
+  } else if (game.type==='categories') {
+    game.itemsShuffled = mjShuffle((game.items||[]).map(function(it,i){ return { text: it.text, category: it.category, originalIndex: i }; }));
+  }
+  return game;
+}
+function mjStartManip(q){
+  MJ_GAME = mjPrepare(q._game);
+  mjSeq=[]; mjRank=[]; mjPairs={}; mjMatchL=null; mjMatchR=null; mjFill=[]; mjCats={}; mjCatSel=null; mjPath=[];
+  document.getElementById('q-choices').innerHTML = mjRenderManip(MJ_GAME);
+  var vb = document.getElementById('btn-valider');
+  vb.classList.remove('hidden'); vb.disabled = false; vb.textContent = 'Valider ma réponse';
+  var card = document.getElementById('q-card'); card.classList.remove('fade-up'); void card.offsetWidth; card.classList.add('fade-up');
+  startGameTimer();
+}
+function mjRenderManip(g){
+  var t = g.type;
+  if (t==='sequence' || t==='ranking') {
+    var isRank = t==='ranking';
+    var hint = isRank ? '🏅 1er clic = priorité 1' : '🔢 Cliquez les éléments dans l\'ordre';
+    return '<div class="mj-hint">'+hint+'</div><div class="space-y-2">'
+      + g.itemsWithIndex.map(function(it){ return '<div class="mj-item" data-oi="'+it.originalIndex+'" onclick="mjPickOrder('+it.originalIndex+')">'+mjEsc(it.text)+'</div>'; }).join('')
+      + '</div><div class="mj-order" id="mj-order-display">—</div>';
+  }
+  if (t==='matching') {
+    var total = (g.pairsLeft||[]).length;
+    return '<div class="mj-hint">🔗 Cliquez un élément à gauche puis sa correspondance à droite</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div class="space-y-2">'
+      + g.pairsLeft.map(function(it){ return '<div class="mj-match" data-side="left" data-i="'+it.originalIndex+'" onclick="mjPickMatch(\'left\','+it.originalIndex+')">'+mjEsc(it.text)+'</div>'; }).join('')
+      + '</div><div class="space-y-2">'
+      + g.pairsRight.map(function(it){ return '<div class="mj-match" data-side="right" data-i="'+it.originalIndex+'" onclick="mjPickMatch(\'right\','+it.originalIndex+')">'+mjEsc(it.text)+'</div>'; }).join('')
+      + '</div></div><div class="mj-order">Paires : <span id="mj-pairs-count">0/'+total+'</span></div>';
+  }
+  if (t==='fill-blank') {
+    var bc = (g.sentence.match(/%\d+%/g)||[]).length; mjFill = new Array(bc).fill(null);
+    var sH = g.sentence;
+    for (var i=1;i<=bc;i++) sH = sH.replace('%'+i+'%', '<span class="mj-blank" id="mj-blank-'+i+'" onclick="mjClearBlank('+i+')">___</span>');
+    return '<div class="mj-sentence">'+sH+'</div><div class="mj-hint">Cliquez un mot :</div><div class="mj-words">'
+      + (g.wordBankShuffled||g.wordBank||[]).map(function(w,i){ return '<button class="mj-word" id="mj-word-'+i+'" onclick="mjPickWord(\''+mjEsc(w).replace(/'/g,"\\'")+'\','+i+')">'+mjEsc(w)+'</button>'; }).join('')
+      + '</div>';
+  }
+  if (t==='categories') {
+    (g.categories||[]).forEach(function(c){ mjCats[c.id]=[]; });
+    var items = g.itemsShuffled||g.items||[];
+    return '<div class="mj-hint">Sélectionnez un élément puis une catégorie</div>'
+      + '<div style="display:grid;grid-template-columns:repeat('+(g.categories||[]).length+',1fr);gap:6px;margin-bottom:10px;">'
+      + (g.categories||[]).map(function(c){ return '<div><div class="mj-cat-head">'+mjEsc(c.label)+'</div><div class="mj-cat-zone" id="mj-zone-'+c.id+'" onclick="mjPlaceCat(\''+c.id+'\')"><div class="mj-cat-empty" id="mj-empty-'+c.id+'">Ici</div></div></div>'; }).join('')
+      + '</div><div class="mj-words" id="mj-items-pool">'
+      + items.map(function(it,i){ return '<button class="mj-catitem" id="mj-cat-item-'+i+'" onclick="mjPickCatItem('+i+')">'+mjEsc(it.text)+'</button>'; }).join('')
+      + '</div>';
+  }
+  if (t==='decision') {
+    return '<div id="mj-decision">'+mjRenderStep(g,0)+'</div><div class="mj-order" id="mj-path">—</div>';
+  }
+  return '';
+}
+function mjRenderStep(g, idx){
+  var step = (g.steps||[])[idx]; if (!step) return '';
+  return '<div class="mj-step"><div class="mj-step-q">'+mjEsc(step.question)+'</div>'
+    + (step.options||[]).map(function(o,i){ return '<button class="mj-decopt" onclick="mjDecide('+idx+','+i+')">'+String.fromCharCode(65+i)+'. '+mjEsc(o.text)+'</button>'; }).join('')
+    + '</div>';
+}
+// Handlers
+window.mjPickOrder = function(oi){
+  if (answered) return;
+  var arr = (MJ_GAME.type==='ranking') ? mjRank : mjSeq;
+  var p = arr.indexOf(oi); if (p!==-1) arr.splice(p,1); else arr.push(oi);
+  document.querySelectorAll('#q-choices .mj-item').forEach(function(el){
+    var i = parseInt(el.getAttribute('data-oi'),10); var pos = arr.indexOf(i);
+    el.classList.toggle('sel', pos!==-1);
+    var b = el.querySelector('.mj-num'); if (b) b.remove();
+    if (pos!==-1){ var s=document.createElement('span'); s.className='mj-num'; s.textContent=pos+1; el.appendChild(s); }
+  });
+  var labels = arr.map(function(i){ var it=(MJ_GAME.itemsWithIndex||[]).find(function(x){return x.originalIndex===i;}); return it?it.text:''; });
+  document.getElementById('mj-order-display').textContent = labels.length ? labels.join('  →  ') : '—';
+};
+window.mjPickMatch = function(side, idx){
+  if (answered) return;
+  var el = document.querySelector('#q-choices .mj-match[data-side="'+side+'"][data-i="'+idx+'"]'); if(!el) return;
+  if (el.classList.contains('matched')) {
+    var pw = parseInt(el.getAttribute('data-pw'),10);
+    var other = document.querySelector('#q-choices .mj-match[data-side="'+(side==='left'?'right':'left')+'"][data-i="'+pw+'"]');
+    [el,other].forEach(function(x){ if(x){ x.classList.remove('matched'); x.removeAttribute('data-pw'); } });
+    if (side==='left') delete mjPairs[idx];
+    else { for (var l in mjPairs){ if (mjPairs[l]===idx){ delete mjPairs[l]; break; } } }
+    mjUpdPairs(); return;
+  }
+  if (side==='left'){ if(mjMatchL!==null) document.querySelector('#q-choices .mj-match[data-side="left"][data-i="'+mjMatchL+'"]').classList.remove('sel'); if(mjMatchL===idx){mjMatchL=null;return;} mjMatchL=idx; el.classList.add('sel'); }
+  else { if(mjMatchR!==null) document.querySelector('#q-choices .mj-match[data-side="right"][data-i="'+mjMatchR+'"]').classList.remove('sel'); if(mjMatchR===idx){mjMatchR=null;return;} mjMatchR=idx; el.classList.add('sel'); }
+  if (mjMatchL!==null && mjMatchR!==null){
+    var lE=document.querySelector('#q-choices .mj-match[data-side="left"][data-i="'+mjMatchL+'"]');
+    var rE=document.querySelector('#q-choices .mj-match[data-side="right"][data-i="'+mjMatchR+'"]');
+    mjPairs[mjMatchL]=mjMatchR; lE.classList.remove('sel'); rE.classList.remove('sel'); lE.classList.add('matched'); rE.classList.add('matched'); lE.setAttribute('data-pw',mjMatchR); rE.setAttribute('data-pw',mjMatchL);
+    mjMatchL=null; mjMatchR=null; mjUpdPairs();
+  }
+};
+function mjUpdPairs(){ var n=Object.keys(mjPairs).length; var t=document.querySelectorAll('#q-choices .mj-match[data-side="left"]').length; var el=document.getElementById('mj-pairs-count'); if(el) el.textContent=n+'/'+t; }
+window.mjPickWord = function(word, wi){
+  if (answered) return;
+  var ne = mjFill.indexOf(null); if (ne===-1) return;
+  mjFill[ne]=word; var slot=document.getElementById('mj-blank-'+(ne+1)); if(slot){ slot.textContent=word; slot.classList.add('filled'); }
+  var btn=document.getElementById('mj-word-'+wi); if(btn){ btn.classList.add('used'); btn.setAttribute('data-bi',ne+1); btn.disabled=true; }
+};
+window.mjClearBlank = function(n){
+  if (answered) return;
+  var idx=n-1; if (mjFill[idx]==null) return;
+  document.querySelectorAll('#q-choices .mj-word').forEach(function(b){ if(parseInt(b.getAttribute('data-bi'),10)===n){ b.classList.remove('used'); b.removeAttribute('data-bi'); b.disabled=false; } });
+  mjFill[idx]=null; var slot=document.getElementById('mj-blank-'+n); if(slot){ slot.textContent='___'; slot.classList.remove('filled'); }
+};
+window.mjPickCatItem = function(i){
+  if (answered) return;
+  document.querySelectorAll('#q-choices .mj-catitem').forEach(function(el){ el.classList.remove('sel'); });
+  var b=document.getElementById('mj-cat-item-'+i); if(b) b.classList.add('sel'); mjCatSel = i;
+};
+window.mjPlaceCat = function(catId){
+  if (answered || mjCatSel==null) return;
+  var empty=document.getElementById('mj-empty-'+catId); if(empty) empty.style.display='none';
+  var idx=mjCatSel; var btn=document.getElementById('mj-cat-item-'+idx); var txt=btn?btn.textContent:'';
+  var tag=document.createElement('div'); tag.className='mj-cat-tag'; tag.innerHTML='<span>'+mjEsc(txt)+'</span><button onclick="mjRemoveCat(this,\''+catId+'\','+idx+')">✕</button>';
+  document.getElementById('mj-zone-'+catId).appendChild(tag);
+  if(btn) btn.style.display='none';
+  if(!mjCats[catId]) mjCats[catId]=[]; mjCats[catId].push(idx); mjCatSel=null;
+  document.querySelectorAll('#q-choices .mj-catitem').forEach(function(el){ el.classList.remove('sel'); });
+};
+window.mjRemoveCat = function(btn, catId, idx){
+  if (answered) return;
+  btn.parentElement.remove(); mjCats[catId]=(mjCats[catId]||[]).filter(function(x){return x!==idx;});
+  var item=document.getElementById('mj-cat-item-'+idx); if(item) item.style.display='';
+  var zone=document.getElementById('mj-zone-'+catId); if(zone && !zone.querySelector('.mj-cat-tag')){ var e=document.getElementById('mj-empty-'+catId); if(e) e.style.display=''; }
+};
+window.mjDecide = function(stepIdx, optIdx){
+  if (answered) return;
+  var step=(MJ_GAME.steps||[])[stepIdx]; if(!step) return; var opt=step.options[optIdx];
+  mjPath.push({ step:stepIdx, choice:optIdx, text:opt.text });
+  document.getElementById('mj-path').textContent = mjPath.map(function(p,i){ return (i+1)+'. '+p.text; }).join('  ·  ');
+  var ns = opt.nextStep;
+  if (ns!==undefined && ns!==null && ns!==99 && ns < (MJ_GAME.steps||[]).length) {
+    document.getElementById('mj-decision').innerHTML = mjRenderStep(MJ_GAME, ns);
+  } else {
+    document.getElementById('mj-decision').innerHTML = '<div class="mj-done">✅ Validez votre réponse</div>';
+  }
+};
+// Validation + correction texte
+function mjCheck(g){
+  var t=g.type;
+  if (t==='sequence' || t==='ranking') return JSON.stringify(t==='ranking'?mjRank:mjSeq) === JSON.stringify(g.correctOrder||[]);
+  if (t==='matching'){ var total=(g.pairsLeft||[]).length, ok=0; for (var l in mjPairs){ if (parseInt(l,10)===parseInt(mjPairs[l],10)) ok++; } return ok===total && Object.keys(mjPairs).length===total; }
+  if (t==='fill-blank') return JSON.stringify(mjFill) === JSON.stringify(g.correctBlanks||[]);
+  if (t==='categories'){ var items=g.itemsShuffled||g.items||[]; var allOk=true; items.forEach(function(it,i){ if((mjCats[it.category]||[]).indexOf(i)===-1) allOk=false; }); return allOk; }
+  if (t==='decision') return JSON.stringify(mjPath.map(function(p){return p.choice;})) === JSON.stringify(g.correctPath||[]);
+  return false;
+}
+function mjCorrectText(g){
+  var t=g.type;
+  if (t==='sequence' || t==='ranking') return (g.correctOrder||[]).map(function(idx,i){ var it=(g.itemsWithIndex||[]).find(function(x){return x.originalIndex===idx;}); return (i+1)+'. '+(it?it.text:(g.items&&g.items[idx])||''); }).join('  →  ');
+  if (t==='matching') return (g.pairs||[]).map(function(p){ return p.left+' → '+p.right; }).join('  ·  ');
+  if (t==='fill-blank'){ var f=g.sentence; (g.correctBlanks||[]).forEach(function(b,i){ f=f.replace('%'+(i+1)+'%','['+b+']'); }); return f; }
+  if (t==='categories'){ var cm={}; (g.categories||[]).forEach(function(c){cm[c.id]=[];}); (g.items||[]).forEach(function(it){ if(cm[it.category]) cm[it.category].push(it.text); }); return (g.categories||[]).map(function(c){ return c.label+' : '+(cm[c.id]||[]).join(', '); }).join('  |  '); }
+  if (t==='decision') return (g.steps||[]).map(function(s,i){ var ci=(g.correctPath||[])[i]; var o=s.options[ci]; return (i+1)+'. '+(o?o.text:'?'); }).join('  ·  ');
+  return '';
+}
+function mjValidate(q){
+  if (answered) return;
+  clearGameTimer();
+  answered = true;
+  var isCorrect = false;
+  try { isCorrect = mjCheck(MJ_GAME); } catch(e){ console.error('[mj-check]',e); }
+  var bon = mjCorrectText(MJ_GAME);
+  var userAns = '(réponse interactive)';
+  document.getElementById('btn-valider').classList.add('hidden');
+  document.querySelectorAll('#q-choices button, #q-choices .mj-item, #q-choices .mj-match, #q-choices .mj-catitem').forEach(function(el){ el.style.pointerEvents='none'; });
+  if (isCorrect) correctCount++; else wrongCount++;
+  reponses.push({ q:q, isCorrect:isCorrect, choisi:userAns, bon:bon });
+  if (window.CURRENT_SESSION_DATA && window.CURRENT_SESSION_DATA.questions[currentIdx]) {
+    window.CURRENT_SESSION_DATA.questions[currentIdx].userAnswer = userAns;
+    window.CURRENT_SESSION_DATA.questions[currentIdx].userCorrect = isCorrect;
+  }
+  if (sessionId) supabase.from('entrainement_reponses').insert({ session_id: sessionId, question_id: String(q.id), reponse: { question: q.question||'', choisie: userAns, bonne: bon, explication: q.explication||'', niveau: selectedNiveau }, est_correcte: isCorrect }).then(function(r){ if(r&&r.error)console.error('[reponse insert]',r.error); }, function(e){});
+  updateTopScore();
+  if (window.CURRENT_MODE === 'game') flyScore(isCorrect ? '+1' : '+0', isCorrect ? '#10b981' : '#ef4444');
+  var delay = (window.CURRENT_MODE === 'game') ? 700 : 250;
+  setTimeout(function(){ if (currentIdx + 1 < questions.length) nextQ(); else showResults(); }, delay);
+}
+function mjRenderMedia(q){
+  var media = document.getElementById('mj-media');
+  if (!media) { media = document.createElement('div'); media.id = 'mj-media'; media.style.cssText = 'text-align:center;margin-bottom:10px;'; var enonce = document.getElementById('q-enonce'); enonce.parentNode.insertBefore(media, enonce); }
+  media.innerHTML = '';
+  var img = q && q._image;
+  if (img && img.imageUrl) media.innerHTML = '<img src="'+mjEsc(img.imageUrl)+'" alt="" style="max-height:200px;max-width:100%;border-radius:12px;">' + (img.imageDesc ? '<div style="font-size:.72rem;color:#9ca3af;margin-top:4px;">'+mjEsc(img.imageDesc)+'</div>' : '');
+  else if (img && img.imageKey) media.innerHTML = '<div style="font-size:3.2rem;">🖼️</div>' + (img.imageDesc ? '<div style="font-size:.72rem;color:#9ca3af;">'+mjEsc(img.imageDesc)+'</div>' : '');
 }
 
 async function startSession(mode) {
@@ -1125,7 +1380,7 @@ function handleGameTimeout() {
     if (el && multiChoices[i].correct) el.classList.add('correct');
   }
   wrongCount++;
-  var bon = multiChoices.filter(function(c){return c.correct;}).map(function(c){return c.text;}).join(', ');
+  var bon = (q._manip && typeof mjCorrectText==='function' && MJ_GAME) ? mjCorrectText(MJ_GAME) : multiChoices.filter(function(c){return c.correct;}).map(function(c){return c.text;}).join(', ');
   reponses.push({q: q, isCorrect: false, choisi: '⏱️ Temps écoulé', bon: bon, timeout: true});
   if (window.CURRENT_SESSION_DATA && window.CURRENT_SESSION_DATA.questions[currentIdx]) {
     window.CURRENT_SESSION_DATA.questions[currentIdx].userAnswer = null;
@@ -1174,7 +1429,11 @@ function renderQuestion() {
   document.getElementById('q-enonce').textContent = q.question || '-';
   document.getElementById('q-expl').classList.add('hidden');
   document.getElementById('btn-valider').classList.add('hidden');
-  
+
+  // Multi-jeux : média (image) + types « manipulation » (rendu solo dédié)
+  if (typeof mjRenderMedia === 'function') mjRenderMedia(q);
+  if (q && q._manip) { mjStartManip(q); return; }
+
   var choices = buildChoices(q);
   multiChoices = choices;
   
@@ -1279,6 +1538,8 @@ function toggleSingleSelect(idx, btn) {
 }
 
 function validerMulti() {
+  var cq = questions[currentIdx];
+  if (cq && cq._manip) { mjValidate(cq); return; }
   if (answered || multiSelected.size === 0) return;
   clearGameTimer();
   var q = questions[currentIdx];
