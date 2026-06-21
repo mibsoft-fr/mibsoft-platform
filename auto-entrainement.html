@@ -949,7 +949,14 @@ function selectQType(t){
     ? 'Tous les types : QCM, vrai/faux, intrus, ordre, association, texte à trous, catégories…'
     : 'QCM classique — questions à choix.';
   var pc = document.getElementById('parties-card');
-  if (pc) { pc.style.opacity = isMulti ? '.45' : '1'; pc.title = isMulti ? 'Filtre non appliqué en multi-jeux' : ''; }
+  if (pc) {
+    pc.style.opacity = isMulti ? '.4' : '1';
+    pc.style.pointerEvents = isMulti ? 'none' : '';
+    var fl = document.getElementById('filter-list');
+    var note = document.getElementById('parties-multi-note');
+    if (isMulti && !note) { note = document.createElement('div'); note.id = 'parties-multi-note'; note.style.cssText = 'font-size:.7rem;color:#6b7280;font-style:italic;'; note.textContent = '(non applicable en multi-jeux — toutes les parties)'; if (fl) fl.parentNode.insertBefore(note, fl); }
+    if (note) note.style.display = isMulti ? '' : 'none';
+  }
 }
 function mjSortIdx(arr, key){ return (arr || []).slice().sort(function(a,b){ return (a[key]||0) - (b[key]||0); }); }
 function mjExpl(q){ if(!q.explanation) return ''; return (typeof q.explanation==='object') ? (q.explanation.complete||q.explanation.short||'') : String(q.explanation); }
@@ -998,6 +1005,21 @@ async function loadMultiQuestionsForLevel(niveau){
   var mapped = (qRes.data || []).map(reshapeMulti).filter(Boolean);
   MULTI_CACHE[niveau] = mapped;
   return mapped;
+}
+// Tirage diversifié : groupe par type, mélange, puis interclasse (round-robin) pour
+// que les premières questions couvrent un maximum de types différents.
+function mjDiversify(arr){
+  var groups = {};
+  arr.forEach(function(q){ var t = q.type || 'quiz'; (groups[t] = groups[t] || []).push(q); });
+  var keys = Object.keys(groups);
+  keys.forEach(function(k){ groups[k] = shuffle(groups[k]); });
+  keys = shuffle(keys);
+  var out = [], added = true;
+  while (added) {
+    added = false;
+    for (var i = 0; i < keys.length; i++) { var g = groups[keys[i]]; if (g.length) { out.push(g.shift()); added = true; } }
+  }
+  return out;
 }
 
 // ════ Moteur solo des types « manipulation » (porté du Challenge, sans réseau) ════
@@ -1242,7 +1264,9 @@ async function startSession(mode) {
     }
     if (!filtered.length) throw new Error('Aucune question dans cette sélection — essayez un filtre plus large.');
 
-    questions = shuffle(filtered).slice(0, Math.min(selectedNb, filtered.length));
+    // En multi-jeux : tirage diversifié (round-robin entre types) pour garantir la variété.
+    var pool = (window.CURRENT_QTYPE === 'multi') ? mjDiversify(filtered) : shuffle(filtered);
+    questions = pool.slice(0, Math.min(selectedNb, pool.length));
     currentIdx = 0; correctCount = 0; wrongCount = 0; reponses = []; answered = false; startTime = Date.now();
 
     // 4) Création de la session Supabase (stats stagiaire — inchangé)
