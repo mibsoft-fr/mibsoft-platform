@@ -984,6 +984,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-2); 
               </div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
                 <button onclick="loadIndepResults()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
+                <button onclick="launchRemediationIndep()" class="btn btn-green btn-sm">🔁 Reprendre les erreurs</button>
                 <button onclick="printIndepErrors()" class="btn btn-gray btn-sm">🖨️ Imprimer les erreurs</button>
               </div>
             </div>
@@ -2645,6 +2646,22 @@ function renderIndepErrors(errors, el){
       + '</div>';
   }).join('');
 }
+// Phase 2 : relance un Challenge de remédiation ne contenant que les questions échouées.
+window.launchRemediationIndep = async function(){
+  if(!currentSession){ alert('Ouvrez d\'abord une session.'); return; }
+  const errors = window._indepErrors||[];
+  const ids = errors.map(r=>String(r.question_id)).filter(Boolean);
+  if(!ids.length){ alert('Aucune question échouée à reprendre. Cliquez d\'abord sur « Actualiser ».'); return; }
+  const niveau = currentSession.niveau || '';
+  const ssiapLevel = niveau==='SSIAP1'?1:niveau==='SSIAP2'?2:niveau==='SSIAP3'?3:null;
+  let fNom = CENTER.nom, fId = null;
+  try { const { data: f } = await supabase.from('formateurs').select('id,prenom,nom').eq('center_id', CENTER.id).order('created_at').limit(1).maybeSingle(); if(f){ fId=f.id; fNom=((f.prenom||'')+' '+(f.nom||'')).trim()||CENTER.nom; } } catch(_){}
+  if(!fId){ alert('Renseignez d\'abord votre fiche formateur dans « Mon compte ».'); return; }
+  const stags = (currentParticipants||[]).filter(p=>p.stagiaire_id&&p.stagiaires).map(p=>({id:p.stagiaire_id,nom:p.stagiaires.nom,prenom:p.stagiaires.prenom,niveau:p.stagiaires.niveau}));
+  const payload = { ts:Date.now(), formateur:fNom, formateurId:fId, centerId:CENTER.id, ssiapLevel, sessionId:currentSession.id, mode: stags.length?'invitation':'qr', stagiaires:stags, remediationQuestionIds:ids };
+  try { localStorage.setItem('mib_cc_auth', JSON.stringify(payload)); } catch(_){}
+  window.open('challenge-cup-ssiap/index.html', '_blank');
+};
 window.printIndepErrors = function(){
   const errors = window._indepErrors||[];
   if(!errors.length){ alert('Aucune question échouée à imprimer. Cliquez d\'abord sur « Actualiser ».'); return; }
