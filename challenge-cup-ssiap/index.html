@@ -1606,6 +1606,9 @@ document.addEventListener('keydown',e=>{
 });
 window.openBox=function(boxIndex){
     currentBox=boxIndex;currentGameIndex=0;
+    // Un module est à usage unique : on le marque consommé dès son lancement
+    // (évite de pouvoir le relancer indéfiniment ; il sera désactivé au retour aux modules).
+    if(!openedBoxes.includes(boxIndex)){openedBoxes.push(boxIndex);database.ref('sessions/'+sessionId+'/openedBoxes').set(openedBoxes);}
     const games=getRandomizedGames(boxIndex);
     // Compter les types pour les logs
     const typesMap={};games.forEach(g=>{typesMap[g.type]=(typesMap[g.type]||0)+1;});
