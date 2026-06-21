@@ -137,7 +137,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     max_stagiaires: quotas.max_stagiaires,
     password_set: false,
     stripe_customer_id: typeof session.customer === 'string' ? session.customer : session.customer?.id,
-    stripe_subscription_id: subscriptionId
+    stripe_subscription_id: subscriptionId,
+    // Modules inclus pour un indépendant : auto-entraînement, quiz salle, challenge stagiaire, SSI auto-formation.
+    ...(planMeta === 'independant' ? {
+      module_auto_entrainement: true,
+      module_quiz_salle: true,
+      module_challenge_cup: true,
+      module_ssi_autoformation: true
+    } : {})
   }).select('id').single();
   if (ierr) {
     await admin.auth.admin.deleteUser(authUserId);
