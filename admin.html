@@ -403,6 +403,17 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
       <p style="color:var(--text2,#64748b);margin-top:4px;">Choisissez un univers</p>
     </div>
 
+    <!-- Synthèse globale du site -->
+    <div class="grid mb-6" style="grid-template-columns:repeat(auto-fit,minmax(122px,1fr));gap:10px;">
+      <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#059669;" id="gk-actives">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Licences actives</div></div>
+      <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#d97706;" id="gk-renew">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">À renouveler ≤60j</div></div>
+      <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#ef4444;" id="gk-stopped">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Expirées / arrêtées</div></div>
+      <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:var(--text1,#0f172a);" id="gk-avis">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Avis & retours</div></div>
+      <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:var(--text1,#0f172a);" id="gk-note">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Note moyenne</div></div>
+      <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#d97706;" id="gk-tech">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Alertes techniques</div></div>
+      <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#ef4444;" id="gk-secu">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Alertes sécurité</div></div>
+    </div>
+
     <div id="landing-univers" class="grid grid-cols-1 md:grid-cols-2 gap-5">
       <div class="card" style="padding:26px;opacity:.78;">
         <div style="display:flex;align-items:center;justify-content:space-between;">
@@ -1426,7 +1437,7 @@ function showApp(){
 async function loadLandingKpis(){
   try{
     const [c, indep, appr, ent] = await Promise.all([
-      supabase.from('centers').select('*',{count:'exact',head:true}),
+      supabase.from('centers').select('*',{count:'exact',head:true}).not('license_type','in','(apprenant,independant)'),
       supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_type','independant'),
       supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_type','apprenant'),
       supabase.from('centers').select('themes')
@@ -1437,6 +1448,31 @@ async function loadLandingKpis(){
     const entCount=(ent.data||[]).filter(r=>r.themes&&(r.themes.cse||r.themes.hse)).length;
     setN('kpi-l-entreprises', entCount);
   }catch(e){ console.warn('[landing kpis]', e); }
+  loadGlobalKpis();
+}
+// Synthèse globale du site : licences, avis, alertes.
+async function loadGlobalKpis(){
+  try{
+    const nowIso=new Date().toISOString();
+    const soonIso=new Date(Date.now()+60*864e5).toISOString();
+    const [act, renew, stopped, avis, alerts] = await Promise.all([
+      supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_status','active'),
+      supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_status','active').not('license_expires_at','is',null).gte('license_expires_at',nowIso).lte('license_expires_at',soonIso),
+      supabase.from('centers').select('*',{count:'exact',head:true}).in('license_status',['expired','suspended']),
+      supabase.from('avis_retours').select('note'),
+      supabase.from('monitoring_alerts').select('severity,resolved_at')
+    ]);
+    const setG=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
+    setG('gk-actives', act.count??0);
+    setG('gk-renew', renew.count??0);
+    setG('gk-stopped', stopped.count??0);
+    const notes=(avis.data||[]).filter(a=>a.note).map(a=>a.note);
+    setG('gk-avis', (avis.data||[]).length);
+    setG('gk-note', notes.length? (notes.reduce((s,n)=>s+n,0)/notes.length).toFixed(1)+' ⭐' : '—');
+    const open=(alerts.data||[]).filter(a=>!a.resolved_at);
+    setG('gk-tech', open.filter(a=>a.severity==='warning'||a.severity==='error').length);
+    setG('gk-secu', open.filter(a=>a.severity==='critical').length);
+  }catch(e){ console.warn('[global kpis]', e); }
 }
 window.landingShowFormation=function(){
   document.getElementById('landing-univers').classList.add('hidden');
@@ -1625,7 +1661,7 @@ async function loadAllCore(){
 
 async function loadCentres(){
   try{
-    const{data}=await supabase.from('centers').select('*').order('created_at',{ascending:false});
+    const{data}=await supabase.from('centers').select('*').not('license_type','in','(apprenant,independant)').order('created_at',{ascending:false});
     allCentres=data||[];
     renderCentres(allCentres);
   }catch(e){console.error(e);}
@@ -2007,7 +2043,7 @@ function filterCentres(){
 
 async function loadLicences(){
   try{
-    const{data}=await supabase.from('centers').select('id,nom,license_type,plan,billing_cycle,license_status,license_expires_at,license_key,auto_renewal').order('created_at',{ascending:false});
+    const{data}=await supabase.from('centers').select('id,nom,license_type,plan,billing_cycle,license_status,license_expires_at,license_key,auto_renewal').not('license_type','in','(apprenant,independant)').order('created_at',{ascending:false});
     const tbody=document.getElementById('body-licences');
     if(!data||!data.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px;">Aucune licence</td></tr>';return;}
     tbody.innerHTML=data.map(c=>`<tr>
