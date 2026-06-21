@@ -108,7 +108,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   const licenseKey = genLicenseKey();
   const quotas = quotasForPlan(planMeta);
-  const licenseType = planMeta === 'independant' ? 'formateur'
+  const licenseType = planMeta === 'independant' ? 'independant'
     : planMeta === 'apprenant' ? 'apprenant'
     : 'centre';
 
@@ -144,17 +144,22 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     throw new Error('centre_insert: ' + ierr.message);
   }
 
-  // Indépendant (license_type='formateur') et centre : compte email/mot de passe → login-centre
-  // (login-formateur.html est réservé aux formateurs d'un centre, connexion par PIN, sans
-  //  flux de définition de mot de passe). Apprenant → son espace dédié.
-  const loginPage = licenseType === 'apprenant' ? 'login-apprenant' : 'login-centre';
+  // Chaque type a sa page de connexion (toutes en email/mot de passe + récupération) :
+  //  apprenant → espace apprenant, indépendant → espace indépendant dédié, sinon centre.
+  const loginPage = licenseType === 'apprenant' ? 'login-apprenant'
+    : licenseType === 'independant' ? 'login-independant'
+    : 'login-centre';
 
-  await admin.from('profiles').upsert({
-    user_id: authUserId,
-    role: licenseType,
-    center_id: centre.id,
-    linked_id: centre.id
-  });
+  // profiles.role est un enum (centre|formateur|stagiaire). L'apprenant n'utilise pas profiles
+  // (il lit sa fiche via auth_user_id) ; indépendant et centre → rôle 'centre' pour les RLS centre.
+  if (licenseType !== 'apprenant') {
+    await admin.from('profiles').upsert({
+      user_id: authUserId,
+      role: 'centre',
+      center_id: centre.id,
+      linked_id: centre.id
+    });
+  }
 
   const { data: linkData } = await admin.auth.admin.generateLink({
     type: 'recovery',
@@ -222,7 +227,7 @@ async function sendWelcomeEmail({ email, nomCentre, licenseKey, plan, magicLink,
   const html = `
     <h2 style="font-family:Georgia,serif;color:#1A2842;">Bienvenue chez MIB Prévention</h2>
     <p>Bonjour,</p>
-    <p>Votre paiement pour le plan <strong>${escapeHtml(plan.toUpperCase())}</strong> a été validé. ${licenseType === 'formateur' ? 'Votre compte formateur indépendant' : licenseType === 'apprenant' ? 'Votre accès apprenant (entraînement individuel, 1 mois)' : `Votre centre <strong>${escapeHtml(nomCentre)}</strong>`} est maintenant activé.</p>
+    <p>Votre paiement pour le plan <strong>${escapeHtml(plan.toUpperCase())}</strong> a été validé. ${licenseType === 'independant' ? 'Votre compte formateur indépendant' : licenseType === 'apprenant' ? 'Votre accès apprenant (entraînement individuel, 1 mois)' : `Votre centre <strong>${escapeHtml(nomCentre)}</strong>`} est maintenant activé.</p>
     <h3>Vos identifiants</h3>
     <ul>
       <li>Email de connexion : <code>${escapeHtml(email)}</code></li>
