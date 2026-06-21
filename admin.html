@@ -17,6 +17,7 @@
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script>window._sbFactory=window.supabase;/* sauve createClient avant que supabase.js n'écrase window.supabase */</script>
 <script src="config.js"></script>
 <script src="supabase.js"></script>
@@ -412,6 +413,12 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
       <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:var(--text1,#0f172a);" id="gk-note">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Note moyenne</div></div>
       <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#d97706;" id="gk-tech">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Alertes techniques</div></div>
       <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#ef4444;" id="gk-secu">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Alertes sécurité</div></div>
+    </div>
+
+    <!-- Graphiques de synthèse -->
+    <div class="grid mb-6" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+      <div class="card" style="padding:16px;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Répartition des licences par plan</div><div style="height:170px;"><canvas id="chart-plans"></canvas></div></div>
+      <div class="card" style="padding:16px;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Nouvelles licences (6 derniers mois)</div><div style="height:170px;"><canvas id="chart-newlic"></canvas></div></div>
     </div>
 
     <div id="landing-univers" class="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -1473,6 +1480,28 @@ async function loadGlobalKpis(){
     setG('gk-tech', open.filter(a=>a.severity==='warning'||a.severity==='error').length);
     setG('gk-secu', open.filter(a=>a.severity==='critical').length);
   }catch(e){ console.warn('[global kpis]', e); }
+  renderLandingCharts();
+}
+// Graphiques de l'accueil : répartition par plan + nouvelles licences/mois.
+var _landingCharts = {};
+async function renderLandingCharts(){
+  if (typeof Chart === 'undefined') return;
+  try{
+    const { data } = await supabase.from('centers').select('plan,created_at');
+    const rows = data || [];
+    const byPlan = {};
+    rows.forEach(r => { const p = r.plan || '—'; byPlan[p] = (byPlan[p]||0) + 1; });
+    const planLabels = Object.keys(byPlan), planData = planLabels.map(p => byPlan[p]);
+    const now = new Date(), months = [];
+    for (let i=5; i>=0; i--){ const d = new Date(now.getFullYear(), now.getMonth()-i, 1); months.push({ key: d.getFullYear()+'-'+(d.getMonth()+1), label: d.toLocaleDateString('fr-FR',{month:'short'}) }); }
+    const counts = months.map(()=>0);
+    rows.forEach(r => { if(!r.created_at) return; const d = new Date(r.created_at); const key = d.getFullYear()+'-'+(d.getMonth()+1); const idx = months.findIndex(m=>m.key===key); if(idx>=0) counts[idx]++; });
+    const colors = ['#10b981','#2563eb','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#64748b','#ec4899'];
+    if (_landingCharts.plans) _landingCharts.plans.destroy();
+    _landingCharts.plans = new Chart(document.getElementById('chart-plans'), { type:'doughnut', data:{ labels:planLabels, datasets:[{ data:planData, backgroundColor:colors }] }, options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{ font:{ size:10 }, boxWidth:12 } } } } });
+    if (_landingCharts.newlic) _landingCharts.newlic.destroy();
+    _landingCharts.newlic = new Chart(document.getElementById('chart-newlic'), { type:'bar', data:{ labels:months.map(m=>m.label), datasets:[{ data:counts, backgroundColor:'#10b981', borderRadius:6 }] }, options:{ maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } });
+  }catch(e){ console.warn('[landing charts]', e); }
 }
 window.landingShowFormation=function(){
   document.getElementById('landing-univers').classList.add('hidden');
