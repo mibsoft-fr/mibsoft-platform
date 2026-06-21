@@ -768,6 +768,15 @@ window.addEventListener('DOMContentLoaded', function() {
     PRENOM = s.stagiaire_prenom || s.stagiaire_nom || '';
     document.getElementById('top-stag').textContent = s.stagiaire_nom || '';
     document.getElementById('home-titre').textContent = 'Bonjour ' + PRENOM + ' !';
+  } else {
+    // Contexte « apprenant » (licence individuelle achetée en self-service)
+    var ap = SESSION.load('apprenant');
+    if (ap) {
+      CENTER_ID = CENTER_ID || ap.center_id;
+      PRENOM = ap.nom || '';
+      document.getElementById('top-stag').textContent = ap.nom || 'Apprenant';
+      document.getElementById('home-titre').textContent = PRENOM ? ('Bonjour ' + PRENOM + ' !') : 'Auto-entraînement';
+    }
   }
   if (NIVEAU_PARAM) {
     selectedNiveau = NIVEAU_PARAM;
@@ -1522,12 +1531,40 @@ async function showResults() {
   if (typeof loadHistorique === 'function') loadHistorique();
 }
 
+// Historique local (apprenant solo / sans stagiaire) — lu depuis localStorage,
+// jamais remonté à l'admin. Reconstitue la même forme que les sessions Supabase.
+function loadLocalHisto() {
+  var out = [];
+  try {
+    var keys = Object.keys(localStorage).filter(function(k){ return k.indexOf('mib_session_') === 0; });
+    for (var i = 0; i < keys.length; i++) {
+      var s = JSON.parse(localStorage.getItem(keys[i]) || '{}');
+      if (!s || !s.niveau || !s.completedAt) continue; // sessions terminées uniquement
+      out.push({
+        id: s.sessionId || keys[i].replace('mib_session_', ''),
+        niveau: s.niveau,
+        nb_questions: s.nbQuestions || (s.questions ? s.questions.length : 0),
+        score: (typeof s.score === 'number') ? s.score : 0,
+        started_at: new Date(s.startedAt || s.completedAt).toISOString(),
+        ended_at: new Date(s.completedAt).toISOString(),
+        duree_secondes: (s.startedAt && s.completedAt) ? Math.round((s.completedAt - s.startedAt) / 1000) : 0
+      });
+    }
+    out.sort(function(a, b){ return new Date(b.started_at) - new Date(a.started_at); });
+  } catch(e) { console.warn('[histo local]', e); }
+  return out.slice(0, 20);
+}
+
 async function openModalHisto() {
-  if (!STAGIAIRE_ID) return;
-  var res = await supabase.from('entrainement_sessions').select('*').eq('stagiaire_id', STAGIAIRE_ID).order('started_at', {ascending:false}).limit(20);
-  if (res.error) { alert('Erreur: ' + res.error.message); return; }
-  var data = res.data;
-  if (!data || !data.length) { alert('Aucun entraînement trouvé.'); return; }
+  var data;
+  if (STAGIAIRE_ID) {
+    var res = await supabase.from('entrainement_sessions').select('*').eq('stagiaire_id', STAGIAIRE_ID).order('started_at', {ascending:false}).limit(20);
+    if (res.error) { alert('Erreur: ' + res.error.message); return; }
+    data = res.data;
+  } else {
+    data = loadLocalHisto();
+  }
+  if (!data || !data.length) { alert('Aucun entraînement trouvé. Lancez une première série pour voir votre progression ici.'); return; }
   histoSessions = data;
   var total = data.length;
   var sum = 0;
@@ -1696,6 +1733,7 @@ function goHome() {
 function goBack() {
   if (!document.getElementById('scr-home').classList.contains('hidden')) {
     if (STAGIAIRE_ID) window.location.href = 'stagiaire.html';
+    else if (SESSION.load('apprenant')) window.location.href = 'apprenant.html';
     else window.history.back();
   } else if (confirm('Abandonner la session ?')) {
     clearGameTimer();

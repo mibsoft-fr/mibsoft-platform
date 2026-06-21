@@ -172,6 +172,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
 .bp-pro { background: var(--success-100); color: var(--success-800); border: 1px solid #BBF7D0; }
 .bp-expert { background: #F3E8FF; color: #6B21A8; border: 1px solid #E9D5FF; }
 .bp-entreprise { background: var(--warning-100); color: var(--warning-800); border: 1px solid var(--warning-200); }
+.bp-independant { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
 .bs-active { background: var(--success-100); color: var(--success-800); border: 1px solid #BBF7D0; }
 .bs-suspended { background: var(--danger-100); color: var(--danger-800); border: 1px solid var(--danger-200); }
 .bs-expired { background: var(--neutral-100); color: var(--neutral-700); border: 1px solid var(--border-default); }
@@ -435,33 +436,96 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
           <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Centres clients, licences et modules.</p>
           <button class="btn btn-green btn-sm" onclick="event.stopPropagation();openCentreFormation()">Ouvrir l'admin →</button>
         </div>
-        <div class="card" style="padding:26px;opacity:.78;">
+        <div class="card" style="padding:26px;cursor:pointer;" onclick="openIndependantAdmin()">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div style="font-size:2rem;">👨‍🏫</div>
             <div style="font-size:2rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-formateurs">—</div>
           </div>
-          <h2 style="font-size:1.1rem;font-weight:800;margin-top:8px;">Formateur</h2>
-          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Formateurs actifs (app dédiée).</p>
-          <span class="badge b-gray">App dédiée</span>
+          <h2 style="font-size:1.1rem;font-weight:800;margin-top:8px;">Indépendant</h2>
+          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Formateurs indépendants ayant acheté une licence.</p>
+          <button class="btn btn-green btn-sm" onclick="event.stopPropagation();openIndependantAdmin()">Ouvrir l'admin →</button>
         </div>
-        <div class="card" style="padding:26px;opacity:.78;">
+        <div class="card" style="padding:26px;cursor:pointer;" onclick="openApprenantAdmin()">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div style="font-size:2rem;">👨‍🎓</div>
             <div style="font-size:2rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-stagiaires">—</div>
           </div>
-          <h2 style="font-size:1.1rem;font-weight:800;margin-top:8px;">Stagiaire</h2>
-          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Stagiaires actifs (app dédiée).</p>
-          <span class="badge b-gray">App dédiée</span>
+          <h2 style="font-size:1.1rem;font-weight:800;margin-top:8px;">Apprenant</h2>
+          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Apprenants ayant acheté une licence pour s'entraîner.</p>
+          <button class="btn btn-green btn-sm" onclick="event.stopPropagation();openApprenantAdmin()">Ouvrir l'admin →</button>
         </div>
       </div>
     </div>
   </div>
 </div>
 
+<!-- ═══════════ DASHBOARD INDÉPENDANTS ═══════════ -->
+<div id="page-independant" class="hidden relative z-10 min-h-screen p-4">
+  <div style="width:100%;max-width:1100px;margin:0 auto;">
+    <button onclick="indepBack()" class="btn btn-gray btn-sm" style="margin:8px 0 16px;">← Retour aux univers</button>
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="logo-t" style="font-size:1.6rem;font-weight:800;">👨‍🏫 Indépendants</h1>
+        <p style="color:var(--text2,#64748b);font-size:.85rem;margin-top:2px;">Formateurs indépendants ayant acheté une licence.</p>
+      </div>
+      <button onclick="loadIndependants(this)" class="btn btn-green btn-sm">🔄 Actualiser</button>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <div class="kpi"><div class="kpi-icon">👤</div><div style="font-size:1.7rem;font-weight:800;" id="indep-kpi-total">—</div><div style="font-size:.72rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">Indépendants</div></div>
+      <div class="kpi"><div class="kpi-icon">✅</div><div style="font-size:1.7rem;font-weight:800;" id="indep-kpi-actifs">—</div><div style="font-size:.72rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">Actifs</div></div>
+      <div class="kpi"><div class="kpi-icon">⏸️</div><div style="font-size:1.7rem;font-weight:800;" id="indep-kpi-suspendus">—</div><div style="font-size:.72rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">Suspendus</div></div>
+    </div>
+
+    <div class="card p-5">
+      <h3 style="font-weight:700;margin-bottom:14px;">Licences indépendantes</h3>
+      <div class="overflow-x-auto">
+        <table class="tbl" id="tbl-independants">
+          <thead><tr>
+            <th>Nom</th><th>Email</th><th>Plan</th><th>Cycle</th><th>Statut</th><th>Expire le</th><th>Clé</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="body-independants"><tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ DASHBOARD APPRENANTS ═══════════ -->
+<div id="page-apprenant" class="hidden relative z-10 min-h-screen p-4">
+  <div style="width:100%;max-width:1100px;margin:0 auto;">
+    <button onclick="apprBack()" class="btn btn-gray btn-sm" style="margin:8px 0 16px;">← Retour aux univers</button>
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="logo-t" style="font-size:1.6rem;font-weight:800;">👨‍🎓 Apprenants</h1>
+        <p style="color:var(--text2,#64748b);font-size:.85rem;margin-top:2px;">Apprenants ayant acheté une licence pour s'entraîner.</p>
+      </div>
+      <button onclick="loadApprenants(this)" class="btn btn-green btn-sm">🔄 Actualiser</button>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <div class="kpi"><div class="kpi-icon">🎓</div><div style="font-size:1.7rem;font-weight:800;" id="appr-kpi-total">—</div><div style="font-size:.72rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">Apprenants</div></div>
+      <div class="kpi"><div class="kpi-icon">✅</div><div style="font-size:1.7rem;font-weight:800;" id="appr-kpi-actifs">—</div><div style="font-size:.72rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">Actifs</div></div>
+      <div class="kpi"><div class="kpi-icon">⏸️</div><div style="font-size:1.7rem;font-weight:800;" id="appr-kpi-suspendus">—</div><div style="font-size:.72rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">Suspendus</div></div>
+    </div>
+
+    <div class="card p-5">
+      <h3 style="font-weight:700;margin-bottom:14px;">Licences apprenants</h3>
+      <div class="overflow-x-auto">
+        <table class="tbl" id="tbl-apprenants">
+          <thead><tr>
+            <th>Nom</th><th>Email</th><th>Plan</th><th>Cycle</th><th>Statut</th><th>Expire le</th><th>Clé</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="body-apprenants"><tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+      <p style="font-size:.78rem;color:var(--text3,#94a3b8);margin-top:12px;">Les apprenants apparaissent ici après achat d'une licence individuelle (flux self-service à activer).</p>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ APP PRINCIPALE ═══════════ -->
 <div id="page-app" class="hidden relative z-10 flex min-h-screen">
-
-  <!-- SIDEBAR -->
   <div class="sidebar flex-shrink-0" id="sidebar">
     <div class="flex items-center gap-2 mb-8">
       <div style="width:38px;height:38px;border-radius:var(--radius-md);background:var(--gradient-primary);display:flex;align-items:center;justify-content:center;font-size:1.1rem;box-shadow:0 4px 12px -2px rgba(16,185,129,.4);color:#fff;">⚙</div>
@@ -640,7 +704,7 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
         <button onclick="openModal('modal-gen-licence')" class="btn btn-blue">🔑 Générer une licence</button>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="grid grid-cols-1 gap-4 mb-6">
         <!-- Plans et limites -->
         <div class="card p-5">
           <h3 style="font-weight:700;margin-bottom:14px;">📋 Plans disponibles</h3>
@@ -666,24 +730,6 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
               <span style="font-size:.8rem;color:var(--text2);">Illimité · Multi-centres · Sur devis</span>
             </div>
           </div>
-        </div>
-
-        <!-- Licence indépendant -->
-        <div class="card p-5">
-          <h3 style="font-weight:700;margin-bottom:14px;">👤 Licence Indépendant</h3>
-          <p style="font-size:.82rem;color:var(--text2);margin-bottom:14px;line-height:1.6;">Formateur indépendant sans centre — licence mensuelle sans renouvellement automatique.</p>
-          <div class="space-y-2" style="font-size:.82rem;">
-            <div style="display:flex;gap:8px;align-items:center;"><span style="color:var(--green);">✅</span> 1 formateur (lui-même)</div>
-            <div style="display:flex;gap:8px;align-items:center;"><span style="color:var(--green);">✅</span> Jusqu'à 20 stagiaires</div>
-            <div style="display:flex;gap:8px;align-items:center;"><span style="color:var(--green);">✅</span> Quiz auto-entraînement</div>
-            <div style="display:flex;gap:8px;align-items:center;"><span style="color:var(--green);">✅</span> Training Salle</div>
-            <div style="display:flex;gap:8px;align-items:center;"><span style="color:var(--text3);">⭕</span> Facturation mensuelle manuelle</div>
-            <div style="display:flex;gap:8px;align-items:center;"><span style="color:var(--text3);">⭕</span> Pas de renouvellement auto</div>
-          </div>
-          <div class="sep"></div>
-          <button onclick="openModal('modal-gen-licence');document.getElementById('gen-type').value='independant'" class="btn btn-orange btn-sm">
-            Créer licence indépendant →
-          </button>
         </div>
       </div>
 
@@ -958,7 +1004,6 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
           <label class="lbl">Type de licence</label>
           <select id="nc-type" class="inp">
             <option value="centre">Centre</option>
-            <option value="independant">Indépendant</option>
           </select>
         </div>
       </div>
@@ -1029,7 +1074,6 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
           <label class="lbl">Type</label>
           <select id="gen-type" class="inp">
             <option value="centre">Centre</option>
-            <option value="independant">Indépendant</option>
           </select>
         </div>
       </div>
@@ -1176,7 +1220,6 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
         <label class="lbl">Type licence</label>
         <select id="cc-type" class="inp">
           <option value="centre">Centre</option>
-          <option value="independant">Indépendant</option>
           <option value="essai">Essai</option>
         </select>
       </div>
@@ -1382,15 +1425,15 @@ function showApp(){
 // KPIs de la page d'accueil (activité par univers).
 async function loadLandingKpis(){
   try{
-    const [c, f, s, ent] = await Promise.all([
+    const [c, indep, s, ent] = await Promise.all([
       supabase.from('centers').select('*',{count:'exact',head:true}),
-      supabase.from('formateurs').select('*',{count:'exact',head:true}).eq('actif',true),
+      supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_type','independant'),
       supabase.from('stagiaires').select('*',{count:'exact',head:true}).eq('actif',true),
       supabase.from('centers').select('themes')
     ]);
     const setN=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=(v??0);};
     setN('kpi-l-centres', c.count); setN('kpi-l-centres-q', c.count);
-    setN('kpi-l-formateurs', f.count); setN('kpi-l-stagiaires', s.count);
+    setN('kpi-l-formateurs', indep.count); setN('kpi-l-stagiaires', s.count);
     const entCount=(ent.data||[]).filter(r=>r.themes&&(r.themes.cse||r.themes.hse)).length;
     setN('kpi-l-entreprises', entCount);
   }catch(e){ console.warn('[landing kpis]', e); }
@@ -1409,6 +1452,75 @@ window.openCentreFormation=function(){
   document.getElementById('page-app').classList.remove('hidden');
   loadAll();
 };
+// Dashboards « licence solo » (Indépendant / Apprenant) : même rendu, paramétré par type.
+// Source = table centers filtrée sur license_type.
+const SOLO_DASH = {
+  independant: { page:'page-independant', body:'body-independants', kpi:'indep', label:'indépendant', loader:'loadIndependants' },
+  apprenant:   { page:'page-apprenant',   body:'body-apprenants',   kpi:'appr',  label:'apprenant',   loader:'loadApprenants' },
+};
+function openSoloDash(type){
+  const cfg=SOLO_DASH[type]; if(!cfg) return;
+  document.getElementById('page-landing').classList.add('hidden');
+  document.getElementById(cfg.page).classList.remove('hidden');
+  loadSoloDash(type);
+}
+function soloBack(type){
+  const cfg=SOLO_DASH[type]; if(!cfg) return;
+  document.getElementById(cfg.page).classList.add('hidden');
+  document.getElementById('page-landing').classList.remove('hidden');
+}
+async function loadSoloDash(type){
+  const cfg=SOLO_DASH[type]; if(!cfg) return;
+  const tbody=document.getElementById(cfg.body); if(!tbody) return;
+  try{
+    const{data,error}=await supabase.from('centers')
+      .select('id,nom,email,plan,billing_cycle,license_status,license_expires_at,license_key')
+      .eq('license_type',type).order('created_at',{ascending:false});
+    if(error)throw error;
+    const rows=data||[];
+    document.getElementById(cfg.kpi+'-kpi-total').textContent=rows.length;
+    document.getElementById(cfg.kpi+'-kpi-actifs').textContent=rows.filter(c=>c.license_status==='active').length;
+    document.getElementById(cfg.kpi+'-kpi-suspendus').textContent=rows.filter(c=>c.license_status==='suspended').length;
+    if(!rows.length){tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px;">Aucun ${cfg.label} pour le moment.</td></tr>`;return;}
+    tbody.innerHTML=rows.map(c=>`<tr>
+      <td><strong>${esc(c.nom||'—')}</strong></td>
+      <td style="font-size:.8rem;">${esc(c.email||'—')}</td>
+      <td><span class="badge-plan bp-${esc(c.plan||'')}">${esc(c.plan||'—')}</span></td>
+      <td style="font-size:.8rem;">${c.billing_cycle==='mensuel'?'📅 Mensuel':'📆 Annuel'}</td>
+      <td>${statusBadge(c.license_status)}</td>
+      <td style="font-size:.8rem;">${c.license_expires_at?UTILS.dateStr(c.license_expires_at):'—'}</td>
+      <td><code style="font-size:.72rem;background:#f3f4f6;padding:3px 8px;border-radius:6px;">${esc(c.license_key||'—')}</code></td>
+      <td style="white-space:nowrap;">
+        <button onclick="soloExtend('${type}','${c.id}')" class="btn btn-blue btn-sm">📅 Prolonger</button>
+        <button onclick="soloToggle('${type}','${c.id}','${c.license_status}')" class="btn ${c.license_status==='active'?'btn-red':'btn-green'} btn-sm">${c.license_status==='active'?'⏸ Suspendre':'▶ Réactiver'}</button>
+      </td>
+    </tr>`).join('');
+  }catch(e){console.error(e);tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--red);padding:20px;">Erreur de chargement.</td></tr>';}
+}
+window.soloExtend=async function(type,id){
+  const mois=prompt('Prolonger de combien de mois ?','12');
+  if(!mois||isNaN(mois))return;
+  const{data}=await supabase.from('centers').select('license_expires_at').eq('id',id).single();
+  const base=data?.license_expires_at?new Date(data.license_expires_at):new Date();
+  if(base<new Date())base.setTime(Date.now());
+  base.setMonth(base.getMonth()+parseInt(mois));
+  await supabase.from('centers').update({license_expires_at:base.toISOString(),license_status:'active'}).eq('id',id);
+  loadSoloDash(type);alert(`✅ Licence prolongée jusqu'au ${UTILS.dateStr(base)}`);
+};
+window.soloToggle=async function(type,id,current){
+  const newStatus=current==='active'?'suspended':'active';
+  if(!confirm(`${newStatus==='suspended'?'Suspendre':'Réactiver'} ce compte ?`))return;
+  await supabase.from('centers').update({license_status:newStatus}).eq('id',id);
+  loadSoloDash(type);
+};
+// Indépendant
+window.openIndependantAdmin=function(){ openSoloDash('independant'); };
+window.indepBack=function(){ soloBack('independant'); };
+window.loadIndependants=function(btn){ return btn?withSpin(btn,()=>loadSoloDash('independant')):loadSoloDash('independant'); };
+// Apprenant
+window.openApprenantAdmin=function(){ openSoloDash('apprenant'); };
+window.apprBack=function(){ soloBack('apprenant'); };
+window.loadApprenants=function(btn){ return btn?withSpin(btn,()=>loadSoloDash('apprenant')):loadSoloDash('apprenant'); };
 // Retour à l'accueil depuis l'admin (bouton dans la sidebar).
 window.backToLanding=function(){ showApp(); };
 

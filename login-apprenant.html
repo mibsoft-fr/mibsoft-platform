@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>MIB — Connexion Apprenant</title>
+<meta name="theme-color" content="#F8FAFC">
+<link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="design-tokens.css">
+<link rel="stylesheet" href="mib-design.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="supabase.js"></script>
+
+<style>
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse 70% 50% at 10% 0%, rgba(16, 185, 129, 0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 90% 100%, rgba(37, 99, 235, 0.08) 0%, transparent 60%),
+      var(--bg-page);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: var(--space-4);
+  }
+  .back-link {
+    position: absolute; top: 16px; left: 16px;
+    font-size: var(--text-sm); font-weight: var(--weight-semibold);
+    color: var(--text-3); text-decoration: none;
+    display: inline-flex; align-items: center; gap: var(--space-1);
+    transition: color var(--duration-fast);
+  }
+  .back-link:hover { color: var(--vigil-700); }
+
+  .logo-wrap { text-align: center; margin-bottom: var(--space-6); }
+  .brand-logo { display:block; width:200px; max-width:72%; height:auto; margin:0 auto var(--space-4); }
+  .logo-icon {
+    width: 64px; height: 64px;
+    border-radius: var(--radius-lg);
+    background: var(--gradient-primary);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.7rem;
+    margin: 0 auto var(--space-3);
+    box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.45);
+  }
+  .logo-title {
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-extrabold);
+    color: var(--text-1);
+    letter-spacing: var(--tracking-tight);
+  }
+  .logo-sub { font-size: var(--text-xs); color: var(--text-3); margin-top: 4px; }
+
+  .auth-card {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-surface);
+    border-radius: var(--radius-xl);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 20px 50px -20px rgba(15, 23, 42, 0.20),
+      0 8px 25px -8px rgba(16, 185, 129, 0.12);
+    width: 100%; max-width: 420px;
+    padding: var(--space-8);
+  }
+  @media (max-width: 480px) {
+    .auth-card { padding: var(--space-6); }
+  }
+  .auth-card::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 4px;
+    background: var(--gradient-primary);
+    z-index: 1;
+  }
+
+  .panel { display: none; }
+  .panel.show { display: block; animation: up 0.35s var(--ease-bounce); }
+  @keyframes up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
+  .space-y-4 > * + * { margin-top: var(--space-4); }
+
+  .lbl {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    color: var(--text-2);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: var(--space-2);
+  }
+  .inp {
+    width: 100%;
+    padding: 13px 16px;
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    color: var(--text-1);
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    outline: none;
+    transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+  }
+  .inp:hover { border-color: var(--border-strong); }
+  .inp:focus {
+    border-color: var(--vigil-500);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  }
+  .inp::placeholder { color: var(--text-4); }
+
+  .pwd-wrap { position: relative; }
+  .pwd-eye {
+    position: absolute; right: 12px; top: 50%;
+    transform: translateY(-50%);
+    background: transparent; border: none;
+    cursor: pointer; font-size: 1.1rem;
+    color: var(--text-3);
+    padding: 4px;
+  }
+  .pwd-eye:hover { color: var(--text-1); }
+
+  .btn-primary {
+    width: 100%;
+    display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+    padding: var(--space-4);
+    min-height: 48px;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+    color: #fff;
+    cursor: pointer;
+    background: var(--gradient-primary);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.25) inset,
+      0 6px 14px -4px rgba(16, 185, 129, 0.45);
+    transition: all var(--duration-fast);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--gradient-primary-hover);
+    transform: translateY(-1px);
+  }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .btn-link {
+    background: none;
+    border: none;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    cursor: pointer;
+    color: var(--text-3);
+    transition: color var(--duration-fast);
+  }
+  .btn-link:hover { color: var(--vigil-700); }
+
+  .alert-ok {
+    background: var(--success-50);
+    border: 1px solid var(--success-100);
+    border-left: 4px solid var(--success-500);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--text-sm);
+    color: var(--success-800);
+  }
+  .alert-err {
+    background: var(--danger-50);
+    border: 1px solid var(--danger-200);
+    border-left: 4px solid var(--danger-500);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--text-sm);
+    color: var(--danger-800);
+    font-weight: var(--weight-semibold);
+  }
+
+  .panel-title {
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: var(--weight-extrabold);
+    color: var(--text-1);
+    margin-bottom: var(--space-1);
+  }
+  .panel-desc { font-size: var(--text-sm); color: var(--text-3); margin-bottom: var(--space-4); line-height: var(--lh-relaxed); }
+
+  .text-center { text-align: center; }
+
+  .spin {
+    width: 18px; height: 18px;
+    border: 2.5px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: sp 0.6s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+  }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="19" y1="12" x2="5" y2="12"></line>
+    <polyline points="12 19 5 12 12 5"></polyline>
+  </svg>
+  Retour
+</a>
+
+<div class="logo-wrap">
+  <img src="/logo/logo-web-transparent.png" alt="MIBsoft" class="brand-logo">
+  <div class="logo-icon" aria-hidden="true">🎓</div>
+  <div class="logo-title">Espace Apprenant</div>
+  <div class="logo-sub">MIBsoft — Entraînement SSIAP</div>
+</div>
+
+<div class="auth-card">
+
+  <!-- ══ CONNEXION ══ -->
+  <div class="panel show" id="p-login">
+    <div class="space-y-4">
+      <div>
+        <label class="lbl">Votre email</label>
+        <input type="email" id="l-email" class="inp" placeholder="vous@email.fr"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div>
+        <label class="lbl">Mot de passe</label>
+        <div class="pwd-wrap">
+          <input type="password" id="l-pwd" class="inp" placeholder="••••••••••"
+            style="padding-right:46px;" onkeydown="if(event.key==='Enter')doLogin()">
+          <button class="pwd-eye" onclick="togglePwd('l-pwd')" aria-label="Afficher/masquer">👁</button>
+        </div>
+      </div>
+      <div id="l-err" class="alert-err hidden"></div>
+      <label style="display:flex;gap:9px;align-items:flex-start;font-size:13px;line-height:1.4;cursor:pointer;margin:14px 0 4px;text-align:left"><input type="checkbox" id="mib-consent-cb" style="margin-top:2px;width:18px;height:18px;flex:0 0 auto"><span>J'accepte les <a href="/legal/cgu.html" target="_blank" rel="noopener">CGU</a> et la <a href="/legal/politique-confidentialite.html" target="_blank" rel="noopener">politique de confidentialite</a> (RGPD).</span></label><div id="mib-consent-err" style="display:none;color:#dc2626;font-size:12.5px;margin:2px 0 8px">Vous devez accepter les CGU et la politique de confidentialite pour continuer.</div>
+      <button class="btn-primary" id="btn-login" onclick="doLogin()">Se connecter →</button>
+      <div class="text-center">
+        <button class="btn-link" onclick="switchPanel('reset')">Mot de passe oublié ?</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MOT DE PASSE OUBLIÉ ══ -->
+  <div class="panel" id="p-reset">
+    <p class="panel-title">Mot de passe oublié</p>
+    <p class="panel-desc">
+      Entrez votre email. Vous recevrez un lien pour choisir un nouveau mot de passe.
+    </p>
+    <div class="space-y-4">
+      <div>
+        <label class="lbl">Votre email</label>
+        <input type="email" id="r-email" class="inp" placeholder="vous@email.fr">
+      </div>
+      <div id="r-err" class="alert-err hidden"></div>
+      <div id="r-ok" class="alert-ok hidden"></div>
+      <button class="btn-primary" id="btn-reset" onclick="doReset()">Recevoir le lien →</button>
+      <div class="text-center">
+        <button class="btn-link" onclick="switchPanel('login')">← Retour à la connexion</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ DÉFINIR / RÉINITIALISER LE MOT DE PASSE (lien email) ══ -->
+  <div class="panel" id="p-token">
+    <p class="panel-title">Votre mot de passe</p>
+    <p class="panel-desc">Choisissez le mot de passe de votre espace apprenant.</p>
+    <div class="space-y-4">
+      <div>
+        <label class="lbl">Nouveau mot de passe</label>
+        <div class="pwd-wrap">
+          <input type="password" id="t-pwd" class="inp" placeholder="Minimum 8 caractères" style="padding-right:46px;">
+          <button class="pwd-eye" onclick="togglePwd('t-pwd')" aria-label="Afficher/masquer">👁</button>
+        </div>
+      </div>
+      <div>
+        <label class="lbl">Confirmer</label>
+        <div class="pwd-wrap">
+          <input type="password" id="t-pwd2" class="inp" placeholder="Répétez" style="padding-right:46px;">
+          <button class="pwd-eye" onclick="togglePwd('t-pwd2')" aria-label="Afficher/masquer">👁</button>
+        </div>
+      </div>
+      <div id="t-err" class="alert-err hidden"></div>
+      <div id="t-ok" class="alert-ok hidden"></div>
+      <button class="btn-primary" id="btn-token" onclick="doTokenReset()">Enregistrer →</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function switchPanel(t){
+  ['login','reset','token'].forEach(id=>{
+    const p = document.getElementById(`p-${id}`);
+    p.classList.remove('show'); p.style.display='none';
+  });
+  const target = document.getElementById(`p-${t}`);
+  target.style.display='block';
+  setTimeout(()=>target.classList.add('show'),10);
+}
+switchPanel('login');
+
+window.addEventListener('DOMContentLoaded',()=>{
+  if (window.SESSION) SESSION.clear('apprenant');
+});
+
+// Lien « définir mot de passe » (email de bienvenue) ou reset → panneau token.
+supabase.auth.onAuthStateChange((event)=>{
+  if(event==='PASSWORD_RECOVERY'){ switchPanel('token'); }
+});
+
+async function doLogin(){
+  const email=document.getElementById('l-email').value.trim().toLowerCase();
+  const pwd=document.getElementById('l-pwd').value;
+  const errEl=document.getElementById('l-err');errEl.classList.add('hidden');
+  if(!email||!pwd){showErr(errEl,'❌ Remplissez tous les champs.');return;}
+  if(!mibConsentOK())return;
+  setLoad('btn-login',true);
+  try{
+    try { await supabase.auth.signOut(); } catch (_) {}
+    const {error:authErr} = await supabase.auth.signInWithPassword({email,password:pwd});
+    if(authErr) throw new Error('badpwd');
+    const {data:{user}} = await supabase.auth.getUser();
+    const {data,error} = await supabase.from('centers').select('*').eq('auth_user_id',user.id).single();
+    if(error||!data) throw new Error('notfound');
+    if(data.license_type!=='apprenant') throw new Error('nottype');
+    if(data.license_status!=='active') throw new Error('expired');
+    if(data.license_expires_at && new Date(data.license_expires_at)<new Date()) throw new Error('expired');
+    SESSION.save('apprenant',{
+      center_id:data.id, nom:data.nom, plan:data.plan,
+      license_expires_at:data.license_expires_at, role:'apprenant'
+    });
+    mibRecordConsent('apprenant',email,data.id);
+    window.location.href='apprenant.html';
+  }catch(e){
+    const msgs={
+      notfound:'❌ Compte introuvable.',
+      nottype:'❌ Ce compte n\'est pas un accès apprenant. Utilisez la bonne page de connexion.',
+      expired:'❌ Votre accès a expiré. Rachetez une licence pour continuer.',
+      badpwd:'❌ Email ou mot de passe incorrect.'
+    };
+    showErr(errEl,msgs[e.message]||'❌ Erreur de connexion.');
+    setLoad('btn-login',false,null,'Se connecter →');
+    try { await supabase.auth.signOut(); } catch (_) {}
+  }
+}
+
+async function doReset(){
+  const email = document.getElementById('r-email').value.trim().toLowerCase();
+  const errEl = document.getElementById('r-err');
+  const okEl  = document.getElementById('r-ok');
+  errEl.classList.add('hidden'); okEl.classList.add('hidden');
+  if(!email){ showErr(errEl,'❌ Entrez votre email.'); return; }
+  setLoad('btn-reset', true);
+  try{
+    const redirectTo = window.location.origin + window.location.pathname;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    if(error) throw error;
+    okEl.innerHTML = `✅ Si un compte existe pour <strong>${email}</strong>, un email vient de partir.<br><br>
+      <small style="color:var(--text-3);">Cliquez sur le lien pour choisir votre mot de passe. Vérifiez les spams si besoin.</small>`;
+    okEl.classList.remove('hidden');
+    const btn=document.getElementById('btn-reset');
+    btn.disabled=true; btn.innerHTML='✉️ Email envoyé';
+  }catch(e){
+    showErr(errEl, '❌ Erreur lors de la demande. Réessayez dans quelques minutes.');
+    setLoad('btn-reset', false, null, 'Recevoir le lien →');
+  }
+}
+
+async function doTokenReset(){
+  const pwd=document.getElementById('t-pwd').value;
+  const pwd2=document.getElementById('t-pwd2').value;
+  const errEl=document.getElementById('t-err');
+  const okEl=document.getElementById('t-ok');
+  errEl.classList.add('hidden');okEl.classList.add('hidden');
+  if(pwd.length<8){showErr(errEl,'❌ Au moins 8 caractères.');return;}
+  if(pwd!==pwd2){showErr(errEl,'❌ Les mots de passe ne correspondent pas.');return;}
+  setLoad('btn-token',true);
+  try{
+    const { error } = await supabase.auth.updateUser({ password: pwd });
+    if(error) throw error;
+    await supabase.auth.signOut();
+    okEl.textContent='✅ Mot de passe enregistré ! Connectez-vous.';okEl.classList.remove('hidden');
+    setTimeout(()=>{ window.location.href = window.location.pathname; },2000);
+  }catch(e){
+    showErr(errEl,'❌ Lien invalide ou expiré. Faites une nouvelle demande.');
+    setLoad('btn-token',false,null,'Enregistrer →');
+  }
+}
+
+function showErr(el,msg){el.textContent=msg;el.classList.remove('hidden');}
+function togglePwd(id){const i=document.getElementById(id);i.type=i.type==='password'?'text':'password';}
+function setLoad(btnId,on,_unused,label){
+  const b=document.getElementById(btnId);b.disabled=on;
+  b.innerHTML=on?'<span class="spin"></span>':(label||b.textContent);
+}
+</script>
+
+<!-- Consentement RGPD MIBsoft : requis a chaque connexion, lie a l'identite -->
+<script>
+window.MIB_CONSENT_VERSION='2026-06-v1';
+function mibClientId(){try{var id=localStorage.getItem('mib_client_id');if(!id){id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(16).slice(2));localStorage.setItem('mib_client_id',id);}return id;}catch(_){return Date.now()+'';}}
+function mibConsentOK(){var cb=document.getElementById('mib-consent-cb');var e=document.getElementById('mib-consent-err');if(cb&&cb.checked){if(e)e.style.display='none';return true;}if(e)e.style.display='block';if(cb){try{cb.focus();}catch(_){}}return false;}
+function mibRecordConsent(role,email,centerId){try{if(window.supabase&&supabase.rpc){var cid=(centerId&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(centerId))?centerId:null;supabase.rpc('record_rgpd_consent',{p_role:role,p_client_id:mibClientId(),p_consent_version:window.MIB_CONSENT_VERSION,p_email:email||null,p_center_id:cid,p_user_agent:navigator.userAgent,p_page:location.pathname}).then(function(r){if(r&&r.error)console.warn('record_rgpd_consent',r.error);});}}catch(e){console.warn('record_rgpd_consent',e);}}
+</script>
+
+</body>
+</html>
