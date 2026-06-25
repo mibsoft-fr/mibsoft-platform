@@ -264,14 +264,18 @@ stateDiagram-v2
 <h2>9. Variables d'environnement &amp; secrets</h2>
 <p>Aucun secret n'est stocké dans le code. Deux niveaux de configuration :</p>
 
-<h3>9.1 — Front (fichier <code>config.js</code>, valeurs publiques)</h3>
-<p>Servi avec le site (non versionné). Définit l'URL du projet Supabase et la clé publique
-<em>anon</em> (sans danger côté client, protégée par les politiques RLS).</p>
+<h3>9.1 — Front (valeurs publiques)</h3>
+<p>La configuration Supabase du front est définie directement dans <code>supabase.js</code>
+(versionné, lignes ~10–11) : l'URL du projet et la clé publique <em>anon</em> (sans danger côté
+client — l'accès reste filtré par les politiques RLS). Pour pointer vers un autre projet Supabase,
+il suffit d'éditer ces deux constantes.</p>
 <table>
-  <tr><th>Variable</th><th>Description</th></tr>
+  <tr><th>Constante (dans <code>supabase.js</code>)</th><th>Description</th></tr>
   <tr><td><code>SUPABASE_URL</code></td><td>URL du projet Supabase (ex. <code>https://&lt;projet&gt;.supabase.co</code>).</td></tr>
   <tr><td><code>SUPABASE_ANON_KEY</code></td><td>Clé publique <em>anon</em> du projet (lecture filtrée par RLS).</td></tr>
 </table>
+<p class="sub">Note : un fichier <code>config.js</code> est référencé par les pages mais reste
+optionnel (les valeurs ci-dessus suffisent au fonctionnement).</p>
 
 <h3>9.2 — Edge Functions (Supabase → Edge Functions → Secrets)</h3>
 <div class="note"><strong>Sensibles — ne jamais committer.</strong> Sensibles à la casse.
@@ -316,7 +320,7 @@ webhook et les <code>price_id</code> (table <code>stripe_prices</code>) doivent 
 <h3>10.3 — Front (Vercel)</h3>
 <ol>
   <li>Connecter le dépôt GitHub à Vercel (déploiement auto sur <code>main</code>).</li>
-  <li>Fournir le fichier <code>config.js</code> (cf. §9.1) à la racine du site servi.</li>
+  <li>Vérifier la config Supabase du front dans <code>supabase.js</code> (cf. §9.1) — l'éditer si l'on change de projet.</li>
   <li>Brancher le <strong>domaine</strong> (ex. <code>mibsoft.fr</code>) et vérifier qu'il fait partie des origines autorisées (CORS) des edge functions et des Redirect URLs Supabase.</li>
 </ol>
 
