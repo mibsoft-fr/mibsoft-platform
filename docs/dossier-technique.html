@@ -261,6 +261,72 @@ stateDiagram-v2
   <tr><td>Mailgun</td><td>Emails transactionnels (bienvenue, rappels).</td></tr>
 </table>
 
+<h2>9. Variables d'environnement &amp; secrets</h2>
+<p>Aucun secret n'est stocké dans le code. Deux niveaux de configuration :</p>
+
+<h3>9.1 — Front (fichier <code>config.js</code>, valeurs publiques)</h3>
+<p>Servi avec le site (non versionné). Définit l'URL du projet Supabase et la clé publique
+<em>anon</em> (sans danger côté client, protégée par les politiques RLS).</p>
+<table>
+  <tr><th>Variable</th><th>Description</th></tr>
+  <tr><td><code>SUPABASE_URL</code></td><td>URL du projet Supabase (ex. <code>https://&lt;projet&gt;.supabase.co</code>).</td></tr>
+  <tr><td><code>SUPABASE_ANON_KEY</code></td><td>Clé publique <em>anon</em> du projet (lecture filtrée par RLS).</td></tr>
+</table>
+
+<h3>9.2 — Edge Functions (Supabase → Edge Functions → Secrets)</h3>
+<div class="note"><strong>Sensibles — ne jamais committer.</strong> Sensibles à la casse.
+<code>SUPABASE_URL</code> et <code>SUPABASE_SERVICE_ROLE_KEY</code> sont injectés automatiquement par Supabase.</div>
+<table>
+  <tr><th>Secret</th><th>Rôle</th></tr>
+  <tr><td><code>STRIPE_SECRET_KEY</code></td><td>Clé API Stripe (<code>sk_test_…</code> / <code>sk_live_…</code>) — création des sessions de paiement.</td></tr>
+  <tr><td><code>STRIPE_WEBHOOK_SECRET</code></td><td>Secret de signature du webhook Stripe (<code>whsec_…</code>) — vérification des événements.</td></tr>
+  <tr><td><code>MAILGUN_API_KEY</code></td><td>Clé API Mailgun (emails transactionnels).</td></tr>
+  <tr><td><code>MAILGUN_DOMAIN</code></td><td>Domaine d'envoi (ex. <code>mibsoft.fr</code>).</td></tr>
+  <tr><td><code>MAILGUN_HOST</code></td><td>Endpoint Mailgun (ex. <code>api.eu.mailgun.net</code> pour l'UE).</td></tr>
+  <tr><td><code>MAILGUN_FROM</code></td><td>Expéditeur affiché des emails.</td></tr>
+  <tr><td><code>APP_URL</code></td><td>URL de l'application (liens des emails, redirections). Ex. <code>https://mibsoft.fr</code>.</td></tr>
+  <tr><td><code>VITRINE_URL</code></td><td>URL de repli pour les retours de paiement.</td></tr>
+  <tr><td><code>ALERT_EMAIL</code> / <code>ALERT_SMS_TO</code></td><td>Destinataires des alertes de supervision (health-monitor).</td></tr>
+  <tr><td><code>SMSFACTOR_TOKEN</code> / <code>SMSFACTOR_SENDER</code></td><td>Envoi des SMS d'alerte (optionnel).</td></tr>
+</table>
+<div class="note">⚠️ <strong>Cohérence Stripe</strong> : la clé (<code>sk_test</code> vs <code>sk_live</code>), le secret de
+webhook et les <code>price_id</code> (table <code>stripe_prices</code>) doivent tous être dans le
+<strong>même mode</strong> (test ou production).</div>
+
+<h2>10. Guide de déploiement</h2>
+
+<h3>10.1 — Base &amp; backend (Supabase)</h3>
+<ol>
+  <li>Créer le projet Supabase (région <strong>UE</strong>).</li>
+  <li>Appliquer les migrations SQL : dossier <code>supabase/migrations/</code> (via <code>supabase db push</code> ou le SQL Editor).</li>
+  <li>Déployer les Edge Functions (<code>supabase/functions/</code>) : <code>stripe-create-checkout</code>, <code>stripe-webhook</code>, <code>health-monitor</code>, etc.<br>
+      ⚠️ <code>stripe-webhook</code> et <code>stripe-create-checkout</code> doivent être en <code>verify_jwt = false</code> (endpoints publics / webhook).</li>
+  <li>Renseigner les <strong>Secrets</strong> (cf. §9.2).</li>
+  <li><strong>Auth → URL Configuration</strong> : ajouter les <em>Redirect URLs</em> autorisées (domaine de prod + <code>*.vercel.app</code>) pour les liens « définir/réinitialiser le mot de passe ».</li>
+</ol>
+
+<h3>10.2 — Paiement (Stripe)</h3>
+<ol>
+  <li>Créer les <strong>produits &amp; prix</strong> (mensuel/annuel/paiement unique selon le plan).</li>
+  <li>Copier chaque <code>price_id</code> dans la table <code>stripe_prices</code> (<code>plan</code>, <code>cycle</code>, <code>amount_cents</code>, <code>active=true</code>).</li>
+  <li>Créer un <strong>endpoint webhook</strong> pointant vers la function <code>stripe-webhook</code>, événements : <code>checkout.session.completed</code>, <code>customer.subscription.updated|deleted</code>, <code>invoice.payment_failed</code>.</li>
+  <li>Copier le <strong>secret de signature</strong> du webhook dans <code>STRIPE_WEBHOOK_SECRET</code>.</li>
+</ol>
+
+<h3>10.3 — Front (Vercel)</h3>
+<ol>
+  <li>Connecter le dépôt GitHub à Vercel (déploiement auto sur <code>main</code>).</li>
+  <li>Fournir le fichier <code>config.js</code> (cf. §9.1) à la racine du site servi.</li>
+  <li>Brancher le <strong>domaine</strong> (ex. <code>mibsoft.fr</code>) et vérifier qu'il fait partie des origines autorisées (CORS) des edge functions et des Redirect URLs Supabase.</li>
+</ol>
+
+<h3>10.4 — Vérifications post-déploiement</h3>
+<ul>
+  <li>Achat de test (carte <code>4242 4242 4242 4242</code> en mode test) → compte créé + email reçu + connexion OK.</li>
+  <li>Webhook Stripe : événements en <code>200</code> (table <code>stripe_events</code> à l'état <code>done</code>).</li>
+  <li>Un entraînement (auto-entraînement / quiz salle / challenge) → résultats bien enregistrés.</li>
+</ul>
+
 <p class="sub" style="margin-top:30px;border-top:1px solid var(--line);padding-top:12px;">
 Document généré automatiquement à partir du schéma réel de la base. Pour l'imprimer en PDF :
 menu du navigateur → Imprimer → Enregistrer en PDF.</p>
