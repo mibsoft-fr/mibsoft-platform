@@ -2,6 +2,8 @@
 
 > Généré depuis le schéma réel de la base (clés étrangères). Les fichiers `.md` Mermaid se
 > visualisent directement sur GitHub, dans VS Code (extension Mermaid) ou sur https://mermaid.live.
+>
+> **Exporter en images (PNG/SVG)** : `bash docs/render-uml.sh` (nécessite Node.js ; sort dans `docs/diagrams/`).
 
 ---
 
