@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIBsoft SSIAP — Dossier technique</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root{ --brand:#10b981; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; }
+  *{ box-sizing:border-box; }
+  body{ font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:var(--ink); line-height:1.6; max-width:980px; margin:0 auto; padding:32px 24px 80px; }
+  header{ border-bottom:3px solid var(--brand); padding-bottom:16px; margin-bottom:28px; }
+  h1{ font-size:1.9rem; margin:0 0 4px; }
+  h2{ font-size:1.25rem; margin:34px 0 10px; padding-top:14px; border-top:1px solid var(--line); }
+  h3{ font-size:1rem; margin:18px 0 6px; color:#334155; }
+  .sub{ color:var(--muted); }
+  code{ background:#f1f5f9; padding:1px 6px; border-radius:5px; font-size:.88em; }
+  table{ border-collapse:collapse; width:100%; margin:10px 0; font-size:.9rem; }
+  th,td{ border:1px solid var(--line); padding:7px 10px; text-align:left; vertical-align:top; }
+  th{ background:#f8fafc; }
+  .mermaid{ background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px; margin:14px 0; text-align:center; }
+  ul{ margin:6px 0 6px 0; }
+  .tag{ display:inline-block; background:#ecfdf5; color:#065f46; border:1px solid #6ee7b7; border-radius:20px; padding:2px 10px; font-size:.78rem; margin:2px 4px 2px 0; }
+  .note{ background:#f8fafc; border-left:4px solid var(--brand); padding:10px 14px; border-radius:6px; margin:12px 0; font-size:.92rem; }
+  @media print{ body{ padding:0; } h2{ break-before:auto; } .mermaid{ break-inside:avoid; } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MIBsoft — Plateforme SSIAP</h1>
+  <div class="sub">Dossier technique — architecture, modèle de données et flux</div>
+</header>
+
+<h2>1. Vue d'ensemble</h2>
+<p>Plateforme web de formation et d'entraînement à la sécurité incendie (SSIAP 1/2/3). Elle sert
+plusieurs profils — <strong>centres de formation</strong>, <strong>formateurs indépendants</strong>,
+<strong>apprenants individuels</strong>, <strong>formateurs</strong> et <strong>stagiaires</strong> —
+avec vente en ligne (abonnements et paiement unique), gestion des sessions, et plusieurs moteurs
+d'entraînement (auto-entraînement QCM/multi-jeux, quiz en salle, Challenge Cup par équipes).</p>
+
+<h3>Stack technique</h3>
+<p>
+  <span class="tag">Front : HTML/CSS/JS (vanilla) + Tailwind + Chart.js</span>
+  <span class="tag">Hébergement : Vercel</span>
+  <span class="tag">Backend : Supabase (PostgreSQL + Auth + RLS)</span>
+  <span class="tag">Edge Functions : Deno</span>
+  <span class="tag">Paiement : Stripe</span>
+  <span class="tag">Emails : Mailgun</span>
+  <span class="tag">Realtime jeu : couche compatible Firebase persistée dans Supabase</span>
+</p>
+<div class="note">Architecture <strong>multi-tenant</strong> : la table <code>centers</code> représente le
+locataire (centre, indépendant ou apprenant selon <code>license_type</code>). Toutes les données
+sont cloisonnées par <code>center_id</code> via les politiques de sécurité PostgreSQL (RLS).</div>
+
+<h2>2. Architecture des composants &amp; flux</h2>
+<pre class="mermaid">
+flowchart TD
+    Stripe["Stripe Checkout"] -->|webhook| WH{{"edge: stripe-webhook"}}
+    WH -->|crée| C[("centers (centre / indépendant / apprenant)")]
+    Vitrine["Vitrine - pricing.html"] -->|edge: stripe-create-checkout| Stripe
+
+    C --> ADM["Admin - admin.html (synthèse, licences, monitoring)"]
+
+    subgraph Espaces["Espaces utilisateurs"]
+      CE["Centre - center.html"]
+      IN["Indépendant - center.html (mode) / login-independant.html"]
+      AP["Apprenant - apprenant.html / login-apprenant.html"]
+      FO["Formateur - formateur.html (PIN)"]
+      ST["Stagiaire - stagiaire.html (PIN/QR)"]
+    end
+
+    C --> CE
+    C --> IN
+    C --> AP
+    CE --> FO
+    CE --> ST
+    IN --> ST
+
+    subgraph Modules["Modules d'entraînement"]
+      AE["Auto-entraînement (QCM + Multi-jeux)"]
+      QS["Quiz Salle"]
+      CC["Challenge Cup (challenge-cup-ssiap)"]
+    end
+
+    AP --> AE
+    ST --> AE
+    ST --> QS
+    IN -->|lance| CC
+    FO -->|lance| QS
+    FO -->|lance| CC
+
+    AE -->|résultats| DB[("Supabase: entrainement_* / cc_* / quiz_salle_*")]
+    QS --> DB
+    CC --> DB
+    DB -->|stats + erreurs| IN
+    ST -->|avis| AV[("avis_retours")]
+    AV --> IN
+    AV --> ADM
+</pre>
+
+<h2>3. Modèle de données (entités &amp; relations)</h2>
+<pre class="mermaid">
+erDiagram
+    centers ||--o{ profiles            : "profil auth"
+    centers ||--o{ formateurs          : "emploie"
+    centers ||--o{ stagiaires          : "inscrit"
+    centers ||--o{ avis_retours        : "reçoit"
+    centers ||--o{ sessions_formation       : "organise"
+    formateurs ||--o{ sessions_formation     : "anime"
+    sessions_formation ||--o{ session_participants : "réunit"
+    stagiaires ||--o{ session_participants    : "participe"
+    centers ||--o{ entrainement_sessions      : ""
+    stagiaires ||--o{ entrainement_sessions   : "s'entraîne"
+    entrainement_sessions ||--o{ entrainement_reponses : "détail"
+    centers ||--o{ quiz_salle_sessions        : ""
+    formateurs ||--o{ quiz_salle_sessions     : "lance"
+    quiz_salle_sessions ||--o{ quiz_salle_participants : ""
+    quiz_salle_sessions ||--o{ quiz_salle_reponses     : ""
+    cc_modules ||--o{ cc_questions             : "contient"
+    cc_questions ||--o{ cc_question_options     : ""
+    cc_questions ||--o{ cc_question_items       : ""
+    cc_questions ||--o{ cc_question_pairs       : ""
+    cc_questions ||--o{ cc_question_categories  : ""
+    cc_questions ||--o{ cc_question_decision_steps : ""
+    cc_sessions ||--o{ cc_teams                 : "équipes"
+    cc_sessions ||--o{ cc_team_answers          : ""
+    cc_teams ||--o{ cc_team_answers             : "répond"
+    cc_questions ||--o{ cc_team_answers         : ""
+
+    centers {
+        uuid id PK
+        text email
+        text plan "demo|apprenant|independant|starter|pro|expert"
+        text license_type "centre|independant|apprenant"
+        text license_status "active|suspended|expired"
+        date license_expires_at
+        int max_formateurs
+        int max_stagiaires
+        uuid auth_user_id
+        text stripe_customer_id
+    }
+    formateurs {
+        uuid id PK
+        uuid center_id FK
+        text niveau "SSIAP1|2|3"
+        date date_dernier_recyclage
+        text pin_hash
+        bool actif
+    }
+    stagiaires {
+        uuid id PK
+        uuid center_id FK
+        text niveau
+        text pin_hash
+        bool actif
+    }
+    sessions_formation {
+        uuid id PK
+        uuid center_id FK
+        uuid formateur_id FK
+        text type_formation "INI|REC|RAN"
+        text statut
+    }
+    entrainement_reponses {
+        uuid id PK
+        uuid session_id FK
+        text question_id
+        jsonb reponse
+        bool est_correcte
+    }
+    cc_questions {
+        uuid id PK
+        uuid module_id FK
+        text type "quiz|true-false|sequence|matching|fill-blank|categories|decision|..."
+        jsonb correct_answers
+        jsonb correct_order
+    }
+</pre>
+
+<h2>4. Séquence — Achat &amp; activation (Stripe)</h2>
+<pre class="mermaid">
+sequenceDiagram
+    actor U as Acheteur
+    participant V as Vitrine
+    participant CK as edge: stripe-create-checkout
+    participant S as Stripe
+    participant WH as edge: stripe-webhook
+    participant DB as Supabase
+    participant MG as Mailgun
+    U->>V: Choisit un plan
+    V->>CK: POST {plan, email, nom}
+    CK->>DB: lit stripe_prices
+    CK->>S: crée Checkout Session
+    S-->>U: page de paiement
+    U->>S: paie
+    S->>WH: checkout.session.completed
+    WH->>DB: crée centers (+ quotas, modules, clé)
+    WH->>DB: crée auth user + profile
+    WH->>MG: email de bienvenue (lien mot de passe)
+    MG-->>U: email reçu
+    U->>U: définit son mot de passe → accède à son espace
+</pre>
+
+<h2>5. Séquence — Déroulé d'un Challenge Cup</h2>
+<pre class="mermaid">
+sequenceDiagram
+    actor F as Indépendant / Formateur
+    participant CE as center.html / formateur.html
+    participant CC as challenge-cup-ssiap
+    participant DB as Supabase (cc_*)
+    actor S as Stagiaires
+    F->>CE: Lancer Challenge salle
+    CE->>CC: ouvre + mib_cc_auth {session, formateur, stagiaires}
+    CC->>DB: crée cc_session (+ équipes)
+    CC-->>S: QR / invitation
+    S->>CC: rejoignent
+    loop Chaque question
+        F->>CC: lance la question
+        S->>CC: répondent
+        CC->>DB: cc_team_answers (is_correct)
+    end
+    CC->>DB: podium + bridge -> entrainement_reponses
+    F->>CE: Résultats + Reprendre les erreurs (remédiation)
+</pre>
+
+<h2>6. Cycle de vie d'une licence</h2>
+<pre class="mermaid">
+stateDiagram-v2
+    [*] --> active : paiement validé
+    active --> active : prolonger / renouveler
+    active --> suspended : paiement échoué
+    suspended --> active : régularisation
+    active --> expired : date dépassée / abonnement supprimé
+    suspended --> expired
+    expired --> active : rachat
+    expired --> [*]
+</pre>
+
+<h2>7. Sécurité &amp; cloisonnement</h2>
+<ul>
+  <li><strong>Authentification</strong> : Supabase Auth (email/mot de passe pour centre / indépendant /
+      apprenant ; PIN 6 chiffres hashé SHA-256 pour formateurs et stagiaires).</li>
+  <li><strong>RLS (Row Level Security)</strong> activé sur toutes les tables sensibles. Règle centrale :
+      un utilisateur ne voit que les données de son centre (<code>center_id = jwt_center_id()</code>),
+      l'apprenant lit sa fiche via <code>auth_user_id = auth.uid()</code>. Un super-admin
+      (<code>jwt_is_super_admin()</code>) accède à l'ensemble.</li>
+  <li><strong>Paiements</strong> : signatures Stripe vérifiées côté edge function ; idempotence des
+      événements (<code>stripe_events</code>).</li>
+  <li><strong>RGPD</strong> : consentement enregistré à chaque connexion ; hébergement Europe.</li>
+</ul>
+
+<h2>8. Fonctions serveur (edge) &amp; intégrations</h2>
+<table>
+  <tr><th>Fonction / Service</th><th>Rôle</th></tr>
+  <tr><td><code>stripe-create-checkout</code></td><td>Crée la session de paiement Stripe (abonnement ou paiement unique).</td></tr>
+  <tr><td><code>stripe-webhook</code></td><td>Active la licence : crée le compte, l'auth, les quotas/modules, envoie l'email.</td></tr>
+  <tr><td><code>centre-signup</code></td><td>Première connexion : validation clé de licence + création du mot de passe.</td></tr>
+  <tr><td><code>formateur-pin-reminder</code> / auth-sync</td><td>Gestion des PIN et synchronisation des comptes formateur/stagiaire.</td></tr>
+  <tr><td><code>health-monitor</code></td><td>Supervision technique (alertes <code>monitoring_alerts</code>).</td></tr>
+  <tr><td>Mailgun</td><td>Emails transactionnels (bienvenue, rappels).</td></tr>
+</table>
+
+<p class="sub" style="margin-top:30px;border-top:1px solid var(--line);padding-top:12px;">
+Document généré automatiquement à partir du schéma réel de la base. Pour l'imprimer en PDF :
+menu du navigateur → Imprimer → Enregistrer en PDF.</p>
+
+<script>mermaid.initialize({ startOnLoad:true, theme:'default', securityLevel:'loose' });</script>
+</body>
+</html>
