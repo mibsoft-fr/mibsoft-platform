@@ -421,6 +421,13 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
       <div class="card" style="padding:16px;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Nouvelles licences (6 derniers mois)</div><div style="height:170px;"><canvas id="chart-newlic"></canvas></div></div>
     </div>
 
+    <!-- Graphiques de synthèse (suite) -->
+    <div class="grid mb-6" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
+      <div class="card" style="padding:16px;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Note moyenne des avis (6 mois)</div><div style="height:170px;"><canvas id="chart-avis"></canvas></div></div>
+      <div class="card" style="padding:16px;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Activité d'entraînement / mois</div><div style="height:170px;"><canvas id="chart-activite"></canvas></div></div>
+      <div class="card" style="padding:16px;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Alertes par sévérité</div><div style="height:170px;"><canvas id="chart-alertes"></canvas></div></div>
+    </div>
+
     <div id="landing-univers" class="grid grid-cols-1 md:grid-cols-2 gap-5">
       <div class="card" style="padding:26px;opacity:.78;">
         <div style="display:flex;align-items:center;justify-content:space-between;">
@@ -1501,6 +1508,33 @@ async function renderLandingCharts(){
     _landingCharts.plans = new Chart(document.getElementById('chart-plans'), { type:'doughnut', data:{ labels:planLabels, datasets:[{ data:planData, backgroundColor:colors }] }, options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{ font:{ size:10 }, boxWidth:12 } } } } });
     if (_landingCharts.newlic) _landingCharts.newlic.destroy();
     _landingCharts.newlic = new Chart(document.getElementById('chart-newlic'), { type:'bar', data:{ labels:months.map(m=>m.label), datasets:[{ data:counts, backgroundColor:'#10b981', borderRadius:6 }] }, options:{ maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } });
+
+    // Note moyenne des avis par mois
+    const avisRes = await supabase.from('avis_retours').select('created_at,note');
+    const noteSum = months.map(()=>0), noteCnt = months.map(()=>0);
+    (avisRes.data||[]).forEach(a => { if(!a.created_at || !a.note) return; const d = new Date(a.created_at); const key = d.getFullYear()+'-'+(d.getMonth()+1); const idx = months.findIndex(m=>m.key===key); if(idx>=0){ noteSum[idx]+=a.note; noteCnt[idx]++; } });
+    const noteAvg = months.map((m,i)=> noteCnt[i] ? +(noteSum[i]/noteCnt[i]).toFixed(2) : null);
+    if (_landingCharts.avis) _landingCharts.avis.destroy();
+    _landingCharts.avis = new Chart(document.getElementById('chart-avis'), { type:'line', data:{ labels:months.map(m=>m.label), datasets:[{ data:noteAvg, borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.15)', fill:true, tension:.3, spanGaps:true, pointRadius:4 }] }, options:{ maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ min:0, max:5, ticks:{ stepSize:1 } } } } });
+
+    // Activité d'entraînement par mois (auto-entraînement + quiz salle + challenge)
+    const [entr, qsr, ccr] = await Promise.all([
+      supabase.from('entrainement_sessions').select('started_at'),
+      supabase.from('quiz_salle_sessions').select('created_at'),
+      supabase.from('cc_sessions').select('created_at')
+    ]);
+    const act = months.map(()=>0);
+    const addAct = (rs, field) => (rs||[]).forEach(r => { const v = r[field]; if(!v) return; const d = new Date(v); const key = d.getFullYear()+'-'+(d.getMonth()+1); const idx = months.findIndex(m=>m.key===key); if(idx>=0) act[idx]++; });
+    addAct(entr.data,'started_at'); addAct(qsr.data,'created_at'); addAct(ccr.data,'created_at');
+    if (_landingCharts.act) _landingCharts.act.destroy();
+    _landingCharts.act = new Chart(document.getElementById('chart-activite'), { type:'bar', data:{ labels:months.map(m=>m.label), datasets:[{ data:act, backgroundColor:'#2563eb', borderRadius:6 }] }, options:{ maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } });
+
+    // Alertes par sévérité
+    const al = await supabase.from('monitoring_alerts').select('severity');
+    const bySev = {}; (al.data||[]).forEach(a => { const s = a.severity || 'info'; bySev[s] = (bySev[s]||0)+1; });
+    const sevKeys = ['info','warning','error','critical'];
+    if (_landingCharts.alertes) _landingCharts.alertes.destroy();
+    _landingCharts.alertes = new Chart(document.getElementById('chart-alertes'), { type:'doughnut', data:{ labels:sevKeys.map(s=>({info:'Info',warning:'Avertissement',error:'Erreur',critical:'Critique'}[s])), datasets:[{ data:sevKeys.map(s=>bySev[s]||0), backgroundColor:['#3b82f6','#f59e0b','#ef4444','#7f1d1d'] }] }, options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{ font:{ size:10 }, boxWidth:12 } } } } });
   }catch(e){ console.warn('[landing charts]', e); }
 }
 window.landingShowFormation=function(){
