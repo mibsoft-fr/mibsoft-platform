@@ -216,3 +216,62 @@ stateDiagram-v2
     expired --> active : rachat / nouvelle licence
     expired --> [*]
 ```
+
+---
+
+## 4. Diagramme de séquence — Achat & activation (Stripe)
+
+```mermaid
+sequenceDiagram
+    actor U as Acheteur
+    participant V as Vitrine (pricing.html)
+    participant CK as edge: stripe-create-checkout
+    participant S as Stripe
+    participant WH as edge: stripe-webhook
+    participant DB as Supabase
+    participant MG as Mailgun
+
+    U->>V: Choisit un plan (apprenant / indépendant / centre)
+    V->>CK: POST {plan, email, nom}
+    CK->>DB: lit stripe_prices (price_id)
+    CK->>S: crée Checkout Session (subscription | payment)
+    S-->>U: page de paiement
+    U->>S: paie (carte)
+    S->>WH: webhook checkout.session.completed
+    WH->>DB: crée centers (+ quotas, modules, license_key)
+    WH->>DB: crée auth user + profile
+    WH->>S: (génère le lien de récupération)
+    WH->>MG: email de bienvenue (+ lien « définir mot de passe »)
+    MG-->>U: email reçu
+    U->>U: définit son mot de passe → accède à son espace
+```
+
+---
+
+## 5. Diagramme de séquence — Déroulé d'un Challenge Cup
+
+```mermaid
+sequenceDiagram
+    actor F as Indépendant / Formateur
+    participant CE as center.html / formateur.html
+    participant CC as challenge-cup-ssiap
+    participant DB as Supabase (cc_*)
+    actor S as Stagiaires
+
+    F->>CE: « Lancer Challenge salle » (groupe | individuel)
+    CE->>CC: ouvre + dépose mib_cc_auth {session, formateur, stagiaires?}
+    CC->>DB: crée cc_session (+ équipes nominatives si invitation)
+    CC-->>S: QR / invitation pour rejoindre
+    S->>CC: rejoignent (cc_teams)
+    loop Pour chaque question
+        F->>CC: lance la question
+        S->>CC: répondent
+        CC->>DB: enregistre cc_team_answers (is_correct)
+        CC-->>F: « X/Y équipes ont répondu » + correction
+    end
+    CC->>DB: podium + RPC cc_bridge_to_entrainement
+    DB->>DB: réplique les erreurs → entrainement_sessions / reponses
+    F->>CE: « Résultats & questions échouées » (stats par session)
+    F->>CE: « Reprendre les erreurs » → relance un Challenge de remédiation
+```
+
