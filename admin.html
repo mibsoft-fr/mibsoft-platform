@@ -591,6 +591,9 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
       <div class="nav-item" onclick="showTab('contenus')" id="nav-contenus">
         <span class="nav-icon">🎬</span> Contenus
       </div>
+      <div class="nav-item" onclick="showTab('questions')" id="nav-questions">
+        <span class="nav-icon">✅</span> Banque de questions
+      </div>
       <div class="nav-item" onclick="showTab('stats')" id="nav-stats">
         <span class="nav-icon">📈</span> Statistiques
       </div>
@@ -961,6 +964,75 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
             <tbody id="body-contenus"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">Chargement...</td></tr></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- ── BANQUE DE QUESTIONS / VÉRIFICATION ── -->
+    <div id="tab-questions" class="hidden">
+      <div class="flex items-center justify-between mb-3">
+        <h1 class="logo-t" style="font-size:1.5rem;">Banque de questions</h1>
+        <button onclick="loadQuestions()" class="btn btn-blue btn-sm">🔄 Actualiser</button>
+      </div>
+      <p style="color:var(--text2);font-size:.85rem;margin-bottom:16px;">En <strong>production</strong>, seules les questions <strong>vérifiées ✓</strong> sont servies aux formateurs et stagiaires. Validez-les ici.</p>
+
+      <div class="card p-4 mb-4">
+        <div class="flex flex-wrap items-end gap-3">
+          <div>
+            <label class="lbl">Banque</label>
+            <select id="q-bank" class="inp" style="min-width:230px;" onchange="QSTATE.page=0;loadQuestions()">
+              <option value="cc_questions">Challenge Cup</option>
+              <option value="questions">Auto-entraînement / Quiz</option>
+            </select>
+          </div>
+          <div>
+            <label class="lbl">Statut</label>
+            <select id="q-statut" class="inp" style="width:auto;" onchange="QSTATE.page=0;loadQuestions()">
+              <option value="toverify">À vérifier</option>
+              <option value="verified">Vérifiées ✓</option>
+              <option value="all">Toutes</option>
+            </select>
+          </div>
+          <div>
+            <label class="lbl">Niveau</label>
+            <select id="q-niveau" class="inp" style="width:auto;" onchange="QSTATE.page=0;loadQuestions()">
+              <option value="">Tous</option>
+              <option value="SSIAP1">SSIAP 1</option>
+              <option value="SSIAP2">SSIAP 2</option>
+              <option value="SSIAP3">SSIAP 3</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:180px;">
+            <label class="lbl">Recherche</label>
+            <input id="q-search" class="inp" style="width:100%;" placeholder="🔍 Mot dans la question…" oninput="QSTATE.page=0;qSearchDebounced()">
+          </div>
+        </div>
+        <div class="flex items-center justify-between mt-3" style="gap:10px;flex-wrap:wrap;">
+          <div id="q-count" style="font-size:.82rem;color:var(--text2);">—</div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="bulkVerify(true)" class="btn btn-green btn-sm">✓ Vérifier la page</button>
+            <button onclick="bulkVerify(false)" class="btn btn-gray btn-sm">Dévérifier la page</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-0">
+        <div class="overflow-x-auto">
+          <table class="tbl" id="tbl-questions">
+            <thead><tr>
+              <th style="width:64px;text-align:center;">Vérif.</th>
+              <th>Question</th>
+              <th style="width:90px;">Niveau</th>
+              <th style="width:130px;">Type</th>
+            </tr></thead>
+            <tbody id="body-questions"><tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-center gap-3 mt-4">
+        <button onclick="qPage(-1)" class="btn btn-gray btn-sm" id="q-prev">← Précédent</button>
+        <span id="q-pageinfo" style="font-size:.82rem;color:var(--text2);">—</span>
+        <button onclick="qPage(1)" class="btn btn-gray btn-sm" id="q-next">Suivant →</button>
       </div>
     </div>
 
@@ -1626,7 +1698,7 @@ window.backToLanding=function(){ showApp(); };
 // ============================================================
 // NAVIGATION
 // ============================================================
-const TABS=['dashboard','centres','licences','comptabilite','avis','activite','logs','monitoring','contenus','stats'];
+const TABS=['dashboard','centres','licences','comptabilite','avis','activite','logs','monitoring','contenus','questions','stats'];
 const TAB_TITLES = {
   dashboard: ['Dashboard', "Vue d'ensemble plateforme"],
   centres: ['Centres', 'Gestion des centres clients'],
@@ -1637,6 +1709,7 @@ const TAB_TITLES = {
   logs: ['Logs', 'Logs système 24h'],
   monitoring: ['Monitoring', 'Alertes et surveillance'],
   contenus: ['Contenus', 'Gestion des contenus pédagogiques'],
+  questions: ['Banque de questions', 'Validation des questions (servies en prod)'],
   stats: ['Statistiques', 'Statistiques plateforme']
 };
 
@@ -1660,6 +1733,7 @@ function showTab(t){
   if(t==='logs')loadLogs();
   if(t==='monitoring')loadMonitoring();
   if(t==='contenus'){loadContenus();loadPlanExamples();}
+  if(t==='questions')loadQuestions();
   if(t==='stats')loadStats();
 }
 
@@ -2146,6 +2220,113 @@ async function loadContenus(){
       <td><button onclick="deleteContenu('${c.id}')" class="btn btn-red btn-sm">🗑️</button></td>
     </tr>`).join('');
   }catch(e){console.error(e);}
+}
+
+// ============================================================
+// BANQUE DE QUESTIONS — validation (case « vérifié »)
+// En prod, seules les questions verifiee=true sont servies (RLS).
+// ============================================================
+const QSTATE = { bank:'cc_questions', page:0, pageSize:50, lastIds:[] };
+let _qSearchT=null;
+function qSearchDebounced(){ clearTimeout(_qSearchT); _qSearchT=setTimeout(loadQuestions,350); }
+function qPage(d){ QSTATE.page=Math.max(0,QSTATE.page+d); loadQuestions(); }
+
+const Q_TYPE_LABELS = {
+  'quiz':'QCM','true-false':'Vrai/Faux','multiple-select':'Multi-choix','sequence':'Séquence',
+  'ranking':'Classement','matching':'Association','fill-blank':'Texte à trous','find-intruder':'Intrus',
+  'scenario':'Scénario','categories':'Catégories','decision':'Décision','image-identify':'Image'
+};
+
+async function loadQuestions(){
+  const bank = document.getElementById('q-bank').value;
+  const statut = document.getElementById('q-statut').value;
+  const niveau = document.getElementById('q-niveau').value;
+  const search = (document.getElementById('q-search').value||'').trim();
+  QSTATE.bank = bank;
+  const tbody = document.getElementById('body-questions');
+  tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr>';
+
+  const isCC = bank==='cc_questions';
+  let cols;
+  if(isCC) cols = niveau ? 'id,question,type,verifiee,module_id,cc_modules!inner(level)'
+                         : 'id,question,type,verifiee,module_id,cc_modules(level)';
+  else cols = 'id,question,type,verifiee,niveau';
+
+  let qy = supabase.from(bank).select(cols, { count:'exact' });
+  if(statut==='toverify') qy = qy.eq('verifiee', false);
+  else if(statut==='verified') qy = qy.eq('verifiee', true);
+  if(niveau){
+    if(isCC){ const lvl = niveau==='SSIAP3'?3:(niveau==='SSIAP2'?2:1); qy = qy.eq('cc_modules.level', lvl); }
+    else qy = qy.eq('niveau', niveau);
+  }
+  if(search) qy = qy.ilike('question', '%'+search+'%');
+  qy = qy.order('verifiee',{ascending:true}).order('question',{ascending:true});
+  const from = QSTATE.page*QSTATE.pageSize;
+  qy = qy.range(from, from+QSTATE.pageSize-1);
+
+  const { data, count, error } = await qy;
+  if(error){ tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--red);padding:20px;">Erreur : '+esc(error.message)+'</td></tr>'; return; }
+  const rows = data||[];
+  QSTATE.lastIds = rows.map(r=>r.id);
+
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px;">Aucune question pour ce filtre</td></tr>';
+  } else {
+    tbody.innerHTML = rows.map(r=>{
+      const niv = isCC ? ('SSIAP '+((r.cc_modules&&r.cc_modules.level)||'?')) : (r.niveau||'—');
+      const typ = Q_TYPE_LABELS[r.type] || r.type || '—';
+      const idAttr = esc(String(r.id)).replace(/'/g,"\\'");
+      return `<tr>
+        <td style="text-align:center;">
+          <input type="checkbox" ${r.verifiee?'checked':''} onchange="toggleVerifiee('${bank}','${idAttr}',this.checked,this)" style="width:18px;height:18px;cursor:pointer;accent-color:var(--green);" title="Marquer comme vérifiée">
+        </td>
+        <td style="max-width:560px;"><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(r.question||'')}</span></td>
+        <td style="font-size:.8rem;">${esc(niv)}</td>
+        <td style="font-size:.8rem;">${esc(typ)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  const total = count||0;
+  const pages = Math.max(1, Math.ceil(total/QSTATE.pageSize));
+  document.getElementById('q-pageinfo').textContent = `Page ${QSTATE.page+1} / ${pages}`;
+  document.getElementById('q-prev').disabled = QSTATE.page<=0;
+  document.getElementById('q-next').disabled = QSTATE.page>=pages-1;
+
+  const [vRes, tRes] = await Promise.all([
+    supabase.from(bank).select('*',{count:'exact',head:true}).eq('verifiee',true),
+    supabase.from(bank).select('*',{count:'exact',head:true})
+  ]);
+  const vc = vRes.count||0, tc = tRes.count||0;
+  document.getElementById('q-count').innerHTML = `<strong style="color:var(--green);">${vc}</strong> vérifiée(s) / ${tc} au total &nbsp;·&nbsp; ${total} résultat(s) affiché(s)`;
+}
+
+async function toggleVerifiee(bank, id, val, el){
+  if(el) el.disabled=true;
+  const { error } = await supabase.from(bank).update({ verifiee: val }).eq('id', id);
+  if(el) el.disabled=false;
+  if(error){ alert('Erreur : '+error.message); if(el) el.checked=!val; return; }
+  const statut = document.getElementById('q-statut').value;
+  if(statut!=='all') loadQuestions();
+  else refreshQCounts(bank);
+}
+
+async function refreshQCounts(bank){
+  const [vRes,tRes] = await Promise.all([
+    supabase.from(bank).select('*',{count:'exact',head:true}).eq('verifiee',true),
+    supabase.from(bank).select('*',{count:'exact',head:true})
+  ]);
+  const vc=vRes.count||0, tc=tRes.count||0;
+  const el=document.getElementById('q-count');
+  if(el) el.innerHTML = `<strong style="color:var(--green);">${vc}</strong> vérifiée(s) / ${tc} au total`;
+}
+
+async function bulkVerify(val){
+  if(!QSTATE.lastIds.length) return;
+  if(!confirm((val?'Vérifier':'Dévérifier')+' les '+QSTATE.lastIds.length+' question(s) affichée(s) ?')) return;
+  const { error } = await supabase.from(QSTATE.bank).update({ verifiee: val }).in('id', QSTATE.lastIds);
+  if(error){ alert('Erreur : '+error.message); return; }
+  loadQuestions();
 }
 
 async function loadStats(){
