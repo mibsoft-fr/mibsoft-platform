@@ -7,8 +7,27 @@
 // SDK Supabase (à inclure avant ce fichier dans le HTML) :
 // <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
-const SUPABASE_URL = 'https://ozfkmlokovxigfnwjeuk.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZmttbG9rb3Z4aWdmbndqZXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1ODUzODUsImV4cCI6MjA5MTE2MTM4NX0.zu5V20Nz7vO3dSYhOtr7mqS7VAMaUDVS2Ibs01xS9Fk';
+// ── Sélection automatique du projet selon le domaine ───────────────────────
+// PRODUCTION (mibsoft.fr, www. et app.mibsoft.fr) → base PROD.
+// Tout le reste (previews Vercel *.vercel.app, localhost, IP) → base DEV/test.
+// Les clés « anon » sont des clés PUBLIQUES par conception (RLS protège les données) :
+// il est normal et sûr de les exposer dans le front.
+const SUPABASE_PROJECTS = {
+  prod: {
+    url: 'https://vsddtohdkcwihlybfief.supabase.co',
+    anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzZGR0b2hka2N3aWhseWJmaWVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MTgxMDUsImV4cCI6MjA5Nzk5NDEwNX0.bP6YT7GF7rqbfjJPWuSCyglsTFrvLUWg9PXL1U7PJKE'
+  },
+  dev: {
+    url: 'https://ozfkmlokovxigfnwjeuk.supabase.co',
+    anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZmttbG9rb3Z4aWdmbndqZXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1ODUzODUsImV4cCI6MjA5MTE2MTM4NX0.zu5V20Nz7vO3dSYhOtr7mqS7VAMaUDVS2Ibs01xS9Fk'
+  }
+};
+// mibsoft.fr / www.mibsoft.fr / app.mibsoft.fr (et sous-domaines mibsoft.fr) → prod.
+const _mibHost = (typeof window !== 'undefined' && window.location && window.location.hostname || '').toLowerCase();
+const _isMibProd = /(^|\.)mibsoft\.fr$/.test(_mibHost);
+const _mibEnv = _isMibProd ? SUPABASE_PROJECTS.prod : SUPABASE_PROJECTS.dev;
+const SUPABASE_URL = _mibEnv.url;
+const SUPABASE_ANON_KEY = _mibEnv.anon;
 
 // Client Supabase global — utilisé partout
 // On réaffecte window.supabase pour éviter le conflit CDN
@@ -463,4 +482,4 @@ if (typeof window !== 'undefined') {
 }
 
 console.log('✅ MIBsoft Platform — Supabase initialisé');
-console.log(`📡 Projet : ${SUPABASE_URL}`);
+console.log(`📡 Projet : ${SUPABASE_URL} (${_isMibProd ? 'PROD' : 'DEV/test'})`);
