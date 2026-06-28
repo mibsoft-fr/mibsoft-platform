@@ -398,6 +398,9 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
 <!-- ═══════════ ACCUEIL : UNIVERS (Entreprise / Formation) ═══════════ -->
 <div id="page-landing" class="hidden relative z-10 min-h-screen flex items-center justify-center p-4">
   <div style="width:100%;max-width:960px;">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <button onclick="logout()" class="btn btn-gray btn-sm">🚪 Déconnexion</button>
+    </div>
     <div class="text-center mb-8">
       <div style="font-size:2.2rem;margin-bottom:6px;">⚙️</div>
       <h1 style="font-size:1.7rem;font-weight:800;color:var(--text1,#0f172a);">MIBsoft — Administration</h1>
@@ -1505,6 +1508,7 @@ function togglePwd(id){const i=document.getElementById(id||'login-pwd');if(i)i.t
 async function logout(){
   await supabase.auth.signOut();
   document.getElementById('page-app').classList.add('hidden');
+  document.getElementById('page-landing').classList.add('hidden');
   document.getElementById('page-login').classList.remove('hidden');
   document.getElementById('login-email').value = '';
   document.getElementById('login-pwd').value = '';
