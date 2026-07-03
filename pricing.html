@@ -407,13 +407,6 @@ footer { text-align: center; margin-top: var(--space-12); font-size: var(--text-
     <a href="mailto:contact@mibsoft.fr?subject=Demande%20de%20d%C3%A9mo%20MIBsoft" class="btn-demo">Demander la démo →</a>
   </div>
 
-  <div class="toggle-bar">
-    <div class="toggle" role="tablist">
-      <button id="tog-mensuel" class="active" onclick="setCycle('mensuel')">Mensuel</button>
-      <button id="tog-annuel" onclick="setCycle('annuel')">Annuel<span class="save-tag">−17%</span></button>
-    </div>
-  </div>
-
   <div class="grid" id="plans-grid">
     <!-- Indépendant -->
     <div class="plan">
@@ -451,7 +444,7 @@ footer { text-align: center; margin-top: var(--space-12); font-size: var(--text-
       <div class="plan-name">Starter</div>
       <div class="plan-target">Petit centre — 1 à 3 formateurs</div>
       <div class="plan-price"><span class="amount" data-price="starter">160</span><span class="currency">€</span></div>
-      <div class="plan-period"><span class="ht">HT</span> / <span class="period-label">mois</span></div>
+      <div class="plan-period"><span class="ht">HT</span> / mois <span style="display:block;font-size:.72rem;color:var(--text3);margin-top:3px;">facturé annuellement · 1 600 € HT/an <span style="color:var(--green,#059669);font-weight:700;">(−17 %)</span></span></div>
       <ul>
         <li>3 formateurs</li>
         <li>30 stagiaires</li>
@@ -468,7 +461,7 @@ footer { text-align: center; margin-top: var(--space-12); font-size: var(--text-
       <div class="plan-name">Pro</div>
       <div class="plan-target">Centre intermédiaire — 5 à 10 formateurs</div>
       <div class="plan-price"><span class="amount" data-price="pro">260</span><span class="currency">€</span></div>
-      <div class="plan-period"><span class="ht">HT</span> / <span class="period-label">mois</span></div>
+      <div class="plan-period"><span class="ht">HT</span> / mois <span style="display:block;font-size:.72rem;color:var(--text3);margin-top:3px;">facturé annuellement · 2 600 € HT/an <span style="color:var(--green,#059669);font-weight:700;">(−17 %)</span></span></div>
       <ul>
         <li>10 formateurs</li>
         <li>100 stagiaires</li>
@@ -485,7 +478,7 @@ footer { text-align: center; margin-top: var(--space-12); font-size: var(--text-
       <div class="plan-name">Expert</div>
       <div class="plan-target">Grand centre — 10 à 20 formateurs</div>
       <div class="plan-price"><span class="amount" data-price="expert">360</span><span class="currency">€</span></div>
-      <div class="plan-period"><span class="ht">HT</span> / <span class="period-label">mois</span></div>
+      <div class="plan-period"><span class="ht">HT</span> / mois <span style="display:block;font-size:.72rem;color:var(--text3);margin-top:3px;">facturé annuellement · 3 600 € HT/an <span style="color:var(--green,#059669);font-weight:700;">(−17 %)</span></span></div>
       <ul>
         <li>20 formateurs</li>
         <li>200 stagiaires</li>
@@ -559,7 +552,6 @@ footer { text-align: center; margin-top: var(--space-12); font-size: var(--text-
 </div>
 
 <script>
-let cycleSelected = 'mensuel';
 let planSelected = null;
 const PRICES = {
   apprenant:   { unique: 10 },
@@ -569,23 +561,15 @@ const PRICES = {
   expert:      { mensuel: 360, annuel: 3600 }
 };
 const LABELS = { apprenant:'Apprenant', independant:'Indépendant', starter:'Starter', pro:'Pro', expert:'Expert' };
-// Cycle de facturation effectif par plan (independant=mensuel only, apprenant=paiement unique).
+// Cycle de facturation effectif par plan :
+//  - apprenant  = paiement unique
+//  - independant = mensuel (récurrent)
+//  - starter/pro/expert = ANNUEL uniquement (offre entreprise ; le prix mensuel affiché
+//    est indicatif, le paiement se fait à l'année).
 function cycleFor(plan) {
   if (plan === 'apprenant') return 'unique';
   if (plan === 'independant') return 'mensuel';
-  return cycleSelected;
-}
-
-function setCycle(c) {
-  cycleSelected = c;
-  document.getElementById('tog-mensuel').classList.toggle('active', c === 'mensuel');
-  document.getElementById('tog-annuel').classList.toggle('active', c === 'annuel');
-  for (const p of ['starter','pro','expert']) {
-    const eur = c === 'annuel' ? PRICES[p].annuel : PRICES[p].mensuel;
-    document.querySelector(`[data-price="${p}"]`).textContent = eur.toLocaleString('fr-FR');
-  }
-  document.querySelectorAll('.period-label').forEach(el => { el.textContent = c === 'annuel' ? 'an' : 'mois'; });
-  document.getElementById('indep-cycle-info').style.display = c === 'annuel' ? 'inline' : 'none';
+  return 'annuel';
 }
 
 function choisirPlan(plan) {
