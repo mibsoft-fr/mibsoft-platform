@@ -717,6 +717,7 @@ body {
     <!-- ─── OVERVIEW ─── -->
     <div id="page-overview" class="page active">
       <h2 class="page-title">Tableau de bord</h2>
+      <p id="dash-greeting" style="margin:-4px 0 18px;color:#64748b;font-size:.92rem;font-weight:600;"></p>
       <div id="kpi-grid" class="kpi-grid">
         <div class="kpi-card"><div class="kpi-icon">📋</div><div class="kpi-val" id="kpi-sessions">—</div><div class="kpi-lbl">Sessions</div></div>
         <div class="kpi-card"><div class="kpi-icon">👥</div><div class="kpi-val" id="kpi-stagiaires">—</div><div class="kpi-lbl">Stagiaires</div></div>
@@ -1094,16 +1095,28 @@ async function loadAll() {
   const cid = FSESSION.centerId || FSESSION.center_id;
   const fid = FSESSION.formateurId;
 
-  // Charger flags outils ERP du centre et afficher la section sidebar si au moins un est actif
+  // Charger nom + flags outils ERP du centre et afficher la section sidebar si au moins un est actif
+  let centreNom = FSESSION.centreName || '';
   if (cid) {
-    const { data: c } = await window.supabase.from('centers').select('outil_effectif,outil_degagements,outil_desenfumage').eq('id', cid).maybeSingle();
+    const { data: c } = await window.supabase.from('centers').select('nom,outil_effectif,outil_degagements,outil_desenfumage').eq('id', cid).maybeSingle();
     if (c) {
+      if (c.nom) centreNom = c.nom;
       const any = c.outil_effectif || c.outil_degagements || c.outil_desenfumage;
       if (any) document.getElementById('nav-outils-section').style.display = '';
       if (c.outil_effectif)    document.getElementById('nav-outil-effectif').style.display = '';
       if (c.outil_degagements) document.getElementById('nav-outil-degagements').style.display = '';
       if (c.outil_desenfumage) document.getElementById('nav-outil-desenfumage').style.display = '';
     }
+  }
+
+  // Bandeau d'accueil du dashboard : nom du formateur + centre pour lequel il intervient
+  const fmtFullName = [FSESSION.prenom, FSESSION.nom].filter(Boolean).join(' ').trim() || FSESSION.formateurNom || '';
+  const gEl = document.getElementById('dash-greeting');
+  if (gEl) {
+    const parts = [];
+    if (fmtFullName) parts.push('Bonjour <strong>' + esc(fmtFullName) + '</strong>');
+    if (centreNom)   parts.push('Centre : <strong>' + esc(centreNom) + '</strong>');
+    gEl.innerHTML = parts.join(' &nbsp;·&nbsp; ');
   }
 
   // 1. Sessions du formateur
