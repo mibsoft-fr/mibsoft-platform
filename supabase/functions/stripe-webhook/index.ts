@@ -9,7 +9,7 @@ const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET') || '';
 const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') || '';
 const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') || 'mibsoft.fr';
 const MAILGUN_HOST = Deno.env.get('MAILGUN_HOST') || 'api.eu.mailgun.net';
-const MAILGUN_FROM = Deno.env.get('MAILGUN_FROM') || `MIB Prévention <noreply@${MAILGUN_DOMAIN}>`;
+const MAILGUN_FROM = Deno.env.get('MAILGUN_FROM') || `MIBsoft <noreply@${MAILGUN_DOMAIN}>`;
 const APP_URL = Deno.env.get('APP_URL') || 'https://mibsoft.fr';
 
 const stripe = STRIPE_SECRET ? new Stripe(STRIPE_SECRET, { apiVersion: '2024-12-18.acacia', httpClient: Stripe.createFetchHttpClient() }) : null;
@@ -232,7 +232,8 @@ function quotasForPlan(plan: string) {
 
 async function sendWelcomeEmail({ email, nomCentre, licenseKey, plan, magicLink, licenseType }: { email: string; nomCentre: string; licenseKey: string; plan: string; magicLink: string; licenseType: string }) {
   const html = `
-    <h2 style="font-family:Georgia,serif;color:#1A2842;">Bienvenue chez MIB Prévention</h2>
+    <div style="text-align:center;margin:0 0 24px;"><img src="https://mibsoft.fr/logo/logo-web-transparent.png" alt="MIBsoft" width="160" style="display:inline-block;max-width:160px;height:auto;border:0;"></div>
+    <h2 style="font-family:Georgia,serif;color:#1A2842;">Bienvenue chez MIBsoft</h2>
     <p>Bonjour,</p>
     <p>Votre paiement pour le plan <strong>${escapeHtml(plan.toUpperCase())}</strong> a été validé. ${licenseType === 'independant' ? 'Votre compte formateur indépendant' : licenseType === 'apprenant' ? 'Votre accès apprenant (entraînement individuel, 1 mois)' : `Votre centre <strong>${escapeHtml(nomCentre)}</strong>`} est maintenant activé.</p>
     <h3>Vos identifiants</h3>
@@ -248,12 +249,12 @@ async function sendWelcomeEmail({ email, nomCentre, licenseKey, plan, magicLink,
     <p style="font-size:.85em;color:#666;">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br><code style="font-size:.75em;">${escapeHtml(magicLink)}</code></p>
     <hr style="margin:30px 0;border:none;border-top:1px solid #eee;">
     <p style="font-size:.85em;color:#666;">Une question ? Répondez à cet email.</p>
-    <p style="font-size:.85em;color:#666;">MIB Prévention — Formation SSIAP</p>
+    <p style="font-size:.85em;color:#666;">MIBsoft — Formation SSIAP</p>
   `;
   const form = new FormData();
   form.append('from', MAILGUN_FROM);
   form.append('to', email);
-  form.append('subject', `Bienvenue chez MIB Prévention — Votre accès ${plan.toUpperCase()}`);
+  form.append('subject', `Bienvenue chez MIBsoft — Votre accès ${plan.toUpperCase()}`);
   form.append('html', html);
   const res = await fetch(`https://${MAILGUN_HOST}/v3/${MAILGUN_DOMAIN}/messages`, {
     method: 'POST',

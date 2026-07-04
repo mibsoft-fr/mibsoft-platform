@@ -6,7 +6,7 @@ const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') || '';
 const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') || 'mib-prevention.fr';
 const MAILGUN_HOST = Deno.env.get('MAILGUN_HOST') || 'api.eu.mailgun.net';
-const MAILGUN_FROM = Deno.env.get('MAILGUN_FROM') || `MIB Prévention <noreply@${MAILGUN_DOMAIN}>`;
+const MAILGUN_FROM = Deno.env.get('MAILGUN_FROM') || `MIBsoft <noreply@${MAILGUN_DOMAIN}>`;
 
 // Cooldown : on ne re-notifie pas le même formateur pour le même état avant N jours.
 const COOLDOWN_DAYS = 14;
@@ -152,12 +152,13 @@ function buildHtml(centerName: string, items: { prenom: string, nom: string, niv
     return `<li style="color:#c2410c;"><strong>${escapeHtml(i.prenom)} ${escapeHtml(i.nom)}</strong>${escapeHtml(niv)} — à recycler avant le <strong>${fmt(i.due)}</strong>.</li>`;
   };
   return `<div style="font-family:Arial,sans-serif;max-width:600px;">
+    <div style="text-align:center;margin:0 0 24px;"><img src="https://mibsoft.fr/logo/logo-web-transparent.png" alt="MIBsoft" width="160" style="display:inline-block;max-width:160px;height:auto;border:0;"></div>
     <h2 style="color:#065f46;">Recyclage SSIAP — ${escapeHtml(centerName)}</h2>
     <p>Bonjour,</p>
     <p>Le suivi automatique a détecté ${items.length} formateur(s) concerné(s) par le recyclage SSIAP des 3 ans :</p>
     <ul>${items.map(line).join('')}</ul>
     <p>Connectez-vous à votre espace centre pour mettre à jour la date du dernier recyclage de chaque formateur concerné.</p>
-    <p style="color:#6b7280;font-size:.85rem;">Vous recevez ce message car vous êtes le contact de ce centre dans MIB Prévention.</p>
+    <p style="color:#6b7280;font-size:.85rem;">Vous recevez ce message car vous êtes le contact de ce centre dans MIBsoft.</p>
   </div>`;
 }
 

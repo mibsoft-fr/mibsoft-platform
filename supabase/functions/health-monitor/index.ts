@@ -7,7 +7,7 @@ const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') || '';
 const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') || 'mib-prevention.fr';
 const MAILGUN_HOST = Deno.env.get('MAILGUN_HOST') || 'api.eu.mailgun.net';
-const MAILGUN_FROM = Deno.env.get('MAILGUN_FROM') || `MIB Prévention <noreply@${MAILGUN_DOMAIN}>`;
+const MAILGUN_FROM = Deno.env.get('MAILGUN_FROM') || `MIBsoft <noreply@${MAILGUN_DOMAIN}>`;
 const ALERT_EMAIL = Deno.env.get('ALERT_EMAIL') || 'contact@mib-prevention.fr';
 // Envoi SMS via SMSFactor (alertes bloquantes uniquement)
 const SMSFACTOR_TOKEN = Deno.env.get('SMSFACTOR_TOKEN') || '';
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
   if (body?.test_sms === true) {
     const txt = typeof body.text === 'string' && body.text.trim()
       ? body.text.trim().slice(0, 155)
-      : 'MIB Prévention : test alerte SMS, le monitoring fonctionne.';
+      : 'MIBsoft : test alerte SMS, le monitoring fonctionne.';
     const res = await sendSms(txt, body?.simulate === true);
     return json({ ok: res.sent, mode: 'test_sms', simulate: body?.simulate === true, sms: res });
   }
@@ -167,7 +167,8 @@ Deno.serve(async (req) => {
   if (critical.length > 0 && MAILGUN_API_KEY && ALERT_EMAIL) {
     try {
       const subject = `[MIB] ${critical.length} alerte(s) ${critical.some(a => a.severity === 'critical') ? 'CRITIQUE' : 'erreur'}`;
-      const html = `<h2>Monitoring MIB Prévention</h2>
+      const html = `<div style="text-align:center;margin:0 0 24px;"><img src="https://mibsoft.fr/logo/logo-web-transparent.png" alt="MIBsoft" width="160" style="display:inline-block;max-width:160px;height:auto;border:0;"></div>
+        <h2>Monitoring MIBsoft</h2>
         <p>Run #${runId} — ${new Date().toLocaleString('fr-FR')}</p>
         <h3>Alertes (${critical.length})</h3>
         <ul>${critical.map(a => `<li><strong>[${a.severity}]${a.blocking ? ' BLOQUANT' : ''}</strong> ${escapeHtml(a.title)}<br><small>${escapeHtml(a.message || '')}</small></li>`).join('')}</ul>

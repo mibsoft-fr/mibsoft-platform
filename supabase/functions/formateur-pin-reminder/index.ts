@@ -6,7 +6,7 @@ const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') || '';
 const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') || 'mib-prevention.fr';
 const MAILGUN_HOST = Deno.env.get('MAILGUN_HOST') || 'api.eu.mailgun.net';
-const MAILGUN_FROM = Deno.env.get('MAILGUN_FROM') || `MIB Prévention <noreply@${MAILGUN_DOMAIN}>`;
+const MAILGUN_FROM = Deno.env.get('MAILGUN_FROM') || `MIBsoft <noreply@${MAILGUN_DOMAIN}>`;
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -139,6 +139,7 @@ function buildHtml(items: { prenom: string, nom: string, niveau: string | null, 
     ? `<p>Vous êtes inscrit(e) dans <strong>${items.length} centres</strong>. Un <strong>seul code PIN</strong> est valable pour tous :</p>`
     : `<p>Voici votre nouveau code PIN pour vous connecter à votre espace formateur :</p>`;
   return `<div style="font-family:Arial,sans-serif;max-width:520px;line-height:1.5;">
+    <div style="text-align:center;margin:0 0 24px;"><img src="https://mibsoft.fr/logo/logo-web-transparent.png" alt="MIBsoft" width="160" style="display:inline-block;max-width:160px;height:auto;border:0;"></div>
     <h2 style="color:#065f46;margin-top:0;">Réinitialisation de votre code PIN</h2>
     <p>Bonjour ${escapeHtml(items[0].prenom)} ${escapeHtml(items[0].nom)},</p>
     ${intro}
