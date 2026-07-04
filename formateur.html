@@ -1109,8 +1109,17 @@ async function loadAll() {
     }
   }
 
-  // Bandeau d'accueil du dashboard : nom du formateur + centre pour lequel il intervient
-  const fmtFullName = [FSESSION.prenom, FSESSION.nom].filter(Boolean).join(' ').trim() || FSESSION.formateurNom || '';
+  // Bandeau d'accueil du dashboard : nom du formateur + centre pour lequel il intervient.
+  // La session (localStorage) ne contient pas toujours prenom/nom → on lit la fiche formateur si besoin.
+  let fmtNom = FSESSION.nom || '', fmtPrenom = FSESSION.prenom || '';
+  if (!fmtNom && !fmtPrenom && fid) {
+    const { data: f } = await window.supabase.from('formateurs').select('nom,prenom').eq('id', fid).maybeSingle();
+    if (f) { fmtNom = f.nom || ''; fmtPrenom = f.prenom || ''; }
+  }
+  const fmtFullName = [fmtPrenom, fmtNom].filter(Boolean).join(' ').trim() || FSESSION.formateurNom || FSESSION.email || '';
+  // Met aussi à jour le nom dans la sidebar (rempli au boot depuis la session, parfois vide).
+  const sbNameEl = document.getElementById('sb-name');
+  if (sbNameEl && fmtFullName) sbNameEl.textContent = '👨‍🏫 ' + fmtFullName;
   const gEl = document.getElementById('dash-greeting');
   if (gEl) {
     const parts = [];
