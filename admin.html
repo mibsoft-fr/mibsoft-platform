@@ -1026,8 +1026,9 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
               <th>Question</th>
               <th style="width:90px;">Niveau</th>
               <th style="width:130px;">Type</th>
+              <th style="width:96px;text-align:center;">Actions</th>
             </tr></thead>
-            <tbody id="body-questions"><tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr></tbody>
+            <tbody id="body-questions"><tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1036,6 +1037,17 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
         <button onclick="qPage(-1)" class="btn btn-gray btn-sm" id="q-prev">← Précédent</button>
         <span id="q-pageinfo" style="font-size:.82rem;color:var(--text2);">—</span>
         <button onclick="qPage(1)" class="btn btn-gray btn-sm" id="q-next">Suivant →</button>
+      </div>
+    </div>
+
+    <!-- ── MODAL DÉTAIL QUESTION ── -->
+    <div id="modal-question" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.55);align-items:flex-start;justify-content:center;overflow:auto;padding:40px 16px;" onclick="if(event.target===this)closeQuestionModal()">
+      <div style="background:#fff;max-width:720px;width:100%;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #eef2f7;">
+          <h3 style="font-size:1.05rem;font-weight:800;color:#0f172a;">Détail de la question</h3>
+          <button onclick="closeQuestionModal()" style="background:none;border:none;font-size:1.5rem;line-height:1;cursor:pointer;color:#64748b;">×</button>
+        </div>
+        <div id="modal-question-body" style="padding:20px;max-height:72vh;overflow:auto;"></div>
       </div>
     </div>
 
@@ -2250,7 +2262,7 @@ async function loadQuestions(){
   const search = (document.getElementById('q-search').value||'').trim();
   QSTATE.bank = bank;
   const tbody = document.getElementById('body-questions');
-  tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr>';
+  tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">Chargement…</td></tr>';
 
   const isCC = bank==='cc_questions';
   let cols;
@@ -2271,12 +2283,12 @@ async function loadQuestions(){
   qy = qy.range(from, from+QSTATE.pageSize-1);
 
   const { data, count, error } = await qy;
-  if(error){ tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--red);padding:20px;">Erreur : '+esc(error.message)+'</td></tr>'; return; }
+  if(error){ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--red);padding:20px;">Erreur : '+esc(error.message)+'</td></tr>'; return; }
   const rows = data||[];
   QSTATE.lastIds = rows.map(r=>r.id);
 
   if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px;">Aucune question pour ce filtre</td></tr>';
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">Aucune question pour ce filtre</td></tr>';
   } else {
     tbody.innerHTML = rows.map(r=>{
       const niv = isCC ? ('SSIAP '+((r.cc_modules&&r.cc_modules.level)||'?')) : (r.niveau||'—');
@@ -2286,9 +2298,13 @@ async function loadQuestions(){
         <td style="text-align:center;">
           <input type="checkbox" ${r.verifiee?'checked':''} onchange="toggleVerifiee('${bank}','${idAttr}',this.checked,this)" style="width:18px;height:18px;cursor:pointer;accent-color:var(--green);" title="Marquer comme vérifiée">
         </td>
-        <td style="max-width:560px;"><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(r.question||'')}</span></td>
+        <td style="max-width:560px;"><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;" onclick="openQuestion('${bank}','${idAttr}')" title="Ouvrir">${esc(r.question||'')}</span></td>
         <td style="font-size:.8rem;">${esc(niv)}</td>
         <td style="font-size:.8rem;">${esc(typ)}</td>
+        <td style="text-align:center;white-space:nowrap;">
+          <button onclick="openQuestion('${bank}','${idAttr}')" class="btn btn-gray btn-sm" title="Ouvrir / vérifier" style="padding:4px 8px;">✏️</button>
+          <button onclick="deleteQuestion('${bank}','${idAttr}')" class="btn btn-gray btn-sm" title="Supprimer" style="padding:4px 8px;">🗑️</button>
+        </td>
       </tr>`;
     }).join('');
   }
@@ -2333,6 +2349,70 @@ async function bulkVerify(val){
   const { error } = await supabase.from(QSTATE.bank).update({ verifiee: val }).in('id', QSTATE.lastIds);
   if(error){ alert('Erreur : '+error.message); return; }
   loadQuestions();
+}
+
+// ── Ouvrir une question (détail pour vérification) + suppression ──
+function closeQuestionModal(){ const m=document.getElementById('modal-question'); if(m) m.style.display='none'; }
+
+async function openQuestion(bank, id){
+  const m=document.getElementById('modal-question'), body=document.getElementById('modal-question-body');
+  if(!m||!body) return;
+  m.style.display='flex';
+  body.innerHTML='<div style="text-align:center;color:var(--text3);padding:30px;">Chargement…</div>';
+  try{
+    const isCC = bank==='cc_questions';
+    const { data:q, error } = await supabase.from(bank).select('*').eq('id', id).single();
+    if(error) throw error;
+    const typ = Q_TYPE_LABELS[q.type] || q.type || '—';
+    let options=[], correct=[], niveau='', explication='', scenario='', extra=null;
+    if(isCC){
+      explication = q.explanation||''; scenario = q.scenario||q.situation||q.sentence||''; niveau = q.module_id||'';
+      const { data:opts } = await supabase.from('cc_question_options').select('option_index,option_text').eq('question_id', id).order('option_index',{ascending:true});
+      options = (opts||[]).map(o=>o.option_text);
+      if(q.correct_answer!=null) correct=[q.correct_answer];
+      else if(Array.isArray(q.correct_answers)) correct=q.correct_answers;
+      if(!options.length) extra={correct_answer:q.correct_answer,correct_answers:q.correct_answers,correct_order:q.correct_order,correct_path:q.correct_path,correct_blanks:q.correct_blanks,word_bank:q.word_bank};
+    } else {
+      explication = q.explication||''; scenario = q.scenario||''; niveau = q.niveau||'';
+      const d = q.data||{};
+      options = Array.isArray(d.options)? d.options : [];
+      if(d.correctAnswer!=null) correct=[d.correctAnswer];
+      else if(Array.isArray(d.correctAnswers)) correct=d.correctAnswers;
+      if(!options.length) extra=d;
+    }
+    const idJs = esc(String(id)).replace(/'/g,"\\'");
+    let h='';
+    h+=`<div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;margin-bottom:6px;">${esc(niveau)} · ${esc(typ)} · ${q.verifiee?'<span style=\"color:#059669;font-weight:700;\">vérifiée ✓</span>':'<span style=\"color:#d97706;font-weight:700;\">à vérifier</span>'}</div>`;
+    h+=`<div style="font-size:1.05rem;font-weight:700;color:#0f172a;margin-bottom:14px;">${esc(q.question||q.titre||q.title||'')}</div>`;
+    if(scenario) h+=`<div style="background:#f8fafc;border-left:3px solid #cbd5e1;padding:10px 12px;border-radius:6px;font-size:.88rem;color:#334155;margin-bottom:14px;white-space:pre-wrap;">${esc(scenario)}</div>`;
+    if(options.length){
+      h+='<div style="margin-bottom:14px;">'+options.map((o,i)=>{
+        const ok=correct.map(Number).includes(i);
+        return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:8px;margin-bottom:6px;background:${ok?'#dcfce7':'#f8fafc'};border:1px solid ${ok?'#86efac':'#eef2f7'};"><span style="font-weight:800;min-width:16px;color:${ok?'#059669':'#94a3b8'};">${ok?'✓':String.fromCharCode(65+i)}</span><span style="font-size:.9rem;color:#0f172a;">${esc(o)}</span></div>`;
+      }).join('')+'</div>';
+    } else if(extra){
+      h+=`<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">Données (${esc(typ)})</div><pre style="background:#0f172a;color:#e2e8f0;padding:12px;border-radius:8px;font-size:.75rem;overflow:auto;max-height:240px;">${esc(JSON.stringify(extra,null,2))}</pre>`;
+    }
+    if(explication) h+=`<div style="margin-top:8px;"><div style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">Explication</div><div style="font-size:.9rem;color:#334155;white-space:pre-wrap;">${esc(explication)}</div></div>`;
+    h+=`<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:22px;border-top:1px solid #eef2f7;padding-top:14px;">
+      <button onclick="deleteQuestion('${bank}','${idJs}')" class="btn btn-gray btn-sm" style="color:#dc2626;">🗑️ Supprimer</button>
+      <button onclick="verifyFromModal('${bank}','${idJs}')" class="btn btn-green btn-sm">✓ Marquer vérifiée &amp; fermer</button>
+    </div>`;
+    body.innerHTML=h;
+  }catch(e){ body.innerHTML='<div style="color:var(--red);padding:20px;">Erreur : '+esc(e.message||e)+'</div>'; }
+}
+
+async function verifyFromModal(bank, id){
+  const { error } = await supabase.from(bank).update({ verifiee:true }).eq('id', id);
+  if(error){ alert('Erreur : '+error.message); return; }
+  closeQuestionModal(); loadQuestions();
+}
+
+async function deleteQuestion(bank, id){
+  if(!confirm('Supprimer définitivement cette question ?\nCette action est irréversible.')) return;
+  const { error } = await supabase.from(bank).delete().eq('id', id);
+  if(error){ alert('Suppression refusée : '+error.message + (/foreign key|violates/i.test(error.message||'')?'\n(Question déjà utilisée dans une partie — non supprimable.)':'')); return; }
+  closeQuestionModal(); loadQuestions();
 }
 
 async function loadStats(){
