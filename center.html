@@ -1656,7 +1656,7 @@ window.loadSignalements = async function() {
   el.innerHTML = '<div style="text-align:center;color:var(--text3);padding:30px;">Chargement...</div>';
   try {
     const { data, error } = await supabase.from('cc_question_reports')
-      .select('*').or('center_id.eq.'+CENTER.id+',center_id.is.null')
+      .select('*').eq('center_id', CENTER.id)
       .order('created_at', { ascending: false }).limit(200);
     if (error) throw error;
     const rows = data || [];
@@ -1891,7 +1891,7 @@ window.loadAll = async function() {
       supabase.from('stagiaires').select('*',{count:'exact',head:true}).eq('center_id',cid).eq('actif',true),
       supabase.from('sessions_formation').select('*',{count:'exact',head:true}).eq('center_id',cid),
       supabase.from('challenge_sessions').select('*',{count:'exact',head:true}).eq('center_id',cid).gte('created_at',debut),
-      supabase.from('cc_question_reports').select('*',{count:'exact',head:true}).or('center_id.eq.'+cid+',center_id.is.null').eq('status','nouveau'),
+      supabase.from('cc_question_reports').select('*',{count:'exact',head:true}).eq('center_id',cid).eq('status','nouveau'),
       supabase.from('avis_retours').select('*',{count:'exact',head:true}).eq('center_id',cid),
     ]);
     document.getElementById('kpi-f').textContent = nf ?? 0;
