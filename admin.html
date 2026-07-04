@@ -2351,8 +2351,9 @@ async function bulkVerify(val){
   loadQuestions();
 }
 
-// ── Ouvrir une question (détail pour vérification) + suppression ──
-function closeQuestionModal(){ const m=document.getElementById('modal-question'); if(m) m.style.display='none'; }
+// ── Ouvrir / MODIFIER une question (détail éditable) + suppression ──
+let QEDIT = null;
+function closeQuestionModal(){ const m=document.getElementById('modal-question'); if(m) m.style.display='none'; QEDIT=null; }
 
 async function openQuestion(bank, id){
   const m=document.getElementById('modal-question'), body=document.getElementById('modal-question-body');
@@ -2364,48 +2365,90 @@ async function openQuestion(bank, id){
     const { data:q, error } = await supabase.from(bank).select('*').eq('id', id).single();
     if(error) throw error;
     const typ = Q_TYPE_LABELS[q.type] || q.type || '—';
-    let options=[], correct=[], niveau='', explication='', scenario='', extra=null;
+    let options=[], optionRows=null, correct=[], correctMode='none', niveau='', explication='', scenario='';
     if(isCC){
-      explication = q.explanation||''; scenario = q.scenario||q.situation||q.sentence||''; niveau = q.module_id||'';
-      const { data:opts } = await supabase.from('cc_question_options').select('option_index,option_text').eq('question_id', id).order('option_index',{ascending:true});
-      options = (opts||[]).map(o=>o.option_text);
-      if(q.correct_answer!=null) correct=[q.correct_answer];
-      else if(Array.isArray(q.correct_answers)) correct=q.correct_answers;
-      if(!options.length) extra={correct_answer:q.correct_answer,correct_answers:q.correct_answers,correct_order:q.correct_order,correct_path:q.correct_path,correct_blanks:q.correct_blanks,word_bank:q.word_bank};
+      explication=q.explanation||''; scenario=q.scenario||q.situation||q.sentence||''; niveau=q.module_id||'';
+      const { data:opts } = await supabase.from('cc_question_options').select('id,option_index,option_text').eq('question_id', id).order('option_index',{ascending:true});
+      optionRows = opts||[]; options = optionRows.map(o=>o.option_text);
+      if(Array.isArray(q.correct_answers)&&q.correct_answers.length){ correctMode='multi'; correct=q.correct_answers.map(Number); }
+      else if(q.correct_answer!=null){ correctMode='single'; correct=[Number(q.correct_answer)]; }
+      else if(options.length){ correctMode='single'; }
     } else {
-      explication = q.explication||''; scenario = q.scenario||''; niveau = q.niveau||'';
-      const d = q.data||{};
-      options = Array.isArray(d.options)? d.options : [];
-      if(d.correctAnswer!=null) correct=[d.correctAnswer];
-      else if(Array.isArray(d.correctAnswers)) correct=d.correctAnswers;
-      if(!options.length) extra=d;
+      explication=q.explication||''; scenario=q.scenario||''; niveau=q.niveau||'';
+      const d=q.data||{}; options=Array.isArray(d.options)?d.options.slice():[];
+      if(Array.isArray(d.correctAnswers)){ correctMode='multi'; correct=d.correctAnswers.map(Number); }
+      else if(d.correctAnswer!=null){ correctMode='single'; correct=[Number(d.correctAnswer)]; }
+      else if(options.length){ correctMode='single'; }
     }
+    QEDIT = { bank, id, isCC, type:q.type, data:isCC?null:(q.data||{}), optionRows, correctMode };
     const idJs = esc(String(id)).replace(/'/g,"\\'");
+    const inS='width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:.9rem;font-family:inherit;box-sizing:border-box;';
     let h='';
-    h+=`<div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;margin-bottom:6px;">${esc(niveau)} · ${esc(typ)} · ${q.verifiee?'<span style=\"color:#059669;font-weight:700;\">vérifiée ✓</span>':'<span style=\"color:#d97706;font-weight:700;\">à vérifier</span>'}</div>`;
-    h+=`<div style="font-size:1.05rem;font-weight:700;color:#0f172a;margin-bottom:14px;">${esc(q.question||q.titre||q.title||'')}</div>`;
-    if(scenario) h+=`<div style="background:#f8fafc;border-left:3px solid #cbd5e1;padding:10px 12px;border-radius:6px;font-size:.88rem;color:#334155;margin-bottom:14px;white-space:pre-wrap;">${esc(scenario)}</div>`;
+    h+=`<div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;margin-bottom:10px;">${esc(niveau)} · ${esc(typ)} · ${q.verifiee?'<span style=\"color:#059669;font-weight:700;\">vérifiée ✓</span>':'<span style=\"color:#d97706;font-weight:700;\">à vérifier</span>'}</div>`;
+    h+=`<label class="lbl">Énoncé</label><textarea id="q-edit-question" rows="2" style="${inS}margin-bottom:12px;">${esc(q.question||q.titre||q.title||'')}</textarea>`;
+    if(scenario) h+=`<label class="lbl">Scénario / contexte</label><div style="background:#f8fafc;border-left:3px solid #cbd5e1;padding:10px 12px;border-radius:6px;font-size:.85rem;color:#334155;margin-bottom:12px;white-space:pre-wrap;">${esc(scenario)}</div>`;
     if(options.length){
-      h+='<div style="margin-bottom:14px;">'+options.map((o,i)=>{
-        const ok=correct.map(Number).includes(i);
-        return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:8px;margin-bottom:6px;background:${ok?'#dcfce7':'#f8fafc'};border:1px solid ${ok?'#86efac':'#eef2f7'};"><span style="font-weight:800;min-width:16px;color:${ok?'#059669':'#94a3b8'};">${ok?'✓':String.fromCharCode(65+i)}</span><span style="font-size:.9rem;color:#0f172a;">${esc(o)}</span></div>`;
-      }).join('')+'</div>';
-    } else if(extra){
-      h+=`<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">Données (${esc(typ)})</div><pre style="background:#0f172a;color:#e2e8f0;padding:12px;border-radius:8px;font-size:.75rem;overflow:auto;max-height:240px;">${esc(JSON.stringify(extra,null,2))}</pre>`;
+      h+=`<label class="lbl">Réponses ${correctMode==='multi'?'(cochez les bonnes)':'(sélectionnez la bonne)'}</label><div style="margin-bottom:12px;">`;
+      options.forEach((o,i)=>{
+        const ok=correct.includes(i), t=correctMode==='multi'?'checkbox':'radio';
+        h+=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+          <input type="${t}" name="q-edit-correct" value="${i}" ${ok?'checked':''} style="width:18px;height:18px;accent-color:var(--green);flex-shrink:0;" title="Bonne réponse">
+          <input type="text" id="q-edit-opt-${i}" value="${esc(o)}" style="${inS}">
+        </div>`;
+      });
+      h+='</div>';
+    } else {
+      const raw = isCC ? {correct_answer:q.correct_answer,correct_answers:q.correct_answers,correct_order:q.correct_order,correct_path:q.correct_path,correct_blanks:q.correct_blanks,word_bank:q.word_bank} : (q.data||{});
+      h+=`<label class="lbl">Données (${esc(typ)}) — édition avancée non disponible ici</label><pre style="background:#0f172a;color:#e2e8f0;padding:12px;border-radius:8px;font-size:.75rem;overflow:auto;max-height:220px;margin-bottom:12px;">${esc(JSON.stringify(raw,null,2))}</pre>`;
     }
-    if(explication) h+=`<div style="margin-top:8px;"><div style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;">Explication</div><div style="font-size:.9rem;color:#334155;white-space:pre-wrap;">${esc(explication)}</div></div>`;
-    h+=`<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:22px;border-top:1px solid #eef2f7;padding-top:14px;">
+    h+=`<label class="lbl">Explication</label><textarea id="q-edit-explication" rows="3" style="${inS}margin-bottom:4px;">${esc(explication)}</textarea>`;
+    h+=`<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:20px;border-top:1px solid #eef2f7;padding-top:14px;">
       <button onclick="deleteQuestion('${bank}','${idJs}')" class="btn btn-gray btn-sm" style="color:#dc2626;">🗑️ Supprimer</button>
-      <button onclick="verifyFromModal('${bank}','${idJs}')" class="btn btn-green btn-sm">✓ Marquer vérifiée &amp; fermer</button>
+      <div style="display:flex;gap:8px;">
+        <button onclick="saveQuestion(false)" class="btn btn-blue btn-sm">💾 Enregistrer</button>
+        <button onclick="saveQuestion(true)" class="btn btn-green btn-sm">💾 Enregistrer &amp; vérifier</button>
+      </div>
     </div>`;
     body.innerHTML=h;
   }catch(e){ body.innerHTML='<div style="color:var(--red);padding:20px;">Erreur : '+esc(e.message||e)+'</div>'; }
 }
 
-async function verifyFromModal(bank, id){
-  const { error } = await supabase.from(bank).update({ verifiee:true }).eq('id', id);
-  if(error){ alert('Erreur : '+error.message); return; }
-  closeQuestionModal(); loadQuestions();
+async function saveQuestion(alsoVerify){
+  if(!QEDIT) return;
+  const { bank, id, isCC } = QEDIT;
+  const question = (document.getElementById('q-edit-question')||{}).value || '';
+  const explication = (document.getElementById('q-edit-explication')||{}).value || '';
+  let single=null; const multi=[];
+  document.querySelectorAll('input[name="q-edit-correct"]').forEach(el=>{ if(el.checked){ multi.push(Number(el.value)); single=Number(el.value); } });
+  try{
+    if(isCC){
+      const payload={ question, explanation: explication };
+      if(QEDIT.correctMode==='single' && single!=null) payload.correct_answer=single;
+      if(QEDIT.correctMode==='multi') payload.correct_answers=multi;
+      if(alsoVerify) payload.verifiee=true;
+      const { error } = await supabase.from('cc_questions').update(payload).eq('id', id);
+      if(error) throw error;
+      if(QEDIT.optionRows){
+        for(const row of QEDIT.optionRows){
+          const inp=document.getElementById('q-edit-opt-'+row.option_index);
+          if(inp && inp.value!==row.option_text){
+            const { error:e2 } = await supabase.from('cc_question_options').update({ option_text: inp.value }).eq('id', row.id);
+            if(e2) throw e2;
+          }
+        }
+      }
+    } else {
+      const d = Object.assign({}, QEDIT.data||{});
+      if(Array.isArray(d.options)) d.options=d.options.map((_,i)=>{ const inp=document.getElementById('q-edit-opt-'+i); return inp?inp.value:d.options[i]; });
+      if(QEDIT.correctMode==='single' && single!=null) d.correctAnswer=single;
+      if(QEDIT.correctMode==='multi') d.correctAnswers=multi;
+      const payload={ question, explication, data:d };
+      if(alsoVerify) payload.verifiee=true;
+      const { error } = await supabase.from('questions').update(payload).eq('id', id);
+      if(error) throw error;
+    }
+    closeQuestionModal(); loadQuestions();
+  }catch(e){ alert('Enregistrement refusé : '+(e.message||e)); }
 }
 
 async function deleteQuestion(bank, id){
