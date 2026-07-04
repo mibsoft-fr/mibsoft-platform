@@ -1774,7 +1774,9 @@ async function loadAllCore(){
   // KPIs
   try{
     const[{count:nc},{count:nl},{count:ns},{count:nses}]=await Promise.all([
-      supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_status','active'),
+      // Centres actifs = vrais centres uniquement (hors indépendants et apprenants), cohérent avec l'onglet Centres.
+      supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_status','active').not('license_type','in','(apprenant,independant)'),
+      // Licences valides = toutes les licences actives (centres + indépendants + apprenants).
       supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_status','active'),
       supabase.from('stagiaires').select('*',{count:'exact',head:true}).eq('actif',true),
       supabase.from('quiz_salle_sessions').select('*',{count:'exact',head:true})
@@ -1788,7 +1790,7 @@ async function loadAllCore(){
 
   // Derniers centres
   try{
-    const{data}=await supabase.from('centers').select('nom,email,plan,license_status,license_expires_at').order('created_at',{ascending:false}).limit(5);
+    const{data}=await supabase.from('centers').select('nom,email,plan,license_status,license_expires_at').not('license_type','in','(apprenant,independant)').order('created_at',{ascending:false}).limit(5);
     const tbody=document.getElementById('body-recent');
     if(!data||!data.length){tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px;">Aucun centre</td></tr>';return;}
     tbody.innerHTML=data.map(c=>`<tr>
