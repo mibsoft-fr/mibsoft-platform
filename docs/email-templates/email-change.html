@@ -1,0 +1,18 @@
+<!-- Supabase → Authentication → Emails → Templates → "Change Email Address"
+     Objet (Subject) : Confirmez votre nouvelle adresse email — MIBsoft -->
+<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#0f172a;">
+  <div style="text-align:center;margin:0 0 24px;">
+    <img src="https://mibsoft.fr/logo/logo-web-transparent.png" alt="MIBsoft" width="160" style="max-width:160px;height:auto;">
+  </div>
+  <h2 style="color:#10b981;font-size:1.3rem;margin:0 0 12px;">Confirmez votre nouvelle adresse email</h2>
+  <p>Bonjour,</p>
+  <p>Une demande de changement d'adresse email a été faite sur votre compte <strong>MIBsoft</strong> (de <strong>{{ .Email }}</strong> vers <strong>{{ .NewEmail }}</strong>). Cliquez sur le bouton ci-dessous pour la confirmer :</p>
+  <p style="text-align:center;margin:28px 0;">
+    <a href="{{ .ConfirmationURL }}" style="background:#10b981;color:#fff;text-decoration:none;padding:13px 28px;border-radius:8px;font-weight:700;display:inline-block;">Confirmer le changement</a>
+  </p>
+  <p style="font-size:.85rem;color:#64748b;">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br>
+    <span style="word-break:break-all;">{{ .ConfirmationURL }}</span></p>
+  <p style="font-size:.85rem;color:#64748b;">Vous n'êtes pas à l'origine de cette demande ? Contactez-nous immédiatement, votre adresse actuelle reste inchangée tant que ce lien n'est pas confirmé.</p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;">
+  <p style="font-size:.75rem;color:#94a3b8;text-align:center;">MIBsoft — Plateforme de formation SSIAP<br>Cet email vous a été envoyé automatiquement, merci de ne pas y répondre.</p>
+</div>

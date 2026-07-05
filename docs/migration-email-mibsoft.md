@@ -65,8 +65,18 @@ confirmation) — distincts des emails transactionnels ci-dessus.
 | Port | `587` |
 | Username | SMTP login du domaine (Mailgun → domaine → SMTP credentials, type `postmaster@mibsoft.fr`) |
 | Password | mot de passe SMTP associé (réinitialisable dans Mailgun) |
-| Sender email | `no-reply@mibsoft.fr` |
+| Sender email | `noreply@mibsoft.fr` |
 | Sender name | `MIBsoft` |
+
+> Identifiant SMTP créé dans Mailgun (Domain settings → SMTP Credentials → *Add new SMTP user*) :
+> `noreply@mibsoft.fr`. Le custom SMTP a été activé et testé (email de reset reçu depuis
+> `noreply@mibsoft.fr`).
+
+### Templates d'emails d'authentification
+Les templates Supabase par défaut (anglais, non brandés) sont remplacés par des gabarits brandés
+MIBsoft (français), versionnés dans **`docs/email-templates/`** (voir le README du dossier pour le
+mapping onglet Supabase ↔ fichier + objets recommandés). À coller dans
+`Authentication → Emails → Templates`.
 
 ## Ordre de bascule (pour ne jamais couper les emails)
 
