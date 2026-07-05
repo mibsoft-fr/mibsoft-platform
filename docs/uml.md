@@ -5,6 +5,15 @@
 >
 > **Exporter en images (PNG/SVG)** : `bash docs/render-uml.sh` (nécessite Node.js ; sort dans `docs/diagrams/`).
 
+> **Environnements (depuis la mise en ligne)** — le front est déployé une seule fois sur Vercel
+> mais cible **deux projets Supabase** selon le domaine, via la sélection dans `supabase.js` :
+> - **PROD** (`vsddtohdkcwihlybfief`) — servi sur `mibsoft.fr` / `www.mibsoft.fr` (données clients réelles,
+>   Stripe **live**, banques ne servant que les questions `verifiee = true`).
+> - **DEV** (`ozfkmlokovxigfnwjeuk`) — servi sur `*.vercel.app` et `localhost` (données de test, Stripe **test**,
+>   banques permissives).
+>
+> La bascule est faite par `_isMibProd = /(^|\.)mibsoft\.fr$/.test(hostname)`.
+
 ---
 
 ## 1. Diagramme de classes / entités (modèle de données)
@@ -45,10 +54,15 @@ erDiagram
     cc_questions ||--o{ cc_question_categories  : ""
     cc_questions ||--o{ cc_question_category_items : ""
     cc_questions ||--o{ cc_question_decision_steps : ""
+    cc_questions ||--o{ cc_question_reports     : "signalements"
+    centers ||--o{ cc_question_reports          : "remonte"
     cc_sessions ||--o{ cc_teams                 : "équipes"
     cc_sessions ||--o{ cc_team_answers          : ""
     cc_teams ||--o{ cc_team_answers             : "répond"
     cc_questions ||--o{ cc_team_answers         : ""
+
+    %% ───────── Facturation & super-admin ─────────
+    stripe_prices ||..o{ centers                : "tarif appliqué"
 
     centers {
         uuid id PK
@@ -144,6 +158,24 @@ erDiagram
         jsonb correct_answers
         jsonb correct_order
         jsonb correct_blanks
+        bool verifiee "validée super-admin (servie en prod)"
+    }
+    questions {
+        uuid id PK
+        text niveau "SSIAP1|2|3"
+        text categorie
+        jsonb data "énoncé, options, correctAnswer"
+        bool verifiee "validée super-admin (servie en prod)"
+    }
+    cc_question_reports {
+        uuid id PK
+        uuid center_id FK
+        uuid question_id FK
+        text type "erreur|modification"
+        text question_text
+        text message
+        text formateur
+        text status "nouveau|traite"
     }
     cc_team_answers {
         uuid id PK
@@ -151,6 +183,17 @@ erDiagram
         text team_id
         text question_id
         bool is_correct
+    }
+    stripe_prices {
+        uuid id PK
+        text plan "apprenant|independant|starter|pro|expert"
+        text cycle "mensuel|annuel|unique"
+        text price_id "price_… (test | live)"
+        int amount_cents
+        bool active
+    }
+    super_admins {
+        uuid user_id PK
     }
 ```
 
@@ -160,11 +203,14 @@ erDiagram
 
 ```mermaid
 flowchart TD
-    Stripe[["💳 Stripe Checkout"]] -->|webhook| WH{{"edge: stripe-webhook"}}
+    Stripe[["💳 Stripe Checkout (live/test)"]] -->|webhook| WH{{"edge: stripe-webhook"}}
     WH -->|crée| C[("centers\n(centre / indépendant / apprenant)")]
-    Vitrine["🌐 Vitrine — pricing.html"] -->|edge: stripe-create-checkout| Stripe
+    Vitrine["🌐 Vitrine — pricing.html\n(annuel entreprise / mensuel indé / unique apprenant)"] -->|edge: stripe-create-checkout| Stripe
 
     C --> ADM["🛠️ Admin — admin.html\n(synthèse, licences, monitoring)"]
+    ADM -->|✅ vérifie / ✏️ édite| BQ[("Banque de questions\nquestions + cc_questions\n(verifiee)")]
+    BQ -->|questions verifiee| AE
+    BQ -->|questions verifiee| CC
 
     subgraph Espaces["Espaces utilisateurs"]
       CE["🏫 Centre — center.html"]
@@ -201,7 +247,15 @@ flowchart TD
     ST -->|avis| AV[("avis_retours")]
     AV --> IN
     AV --> ADM
+    FO -->|signale une question| RP[("cc_question_reports")]
+    RP -->|isolés par center_id| CE
+    RP --> ADM
 ```
+
+> **Sélection d'environnement** : toutes ces pages chargent `supabase.js`, qui pointe vers le projet
+> **PROD** sur `mibsoft.fr` et vers **DEV** ailleurs (voir l'encadré en tête de document). L'accès à chaque
+> table est filtré côté serveur par RLS, et les claims (`center_id`, `super_admin`) sont injectés dans le
+> JWT par le hook `custom_access_token_hook` (voir §6).
 
 ---
 
@@ -276,4 +330,33 @@ sequenceDiagram
     F->>CE: « Résultats & questions échouées » (stats par session)
     F->>CE: « Reprendre les erreurs » → relance un Challenge de remédiation
 ```
+
+---
+
+## 6. Diagramme de séquence — Connexion & claims JWT (Custom Access Token Hook)
+
+```mermaid
+sequenceDiagram
+    actor U as Utilisateur (centre / indépendant / apprenant)
+    participant P as Page (supabase.js)
+    participant GT as Supabase Auth (GoTrue)
+    participant HK as hook: custom_access_token_hook
+    participant PR as public.profiles
+    participant DB as Tables métier (RLS)
+
+    Note over P: mibsoft.fr → projet PROD · sinon → projet DEV
+    U->>P: email + mot de passe (ou lien reset)
+    P->>GT: signInWithPassword / verifyOtp
+    GT->>HK: exécute le hook (rôle supabase_auth_admin)
+    HK->>PR: SELECT role, center_id WHERE user_id = …
+    Note over HK,PR: nécessite GRANT SELECT + policy<br/>auth_admin_read_profiles (migration 2035)
+    HK-->>GT: claims { center_id, role, super_admin }
+    GT-->>P: access_token (JWT enrichi)
+    P->>DB: requêtes filtrées par RLS<br/>(jwt_center_id() / jwt_is_super_admin())
+    DB-->>U: uniquement les données de son périmètre
+```
+
+> Ce hook est indispensable : sans le `GRANT SELECT` sur `public.profiles` au rôle
+> `supabase_auth_admin` (migration **2035**), le hook échoue (`permission denied for table profiles`)
+> et **toute connexion est refusée** — c'était le dernier blocage de la mise en production.
 
