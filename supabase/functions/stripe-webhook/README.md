@@ -12,7 +12,6 @@ Tout est en production sur Supabase. Le flow bout-en-bout fonctionne :
 | `stripe-webhook` v4 | aucune (signature Stripe) | Reçoit events Stripe → provisionne centre + envoie email |
 | `stripe-create-checkout` v5 | aucune (CORS strict) | Appelée depuis vitrine/app → crée session Checkout Stripe |
 | `stripe-setup-products` v3 | JWT super-admin | Crée/met à jour les produits + prices Stripe d'un coup |
-| `mailgun-test` v1 | aucune | Diagnostic config Mailgun (envoi test + détail erreur) |
 | `resend-welcome` v1 | JWT super-admin | Renvoie un email de bienvenue à un centre existant (cas perte du mail initial) |
 
 ## Tables DB
