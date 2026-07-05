@@ -20,6 +20,7 @@ de Supabase (anglais, non brandés), qui partaient facilement en spam.
 | `magic-link.html` | **Magic Link** | Votre lien de connexion MIBsoft |
 | `invite.html` | **Invite user** | Vous êtes invité(e) sur MIBsoft |
 | `email-change.html` | **Change Email Address** | Confirmez votre nouvelle adresse email — MIBsoft |
+| `reauthentication.html` | **Reauthentication** | Code de vérification MIBsoft |
 
 Pour chaque template : colle le HTML dans le champ **Message body**, et renseigne le **Subject** ci-dessus.
 
