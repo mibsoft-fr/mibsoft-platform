@@ -1635,47 +1635,71 @@ async function chargerPlansSSI() {
   } catch(e) { sel.innerHTML = "<option value=\"\">(plans indisponibles)</option>"; }
 }
 
-// Construit structure + matériels DIRECTEMENT depuis le plan publié (bucket ssi-plans),
-// sans passer par le modèle partagé (dont l'écriture exige le claim super-admin).
-// Renvoie { config, materiels } au même format que patrol_etablissements, ou null si aucun plan.
-var PLAN_ELEM2MAT = { RIA:"RIA", EXT:"Extincteur", BAES:"BAES", VH:"Désenfumage", VB:"Désenfumage", CCF:"Désenfumage", DAI:"Autre", DM:"Autre", PI:"PI", BI:"BI", SPRINKLER:"Sprinkler" };
-async function buildFromPublishedPlan(planKey){
-  var scopes = [CENTER.id, "shared"];   // plan spécifique au centre en priorité, sinon modèle partagé
+// Import depuis le plan publié : STRUCTURE reprise du modèle (mail/supermarché/…),
+// MATÉRIELS = uniquement les vrais matériels Patrol (on ignore DAI/DM/désenfumage),
+// rattachés aux locaux du modèle par nom (orphelins → zone « Divers »).
+var PLAN_ELEM2MAT   = { RIA:"RIA", EXT:"Extincteur", BAES:"BAES", PI:"PI", BI:"BI", SPRINKLER:"Sprinkler" };
+var PLAN_KEEP_TYPES = { RIA:1, EXT:1, BAES:1, PI:1, BI:1, SPRINKLER:1 };
+async function fetchPlanMarkers(planKey){
+  var scopes = [CENTER.id, "shared"], out=[];
   for (var s=0; s<scopes.length; s++){
-    var folder = scopes[s] + "/" + planKey;
-    var lst;
-    try { lst = await sb.storage.from("ssi-plans").list(folder, { limit: 200 }); }
-    catch(e){ console.warn("[import] list", e); continue; }
-    if (lst.error || !lst.data) { continue; }
+    var folder = scopes[s] + "/" + planKey, got=false, lst;
+    try { lst = await sb.storage.from("ssi-plans").list(folder, { limit: 200 }); } catch(e){ continue; }
+    if (lst.error || !lst.data) continue;
     var files = lst.data.filter(function(f){ return /\.json$/i.test(f.name); });
     if (!files.length) continue;
-    var batNom = "Centre commercial";
-    var config = { nom: batNom, batiments: [{ id: genId(), nom: batNom, niveaux: [] }] };
-    var bat = config.batiments[0];
-    var materiels = [];
     for (var i=0; i<files.length; i++){
-      var dl;
-      try { dl = await sb.storage.from("ssi-plans").download(folder + "/" + files[i].name); }
-      catch(e){ continue; }
+      var dl; try { dl = await sb.storage.from("ssi-plans").download(folder + "/" + files[i].name); } catch(e){ continue; }
       if (dl.error || !dl.data) continue;
       var obj; try { obj = JSON.parse(await dl.data.text()); } catch(_){ continue; }
-      var lvlNom = files[i].name.replace(/\.json$/i,"").toUpperCase();
-      var niveau = { key: "niv-"+genId(), nom: lvlNom, zones: [] };
-      var zone = { id: genId(), nom: "Plan", locaux: [] };
-      var locByName = {};
-      (obj.markers||[]).forEach(function(m){
-        var t = PLAN_ELEM2MAT[m.type]; if(!t) return;
-        var addr = (m.addr||"").trim() || t;
-        var lname = addr.toLowerCase();
-        if(!locByName[lname]){ var loc={ id:genId(), nom:addr, codeQR:"" }; zone.locaux.push(loc); locByName[lname]=loc; }
-        materiels.push({ nom:addr, type:t, localisation: batNom+" > "+lvlNom+" > Plan > "+addr, codeQR:"" });
-      });
-      if(zone.locaux.length) niveau.zones.push(zone);
-      if(niveau.zones.length) bat.niveaux.push(niveau);
+      var lvl = files[i].name.replace(/\.json$/i,"").toUpperCase();
+      (obj.markers||[]).forEach(function(m){ out.push({ type:m.type, addr:(m.addr||"").trim(), level:lvl }); });
+      got=true;
     }
-    if(materiels.length) return { config: config, materiels: materiels };
+    if(got) return out;   // priorité au scope centre s'il possède des fichiers
   }
-  return null;
+  return out;
+}
+async function buildFromPublishedPlan(planKey){
+  var markers = await fetchPlanMarkers(planKey);
+  var mats = markers.filter(function(m){ return PLAN_KEEP_TYPES[m.type]; });
+  if(!mats.length) return null;
+
+  // Structure de base = établissement modèle (lecture seule autorisée même sans droit d'écriture).
+  var config = null;
+  try{
+    var er = await sb.from("patrol_etablissements").select("config,nom,center_id")
+      .eq("plan_key", planKey).or("center_id.eq."+CENTER.id+",center_id.is.null");
+    var rows = (er.data||[]).filter(function(r){ return r.config && (r.config.batiments||[]).length; });
+    rows.sort(function(a,b){ return (a.center_id?0:1)-(b.center_id?0:1); });
+    if(rows.length) config = JSON.parse(JSON.stringify(rows[0].config));
+  }catch(e){ console.warn("[import] modèle", e); }
+
+  var batNom = "Centre commercial";
+  if(!config){ config = { nom:batNom, batiments:[{ id:genId(), nom:batNom, niveaux:[] }] }; }
+  var bat = config.batiments[0]; batNom = bat.nom || batNom;
+  if(bat.secteurs && !(bat.niveaux||[]).length) bat.niveaux = bat.secteurs;
+  var niveaux = bat.niveaux || (bat.niveaux = []);
+  var defN = niveaux[0]; if(!defN){ defN = { key:"niv-"+genId(), nom:"RDC", zones:[] }; niveaux.push(defN); }
+
+  var locIndex = {};
+  niveaux.forEach(function(n){ (n.zones||[]).forEach(function(z){ (z.locaux||z.zones||[]).forEach(function(l){ locIndex[(l.nom||"").toLowerCase()] = {n:n,z:z,l:l}; }); }); });
+  var diversZone = null;
+  function ensureDivers(){ if(!diversZone){ diversZone = { id:genId(), nom:"Divers", locaux:[] }; (defN.zones||(defN.zones=[])).push(diversZone); } return diversZone; }
+
+  var materiels = [];
+  mats.forEach(function(m){
+    var t = PLAN_ELEM2MAT[m.type];
+    var addr = (m.addr||"").trim() || t;
+    var hit = locIndex[addr.toLowerCase()];
+    if(!hit){
+      var z = ensureDivers();
+      var loc = { id:genId(), nom:addr, codeQR:"" }; z.locaux.push(loc);
+      hit = locIndex[addr.toLowerCase()] = { n:defN, z:z, l:loc };
+    }
+    materiels.push({ nom:addr, type:t, localisation: batNom+" > "+(hit.n.nom||hit.n.key||"")+" > "+hit.z.nom+" > "+hit.l.nom, codeQR:"" });
+  });
+  return { config: config, materiels: materiels };
 }
 async function importerEtablissementDepuisPlan() {
   var planKey = document.getElementById("etab-plan").value;
