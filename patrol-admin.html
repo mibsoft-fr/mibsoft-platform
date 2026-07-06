@@ -447,7 +447,15 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
   <!-- MAIN COURANTE -->
   <div id="page-mainCourante" class="page fade-in">
     <h2 style="font-size:1.1rem;font-weight:800;margin-bottom:20px;">Main Courante</h2>
+    <div class="card" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+      <div style="flex:1;min-width:180px;"><label style="font-size:.72rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Recherche</label><input id="mc-search" class="input" placeholder="Description, agent, type…" oninput="renderMainCourante()"></div>
+      <div><label style="font-size:.72rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Type</label><select id="mc-type" class="input" onchange="renderMainCourante()"><option value="">Tous</option></select></div>
+      <div><label style="font-size:.72rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Du</label><input type="date" id="mc-from" class="input" onchange="renderMainCourante()"></div>
+      <div><label style="font-size:.72rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Au</label><input type="date" id="mc-to" class="input" onchange="renderMainCourante()"></div>
+      <button onclick="imprimerMainCourante()" class="btn btn-primary"><i class="fas fa-print"></i> Imprimer</button>
+    </div>
     <div class="card">
+      <div id="mc-count" style="font-size:.72rem;color:#94a3b8;margin-bottom:8px;"></div>
       <div style="overflow-x:auto;"><table class="tbl"><thead><tr><th>Date/Heure</th><th>Type</th><th>Description</th><th>Agent</th></tr></thead>
       <tbody id="tbl-main-courante"><tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:24px;">Aucune entree</td></tr></tbody></table></div>
     </div>
@@ -623,6 +631,17 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
         <button onclick="saveMateriel()" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
       </div>
     </div>
+  </div>
+</div>
+
+<div id="modal-ronde-detail" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <h3 style="font-size:1rem;font-weight:800;" id="rd-title">Ronde</h3>
+      <button onclick="closeModal('modal-ronde-detail')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div id="rd-meta" style="font-size:.78rem;color:#64748b;margin-bottom:12px;"></div>
+    <div id="rd-body" style="max-height:60vh;overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -933,8 +952,8 @@ function renderRondes() {
     var hasHS  = (r.anomalies||[]).some(function(a){ return a.horsService; });
     var hasAno = (r.anomalies||[]).length > 0;
     var statut = r.heureFin ? (hasHS?"<span class=\"badge b-red\">HS</span>":hasAno?"<span class=\"badge b-orange\">Anomalie</span>":"<span class=\"badge b-green\">OK</span>") : "<span class=\"badge b-blue\">En cours</span>";
-    return "<tr>"
-      +"<td style=\"font-weight:600;font-size:.82rem;\">"+r.type+"</td>"
+    return "<tr style=\"cursor:pointer;\" onclick=\"voirRondeDetail('"+r.id+"')\" title=\"Voir le détail des points\">"
+      +"<td style=\"font-weight:600;font-size:.82rem;\">"+esc(r.type)+"</td>"
       +"<td style=\"font-size:.8rem;\">"+((agent?agent.prenom+" "+agent.nom:"—"))+"</td>"
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+fmtDT(r.heureDebut)+"</td>"
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+(r.heureFin?fmtDT(r.heureFin):"—")+"</td>"
@@ -944,17 +963,103 @@ function renderRondes() {
   }).join("");
 }
 
+// Détail d'une ronde : tous les points, leur résultat, commentaires et photos d'anomalie.
+function voirRondeDetail(rondeId){
+  var r = PTRDB.rondes.find(function(x){ return String(x.id)===String(rondeId); });
+  if(!r) return;
+  var agent = PTRDB.agents.find(function(a){ return String(a.id)===String(r.agentId); });
+  var anoByPoint = {};
+  (r.anomalies||[]).forEach(function(a){ if(a.pointId){ (anoByPoint[a.pointId]=anoByPoint[a.pointId]||[]).push(a); } });
+  var pts = (r.pointsControle||[]);
+  var badge = function(p){
+    if(p.statut==="OK") return "<span class=\"badge b-green\">OK</span>";
+    if(p.statut==="HS") return "<span class=\"badge b-red\">HS</span>";
+    if(p.statut==="Anomalie") return "<span class=\"badge b-orange\">Anomalie</span>";
+    if(p.valide) return "<span class=\"badge b-green\">Validé</span>";
+    return "<span style=\"display:inline-block;padding:2px 8px;border-radius:999px;font-size:.68rem;background:#e2e8f0;color:#475569;\">Non contrôlé</span>";
+  };
+  var rows = pts.map(function(p){
+    var anos = anoByPoint[p.id]||[];
+    var detail = anos.map(function(a){
+      var photos = (a.photos||[]).map(function(u){ return "<img src=\""+esc(u)+"\" style=\"width:66px;height:66px;object-fit:cover;border-radius:8px;margin:6px 6px 0 0;cursor:zoom-in;\" onclick=\"window.open('"+esc(u)+"','_blank')\">"; }).join("");
+      return "<div style=\"font-size:.78rem;color:#475569;margin-top:5px;\">💬 "+esc(a.description||"")+"</div>"+(photos?"<div>"+photos+"</div>":"");
+    }).join("");
+    return "<div style=\"padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;\">"
+      +"<div style=\"display:flex;justify-content:space-between;gap:8px;align-items:flex-start;\">"
+      +"<div style=\"font-weight:600;font-size:.85rem;\">"+esc(p.nom)+"<div style=\"font-size:.72rem;color:#94a3b8;font-weight:400;\">"+esc(p.localisation||"")+"</div></div>"
+      +"<div style=\"text-align:right;white-space:nowrap;\">"+badge(p)+"<div style=\"font-size:.68rem;color:#94a3b8;margin-top:2px;\">"+(p.heureValidation?fmtDT(p.heureValidation):"—")+"</div></div>"
+      +"</div>"+detail+"</div>";
+  }).join("");
+  var horsPts = (r.anomalies||[]).filter(function(a){ return !a.pointId; });
+  var horsHtml = horsPts.length ? "<div style=\"font-weight:700;font-size:.8rem;margin:10px 0 6px;color:#dc2626;\">Anomalies hors point</div>"+horsPts.map(function(a){
+      var photos = (a.photos||[]).map(function(u){ return "<img src=\""+esc(u)+"\" style=\"width:66px;height:66px;object-fit:cover;border-radius:8px;margin:6px 6px 0 0;cursor:zoom-in;\" onclick=\"window.open('"+esc(u)+"','_blank')\">"; }).join("");
+      return "<div style=\"padding:8px;background:#fef2f2;border-radius:8px;margin-bottom:6px;font-size:.8rem;\">"+(a.horsService?"[HS] ":"")+esc(a.localisation?a.localisation+": ":"")+esc(a.description||"")+(photos?"<div>"+photos+"</div>":"")+"</div>";
+    }).join("") : "";
+  var pv = pts.filter(function(p){ return p.valide; }).length;
+  document.getElementById("rd-title").textContent = (r.nom||r.type);
+  document.getElementById("rd-meta").innerHTML = "<b>"+esc(r.type)+"</b> · "+(agent?esc(agent.prenom+" "+agent.nom):"—")+" · "+fmtDT(r.heureDebut)+(r.heureFin?" → "+fmtDT(r.heureFin):" (en cours)")+" · "+pv+"/"+pts.length+" points";
+  document.getElementById("rd-body").innerHTML = (rows||"<div style=\"color:#94a3b8;\">Aucun point.</div>")+horsHtml;
+  openModal("modal-ronde-detail");
+}
+
 // ═══ MAIN COURANTE ═══
+function mcVal(id){ var e=document.getElementById(id); return e?(e.value||""):""; }
+function getFilteredMC(){
+  var q=mcVal("mc-search").trim().toLowerCase();
+  var t=mcVal("mc-type");
+  var from=mcVal("mc-from"), to=mcVal("mc-to");
+  var fromT = from ? new Date(from+"T00:00:00").getTime() : null;
+  var toT   = to   ? new Date(to+"T23:59:59").getTime()   : null;
+  return (PTRDB.mainCourante||[]).filter(function(m){
+    if (t && m.type!==t) return false;
+    var d = new Date(m.date).getTime();
+    if (fromT!==null && d<fromT) return false;
+    if (toT!==null && d>toT) return false;
+    if (q && ![m.type,m.description,m.agent].some(function(x){ return (x||"").toString().toLowerCase().indexOf(q)>=0; })) return false;
+    return true;
+  });
+}
 function renderMainCourante() {
   var tbody = document.getElementById("tbl-main-courante");
   if (!tbody) return;
-  if (!PTRDB.mainCourante.length) { tbody.innerHTML="<tr><td colspan=\"4\" style=\"text-align:center;color:#94a3b8;padding:24px;\">Aucune entree</td></tr>"; return; }
-  tbody.innerHTML = PTRDB.mainCourante.slice(0,100).map(function(m){
+  // Alimente le filtre Type avec les types distincts (en préservant la sélection).
+  var sel = document.getElementById("mc-type");
+  if (sel){
+    var cur = sel.value;
+    var types = Array.from(new Set((PTRDB.mainCourante||[]).map(function(m){ return m.type; }).filter(Boolean))).sort();
+    sel.innerHTML = "<option value=\"\">Tous</option>"+types.map(function(t){ return "<option"+(t===cur?" selected":"")+">"+esc(t)+"</option>"; }).join("");
+  }
+  var list = getFilteredMC();
+  var cnt = document.getElementById("mc-count"); if(cnt) cnt.textContent = list.length+" entrée(s)";
+  if (!list.length) { tbody.innerHTML="<tr><td colspan=\"4\" style=\"text-align:center;color:#94a3b8;padding:24px;\">Aucune entrée</td></tr>"; return; }
+  tbody.innerHTML = list.slice(0,500).map(function(m){
     return "<tr><td style=\"font-size:.78rem;white-space:nowrap;\">"+fmtDT(m.date)+"</td>"
-      +"<td><span class=\"badge b-blue\" style=\"font-size:.64rem;\">"+m.type+"</span></td>"
+      +"<td><span class=\"badge b-blue\" style=\"font-size:.64rem;\">"+esc(m.type)+"</span></td>"
       +"<td style=\"font-size:.82rem;\">"+esc(m.description)+"</td>"
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+esc(m.agent||"")+"</td></tr>";
   }).join("");
+}
+function imprimerMainCourante(){
+  var list = getFilteredMC().slice().sort(function(a,b){ return new Date(a.date)-new Date(b.date); });
+  var from=mcVal("mc-from"), to=mcVal("mc-to");
+  var periode = (from||to) ? ("Période : "+(from?fmtDate(from):"…")+" → "+(to?fmtDate(to):"…")) : "Toutes dates";
+  var centre = (typeof CENTER!=="undefined" && CENTER && CENTER.nom) ? CENTER.nom : "";
+  var rows = list.map(function(m){
+    return "<tr><td style=\"white-space:nowrap;\">"+fmtDT(m.date)+"</td><td>"+esc(m.type)+"</td><td>"+esc(m.description)+"</td><td>"+esc(m.agent||"")+"</td></tr>";
+  }).join("") || "<tr><td colspan=\"4\" style=\"text-align:center;color:#888;\">Aucune entrée</td></tr>";
+  var html = "<html><head><meta charset=\"utf-8\"><title>Main courante</title><style>"
+    + "body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:24px;}h1{font-size:18px;margin:0 0 4px;}"
+    + ".sub{color:#555;font-size:12px;margin-bottom:16px;}table{width:100%;border-collapse:collapse;font-size:12px;}"
+    + "th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;vertical-align:top;}th{background:#f1f5f9;}"
+    + "@media print{.noprint{display:none;}}</style></head><body>"
+    + "<h1>Main courante"+(centre?" — "+esc(centre):"")+"</h1>"
+    + "<div class=\"sub\">"+esc(periode)+" · "+list.length+" entrée(s) · Édité le "+fmtDT(new Date().toISOString())+"</div>"
+    + "<table><thead><tr><th>Date/Heure</th><th>Type</th><th>Description</th><th>Agent</th></tr></thead><tbody>"+rows+"</tbody></table>"
+    + "<div class=\"noprint\" style=\"margin-top:20px;\"><button onclick=\"window.print()\">Imprimer</button></div>"
+    + "<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script></body></html>";
+  var w = window.open("","_blank");
+  if(!w){ toast("Autorisez les pop-ups pour imprimer.","err"); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 }
 
 // ═══ EVENEMENTS ═══

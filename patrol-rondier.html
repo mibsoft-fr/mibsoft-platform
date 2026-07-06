@@ -622,7 +622,7 @@ async function validerPoint(statut) {
       var mat = DATA.materiels.find(function(m){ return m.id===point.materielId; });
       if (mat) { mat.statut="Operationnel"; mat.dernierControle=new Date().toISOString().split("T")[0]; }
     }
-    addMC("Ronde", "Point validé OK : "+point.nom+(point.localisation?" ("+point.localisation+")":""), PATROL_SESSION.agentId);
+    // Un point validé OK n'encombre pas la main courante : seuls départ, anomalies et fin y figurent.
     if (navigator.vibrate) navigator.vibrate(150);
     await sauvegarder(); toast("✅ "+point.nom+" valide !","ok"); renderRondes();
   } else {
