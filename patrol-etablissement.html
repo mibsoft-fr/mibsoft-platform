@@ -487,6 +487,7 @@ async function fetchPlanCapturesFromServer(){
     return caps;
   }catch(e){ console.warn("[import] plan serveur:", e); toast("Plan serveur : "+((e&&e.message)||e)); return []; }
 }
+var IMPORT_CAPS = [];   // captures actuellement affichées dans la fenêtre d'import (serveur OU localStorage)
 async function importerDuPlan(){
   if(!PLAN_KEY){ toast("Sélectionne d'abord un plan."); return; }
   toast("Lecture du plan publié…");
@@ -497,6 +498,7 @@ async function importerDuPlan(){
   var selB = document.getElementById("imp-bat");
   selB.innerHTML = ETAB.batiments.map(function(b){ return "<option value=\""+b.id+"\">"+esc(b.nom)+"</option>"; }).join("");
   renderImpNiveaux();
+  IMPORT_CAPS = caps;
   renderImpList(caps);
   document.getElementById("import-ov").classList.add("show");
 }
@@ -527,7 +529,7 @@ function viderCaptures(){
   fermerImport(); toast("Captures vidées.");
 }
 function confirmerImport(){
-  var caps = readCaptures();
+  var caps = IMPORT_CAPS;   // les captures réellement affichées (serveur ou localStorage), pas une relecture
   var b = findBat(document.getElementById("imp-bat").value); if(!b) return;
   var n = b.niveaux.find(function(x){ return x.key===document.getElementById("imp-niv").value; }); if(!n) return;
   var chosen = Array.prototype.slice.call(document.querySelectorAll("#imp-list input[type=checkbox]:checked"))
@@ -571,6 +573,7 @@ function confirmerImport(){
   var bySrc={};
   caps.forEach(function(c){ (bySrc[c.__src]=bySrc[c.__src]||[]).push(c); });
   Object.keys(bySrc).forEach(function(k){
+    if(k.indexOf("mib_etab_capture_")!==0) return;   // captures serveur (__src="server") : rien à retirer du localStorage
     var keep = bySrc[k].filter(function(c){ return chosen.indexOf(c)<0; })
       .map(function(c){ var o={}; for(var p in c){ if(p!=="__src") o[p]=c[p]; } return o; });
     try{ localStorage.setItem(k, JSON.stringify(keep)); }catch(_){}
