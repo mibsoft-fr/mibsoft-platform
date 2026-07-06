@@ -614,7 +614,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
         <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Numéro</label><input type="text" id="mat-numero" class="input" placeholder="Ex: EXT-04"></div>
         <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Date dernier contrôle</label><input type="date" id="mat-controle" class="input" onchange="majAlerteControle()"></div>
       </div>
-      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Localisation</label><input type="text" id="mat-loc" class="input" list="mat-loc-list" placeholder="Choisir ou saisir…"><datalist id="mat-loc-list"></datalist></div>
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Localisation</label><input type="text" id="mat-loc" name="mat-loc-x" autocomplete="off" autocorrect="off" spellcheck="false" class="input" list="mat-loc-list" placeholder="Choisir un lieu du plan…"><datalist id="mat-loc-list"></datalist></div>
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Adresse / emplacement précis</label><input type="text" id="mat-adresse" class="input" placeholder="Ex: mur Est, près de la sortie 2"></div>
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Code QR</label><input type="text" id="mat-qr" class="input" placeholder="MAT-EXT-001" onchange="majQRPreview()"></div>
       <div id="mat-controle-alerte" style="font-size:.78rem;"></div>
@@ -1311,7 +1311,7 @@ function voirStructure(){
 var EVT_CONFIG = {
   feu: { label:"Feu", icon:"🔥", type:"Alarme Incendie", color:"#dc2626", champs:[
     { id:"detection", label:"Détection", options:["DM","DAI","Voix"] },
-    { id:"loc", type:"loc", label:"Adresse" },
+    { id:"loc", type:"loc", label:"Lieu" },
     { id:"nature", label:"Nature", options:["Poubelle","Palette","Stockage","Hydrocarbure","Décoration","Autre"] },
     { id:"action", label:"Action", options:["Levée de doute","Extinction extincteur","Extinction RIA","Non maîtrisable","Feu éteint","Mise en sécurité","Évacuation partielle","Évacuation générale"] }
   ] },
@@ -1352,7 +1352,7 @@ function evtPick(k){
   EVT_CUR=k; evtRenderCats();
   var c=EVT_CONFIG[k];
   var html = c.champs.map(function(f){
-    if(f.type==="loc") return "<div style='margin-bottom:10px;'><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;'>"+esc(f.label)+"</label><input id='evt-loc' class='input' list='evt-loc-list' placeholder='Choisir ou saisir…'><datalist id='evt-loc-list'></datalist></div>";
+    if(f.type==="loc") return "<div style='margin-bottom:10px;'><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;'>"+esc(f.label)+"</label><input id='evt-loc' name='evt-loc-"+genId()+"' autocomplete='off' autocorrect='off' spellcheck='false' class='input' list='evt-loc-list' placeholder='Choisir un lieu du plan…'><datalist id='evt-loc-list'></datalist></div>";
     return "<div style='margin-bottom:10px;'><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;'>"+esc(f.label)+"</label><select id='evt-f-"+f.id+"' class='input'>"+f.options.map(function(o){return "<option>"+esc(o)+"</option>";}).join("")+"</select></div>";
   }).join("");
   html += "<div style='margin-bottom:10px;'><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;'>Commentaire</label><textarea id='evt-desc' class='input' rows='2' placeholder='Précisions libres (optionnel)…'></textarea></div>";
