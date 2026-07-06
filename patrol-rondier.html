@@ -332,6 +332,10 @@ button, .nav-btn, [role="button"]{
     <div style="display:flex;flex-direction:column;gap:12px;">
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Localisation</label><input type="text" id="ano-loc" class="input" placeholder="Ou se trouve l'anomalie ?"></div>
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Description *</label><textarea id="ano-desc" class="input" rows="3" placeholder="Decrivez le probleme..."></textarea></div>
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Photos (optionnel, 3 max)</label>
+        <input type="file" id="ano-photo-input" accept="image/*" capture="environment" multiple style="font-size:.8rem;" onchange="ajouterPhotosAno(this)">
+        <div id="ano-photos" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+      </div>
       <div style="display:flex;gap:8px;">
         <button onclick="closeModal()" class="btn btn-gray" style="flex:1;">Annuler</button>
         <button onclick="saveAnomalie(false)" class="btn btn-orange" style="flex:1;">Anomalie</button>
@@ -671,6 +675,7 @@ async function validerPoint(statut) {
     currentRondeId = r.id; currentPointId = point.id; valStatutPending = statut;
     document.getElementById("ano-desc").value="";
     document.getElementById("ano-loc").value=point.nom+(point.localisation?" - "+point.localisation:"");
+    resetAnoPhotos();
     setTimeout(function(){ document.getElementById("modal-anomalie").classList.remove("hidden"); }, 200);
   }
 }
@@ -679,7 +684,36 @@ function ouvrirModalAnomalie(rondeId) {
   currentRondeId=rondeId; currentPointId=null; valStatutPending=null;
   document.getElementById("ano-desc").value="";
   document.getElementById("ano-loc").value="";
+  resetAnoPhotos();
   document.getElementById("modal-anomalie").classList.remove("hidden");
+}
+
+// ── Photos d'anomalie (compressées en JPEG, stockées en base64 dans l'anomalie) ──
+var anoPhotos = [];
+function resetAnoPhotos(){ anoPhotos=[]; var el=document.getElementById("ano-photos"); if(el) el.innerHTML=""; var inp=document.getElementById("ano-photo-input"); if(inp) inp.value=""; }
+function renderAnoPhotos(){
+  var el=document.getElementById("ano-photos"); if(!el) return;
+  el.innerHTML=anoPhotos.map(function(u,i){ return "<div style=\"position:relative;\"><img src=\""+u+"\" style=\"width:60px;height:60px;object-fit:cover;border-radius:8px;\"><button onclick=\"retirerPhotoAno("+i+")\" style=\"position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:none;background:#dc2626;color:#fff;cursor:pointer;font-size:.7rem;line-height:1;\">✕</button></div>"; }).join("");
+}
+function retirerPhotoAno(i){ anoPhotos.splice(i,1); renderAnoPhotos(); }
+function ajouterPhotosAno(input){
+  Array.prototype.slice.call(input.files||[]).forEach(function(file){
+    if(anoPhotos.length>=3){ toast("3 photos maximum","err"); return; }
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var img=new Image();
+      img.onload=function(){
+        var max=1000, w=img.width, h=img.height;
+        if(w>max||h>max){ if(w>h){ h=Math.round(h*max/w); w=max; } else { w=Math.round(w*max/h); h=max; } }
+        var cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+        cv.getContext("2d").drawImage(img,0,0,w,h);
+        anoPhotos.push(cv.toDataURL("image/jpeg",0.55)); renderAnoPhotos();
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value="";
 }
 
 async function saveAnomalie(horsService) {
@@ -694,16 +728,17 @@ async function saveAnomalie(horsService) {
   if (currentPointId) {
     var point = (r.pointsControle||[]).find(function(p){ return p.id===currentPointId; });
     if (point) { point.valide=true; point.heureValidation=new Date().toISOString(); point.statut=horsService?"HS":"Anomalie"; }
-    r.anomalies.push({ id:genId(), pointId:currentPointId, pointNom:point?point.nom:"", description:desc, horsService:horsService, date:new Date().toISOString(), agentId:PATROL_SESSION.agentId });
+    r.anomalies.push({ id:genId(), pointId:currentPointId, pointNom:point?point.nom:"", description:desc, horsService:horsService, photos:anoPhotos.slice(), date:new Date().toISOString(), agentId:PATROL_SESSION.agentId });
     if (point && point.materielId) {
       var mat = DATA.materiels.find(function(m){ return m.id===point.materielId; });
       if (mat) { mat.statut = horsService?"Hors Service":"A verifier"; mat.observation=desc; mat.dernierControle=new Date().toISOString().split("T")[0]; }
     }
   } else {
-    r.anomalies.push({ id:genId(), localisation:loc, description:desc, horsService:horsService, date:new Date().toISOString(), agentId:PATROL_SESSION.agentId });
+    r.anomalies.push({ id:genId(), localisation:loc, description:desc, horsService:horsService, photos:anoPhotos.slice(), date:new Date().toISOString(), agentId:PATROL_SESSION.agentId });
   }
 
   addMC("Anomalie Ronde", (horsService?"[HS] ":"")+(loc?loc+": ":"")+desc, PATROL_SESSION.agentId);
+  resetAnoPhotos();
   closeModal(); await sauvegarder(); toast(horsService?"Hors Service signale":"Anomalie signalee","ok"); renderRondes();
 }
 
