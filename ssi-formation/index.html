@@ -1125,6 +1125,7 @@ case 'SET_TEMPORIZATION':STATE.uga.temporization=data.minutes;break;
 case 'SET_ALARM_TYPE':STATE.uga.alarmType=data.alarmType;break;
 case 'SMSI_STATE_CHANGE':STATE.smsi.systemState=data.state;break;
 case 'SMSI_BATTERY_CHANGE':STATE.smsi.batteryState=data.state;break;
+case 'SMSI_RESET':smsiClearFunctional();break;
 case 'SSI_SYNC':applySsiSync(data);return;
 case 'SMSI_ALARM_CHANGE':STATE.smsi.alarmState=data.state;break;
 case 'SMSI_POWER_CHANGE':STATE.smsi.powerState=data.state;break;
@@ -1152,6 +1153,7 @@ case 'CHANGE_DETECTOR_STATE':
 {const detectorArr=data.type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const detector=detectorArr.find(d=>d.id===data.id);if(detector){detector.state=data.state;}}break;
 case 'ZONE_COMMAND':
 {const arr=data.zoneType==='compartment'?STATE.smsi.compartmentZones:STATE.smsi.smokeZones;const z=arr.find(x=>x.id===data.id);if(z){z.commandActive=true;z.state='securite';updateZoneLeds(z);}if(typeof broadcastPlanState==='function')broadcastPlanState();}break;
+case 'SMSI_RESET':smsiClearFunctional();break;
 }
 render();
 }
@@ -1417,19 +1419,25 @@ function canResetSdiSystem(){if(STATE.accessLevel!==2)return false;const allDMRe
 function canResetSmsiSystem(){if(STATE.smsiAccessLevel!==2)return false;const allZonesReady=[...STATE.smsi.compartmentZones,...STATE.smsi.smokeZones].every(zone=>zone.state==='attente');return allZonesReady;}
 
 function resetSdiSystem(){if(!canResetSdiSystem()){showCustomAlert('Impossible de réarmer le SDI: niveau 2 requis, tous les DM doivent être réarmés et aucun DAI ne doit être actif');return;}STATE.sdi.alarms=[];STATE.sdi.fireAlarmActive=false;STATE.sdi.alarmSound=false;STATE.sdi.detectors.forEach(d=>d.triggered=false);STATE.sdi.manualAlarms.forEach(d=>d.triggered=false);stopAlarmSound(true);if(STATE.uga.temporizationActive){clearInterval(temporizationTimer);STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;}logAction('Réarmement SDI complet');render();}
-function resetSmsiSystem(){if(!canResetSmsiSystem()){showCustomAlert('Impossible de réarmer le SMSI: niveau 2 requis et tous les DAS en position d\'attente');return;}
+// Remise à zéro fonctionnelle du SMSI (zones ZC/ZF + coffrets CR + surcharges élément).
+// Partagée par le réarmement local et la réception d'un SMSI_RESET distant.
+function smsiClearFunctional(){
 STATE.smsi.messages=[];STATE.smsi.alarmSound=false;
-// Réarmement COMPLET : zones ZC/ZF + coffrets relayage CR remis en attente (voyants
-// éteints), surcharges élément (clic droit) effacées, puis on repousse l'état au plan
-// pour que les symboles DAS repassent au vert (sinon coffret rouge figé / clignotement).
 STATE.elemVoyants={};STATE.elementStates={};
 const rz=z=>{z.commandActive=false;z.state='attente';z._elemVoyant='';updateZoneLeds(z);};
 STATE.smsi.compartmentZones.forEach(rz);
 STATE.smsi.smokeZones.forEach(rz);
 STATE.smsi.relayBoxes.forEach(r=>{r.state='attente';r.stopped=false;r._elemVoyant='';r.commandActive=false;updateRelayLeds(r);});
 STATE.uga.alarmActive=false;STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;
-stopGeneralAlarm();stopAlarmSound(true);
+try{stopGeneralAlarm();stopAlarmSound(true);}catch(_){}
 try{broadcastPlanState();}catch(_){}
+}
+function resetSmsiSystem(){if(!canResetSmsiSystem()){showCustomAlert('Impossible de réarmer le SMSI: niveau 2 requis et tous les DAS en position d\'attente');return;}
+// Réarmement COMPLET : voyants ZC/ZF + coffrets CR éteints, surcharges effacées, plan
+// rafraîchi. Diffusé à l'autre poste (SMSI_RESET) pour éviter qu'un coffret resté en
+// sécurité côté formateur/stagiaire ne soit re-poussé (ex. CR4 figé en rouge).
+smsiClearFunctional();
+try{sendMessage('SMSI_RESET',{});}catch(_){}
 logAction('Réarmement SMSI complet');render();}
 
 function resetSdiToIdle(){STATE.sdi.alarms=[];STATE.sdi.fireAlarmActive=false;STATE.sdi.alarmSound=false;STATE.sdi.detectors.forEach(d=>{d.triggered=false;});STATE.sdi.manualAlarms.forEach(d=>{d.triggered=false;});STATE.sdi.systemState='service';STATE.sdi.powerState='secteur';STATE.sdi.batteryState='service';try{stopAlarmSound(true);}catch(e){}if(STATE.uga.temporizationActive){clearInterval(temporizationTimer);STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;}}
