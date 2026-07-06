@@ -540,6 +540,9 @@ function captureAllMarkers(){
   const cap={id:'cap-'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36),
              level:lvl, zone:zoneName, locaux:[], elements:inside, rect:null, allMarkers:true};
   let buf=[];try{buf=JSON.parse(localStorage.getItem(ETAB_CAP_KEY)||'[]');}catch(_){}
+  // Un seul instantané « tous les pictos » à la fois : on remplace l'ancien lot allMarkers du même
+  // niveau pour éviter d'empiler des captures périmées (source de confusion à l'import).
+  buf=buf.filter(function(c){ return !(c.allMarkers && (c.level||'')===lvl); });
   buf.push(cap);try{localStorage.setItem(ETAB_CAP_KEY,JSON.stringify(buf));}catch(_){toast('Stockage plein');return;}
   renderCaptures();
   toast(inside.length+' matériel(s) capturé(s)');
