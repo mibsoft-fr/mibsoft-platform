@@ -673,6 +673,16 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
   </div>
 </div>
 
+<div id="modal-point-detail" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="font-size:1rem;font-weight:800;" id="pd-title">Point</h3>
+      <button onclick="closeModal('modal-point-detail')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div id="pd-body" style="max-height:60vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
 <div id="modal-ronde-detail" class="modal-bg hidden">
   <div class="modal-box">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -1093,6 +1103,36 @@ function renderRondes() {
   }).join("");
 }
 
+function pointStatutBadge(p){
+  if(p.statut==="OK") return "<span class=\"badge b-green\">OK</span>";
+  if(p.statut==="HS") return "<span class=\"badge b-red\">HS</span>";
+  if(p.statut==="Anomalie") return "<span class=\"badge b-orange\">Anomalie</span>";
+  if(p.valide) return "<span class=\"badge b-green\">Validé</span>";
+  return "<span style=\"display:inline-block;padding:2px 8px;border-radius:999px;font-size:.68rem;background:#e2e8f0;color:#475569;\">Non contrôlé</span>";
+}
+// Fiche d'un point de contrôle : matériel associé, résultat, commentaires et photos.
+function voirPointDetail(rondeId, pointId){
+  var r = PTRDB.rondes.find(function(x){ return String(x.id)===String(rondeId); }); if(!r) return;
+  var p = (r.pointsControle||[]).find(function(x){ return String(x.id)===String(pointId); }); if(!p) return;
+  var mat = p.materielId ? (PTRDB.materiels||[]).find(function(m){ return String(m.id)===String(p.materielId); }) : null;
+  var anos = (r.anomalies||[]).filter(function(a){ return String(a.pointId)===String(pointId); });
+  var infos = "<div style=\"font-size:.82rem;color:#475569;line-height:1.8;\">"
+    + "<div><b>Localisation :</b> "+esc(p.localisation||"—")+"</div>"
+    + (mat?("<div><b>Type :</b> "+esc(mat.type)+(mat.agent?" · "+esc(mat.agent):"")+"</div>"
+        + "<div><b>Numéro :</b> "+esc(mat.numero||"—")+"</div>"
+        + "<div><b>Code QR :</b> "+esc(mat.codeQR||p.qrCode||"—")+"</div>"
+        + "<div><b>Statut matériel :</b> "+esc(mat.statut||"—")+"</div>"):"")
+    + "<div><b>Contrôle :</b> "+(p.heureValidation?fmtDT(p.heureValidation):"non contrôlé")+"</div>"
+    + "</div>";
+  var notes = anos.length ? anos.map(function(a){
+      var photos=(a.photos||[]).map(function(u){ return "<img src=\""+esc(u)+"\" style=\"width:100px;height:100px;object-fit:cover;border-radius:8px;margin:6px 6px 0 0;cursor:zoom-in;\" onclick=\"window.open('"+esc(u)+"','_blank')\">"; }).join("");
+      return "<div style=\"margin-top:10px;padding:10px;background:#fef2f2;border-radius:10px;\"><div style=\"font-size:.82rem;\">"+(a.horsService?"<b>[Hors service]</b> ":"")+esc(a.description||"")+"</div>"+(photos?"<div>"+photos+"</div>":"")+"</div>";
+    }).join("") : "<div style=\"margin-top:10px;color:#94a3b8;font-size:.8rem;\">Aucun commentaire ni photo.</div>";
+  document.getElementById("pd-title").innerHTML = esc(p.nom)+" &nbsp; "+pointStatutBadge(p);
+  document.getElementById("pd-body").innerHTML = infos + notes
+    + (mat?("<button onclick=\"closeModal('modal-point-detail');showModalMateriel("+mat.id+")\" class=\"btn btn-blue\" style=\"margin-top:14px;\"><i class='fas fa-pen'></i> Ouvrir la fiche matériel</button>"):"");
+  openModal("modal-point-detail");
+}
 // Détail d'une ronde : tous les points, leur résultat, commentaires et photos d'anomalie.
 function voirRondeDetail(rondeId){
   var r = PTRDB.rondes.find(function(x){ return String(x.id)===String(rondeId); });
@@ -1101,24 +1141,13 @@ function voirRondeDetail(rondeId){
   var anoByPoint = {};
   (r.anomalies||[]).forEach(function(a){ if(a.pointId){ (anoByPoint[a.pointId]=anoByPoint[a.pointId]||[]).push(a); } });
   var pts = (r.pointsControle||[]);
-  var badge = function(p){
-    if(p.statut==="OK") return "<span class=\"badge b-green\">OK</span>";
-    if(p.statut==="HS") return "<span class=\"badge b-red\">HS</span>";
-    if(p.statut==="Anomalie") return "<span class=\"badge b-orange\">Anomalie</span>";
-    if(p.valide) return "<span class=\"badge b-green\">Validé</span>";
-    return "<span style=\"display:inline-block;padding:2px 8px;border-radius:999px;font-size:.68rem;background:#e2e8f0;color:#475569;\">Non contrôlé</span>";
-  };
   var rows = pts.map(function(p){
     var anos = anoByPoint[p.id]||[];
-    var detail = anos.map(function(a){
-      var photos = (a.photos||[]).map(function(u){ return "<img src=\""+esc(u)+"\" style=\"width:66px;height:66px;object-fit:cover;border-radius:8px;margin:6px 6px 0 0;cursor:zoom-in;\" onclick=\"window.open('"+esc(u)+"','_blank')\">"; }).join("");
-      return "<div style=\"font-size:.78rem;color:#475569;margin-top:5px;\">💬 "+esc(a.description||"")+"</div>"+(photos?"<div>"+photos+"</div>":"");
-    }).join("");
-    return "<div style=\"padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;\">"
-      +"<div style=\"display:flex;justify-content:space-between;gap:8px;align-items:flex-start;\">"
-      +"<div style=\"font-weight:600;font-size:.85rem;\">"+esc(p.nom)+"<div style=\"font-size:.72rem;color:#94a3b8;font-weight:400;\">"+esc(p.localisation||"")+"</div></div>"
-      +"<div style=\"text-align:right;white-space:nowrap;\">"+badge(p)+"<div style=\"font-size:.68rem;color:#94a3b8;margin-top:2px;\">"+(p.heureValidation?fmtDT(p.heureValidation):"—")+"</div></div>"
-      +"</div>"+detail+"</div>";
+    return "<div onclick=\"voirPointDetail('"+r.id+"','"+p.id+"')\" title=\"Ouvrir la fiche du point\" style=\"cursor:pointer;padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;\">"
+      +"<div style=\"display:flex;justify-content:space-between;gap:8px;align-items:center;\">"
+      +"<div style=\"font-weight:600;font-size:.85rem;\">"+esc(p.nom)+(anos.length?" 💬":"")+"<div style=\"font-size:.72rem;color:#94a3b8;font-weight:400;\">"+esc(p.localisation||"")+"</div></div>"
+      +"<div style=\"display:flex;align-items:center;gap:8px;white-space:nowrap;\"><div style=\"text-align:right;\">"+pointStatutBadge(p)+"<div style=\"font-size:.68rem;color:#94a3b8;margin-top:2px;\">"+(p.heureValidation?fmtDT(p.heureValidation):"—")+"</div></div><i class=\"fas fa-chevron-right\" style=\"color:#cbd5e1;\"></i></div>"
+      +"</div></div>";
   }).join("");
   var horsPts = (r.anomalies||[]).filter(function(a){ return !a.pointId; });
   var horsHtml = horsPts.length ? "<div style=\"font-weight:700;font-size:.8rem;margin:10px 0 6px;color:#dc2626;\">Anomalies hors point</div>"+horsPts.map(function(a){
