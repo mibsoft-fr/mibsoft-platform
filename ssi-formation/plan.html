@@ -320,6 +320,8 @@ function applyState(data){
     if(ov){const pos=(ov==='securite'||ov==='defaut-securite'||ov==='defaut-position');a=pos;f=(ov==='defaut-securite'||ov==='defaut-position');}
     // (défaut d'attente / d'alimentation : porte au repos visuellement, le voyant CMSI orange suffit)
     if(a!==!!dr._active||f!==!!dr._fault){dr._active=a;dr._fault=f;dchanged=true;}});
+  // États matériel (RIA/EXT/BAES/PI/BI/SPRINKLER) propagés depuis l'onglet formateur.
+  if(data.mats){MARKERS.forEach(m=>{if(!isMat(m))return;const st=data.mats[matCode(m)];if(st!==undefined&&m._matStatut!==st){m._matStatut=st;m._hs=(st==='Hors Service');changed=true;}});}
   if(changed&&dragging===null)applyMarkerStates();
   if(dchanged&&dragDoor===null)renderDoors();
   if((changed||dchanged)&&dragging===null&&dragDoor===null)renderMediaThumbs();
@@ -1080,6 +1082,7 @@ function openMatMenu(px,py,idx){
   box.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{setMatStatut(idx,b.dataset.s);closeElementMenu();}));
 }
 function setMatStatut(idx,statut){
+  if(UAE)return; // UAE = lecture seule
   const m=MARKERS[idx];if(!m)return;
   const code=matCode(m);
   m._matStatut=statut;m._hs=(statut==='Hors Service');
@@ -1087,6 +1090,8 @@ function setMatStatut(idx,statut){
   const map=readMatState();if(code){map[code]=statut;}try{localStorage.setItem(matStateKey(),JSON.stringify(map));}catch(_){}
   applyMarkerStates();renderMarkers();
   logLine('🧯 État matériel : '+tag(m)+(m.addr?(' '+m.addr):'')+' → '+statut);
+  // Propagation temps réel vers l'onglet formateur → stagiaire (UAE) via le bus plan.
+  if(code&&typeof post==='function')post({kind:'set-mat',code,statut});
   syncMatToPatrol(code,statut,m);
 }
 // Écrit l'état dans la table opérationnelle Patrol (patrol_data, ouverte en anon) pour le centre

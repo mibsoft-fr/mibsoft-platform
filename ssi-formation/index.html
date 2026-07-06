@@ -1126,6 +1126,7 @@ case 'SET_ALARM_TYPE':STATE.uga.alarmType=data.alarmType;break;
 case 'SMSI_STATE_CHANGE':STATE.smsi.systemState=data.state;break;
 case 'SMSI_BATTERY_CHANGE':STATE.smsi.batteryState=data.state;break;
 case 'SMSI_RESET':smsiClearFunctional();break;
+case 'SET_MAT_STATE':STATE.matStates=STATE.matStates||{};if(data&&data.code)STATE.matStates[data.code]=data.statut;try{broadcastPlanState();}catch(_){}break;
 case 'SSI_SYNC':applySsiSync(data);return;
 case 'SMSI_ALARM_CHANGE':STATE.smsi.alarmState=data.state;break;
 case 'SMSI_POWER_CHANGE':STATE.smsi.powerState=data.state;break;
@@ -1693,6 +1694,7 @@ broadcastPlanState();
 return;
 }
 if(m.kind==='set-element'){setElementState(m.key,m.label,m.addr,m.state,m.zones,true);return;}
+if(m.kind==='set-mat'){STATE.matStates=STATE.matStates||{};if(m.code)STATE.matStates[m.code]=m.statut;try{sendMessage('SET_MAT_STATE',{code:m.code,statut:m.statut});}catch(_){}broadcastPlanState();return;}
 };
 return PLAN_BUS;
 }
@@ -1911,7 +1913,7 @@ try{render();}catch(_){}
 function getDetectorsForPlan(){
 const map=a=>a.map(d=>({id:d.id,address:d.address,zone:d.zone,triggered:!!d.triggered,hs:d.outOfService||d.state==='hors-service'}));
 const zmap=a=>a.map(z=>({id:z.id,state:z.state,commandActive:!!z.commandActive}));
-return{DAI:map(STATE.sdi.detectors),DM:map(STATE.sdi.manualAlarms),ZF:zmap(STATE.smsi.smokeZones),ZC:zmap(STATE.smsi.compartmentZones),elements:STATE.elementStates||{},sessionActive:!!STATE.sessionActive,mode:STATE.sessionMode||'formation'};
+return{DAI:map(STATE.sdi.detectors),DM:map(STATE.sdi.manualAlarms),ZF:zmap(STATE.smsi.smokeZones),ZC:zmap(STATE.smsi.compartmentZones),elements:STATE.elementStates||{},mats:STATE.matStates||{},sessionActive:!!STATE.sessionActive,mode:STATE.sessionMode||'formation'};
 }
 
 // Pré-charge les infos de la session de formation (titre, dates) puis ouvre la
