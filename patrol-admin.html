@@ -591,7 +591,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Type</label>
         <select id="evt-type" class="input"><option>Alarme Incendie</option><option>Secours a personne</option><option>Incident</option><option>Intrusion</option><option>Probleme technique</option><option>Autre</option></select>
       </div>
-      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Localisation</label><input type="text" id="evt-loc" class="input" placeholder="Zone concernee..."></div>
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Localisation</label><input type="text" id="evt-loc" class="input" list="evt-loc-list" placeholder="Choisir ou saisir (ex. RDC · Pharmacie)…"><datalist id="evt-loc-list"></datalist></div>
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Description *</label><textarea id="evt-desc" class="input" rows="3" placeholder="Decrivez l'evenement..."></textarea></div>
       <div style="display:flex;gap:10px;margin-top:4px;">
         <button onclick="closeModal('modal-evenement')" class="btn btn-gray" style="flex:1;justify-content:center;">Annuler</button>
@@ -624,7 +624,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
         <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Numéro</label><input type="text" id="mat-numero" class="input" placeholder="Ex: EXT-04"></div>
         <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Date dernier contrôle</label><input type="date" id="mat-controle" class="input" onchange="majAlerteControle()"></div>
       </div>
-      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Localisation</label><input type="text" id="mat-loc" class="input" placeholder="Batiment, etage, zone..."></div>
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Localisation</label><input type="text" id="mat-loc" class="input" list="mat-loc-list" placeholder="Choisir ou saisir…"><datalist id="mat-loc-list"></datalist></div>
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Adresse / emplacement précis</label><input type="text" id="mat-adresse" class="input" placeholder="Ex: mur Est, près de la sortie 2"></div>
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Code QR</label><input type="text" id="mat-qr" class="input" placeholder="MAT-EXT-001" onchange="majQRPreview()"></div>
       <div id="mat-controle-alerte" style="font-size:.78rem;"></div>
@@ -1222,9 +1222,30 @@ function imprimerMainCourante(){
 }
 
 // ═══ EVENEMENTS ═══
+// Adresses/locaux issus de la structure importée (plan) : « NIVEAU · [ZONE ·] LOCAL ».
+function structureLocalisations(){
+  var out=[], seen={};
+  ((configEtab&&configEtab.batiments)||[]).forEach(function(b){
+    (b.niveaux||b.secteurs||[]).forEach(function(n){
+      (n.zones||[]).forEach(function(z){
+        (z.locaux||z.zones||[]).forEach(function(l){
+          var niv=(n.nom||n.key||""), zon=(z.nom||""), loc=(l.nom||"");
+          var lbl = (zon && zon!=="Plan") ? (niv+" · "+zon+" · "+loc) : (niv+" · "+loc);
+          if(!seen[lbl]){ seen[lbl]=1; out.push(lbl); }
+        });
+      });
+    });
+  });
+  return out;
+}
+function remplirLocalisations(inputId){
+  var dl=document.getElementById(inputId); if(!dl) return;
+  dl.innerHTML = structureLocalisations().map(function(s){ return "<option value=\""+esc(s)+"\">"; }).join("");
+}
 function showModalEvenement() {
   document.getElementById("evt-desc").value="";
   document.getElementById("evt-loc").value="";
+  remplirLocalisations("evt-loc-list");
   openModal("modal-evenement");
 }
 
@@ -1280,7 +1301,7 @@ function showModalMateriel(id) {
     document.getElementById("mat-statut").value="Operationnel";
   }
   openModal("modal-materiel");
-  majQRPreview(); majAlerteControle(); majAgentRow();
+  majQRPreview(); majAlerteControle(); majAgentRow(); remplirLocalisations("mat-loc-list");
 }
 // Affiche le champ « Agent extincteur » uniquement pour le type Extincteur.
 function majAgentRow(){
