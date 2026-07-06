@@ -2619,7 +2619,11 @@ async function addPlanType(){
   openAdminLevels(key);
 }
 async function removePlanType(key,label){
-  if(!confirm('Retirer le modèle « '+(label||key)+' » et tous ses niveaux ?'))return;
+  const nom=label||key;
+  if(!confirm('⚠️ ATTENTION — SUPPRESSION DÉFINITIVE\n\nVous allez supprimer le plan « '+nom+' » et TOUS ses niveaux (image, pictos, publication).\n\nToutes les données du plan seront PERDUES et IRRÉCUPÉRABLES.'))return;
+  const saisie=prompt('Pour confirmer la suppression, tapez le nom exact du plan :\n\n« '+nom+' »');
+  if(saisie===null)return;
+  if((saisie||'').trim().toLowerCase()!==String(nom).trim().toLowerCase()){alert('Nom incorrect — suppression annulée.');return;}
   try{
     const{data}=await supabase.storage.from(PLAN_EX_BUCKET).list('shared/'+key,{limit:200});
     const paths=(data||[]).filter(f=>f&&f.name).map(f=>'shared/'+key+'/'+f.name);
@@ -2730,8 +2734,9 @@ async function addAdminLevel(estabKey){
 }
 
 async function removeAdminLevel(estabKey,levelKey){
-  if(!confirm('Retirer ce niveau et son plan ?'))return;
   const t=(window._adminTypes||[]).find(x=>x.key===estabKey);if(!t)return;
+  const lvl=(t.levels||[]).find(l=>l.key===levelKey);const lname=(lvl&&lvl.label)||levelKey;
+  if(!confirm('⚠️ ATTENTION — Retirer le niveau « '+lname+' »\n\nCela supprime DÉFINITIVEMENT le plan de ce niveau (image + pictos) et le retire du modèle. Données PERDUES et irrécupérables.\n\nContinuer ?'))return;
   try{
     await supabase.storage.from(PLAN_EX_BUCKET).remove(['shared/'+estabKey+'/'+levelKey+'.json']);
     const levels=(t.levels||[]).filter(l=>l.key!==levelKey);
@@ -2765,7 +2770,7 @@ async function publishAdminLevel(estabKey,levelKey){
 }
 
 async function deleteAdminLevel(estabKey,levelKey){
-  if(!confirm('Dépublier le plan de ce niveau ?'))return;
+  if(!confirm('⚠️ ATTENTION — Dépublier le niveau « '+levelKey+' »\n\nCela SUPPRIME le fichier publié du plan (image + pictos) de ce niveau. Les données seront PERDUES et irrécupérables — il faudra republier depuis l\'éditeur.\n\nContinuer ?'))return;
   try{
     const{error}=await supabase.storage.from(PLAN_EX_BUCKET).remove(['shared/'+estabKey+'/'+levelKey+'.json']);
     if(error)throw error;
