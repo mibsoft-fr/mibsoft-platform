@@ -52,15 +52,24 @@ d'entraînement (auto-entraînement QCM/multi-jeux, quiz en salle, Challenge Cup
 <div class="note">Architecture <strong>multi-tenant</strong> : la table <code>centers</code> représente le
 locataire (centre, indépendant ou apprenant selon <code>license_type</code>). Toutes les données
 sont cloisonnées par <code>center_id</code> via les politiques de sécurité PostgreSQL (RLS).</div>
+<div class="note"><strong>Deux environnements Supabase</strong> — un même front (déployé une fois sur Vercel)
+cible deux projets selon le domaine, via la sélection dans <code>supabase.js</code> :
+<strong>PROD</strong> sur <code>mibsoft.fr</code> / <code>www.mibsoft.fr</code> (données réelles, Stripe
+<em>live</em>, banques ne servant que les questions <code>verifiee = true</code>) et <strong>DEV</strong>
+sur <code>*.vercel.app</code> et <code>localhost</code> (données de test, Stripe <em>test</em>). La bascule
+se fait sur <code>hostname</code> (<code>_isMibProd</code>).</div>
 
 <h2>2. Architecture des composants &amp; flux</h2>
 <pre class="mermaid">
 flowchart TD
-    Stripe["Stripe Checkout"] -->|webhook| WH{{"edge: stripe-webhook"}}
+    Stripe["Stripe Checkout (live/test)"] -->|webhook| WH{{"edge: stripe-webhook"}}
     WH -->|crée| C[("centers (centre / indépendant / apprenant)")]
-    Vitrine["Vitrine - pricing.html"] -->|edge: stripe-create-checkout| Stripe
+    Vitrine["Vitrine - pricing.html (annuel entreprise / mensuel indé / unique apprenant)"] -->|edge: stripe-create-checkout| Stripe
 
     C --> ADM["Admin - admin.html (synthèse, licences, monitoring)"]
+    ADM -->|vérifie / édite| BQ[("Banque de questions: questions + cc_questions (verifiee)")]
+    BQ -->|questions verifiee| AE
+    BQ -->|questions verifiee| CC
 
     subgraph Espaces["Espaces utilisateurs"]
       CE["Centre - center.html"]
@@ -97,7 +106,14 @@ flowchart TD
     ST -->|avis| AV[("avis_retours")]
     AV --> IN
     AV --> ADM
+    FO -->|signale une question| RP[("cc_question_reports")]
+    RP -->|isolés par center_id| CE
+    RP --> ADM
 </pre>
+<div class="note">Toutes ces pages chargent <code>supabase.js</code>, qui pointe vers le projet
+<strong>PROD</strong> sur <code>mibsoft.fr</code> et vers <strong>DEV</strong> ailleurs. Les claims
+<code>center_id</code> et <code>super_admin</code> sont injectés dans le JWT par le hook
+<code>custom_access_token_hook</code> (cf. §4bis), et l'accès aux tables reste filtré par RLS.</div>
 
 <h2>3. Modèle de données (entités &amp; relations)</h2>
 <pre class="mermaid">
@@ -123,6 +139,8 @@ erDiagram
     cc_questions ||--o{ cc_question_pairs       : ""
     cc_questions ||--o{ cc_question_categories  : ""
     cc_questions ||--o{ cc_question_decision_steps : ""
+    cc_questions ||--o{ cc_question_reports     : "signalements"
+    centers ||--o{ cc_question_reports          : "remonte"
     cc_sessions ||--o{ cc_teams                 : "équipes"
     cc_sessions ||--o{ cc_team_answers          : ""
     cc_teams ||--o{ cc_team_answers             : "répond"
@@ -175,6 +193,27 @@ erDiagram
         text type "quiz|true-false|sequence|matching|fill-blank|categories|decision|..."
         jsonb correct_answers
         jsonb correct_order
+        bool verifiee "validée super-admin (servie en prod)"
+    }
+    questions {
+        uuid id PK
+        text niveau "SSIAP1|2|3"
+        jsonb data "énoncé, options, correctAnswer"
+        bool verifiee "validée super-admin (servie en prod)"
+    }
+    cc_question_reports {
+        uuid id PK
+        uuid center_id FK
+        uuid question_id FK
+        text type "erreur|modification"
+        text status "nouveau|traite"
+    }
+    stripe_prices {
+        uuid id PK
+        text plan "apprenant|independant|starter|pro|expert"
+        text cycle "mensuel|annuel|unique"
+        text price_id "price_ (test|live)"
+        bool active
     }
 </pre>
 
@@ -201,6 +240,31 @@ sequenceDiagram
     MG-->>U: email reçu
     U->>U: définit son mot de passe → accède à son espace
 </pre>
+
+<h2>4bis. Séquence — Connexion &amp; claims JWT (Custom Access Token Hook)</h2>
+<pre class="mermaid">
+sequenceDiagram
+    actor U as Utilisateur
+    participant P as Page (supabase.js)
+    participant GT as Supabase Auth (GoTrue)
+    participant HK as hook: custom_access_token_hook
+    participant PR as public.profiles
+    participant DB as Tables métier (RLS)
+    Note over P: mibsoft.fr -> PROD, sinon -> DEV
+    U->>P: email + mot de passe (ou lien reset)
+    P->>GT: signInWithPassword / verifyOtp
+    GT->>HK: exécute le hook (rôle supabase_auth_admin)
+    HK->>PR: SELECT role, center_id WHERE user_id = ...
+    Note over HK,PR: nécessite GRANT SELECT + policy auth_admin_read_profiles (migration 2035)
+    HK-->>GT: claims { center_id, role, super_admin }
+    GT-->>P: access_token (JWT enrichi)
+    P->>DB: requêtes filtrées par RLS (jwt_center_id / jwt_is_super_admin)
+    DB-->>U: uniquement les données de son périmètre
+</pre>
+<div class="note">⚠️ Sans le <code>GRANT SELECT</code> sur <code>public.profiles</code> au rôle
+<code>supabase_auth_admin</code> (migration <strong>2035</strong>), le hook échoue
+(<code>permission denied for table profiles</code>) et <strong>toute connexion est refusée</strong> —
+c'était le dernier blocage de la mise en production.</div>
 
 <h2>5. Séquence — Déroulé d'un Challenge Cup</h2>
 <pre class="mermaid">
@@ -245,6 +309,15 @@ stateDiagram-v2
       un utilisateur ne voit que les données de son centre (<code>center_id = jwt_center_id()</code>),
       l'apprenant lit sa fiche via <code>auth_user_id = auth.uid()</code>. Un super-admin
       (<code>jwt_is_super_admin()</code>) accède à l'ensemble.</li>
+  <li><strong>Claims JWT</strong> : le hook <code>public.custom_access_token_hook</code> (exécuté par le rôle
+      <code>supabase_auth_admin</code>) enrichit chaque jeton avec <code>center_id</code>, <code>role</code> et
+      <code>super_admin</code> lus dans <code>profiles</code>. Il requiert un <code>GRANT SELECT</code> +
+      la policy <code>auth_admin_read_profiles</code> (migration 2035) — sans quoi la connexion est refusée
+      (cf. §4bis).</li>
+  <li><strong>Banque de questions</strong> : la colonne <code>verifiee</code> (tables <code>questions</code> et
+      <code>cc_questions</code>) permet, en <strong>production</strong>, de ne servir que les questions validées
+      par le super-admin ; la <strong>dev</strong> reste permissive. Les signalements des formateurs
+      (<code>cc_question_reports</code>) sont isolés par <code>center_id</code>.</li>
   <li><strong>Paiements</strong> : signatures Stripe vérifiées côté edge function ; idempotence des
       événements (<code>stripe_events</code>).</li>
   <li><strong>RGPD</strong> : consentement enregistré à chaque connexion ; hébergement Europe.</li>
@@ -258,7 +331,7 @@ stateDiagram-v2
   <tr><td><code>centre-signup</code></td><td>Première connexion : validation clé de licence + création du mot de passe.</td></tr>
   <tr><td><code>formateur-pin-reminder</code> / auth-sync</td><td>Gestion des PIN et synchronisation des comptes formateur/stagiaire.</td></tr>
   <tr><td><code>health-monitor</code></td><td>Supervision technique (alertes <code>monitoring_alerts</code>).</td></tr>
-  <tr><td>Mailgun</td><td>Emails transactionnels (bienvenue, rappels).</td></tr>
+  <tr><td>Mailgun</td><td>Emails transactionnels (bienvenue, rappels) — gabarits <strong>MIBsoft</strong> (logo + charte).</td></tr>
 </table>
 
 <h2>9. Variables d'environnement &amp; secrets</h2>
@@ -266,13 +339,17 @@ stateDiagram-v2
 
 <h3>9.1 — Front (valeurs publiques)</h3>
 <p>La configuration Supabase du front est définie directement dans <code>supabase.js</code>
-(versionné, lignes ~10–11) : l'URL du projet et la clé publique <em>anon</em> (sans danger côté
-client — l'accès reste filtré par les politiques RLS). Pour pointer vers un autre projet Supabase,
-il suffit d'éditer ces deux constantes.</p>
+(versionné) : l'URL du projet et la clé publique <em>anon</em> (sans danger côté client — l'accès reste
+filtré par les politiques RLS). Depuis la mise en ligne, <code>supabase.js</code> déclare
+<strong>deux projets</strong> (<code>SUPABASE_PROJECTS.prod</code> / <code>.dev</code>) et sélectionne
+automatiquement le bon selon le domaine : <code>mibsoft.fr</code> → PROD, tout le reste
+(<code>*.vercel.app</code>, <code>localhost</code>) → DEV. <code>SUPABASE_URL</code> et
+<code>SUPABASE_ANON_KEY</code> sont ensuite dérivés de ce choix.</p>
 <table>
   <tr><th>Constante (dans <code>supabase.js</code>)</th><th>Description</th></tr>
-  <tr><td><code>SUPABASE_URL</code></td><td>URL du projet Supabase (ex. <code>https://&lt;projet&gt;.supabase.co</code>).</td></tr>
-  <tr><td><code>SUPABASE_ANON_KEY</code></td><td>Clé publique <em>anon</em> du projet (lecture filtrée par RLS).</td></tr>
+  <tr><td><code>SUPABASE_PROJECTS</code></td><td>Objet <code>{ prod, dev }</code> — chaque entrée porte l'<code>url</code> et la clé <code>anon</code> du projet.</td></tr>
+  <tr><td><code>_isMibProd</code></td><td>Vrai si le <code>hostname</code> se termine par <code>mibsoft.fr</code> — déclenche la bascule PROD.</td></tr>
+  <tr><td><code>SUPABASE_URL</code> / <code>SUPABASE_ANON_KEY</code></td><td>URL et clé <em>anon</em> effectives, dérivées du projet sélectionné.</td></tr>
 </table>
 <p class="sub">Note : un fichier <code>config.js</code> est référencé par les pages mais reste
 optionnel (les valeurs ci-dessus suffisent au fonctionnement).</p>
@@ -320,7 +397,9 @@ webhook et les <code>price_id</code> (table <code>stripe_prices</code>) doivent 
 <h3>10.3 — Front (Vercel)</h3>
 <ol>
   <li>Connecter le dépôt GitHub à Vercel (déploiement auto sur <code>main</code>).</li>
-  <li>Vérifier la config Supabase du front dans <code>supabase.js</code> (cf. §9.1) — l'éditer si l'on change de projet.</li>
+  <li>Vérifier la config Supabase du front dans <code>supabase.js</code> (cf. §9.1) : la sélection PROD/DEV
+      est automatique selon le domaine — s'assurer que le nouveau domaine correspond bien au motif attendu
+      (<code>mibsoft.fr</code> = PROD).</li>
   <li>Brancher le <strong>domaine</strong> (ex. <code>mibsoft.fr</code>) et vérifier qu'il fait partie des origines autorisées (CORS) des edge functions et des Redirect URLs Supabase.</li>
 </ol>
 
