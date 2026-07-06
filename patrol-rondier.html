@@ -386,7 +386,7 @@ button, .nav-btn, [role="button"]{
 var sb = window.supabase;
 var PATROL_SESSION = null;
 var CENTER = null;
-var DATA = { agents:[], materiels:[], prisesPoste:[], rondes:[], evenements:[], mainCourante:[], consignes:[] };
+var DATA = { agents:[], materiels:[], prisesPoste:[], rondes:[], evenements:[], mainCourante:[], consignes:[], rondesProgrammees:[] };
 var html5QrScanner = null;
 var currentRondeId = null;
 var currentPointId = null;
@@ -426,6 +426,7 @@ async function chargerDonnees() {
     if (data.rondes)        DATA.rondes       = data.rondes;
     if (data.consignes)     DATA.consignes    = data.consignes;
     if (data.main_courante) DATA.mainCourante = data.main_courante;
+    if (data.rondes_programmees) DATA.rondesProgrammees = data.rondes_programmees;
   }
 }
 
@@ -506,11 +507,22 @@ function renderRondes() {
       + "<i class=\"fas fa-chevron-right\" style=\"color:#e2e8f0;margin-left:auto;\"></i></button>"
       + "</div>";
   } else {
+    var progs = (DATA.rondesProgrammees||[]).filter(function(p){ return p.actif!==false; });
+    var progHtml = progs.length ? ("<div style=\"width:100%;max-width:320px;\"><div style=\"font-size:.75rem;font-weight:700;color:#64748b;margin-bottom:8px;\">Rondes programmées</div>"
+      + progs.map(function(p){
+          var n=scopeMateriels(p).length;
+          var scope=[p.batiment,p.niveau,p.zone].filter(Boolean).join(" › ")||"Tout l'établissement";
+          return "<button onclick=\"lancerRondeProgrammee('"+p.id+"')\" class=\"card\" style=\"width:100%;display:flex;align-items:center;gap:12px;text-align:left;border:none;cursor:pointer;margin-bottom:10px;\">"
+            + "<div style=\"width:42px;height:42px;background:#eef2ff;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;\"><i class=\"fas fa-route\" style=\"color:#6366f1;\"></i></div>"
+            + "<div style=\"flex:1;\"><div style=\"font-weight:700;font-size:.85rem;\">"+esc(p.nom)+"</div><div style=\"font-size:.72rem;color:#94a3b8;\">"+esc(scope)+" · "+n+" point(s)</div></div>"
+            + "<i class=\"fas fa-play\" style=\"color:#6366f1;\"></i></button>";
+        }).join("") + "</div>") : "";
     el.innerHTML = "<div class=\"fade-in\" style=\"display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:50vh;gap:16px;\">"
+      + progHtml
       + "<button onclick=\"nouvelleRonde()\" style=\"width:100%;max-width:320px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:24px;padding:30px;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;box-shadow:0 8px 24px rgba(99,102,241,.4);\">"
       + "<div style=\"width:64px;height:64px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;\"><i class=\"fas fa-play\"></i></div>"
-      + "<div style=\"font-size:1.2rem;font-weight:800;\">Nouvelle Ronde</div>"
-      + "<div style=\"font-size:.82rem;opacity:.85;\">Appuyez pour commencer</div></button>"
+      + "<div style=\"font-size:1.2rem;font-weight:800;\">Ronde libre</div>"
+      + "<div style=\"font-size:.82rem;opacity:.85;\">Tous les matériels</div></button>"
       + "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:320px;\">"
       + "<div class=\"card\" style=\"text-align:center;\"><div style=\"font-size:1.6rem;font-weight:800;color:#10b981;\">"+stats.terminees+"</div><div style=\"font-size:.72rem;color:#94a3b8;\">Terminees</div></div>"
       + "<div class=\"card\" style=\"text-align:center;\"><div style=\"font-size:1.6rem;font-weight:800;color:#6366f1;\">"+stats.total+"</div><div style=\"font-size:.72rem;color:#94a3b8;\">Total</div></div>"
@@ -525,6 +537,35 @@ async function syncRondier() {
   await chargerDonnees();
   renderRondes();
   toast("Synchronise !", "ok");
+}
+
+// Matériels d'un périmètre de ronde programmée : filtre par type + fil d'ariane localisation.
+function scopeMateriels(prog){
+  return (DATA.materiels||[]).filter(function(m){
+    if(prog.filtreType && m.type!==prog.filtreType) return false;
+    if(prog.batiment || prog.niveau || prog.zone){
+      var parts=(m.localisation||"").split(">").map(function(s){ return s.trim(); });
+      if(prog.batiment && parts[0]!==prog.batiment) return false;
+      if(prog.niveau && parts[1]!==prog.niveau) return false;
+      if(prog.zone && parts[2]!==prog.zone) return false;
+    }
+    return true;
+  });
+}
+function lancerRondeProgrammee(progId){
+  var enPoste = DATA.prisesPoste.find(function(p){ return String(p.agentId)===String(PATROL_SESSION.agentId) && !p.finPoste; });
+  if (!enPoste) { showInfo("Prise de poste requise", "Effectuez votre prise de poste au PC Securite avant de commencer une ronde."); return; }
+  var prog = (DATA.rondesProgrammees||[]).find(function(p){ return String(p.id)===String(progId); });
+  if (!prog) { toast("Ronde programmée introuvable","err"); return; }
+  var mats = scopeMateriels(prog);
+  if (!mats.length) { showInfo("Aucun point", "Aucun matériel dans le périmètre de cette ronde. Ajustez la ronde programmée côté admin."); return; }
+  var points = mats.map(function(m){ return { id:genId(), nom:m.nom, materielId:m.id, localisation:m.localisation, qrCode:m.codeQR||"MAT-"+m.id, valide:false, heureValidation:null, statut:null }; });
+  var scope=[prog.batiment,prog.niveau,prog.zone].filter(Boolean).join(" › ")||"Tout l'établissement";
+  var ronde = { id:genId(), type:(prog.thematique||"Ronde"), nom:prog.nom, zone:scope, agentId:PATROL_SESSION.agentId,
+    heureDebut:new Date().toISOString(), heureFin:null, pointsControle:points, anomalies:[], programmeId:prog.id };
+  DATA.rondes.push(ronde);
+  addMC("Depart Ronde", ronde.nom+" - "+points.length+" points", PATROL_SESSION.agentId);
+  sauvegarder().then(function(){ toast("Ronde démarrée ! "+points.length+" points","ok"); renderRondes(); });
 }
 
 function nouvelleRonde() {

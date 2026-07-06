@@ -437,8 +437,15 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
   <div id="page-rondes" class="page fade-in">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
       <h2 style="font-size:1.1rem;font-weight:800;">Rondes</h2>
+      <button onclick="showModalRondeProg()" class="btn btn-primary"><i class="fas fa-plus"></i> Nouvelle ronde programmée</button>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div style="font-weight:800;font-size:.9rem;margin-bottom:10px;">Rondes programmées</div>
+      <div style="font-size:.72rem;color:#94a3b8;margin-bottom:10px;">Modèles de rondes (bâtiment / niveau / thématique) lancés à la demande par le rondier.</div>
+      <div id="tbl-rondes-prog"></div>
     </div>
     <div class="card">
+      <div style="font-weight:800;font-size:.9rem;margin-bottom:10px;">Historique des rondes</div>
       <div id="body-rondes" style="overflow-x:auto;"><table class="tbl"><thead><tr><th>Type</th><th>Agent</th><th>Debut</th><th>Fin</th><th>Points</th><th>Statut</th></tr></thead>
       <tbody id="tbl-rondes"><tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:24px;">Aucune ronde</td></tr></tbody></table></div>
     </div>
@@ -634,6 +641,38 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
   </div>
 </div>
 
+<div id="modal-ronde-prog" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <h3 style="font-size:1rem;font-weight:800;">Ronde programmée</h3>
+      <button onclick="closeModal('modal-ronde-prog')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Nom *</label><input type="text" id="rp-nom" class="input" placeholder="Ex: Ronde extincteurs RDC"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Thématique</label>
+          <select id="rp-thematique" class="input" onchange="rpThemeChange()"></select></div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Type de matériel</label>
+          <select id="rp-filtretype" class="input" onchange="rpPreview()"><option value="">Tous types</option><option>Extincteur</option><option>RIA</option><option>BAES</option><option>Detecteur</option><option>Porte CF</option><option>Autre</option></select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Bâtiment</label>
+          <select id="rp-batiment" class="input" onchange="rpBatChange()"><option value="">Tous</option></select></div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Niveau</label>
+          <select id="rp-niveau" class="input" onchange="rpNivChange()"><option value="">Tous</option></select></div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Zone</label>
+          <select id="rp-zone" class="input" onchange="rpPreview()"><option value="">Toutes</option></select></div>
+      </div>
+      <div id="rp-preview" style="font-size:.8rem;background:#f8fafc;border-radius:10px;padding:10px;color:#475569;"></div>
+      <input type="hidden" id="rp-id" value="">
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button onclick="closeModal('modal-ronde-prog')" class="btn btn-gray" style="flex:1;justify-content:center;">Annuler</button>
+        <button onclick="saveRondeProg()" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="modal-ronde-detail" class="modal-bg hidden">
   <div class="modal-box">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -699,7 +738,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
 var sb = window.supabase;
 var PATROL_SESSION = null;
 var CENTER = null;
-var PTRDB = { agents:[], materiels:[], prisesPoste:[], rondes:[], evenements:[], mainCourante:[], consignes:[] };
+var PTRDB = { agents:[], materiels:[], prisesPoste:[], rondes:[], evenements:[], mainCourante:[], consignes:[], rondesProgrammees:[] };
 var configEtab = { nom:"Etablissement", batiments:[] };
 var typesRondes = ["Ronde de securite","Ronde Extincteurs","Ronde BAES","Ouverture","Fermeture"];
 var PAGES = ["dashboard","priseposte","rondes","mainCourante","evenements","materiels","consignes","agents","admin"];
@@ -762,6 +801,7 @@ async function chargerDonnees() {
     if (data.evenements)    PTRDB.evenements    = data.evenements;
     if (data.main_courante) PTRDB.mainCourante  = data.main_courante;
     if (data.consignes)     PTRDB.consignes     = data.consignes;
+    if (data.rondes_programmees) PTRDB.rondesProgrammees = data.rondes_programmees;
     if (data.config)        configEtab       = data.config;
     if (data.types_rondes)  typesRondes      = data.types_rondes;
   }
@@ -779,6 +819,7 @@ async function sauvegarder() {
     evenements:    PTRDB.evenements,
     main_courante: PTRDB.mainCourante.slice(0,500),
     consignes:     PTRDB.consignes,
+    rondes_programmees: PTRDB.rondesProgrammees,
     config:        configEtab,
     types_rondes:  typesRondes,
     updated_at:    new Date().toISOString()
@@ -940,7 +981,96 @@ async function finPoste(id) {
 }
 
 // ═══ RONDES ═══
+// ═══ RONDES PROGRAMMÉES (modèles lancés à la demande) ═══
+var THEME2TYPE = { "Ronde Extincteurs":"Extincteur", "Ronde BAES":"BAES", "Ronde RIA":"RIA" };
+function rpBatiments(){ return ((configEtab&&configEtab.batiments)||[]); }
+function rpNiveaux(bat){ var b=rpBatiments().find(function(x){ return (x.nom||x.id)==bat; }); return b?(b.niveaux||b.secteurs||[]):[]; }
+function rpZones(bat,niv){ var n=rpNiveaux(bat).find(function(x){ return (x.nom||x.key)==niv; }); return n?(n.zones||[]):[]; }
+// Matériels d'un périmètre : filtre par type + fil d'ariane localisation « Bâtiment > Niveau > Zone > Local ».
+function scopeMateriels(prog){
+  return (PTRDB.materiels||[]).filter(function(m){
+    if(prog.filtreType && m.type!==prog.filtreType) return false;
+    if(prog.batiment || prog.niveau || prog.zone){
+      var parts=(m.localisation||"").split(">").map(function(s){ return s.trim(); });
+      if(prog.batiment && parts[0]!==prog.batiment) return false;
+      if(prog.niveau && parts[1]!==prog.niveau) return false;
+      if(prog.zone && parts[2]!==prog.zone) return false;
+    }
+    return true;
+  });
+}
+function showModalRondeProg(id){
+  var th=document.getElementById("rp-thematique");
+  th.innerHTML=(typesRondes||[]).map(function(t){ return "<option>"+esc(t)+"</option>"; }).join("");
+  var bs=document.getElementById("rp-batiment");
+  bs.innerHTML="<option value=\"\">Tous</option>"+rpBatiments().map(function(b){ return "<option>"+esc(b.nom||b.id)+"</option>"; }).join("");
+  document.getElementById("rp-niveau").innerHTML="<option value=\"\">Tous</option>";
+  document.getElementById("rp-zone").innerHTML="<option value=\"\">Toutes</option>";
+  var p=id?(PTRDB.rondesProgrammees||[]).find(function(x){ return String(x.id)===String(id); }):null;
+  document.getElementById("rp-id").value=p?p.id:"";
+  document.getElementById("rp-nom").value=p?p.nom:"";
+  if(p&&p.thematique) th.value=p.thematique;
+  document.getElementById("rp-filtretype").value=p?(p.filtreType||""):"";
+  bs.value=p?(p.batiment||""):"";
+  rpBatChange();
+  if(p&&p.niveau) document.getElementById("rp-niveau").value=p.niveau;
+  rpNivChange();
+  if(p&&p.zone) document.getElementById("rp-zone").value=p.zone;
+  rpPreview();
+  openModal("modal-ronde-prog");
+}
+function rpThemeChange(){ var t=document.getElementById("rp-thematique").value; if(THEME2TYPE[t]!==undefined) document.getElementById("rp-filtretype").value=THEME2TYPE[t]; rpPreview(); }
+function rpBatChange(){
+  var bat=document.getElementById("rp-batiment").value;
+  document.getElementById("rp-niveau").innerHTML="<option value=\"\">Tous</option>"+rpNiveaux(bat).map(function(n){ return "<option>"+esc(n.nom||n.key)+"</option>"; }).join("");
+  document.getElementById("rp-zone").innerHTML="<option value=\"\">Toutes</option>";
+  rpPreview();
+}
+function rpNivChange(){
+  var bat=document.getElementById("rp-batiment").value, niv=document.getElementById("rp-niveau").value;
+  document.getElementById("rp-zone").innerHTML="<option value=\"\">Toutes</option>"+rpZones(bat,niv).map(function(z){ return "<option>"+esc(z.nom||z.id)+"</option>"; }).join("");
+  rpPreview();
+}
+function rpCurrentProg(){
+  return { nom:document.getElementById("rp-nom").value.trim(), thematique:document.getElementById("rp-thematique").value,
+    filtreType:document.getElementById("rp-filtretype").value, batiment:document.getElementById("rp-batiment").value,
+    niveau:document.getElementById("rp-niveau").value, zone:document.getElementById("rp-zone").value };
+}
+function rpPreview(){
+  var n=scopeMateriels(rpCurrentProg()).length;
+  document.getElementById("rp-preview").innerHTML="🧭 "+n+" matériel(s) dans le périmètre → "+n+" point(s) de contrôle générés au lancement.";
+}
+async function saveRondeProg(){
+  var prog=rpCurrentProg();
+  if(!prog.nom){ toast("Nom requis.","err"); return; }
+  var id=document.getElementById("rp-id").value;
+  if(id){ var ex=(PTRDB.rondesProgrammees||[]).find(function(x){ return String(x.id)===String(id); }); if(ex) Object.assign(ex,prog); }
+  else { prog.id=genId(); prog.actif=true; PTRDB.rondesProgrammees.push(prog); }
+  await sauvegarder(); closeModal("modal-ronde-prog"); toast("Ronde programmée enregistrée.","ok"); renderRondesProgrammees();
+}
+async function deleteRondeProg(id){
+  var p=(PTRDB.rondesProgrammees||[]).find(function(x){ return String(x.id)===String(id); });
+  if(!p||!confirm("Supprimer la ronde programmée « "+p.nom+" » ?")) return;
+  PTRDB.rondesProgrammees=PTRDB.rondesProgrammees.filter(function(x){ return String(x.id)!==String(id); });
+  await sauvegarder(); toast("Supprimée.","ok"); renderRondesProgrammees();
+}
+function renderRondesProgrammees(){
+  var el=document.getElementById("tbl-rondes-prog"); if(!el) return;
+  var list=PTRDB.rondesProgrammees||[];
+  if(!list.length){ el.innerHTML="<div style=\"color:#94a3b8;font-size:.82rem;\">Aucune ronde programmée. Cliquez « Nouvelle ronde programmée ».</div>"; return; }
+  el.innerHTML=list.map(function(p){
+    var n=scopeMateriels(p).length;
+    var scope=[p.batiment,p.niveau,p.zone].filter(Boolean).join(" › ")||"Tout l'établissement";
+    return "<div style=\"display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px;\">"
+      +"<div><div style=\"font-weight:700;font-size:.86rem;\">"+esc(p.nom)+"</div>"
+      +"<div style=\"font-size:.72rem;color:#94a3b8;\">"+esc(p.thematique||"")+(p.filtreType?" · "+esc(p.filtreType):"")+" · "+esc(scope)+" · "+n+" point(s)</div></div>"
+      +"<div style=\"display:flex;gap:6px;\"><button onclick=\"showModalRondeProg('"+p.id+"')\" class=\"btn btn-blue btn-sm\" title=\"Modifier\">✏️</button>"
+      +"<button onclick=\"deleteRondeProg('"+p.id+"')\" class=\"btn btn-red btn-sm\" title=\"Supprimer\">🗑️</button></div></div>";
+  }).join("");
+}
+
 function renderRondes() {
+  renderRondesProgrammees();
   var tbody = document.getElementById("tbl-rondes");
   if (!tbody) return;
   var rondes = PTRDB.rondes.slice().sort(function(a,b){ return new Date(b.heureDebut)-new Date(a.heureDebut); });
