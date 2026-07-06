@@ -470,10 +470,8 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
 
   <!-- EVENEMENTS -->
   <div id="page-evenements" class="page fade-in">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <h2 style="font-size:1.1rem;font-weight:800;">Evenements</h2>
-      <button onclick="showModalEvenement()" class="btn btn-red"><i class="fas fa-plus"></i> Nouvel evenement</button>
-    </div>
+    <h2 style="font-size:1.1rem;font-weight:800;margin-bottom:14px;">Evenements</h2>
+    <div id="evt-page-cats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px;"></div>
     <div id="body-evenements"><div style="text-align:center;color:#94a3b8;padding:32px;">Aucun evenement</div></div>
   </div>
 
@@ -693,6 +691,16 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
     </div>
     <div id="rd-meta" style="font-size:.78rem;color:#64748b;margin-bottom:12px;"></div>
     <div id="rd-body" style="max-height:60vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<div id="modal-evt-detail" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="font-size:1rem;font-weight:800;" id="ed-title">Événement</h3>
+      <button onclick="closeModal('modal-evt-detail')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div id="ed-body" style="max-height:64vh;overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -1324,6 +1332,16 @@ function showModalEvenement(){ EVT_CUR=null; evtRenderCats();
   document.getElementById("evt-fields").innerHTML = "<div style='color:#94a3b8;font-size:.85rem;text-align:center;padding:14px;'>Choisissez un type d'événement ci-dessus.</div>";
   openModal("modal-evenement");
 }
+// Boutons de catégorie posés directement sur la page Événements (gagne un clic).
+function renderEvtPageCats(){
+  var el=document.getElementById("evt-page-cats"); if(!el) return;
+  el.innerHTML = Object.keys(EVT_CONFIG).map(function(k){
+    var c=EVT_CONFIG[k];
+    return "<button onclick=\"evtQuickCreate('"+k+"')\" style=\"padding:16px 6px;border-radius:14px;border:2px solid "+c.color+";background:"+c.color+"12;cursor:pointer;font-weight:800;font-size:.85rem;display:flex;flex-direction:column;align-items:center;gap:8px;color:"+c.color+";\"><span style='font-size:1.9rem;'>"+c.icon+"</span>"+esc(c.label)+"</button>";
+  }).join("");
+}
+// Ouvre le formulaire directement pré-sélectionné sur la catégorie choisie.
+function evtQuickCreate(k){ EVT_CUR=null; openModal("modal-evenement"); evtPick(k); }
 function evtRenderCats(){
   document.getElementById("evt-cats").innerHTML = Object.keys(EVT_CONFIG).map(function(k){
     var c=EVT_CONFIG[k], on=(EVT_CUR===k);
@@ -1356,20 +1374,58 @@ async function saveEvenement(){
 }
 
 function renderEvenements() {
+  renderEvtPageCats();
   var el = document.getElementById("body-evenements");
   if (!el) return;
   if (!PTRDB.evenements.length) { el.innerHTML="<div style=\"text-align:center;color:#94a3b8;padding:32px;\">Aucun evenement</div>"; return; }
   el.innerHTML = PTRDB.evenements.map(function(e){
     var col = e.statut==="Debut"?"b-red":e.statut==="En cours"?"b-orange":"b-green";
     var ic = ((typeof EVT_CONFIG!=="undefined" && EVT_CONFIG[e.categorie])||{}).icon || "";
-    return "<div class=\"card\" style=\"margin-bottom:10px;\">"
+    return "<div class=\"card\" style=\"margin-bottom:10px;cursor:pointer;\" onclick=\"voirEvenement('"+e.id+"')\">"
       +"<div style=\"display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;\">"
       +"<div><div style=\"font-weight:700;font-size:.88rem;\">"+(ic?ic+" ":"")+esc(e.type)+"</div>"
       +"<div style=\"font-size:.75rem;color:#64748b;margin-top:2px;\">"+esc(e.localisation||"")+" &bull; "+fmtDT(e.date)+"</div></div>"
       +"<span class=\"badge "+col+"\">"+e.statut+"</span></div>"
       +"<div style=\"margin-top:8px;font-size:.83rem;\">"+esc(e.description)+"</div>"
+      +"<div style=\"margin-top:8px;font-size:.72rem;color:#94a3b8;\">Cliquer pour suivre l'événement →</div>"
       +"</div>";
   }).join("");
+}
+// ── Fiche de suivi d'un événement (statut Début › En cours › Terminé + compte-rendu) ──
+var EVT_DETAIL_ID = null;
+function voirEvenement(id){
+  var e = PTRDB.evenements.find(function(x){ return String(x.id)===String(id); }); if(!e) return;
+  EVT_DETAIL_ID = id;
+  var c = (typeof EVT_CONFIG!=="undefined" && EVT_CONFIG[e.categorie]) || {};
+  document.getElementById("ed-title").innerHTML = (c.icon?c.icon+" ":"")+esc(e.type);
+  var col = e.statut==="Debut"?"b-red":e.statut==="En cours"?"b-orange":"b-green";
+  var h = "<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;'><span class='badge "+col+"'>"+esc(e.statut)+"</span><span style='font-size:.78rem;color:#64748b;'>"+fmtDT(e.date)+"</span></div>";
+  if(e.localisation) h += "<div style='font-size:.85rem;margin-bottom:6px;'><b>📍 Lieu :</b> "+esc(e.localisation)+"</div>";
+  if((e.details||[]).length) h += "<div style='font-size:.85rem;margin-bottom:6px;'><b>Détails :</b> "+esc(e.details.join(" · "))+"</div>";
+  if(e.commentaire) h += "<div style='font-size:.85rem;margin-bottom:6px;'><b>Commentaire :</b> "+esc(e.commentaire)+"</div>";
+  h += "<div style='display:flex;gap:8px;flex-wrap:wrap;margin:14px 0;'>";
+  if(e.statut==="Debut") h += "<button onclick=\"evtSetStatut('En cours')\" class='btn btn-orange' style='flex:1;justify-content:center;'>▶ Passer En cours</button>";
+  if(e.statut!=="Termine") h += "<button onclick=\"evtSetStatut('Termine')\" class='btn btn-green' style='flex:1;justify-content:center;'>✔ Clôturer</button>";
+  if(e.statut==="Termine") h += "<button onclick=\"evtSetStatut('En cours')\" class='btn btn-gray' style='flex:1;justify-content:center;'>↩ Rouvrir</button>";
+  h += "</div>";
+  h += "<div><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;'>Compte-rendu / suivi</label><textarea id='ed-cr' rows='4' class='input' placeholder='Chronologie, actions menées, moyens engagés…'>"+esc(e.compteRendu||"")+"</textarea></div>";
+  h += "<div style='display:flex;gap:10px;margin-top:12px;'><button onclick=\"closeModal('modal-evt-detail')\" class='btn btn-gray' style='flex:1;justify-content:center;'>Fermer</button><button onclick='saveEvtCR()' class='btn btn-primary' style='flex:1;justify-content:center;'>Enregistrer</button></div>";
+  document.getElementById("ed-body").innerHTML = h;
+  openModal("modal-evt-detail");
+}
+async function evtSetStatut(st){
+  var e = PTRDB.evenements.find(function(x){ return String(x.id)===String(EVT_DETAIL_ID); }); if(!e) return;
+  var cr = document.getElementById("ed-cr"); if(cr) e.compteRendu = cr.value.trim();
+  e.statut = st;
+  var c = (typeof EVT_CONFIG!=="undefined" && EVT_CONFIG[e.categorie]) || {};
+  var lbl = st==="En cours"?"SUIVI":st==="Termine"?"FIN":"MAJ";
+  addMC(e.type, lbl+": "+(c.icon?c.icon+" ":"")+(e.localisation?("("+e.localisation+") "):"")+e.type+" → "+st, PATROL_SESSION.agentId);
+  await sauvegarder(); toast("Statut mis à jour","ok"); voirEvenement(EVT_DETAIL_ID); renderEvenements();
+}
+async function saveEvtCR(){
+  var e = PTRDB.evenements.find(function(x){ return String(x.id)===String(EVT_DETAIL_ID); }); if(!e) return;
+  var cr = document.getElementById("ed-cr"); if(cr) e.compteRendu = cr.value.trim();
+  await sauvegarder(); toast("Compte-rendu enregistré","ok"); renderEvenements();
 }
 
 // ═══ MATERIELS ═══
