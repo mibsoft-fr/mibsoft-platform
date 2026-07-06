@@ -629,8 +629,12 @@ function renderDoors(){
   DOORS.forEach((d,i)=>{
     const show=(MODE==='edit')||d._active;
     if(!show){
-      // Formateur en mode Jeu : porte au repos non dessinée mais cliquable au clic droit (menu état).
-      if(!UAE&&MODE==='play')html+=`<line data-door="${i}" x1="${d.x1}" y1="${d.y1}" x2="${d.x2}" y2="${d.y2}" stroke="#000" stroke-opacity="0.001" stroke-width="${sw*2.4}" style="pointer-events:stroke;cursor:context-menu"/>`;
+      // Formateur en mode Jeu : porte au repos dessinée (vert pointillé, ouverte) et
+      // cliquable au clic droit pour accéder au menu d'état (comme DAI/ventilation).
+      if(!UAE&&MODE==='play'){
+        html+=`<line x1="${d.x1}" y1="${d.y1}" x2="${d.x2}" y2="${d.y2}" stroke="#16a34a" stroke-opacity="0.6" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${sw*1.6},${sw*1.4}"/>`;
+        html+=`<line data-door="${i}" x1="${d.x1}" y1="${d.y1}" x2="${d.x2}" y2="${d.y2}" stroke="#000" stroke-opacity="0.001" stroke-width="${sw*2.4}" style="pointer-events:stroke;cursor:context-menu"/>`;
+      }
       return;
     }
     const sel=(i===selDoor&&MODE==='edit');

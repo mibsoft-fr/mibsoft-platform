@@ -1860,7 +1860,19 @@ recomputeZoneVoyant(zn.t,zn.id);
 });
 const lbl=(label||'Élément')+(addr?(' '+addr):'');
 const STL={'securite':'en sécurité','defaut-position':'défaut de position','defaut-securite':'défaut de sécurité','defaut-attente':'défaut (dérangement)','defaut-alim':'défaut d\'alimentation','attente':'réarmé (attente)'};
+// Détecteur SDI (DAI/DM) : le message va sur l'ECS (SDI), pas sur le SMSI, et on
+// met à jour l'état réel du détecteur pour que le SDI puisse repasser en veille.
+const detM=/^(DAI|DM)\s*0*(\d+)/i.exec(label||'');
+if(detM){
+const dtype=detM[1].toUpperCase(),did=parseInt(detM[2],10);
+const arr=dtype==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;
+const det=arr.find(d=>d.id===did);
+if(det){ if(state==='attente')det.triggered=false; else if(state==='securite')det.triggered=true; }
+if(state==='attente'&&!STATE.sdi.detectors.some(d=>d.triggered)&&!STATE.sdi.manualAlarms.some(d=>d.triggered))STATE.sdi.fireAlarmActive=false;
+addSdiMessage(`${lbl} : ${STL[state]||state}`);
+}else{
 addSmsiMessage(`${lbl} : ${STL[state]||state}`);
+}
 if(propagate){try{logAction(lbl,STL[state]||state,'formateur');}catch(_){}try{sendMessage('SET_ELEMENT_STATE',{key,label,addr,state,zones});}catch(_){}}
 try{broadcastPlanState();}catch(_){}
 try{render();}catch(_){}
