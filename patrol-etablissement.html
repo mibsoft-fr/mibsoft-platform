@@ -105,7 +105,7 @@
         <div class="row" style="margin-bottom:10px;align-items:flex-end;">
           <input id="m-nom" class="inp" placeholder="Nom (ex. RIA Réserve 1)" style="min-width:200px;">
           <select id="m-type" class="inp">
-            <option>RIA</option><option>Extincteur</option><option>BAES</option><option>Désenfumage</option><option>Autre</option>
+            <option>RIA</option><option>Extincteur</option><option>BAES</option><option>PI</option><option>BI</option><option>Sprinkler</option><option>Désenfumage</option><option>Autre</option>
           </select>
           <select id="m-local" class="inp" style="min-width:220px;"><option value="">— Local —</option></select>
           <button class="btn btn-green btn-sm" onclick="addMateriel()">+ Ajouter</button>
@@ -164,7 +164,7 @@ function markDirty(){ dirty=true; document.getElementById("savebar").style.displ
 
 // ── QR codes stables (lieu / matériel) ──
 function qrLocal(){ return "LIEU-"+(PLAN_KEY||"X").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6)+"-"+Math.random().toString(36).slice(2,7).toUpperCase(); }
-function qrMat(type){ var t={RIA:"RIA",Extincteur:"EXT",BAES:"BAES","Désenfumage":"DESENF",Autre:"DIV"}[type]||"DIV"; return "MAT-"+t+"-"+Math.random().toString(36).slice(2,7).toUpperCase(); }
+function qrMat(type){ var t={RIA:"RIA",Extincteur:"EXT",BAES:"BAES","Désenfumage":"DESENF",PI:"PI",BI:"BI",Sprinkler:"SPR",Autre:"DIV"}[type]||"DIV"; return "MAT-"+t+"-"+Math.random().toString(36).slice(2,7).toUpperCase(); }
 
 // ════════════ BOOT ════════════
 (async function boot(){
@@ -459,7 +459,7 @@ function readCaptures(){
   return all;
 }
 // Type d'élément SSI du plan → type de matériel Patrol (l'utilisateur ajuste ensuite).
-var ELEM2MAT = { RIA:"RIA", EXT:"Extincteur", BAES:"BAES", VH:"Désenfumage", VB:"Désenfumage", CCF:"Désenfumage", DAI:"Autre", DM:"Autre" };
+var ELEM2MAT = { RIA:"RIA", EXT:"Extincteur", BAES:"BAES", VH:"Désenfumage", VB:"Désenfumage", CCF:"Désenfumage", DAI:"Autre", DM:"Autre", PI:"PI", BI:"BI", SPRINKLER:"Sprinkler" };
 
 // Lit les pictos directement depuis le plan publié (bucket « ssi-plans »,
 // chemin « <scope>/<plan>/<niveau>.json »), sans dépendre du localStorage partagé entre fenêtres.
