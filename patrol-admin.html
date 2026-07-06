@@ -397,26 +397,35 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
   <!-- DASHBOARD -->
   <div id="page-dashboard" class="page active fade-in">
     <h2 style="font-size:1.15rem;font-weight:800;margin-bottom:20px;">Tableau de bord</h2>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;" id="kpi-grid">
-      <div class="kpi"><div style="font-size:1.4rem;margin-bottom:6px;">👥</div><div style="font-size:1.6rem;font-weight:800;color:#6366f1;" id="kpi-poste">—</div><div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Agents en poste</div></div>
-      <div class="kpi"><div style="font-size:1.4rem;margin-bottom:6px;">🚶</div><div style="font-size:1.6rem;font-weight:800;color:#10b981;" id="kpi-rondes">—</div><div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Rondes en cours</div></div>
-      <div class="kpi"><div style="font-size:1.4rem;margin-bottom:6px;">⚠️</div><div style="font-size:1.6rem;font-weight:800;color:#f59e0b;" id="kpi-evts">—</div><div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Evenements actifs</div></div>
-      <div class="kpi"><div style="font-size:1.4rem;margin-bottom:6px;">📋</div><div style="font-size:1.6rem;font-weight:800;color:#8b5cf6;" id="kpi-actions">—</div><div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Actions aujourd'hui</div></div>
+    <div style="display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap;align-items:stretch;">
+      <div style="flex:1;min-width:480px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;" id="kpi-grid">
+        <div class="kpi"><div style="font-size:1.4rem;margin-bottom:6px;">👥</div><div style="font-size:1.6rem;font-weight:800;color:#6366f1;" id="kpi-poste">—</div><div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Agents en poste</div></div>
+        <div class="kpi"><div style="font-size:1.4rem;margin-bottom:6px;">🚶</div><div style="font-size:1.6rem;font-weight:800;color:#10b981;" id="kpi-rondes">—</div><div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Rondes en cours</div></div>
+        <div class="kpi"><div style="font-size:1.4rem;margin-bottom:6px;">⚠️</div><div style="font-size:1.6rem;font-weight:800;color:#f59e0b;" id="kpi-evts">—</div><div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Evenements actifs</div></div>
+        <div class="kpi"><div style="font-size:1.4rem;margin-bottom:6px;">📋</div><div style="font-size:1.6rem;font-weight:800;color:#8b5cf6;" id="kpi-actions">—</div><div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Actions aujourd'hui</div></div>
+      </div>
+      <div class="kpi" style="min-width:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+        <div style="font-size:.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;">🔗 Accès rondier</div>
+        <div id="qr-rondier" style="display:flex;justify-content:center;"></div>
+        <button onclick="copyLink()" class="btn btn-gray btn-sm" style="justify-content:center;font-size:.72rem;"><i class="fas fa-copy"></i> Copier le lien</button>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">🔧 Matériels en anomalie / hors service</div>
+      <div id="dash-materiels"><div style="color:#94a3b8;font-size:.83rem;">Aucun matériel en anomalie</div></div>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">👥 Personnel en poste</div>
+      <div id="dash-equipe"><div style="color:#94a3b8;font-size:.83rem;">Aucun agent en poste</div></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
       <div class="card">
-        <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">👥 Equipe en poste</div>
-        <div id="dash-equipe"><div style="color:#94a3b8;font-size:.83rem;">Aucun agent en poste</div></div>
+        <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">⏱️ Consignes temporaires</div>
+        <div id="dash-cons-temp"><div style="color:#94a3b8;font-size:.83rem;">Aucune consigne temporaire</div></div>
       </div>
       <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <div style="font-size:.88rem;font-weight:800;">🔗 Acces rapide</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <div style="font-size:.72rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Lien rondier</div>
-          <div id="qr-rondier" style="display:flex;justify-content:center;padding:8px;background:#f8fafc;border-radius:10px;"></div>
-          <button onclick="copyLink()" class="btn btn-gray" style="width:100%;justify-content:center;font-size:.77rem;"><i class="fas fa-copy"></i> Copier le lien</button>
-        </div>
+        <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">📌 Consignes permanentes</div>
+        <div id="dash-cons-perm"><div style="color:#94a3b8;font-size:.83rem;">Aucune consigne permanente</div></div>
       </div>
     </div>
   </div>
@@ -714,13 +723,18 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Titre *</label><input type="text" id="cons-titre" class="input" placeholder="Titre de la consigne"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Niveau</label>
-          <select id="cons-niveau" class="input"><option>Permanente</option><option>Particuliere</option><option>Temporaire</option></select>
+          <select id="cons-niveau" class="input" onchange="consToggleDates()"><option>Permanente</option><option>Particuliere</option><option>Temporaire</option></select>
         </div>
         <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Priorite</label>
           <select id="cons-prio" class="input"><option>Normale</option><option>Haute</option><option>Urgente</option><option>Basse</option></select>
         </div>
       </div>
+      <div id="cons-dates-row" style="display:none;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Début</label><input type="date" id="cons-debut" class="input"></div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Fin</label><input type="date" id="cons-fin" class="input"></div>
+      </div>
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Contenu *</label><textarea id="cons-contenu" class="input" rows="4" placeholder="Detaillez la consigne..."></textarea></div>
+      <div style="font-size:.72rem;color:#94a3b8;">Auteur : <b id="cons-auteur-lbl">—</b> &bull; créée le <span id="cons-date-lbl"></span></div>
       <div style="display:flex;gap:10px;margin-top:4px;">
         <button onclick="closeModal('modal-consigne')" class="btn btn-gray" style="flex:1;justify-content:center;">Annuler</button>
         <button onclick="saveConsigne()" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
@@ -876,7 +890,7 @@ function initUI() {
     window._rondierUrl = rondierUrl;
     var qrDiv = document.getElementById("qr-rondier");
     if (qrDiv && typeof QRCode !== "undefined") {
-      try { new QRCode(qrDiv, {text:rondierUrl, width:80, height:80, colorDark:"#1e293b", colorLight:"#f8fafc"}); }
+      try { new QRCode(qrDiv, {text:rondierUrl, width:112, height:112, colorDark:"#111827", colorLight:"#ffffff"}); }
       catch(e) {}
     }
   }, 500);
@@ -942,9 +956,7 @@ function renderDashboard() {
   document.getElementById("kpi-evts").textContent     = evtsActifs.length;
   document.getElementById("kpi-actions").textContent  = actions.length;
 
-  var chef = enPoste.find(function(a){ return a.poste==="Chef de poste"; });
   var equipeHtml = enPoste.length ? enPoste.map(function(a){
-    var cls = a.poste==="Chef de poste"?"b-orange":"b-blue";
     return "<div style=\"display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f8fafc;\">"
       +"<div style=\"width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:.78rem;font-weight:700;flex-shrink:0;\">"+a.prenom[0]+a.nom[0]+"</div>"
       +"<div style=\"flex:1;\"><div style=\"font-size:.83rem;font-weight:700;\">"+a.prenom+" "+a.nom+"</div><div style=\"font-size:.72rem;color:#94a3b8;\">"+a.qualification+" &bull; "+a.poste+"</div></div>"
@@ -952,7 +964,42 @@ function renderDashboard() {
       +"</div>";
   }).join("") : "<div style=\"color:#94a3b8;font-size:.83rem;\">Aucun agent en poste</div>";
   document.getElementById("dash-equipe").innerHTML = equipeHtml;
+
+  // Matériels en anomalie / hors service
+  var matKO = (PTRDB.materiels||[]).filter(function(m){ return m.statut==="Hors Service" || m.statut==="A verifier"; });
+  var matEl = document.getElementById("dash-materiels");
+  if(matEl){
+    matEl.innerHTML = matKO.length ? matKO.map(function(m){
+      var hs = m.statut==="Hors Service";
+      return "<div style=\"display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f8fafc;cursor:pointer;\" onclick=\"showModalMateriel('"+m.id+"')\">"
+        +"<span class=\"badge "+(hs?"b-red":"b-orange")+"\" style=\"font-size:.64rem;\">"+(hs?"HS":"Anomalie")+"</span>"
+        +"<div style=\"flex:1;\"><div style=\"font-size:.83rem;font-weight:700;\">"+esc(m.nom||"")+(m.numero?" <span style='color:#94a3b8;font-weight:500;'>("+esc(m.numero)+")</span>":"")+"</div>"
+        +"<div style=\"font-size:.72rem;color:#94a3b8;\">"+esc(m.type||"")+(m.localisation?(" &bull; "+esc(m.localisation)):"")+"</div></div></div>";
+    }).join("") : "<div style=\"color:#94a3b8;font-size:.83rem;\">Aucun matériel en anomalie</div>";
+  }
+
+  // Consignes (temporaires / permanentes)
+  var consActives = (PTRDB.consignes||[]).filter(function(c){ return c.active; });
+  var consCard = function(c){
+    var prio = c.priorite==="Urgente"||c.priorite==="Haute"?"b-red":"b-blue";
+    var meta = [];
+    if(c.auteur) meta.push("✍️ "+esc(c.auteur));
+    if(c.niveau!=="Permanente" && (c.dateDebut||c.dateFin)) meta.push("📅 "+esc(c.dateDebut||"?")+" → "+esc(c.dateFin||"?"));
+    return "<div style=\"padding:9px 0;border-bottom:1px solid #f8fafc;\">"
+      +"<div style=\"display:flex;align-items:center;justify-content:space-between;gap:8px;\"><div style=\"font-size:.83rem;font-weight:700;\">"+esc(c.titre)+"</div><span class=\"badge "+prio+"\" style=\"font-size:.62rem;\">"+esc(c.priorite)+"</span></div>"
+      +"<div style=\"font-size:.78rem;color:#64748b;margin-top:3px;\">"+esc((c.contenu||"").substring(0,120))+((c.contenu||"").length>120?"…":"")+"</div>"
+      +(meta.length?"<div style=\"font-size:.68rem;color:#94a3b8;margin-top:4px;\">"+meta.join(" &bull; ")+"</div>":"")
+      +"</div>";
+  };
+  var temp = consActives.filter(function(c){ return c.niveau!=="Permanente"; });
+  var perm = consActives.filter(function(c){ return c.niveau==="Permanente"; });
+  var te=document.getElementById("dash-cons-temp"); if(te) te.innerHTML = temp.length ? temp.map(consCard).join("") : "<div style=\"color:#94a3b8;font-size:.83rem;\">Aucune consigne temporaire</div>";
+  var pe=document.getElementById("dash-cons-perm"); if(pe) pe.innerHTML = perm.length ? perm.map(consCard).join("") : "<div style=\"color:#94a3b8;font-size:.83rem;\">Aucune consigne permanente</div>";
 }
+// Agent/nom du chef de poste en cours — utilisé par défaut pour les messages d'événement.
+function chefDePoste(){ return getAgentsEnPoste().find(function(a){ return a.poste==="Chef de poste"; }) || null; }
+function chefDePosteId(){ var c=chefDePoste(); return c ? c.id : (PATROL_SESSION?PATROL_SESSION.agentId:null); }
+function chefDePosteNom(){ var c=chefDePoste(); return c ? (c.prenom+" "+c.nom) : (PATROL_SESSION?(PATROL_SESSION.prenom+" "+PATROL_SESSION.nom):""); }
 
 // ═══ PRISE DE POSTE ═══
 function showModalPrisePoste() {
@@ -1376,9 +1423,10 @@ async function saveEvenement(){
   var loc = sel ? (sel.value==="__autre__" ? ((document.getElementById("evt-loc-free")||{}).value||"").trim() : sel.value) : "";
   var com=((document.getElementById("evt-desc")||{}).value||"").trim();
   var desc = parts.join(" · ") + (com?(" — "+com):"");
-  var evt = { id:genId(), type:c.type, categorie:EVT_CUR, statut:"En cours", localisation:loc, description:desc, details:parts, commentaire:com, compteRendu:"", date:new Date().toISOString(), agentId:PATROL_SESSION.agentId };
+  var chefId = chefDePosteId();
+  var evt = { id:genId(), type:c.type, categorie:EVT_CUR, statut:"En cours", localisation:loc, description:desc, details:parts, commentaire:com, compteRendu:"", date:new Date().toISOString(), agentId:chefId };
   PTRDB.evenements.unshift(evt);
-  addMC(c.type, "DÉBUT: "+c.icon+" "+(loc?("("+loc+") "):"")+desc, PATROL_SESSION.agentId);
+  addMC(c.type, "DÉBUT: "+c.icon+" "+(loc?("("+loc+") "):"")+desc, chefId);
   await sauvegarder(); closeModal("modal-evenement"); toast("Événement créé !","ok"); renderEvenements();
 }
 
@@ -1446,7 +1494,7 @@ async function evtSetStatut(st){
   e.statut = st;
   var c = (typeof EVT_CONFIG!=="undefined" && EVT_CONFIG[e.categorie]) || {};
   var lbl = st==="En cours"?"SUIVI":st==="Termine"?"FIN":"MAJ";
-  addMC(e.type, lbl+": "+(c.icon?c.icon+" ":"")+(e.localisation?("("+e.localisation+") "):"")+e.type+(e.action?(" · "+e.action):"")+" → "+st, PATROL_SESSION.agentId);
+  addMC(e.type, lbl+": "+(c.icon?c.icon+" ":"")+(e.localisation?("("+e.localisation+") "):"")+e.type+(e.action?(" · "+e.action):"")+" → "+st, chefDePosteId());
   await sauvegarder(); toast("Statut mis à jour","ok"); voirEvenement(EVT_DETAIL_ID); renderEvenements();
 }
 async function saveEvtCR(){
@@ -1456,7 +1504,7 @@ async function saveEvtCR(){
   var bits = [];
   if(e.action) bits.push(e.action);
   if(e.compteRendu) bits.push(e.compteRendu);
-  addMC(e.type, "SUIVI: "+(c.icon?c.icon+" ":"")+(e.localisation?("("+e.localisation+") "):"")+e.type+(bits.length?(" — "+bits.join(" · ")):""), PATROL_SESSION.agentId);
+  addMC(e.type, "SUIVI: "+(c.icon?c.icon+" ":"")+(e.localisation?("("+e.localisation+") "):"")+e.type+(bits.length?(" — "+bits.join(" · ")):""), chefDePosteId());
   await sauvegarder(); toast("Suivi enregistré (main courante)","ok"); voirEvenement(EVT_DETAIL_ID); renderEvenements();
 }
 
@@ -1668,9 +1716,20 @@ function renderMateriels() {
 }
 
 // ═══ CONSIGNES ═══
+function consToggleDates(){
+  var perm = document.getElementById("cons-niveau").value==="Permanente";
+  document.getElementById("cons-dates-row").style.display = perm ? "none" : "grid";
+}
 function showModalConsigne() {
   document.getElementById("cons-titre").value="";
   document.getElementById("cons-contenu").value="";
+  document.getElementById("cons-niveau").value="Permanente";
+  document.getElementById("cons-prio").value="Normale";
+  document.getElementById("cons-debut").value="";
+  document.getElementById("cons-fin").value="";
+  consToggleDates();
+  document.getElementById("cons-auteur-lbl").textContent = chefDePosteNom() || "—";
+  document.getElementById("cons-date-lbl").textContent = fmtDT(new Date().toISOString());
   openModal("modal-consigne");
 }
 
@@ -1678,8 +1737,17 @@ async function saveConsigne() {
   var titre   = document.getElementById("cons-titre").value.trim();
   var contenu = document.getElementById("cons-contenu").value.trim();
   if (!titre || !contenu) { toast("Titre et contenu requis.","err"); return; }
-  PTRDB.consignes.push({ id:genId(), titre:titre, niveau:document.getElementById("cons-niveau").value, priorite:document.getElementById("cons-prio").value, contenu:contenu, active:true, dateDebut:new Date().toISOString().split("T")[0], dateFin:null });
-  await sauvegarder(); closeModal("modal-consigne"); toast("Consigne creee !","ok"); renderConsignes();
+  var niveau = document.getElementById("cons-niveau").value;
+  var perm = niveau==="Permanente";
+  PTRDB.consignes.push({
+    id:genId(), titre:titre, niveau:niveau, priorite:document.getElementById("cons-prio").value,
+    contenu:contenu, active:true,
+    auteur: chefDePosteNom(),
+    dateCreation: new Date().toISOString(),
+    dateDebut: perm ? null : (document.getElementById("cons-debut").value || new Date().toISOString().split("T")[0]),
+    dateFin:   perm ? null : (document.getElementById("cons-fin").value || null)
+  });
+  await sauvegarder(); closeModal("modal-consigne"); toast("Consigne creee !","ok"); renderConsignes(); renderDashboard();
 }
 
 function renderConsignes() {
@@ -1689,19 +1757,24 @@ function renderConsignes() {
   if (!actives.length) { el.innerHTML="<div style=\"text-align:center;color:#94a3b8;padding:32px;\">Aucune consigne active</div>"; return; }
   el.innerHTML = actives.map(function(c){
     var prio = c.priorite==="Urgente"||c.priorite==="Haute"?"b-red":"b-blue";
+    var meta = [];
+    if(c.auteur) meta.push("✍️ "+esc(c.auteur));
+    if(c.dateCreation) meta.push("créée le "+fmtDT(c.dateCreation));
+    if(c.niveau!=="Permanente" && (c.dateDebut||c.dateFin)) meta.push("📅 "+esc(c.dateDebut||"?")+" → "+esc(c.dateFin||"?"));
     return "<div class=\"card\" style=\"margin-bottom:10px;\">"
       +"<div style=\"display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;\">"
       +"<div style=\"font-weight:700;font-size:.88rem;\">"+esc(c.titre)+"</div>"
       +"<div style=\"display:flex;gap:5px;\"><span class=\"badge b-purple\">"+c.niveau+"</span><span class=\"badge "+prio+"\">"+c.priorite+"</span>"
       +"<button onclick=\"supprimerConsigne("+c.id+")\" class=\"btn btn-red btn-sm\" style=\"padding:3px 8px;\"><i class=\"fas fa-trash\"></i></button></div></div>"
       +"<div style=\"font-size:.82rem;color:#64748b;\">"+esc(c.contenu.substring(0,150))+(c.contenu.length>150?"...":"")+"</div>"
+      +(meta.length?"<div style=\"font-size:.7rem;color:#94a3b8;margin-top:8px;\">"+meta.join(" &bull; ")+"</div>":"")
       +"</div>";
   }).join("");
 }
 
 async function supprimerConsigne(id) {
   PTRDB.consignes = PTRDB.consignes.filter(function(c){ return c.id!==id; });
-  await sauvegarder(); renderConsignes(); toast("Consigne supprimee","ok");
+  await sauvegarder(); renderConsignes(); renderDashboard(); toast("Consigne supprimee","ok");
 }
 
 // ═══ AGENTS ═══
