@@ -527,6 +527,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
       <h2 style="font-size:1.1rem;font-weight:800;">Agents</h2>
       <div style="display:flex;gap:8px;">
+        <button onclick="ajouterFormateurSession()" class="btn btn-orange btn-sm" title="M'ajouter comme agent pour tenir le rôle de chef de poste (utile s'il n'y a pas de SSIAP 2)"><i class="fas fa-user-shield"></i> Ajouter le formateur</button>
         <button onclick="importerFormateurs()" class="btn btn-green btn-sm"><i class="fas fa-download"></i> Importer formateurs</button>
         <button onclick="importerStagiaires()" class="btn btn-blue btn-sm" id="btn-import-stag" style="display:none;"><i class="fas fa-users"></i> Importer stagiaires session</button>
         <button onclick="showModalAgent()" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Nouveau</button>
@@ -1793,6 +1794,22 @@ async function saveAgent() {
   var pinHash = await UTILS.hash(pin);
   PTRDB.agents.push({ id:genId(), prenom:prenom, nom:nom, qualification:document.getElementById("ag-qualif").value, pinHash:pinHash, pinClair:pin, actif:true, type:"agent_secu", entreprise:CENTER?CENTER.nom:"" });
   await sauvegarder(); closeModal("modal-agent"); toast("Agent cree !","ok"); renderAgents();
+}
+
+// Ajoute le formateur de la session courante à la liste des agents (candidat chef de poste).
+async function ajouterFormateurSession() {
+  if (!PATROL_SESSION) { toast("Session introuvable.","err"); return; }
+  var fid = PATROL_SESSION.agentId;
+  if (fid && PTRDB.agents.find(function(a){ return String(a.id)===String(fid); })) { toast("Le formateur est déjà dans la liste.","ok"); renderAgents(); return; }
+  PTRDB.agents.push({
+    id: fid || genId(),
+    prenom: PATROL_SESSION.prenom || "Formateur",
+    nom: PATROL_SESSION.nom || "",
+    qualification: PATROL_SESSION.qualification || "SSIAP 3",
+    pinHash: null, pinClair: null, actif: true, type: "formateur",
+    entreprise: CENTER?CENTER.nom:"", email: ""
+  });
+  await sauvegarder(); toast("Formateur ajouté — il peut être mis chef de poste.","ok"); renderAgents();
 }
 
 async function importerFormateurs() {
