@@ -410,13 +410,15 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
         <button onclick="copyLink()" class="btn btn-gray btn-sm" style="justify-content:center;font-size:.72rem;"><i class="fas fa-copy"></i> Copier le lien</button>
       </div>
     </div>
-    <div class="card" style="margin-bottom:16px;">
-      <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">🔧 Matériels en anomalie / hors service</div>
-      <div id="dash-materiels"><div style="color:#94a3b8;font-size:.83rem;">Aucun matériel en anomalie</div></div>
-    </div>
-    <div class="card" style="margin-bottom:16px;">
-      <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">👥 Personnel en poste</div>
-      <div id="dash-equipe"><div style="color:#94a3b8;font-size:.83rem;">Aucun agent en poste</div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+      <div class="card">
+        <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">🔧 Matériels en anomalie / hors service</div>
+        <div id="dash-materiels"><div style="color:#94a3b8;font-size:.83rem;">Aucun matériel en anomalie</div></div>
+      </div>
+      <div class="card">
+        <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">👥 Personnel en poste</div>
+        <div id="dash-equipe"><div style="color:#94a3b8;font-size:.83rem;">Aucun agent en poste</div></div>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
       <div class="card">
