@@ -437,8 +437,15 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
   <div id="page-rondes" class="page fade-in">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
       <h2 style="font-size:1.1rem;font-weight:800;">Rondes</h2>
+      <button onclick="showModalRondeProg()" class="btn btn-primary"><i class="fas fa-plus"></i> Nouvelle ronde programmée</button>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div style="font-weight:800;font-size:.9rem;margin-bottom:10px;">Rondes programmées</div>
+      <div style="font-size:.72rem;color:#94a3b8;margin-bottom:10px;">Modèles de rondes (bâtiment / niveau / thématique) lancés à la demande par le rondier.</div>
+      <div id="tbl-rondes-prog"></div>
     </div>
     <div class="card">
+      <div style="font-weight:800;font-size:.9rem;margin-bottom:10px;">Historique des rondes</div>
       <div id="body-rondes" style="overflow-x:auto;"><table class="tbl"><thead><tr><th>Type</th><th>Agent</th><th>Debut</th><th>Fin</th><th>Points</th><th>Statut</th></tr></thead>
       <tbody id="tbl-rondes"><tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:24px;">Aucune ronde</td></tr></tbody></table></div>
     </div>
@@ -447,7 +454,15 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
   <!-- MAIN COURANTE -->
   <div id="page-mainCourante" class="page fade-in">
     <h2 style="font-size:1.1rem;font-weight:800;margin-bottom:20px;">Main Courante</h2>
+    <div class="card" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+      <div style="flex:1;min-width:180px;"><label style="font-size:.72rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Recherche</label><input id="mc-search" class="input" placeholder="Description, agent, type…" oninput="renderMainCourante()"></div>
+      <div><label style="font-size:.72rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Type</label><select id="mc-type" class="input" onchange="renderMainCourante()"><option value="">Tous</option></select></div>
+      <div><label style="font-size:.72rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Du</label><input type="date" id="mc-from" class="input" onchange="renderMainCourante()"></div>
+      <div><label style="font-size:.72rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Au</label><input type="date" id="mc-to" class="input" onchange="renderMainCourante()"></div>
+      <button onclick="imprimerMainCourante()" class="btn btn-primary"><i class="fas fa-print"></i> Imprimer</button>
+    </div>
     <div class="card">
+      <div id="mc-count" style="font-size:.72rem;color:#94a3b8;margin-bottom:8px;"></div>
       <div style="overflow-x:auto;"><table class="tbl"><thead><tr><th>Date/Heure</th><th>Type</th><th>Description</th><th>Agent</th></tr></thead>
       <tbody id="tbl-main-courante"><tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:24px;">Aucune entree</td></tr></tbody></table></div>
     </div>
@@ -596,11 +611,14 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Nom *</label><input type="text" id="mat-nom" class="input" placeholder="Ex: Extincteur CO2 Hall"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Type</label>
-          <select id="mat-type" class="input"><option>Extincteur</option><option>RIA</option><option>Detecteur</option><option>Porte CF</option><option>BAES</option><option>Autre</option></select>
+          <select id="mat-type" class="input" onchange="majAgentRow()"><option>Extincteur</option><option>RIA</option><option>Detecteur</option><option>Porte CF</option><option>BAES</option><option>Autre</option></select>
         </div>
         <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Statut</label>
           <select id="mat-statut" class="input"><option>Operationnel</option><option>A verifier</option><option>Hors Service</option></select>
         </div>
+      </div>
+      <div id="mat-agent-row" style="display:none;"><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Agent extincteur</label>
+        <select id="mat-agent" class="input"><option value="">—</option><option>Eau</option><option>Poudre</option><option>CO2</option><option>Lithium</option></select>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Numéro</label><input type="text" id="mat-numero" class="input" placeholder="Ex: EXT-04"></div>
@@ -620,6 +638,49 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
         <button onclick="saveMateriel()" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
       </div>
     </div>
+  </div>
+</div>
+
+<div id="modal-ronde-prog" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <h3 style="font-size:1rem;font-weight:800;">Ronde programmée</h3>
+      <button onclick="closeModal('modal-ronde-prog')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Nom *</label><input type="text" id="rp-nom" class="input" placeholder="Ex: Ronde extincteurs RDC"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Thématique</label>
+          <select id="rp-thematique" class="input" onchange="rpThemeChange()"></select></div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Type de matériel</label>
+          <select id="rp-filtretype" class="input" onchange="rpPreview()"><option value="">Tous types</option><option>Extincteur</option><option>RIA</option><option>BAES</option><option>Detecteur</option><option>Porte CF</option><option>Autre</option></select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Bâtiment</label>
+          <select id="rp-batiment" class="input" onchange="rpBatChange()"><option value="">Tous</option></select></div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Niveau</label>
+          <select id="rp-niveau" class="input" onchange="rpNivChange()"><option value="">Tous</option></select></div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Zone</label>
+          <select id="rp-zone" class="input" onchange="rpPreview()"><option value="">Toutes</option></select></div>
+      </div>
+      <div id="rp-preview" style="font-size:.8rem;background:#f8fafc;border-radius:10px;padding:10px;color:#475569;"></div>
+      <input type="hidden" id="rp-id" value="">
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button onclick="closeModal('modal-ronde-prog')" class="btn btn-gray" style="flex:1;justify-content:center;">Annuler</button>
+        <button onclick="saveRondeProg()" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-ronde-detail" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <h3 style="font-size:1rem;font-weight:800;" id="rd-title">Ronde</h3>
+      <button onclick="closeModal('modal-ronde-detail')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div id="rd-meta" style="font-size:.78rem;color:#64748b;margin-bottom:12px;"></div>
+    <div id="rd-body" style="max-height:60vh;overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -677,7 +738,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
 var sb = window.supabase;
 var PATROL_SESSION = null;
 var CENTER = null;
-var PTRDB = { agents:[], materiels:[], prisesPoste:[], rondes:[], evenements:[], mainCourante:[], consignes:[] };
+var PTRDB = { agents:[], materiels:[], prisesPoste:[], rondes:[], evenements:[], mainCourante:[], consignes:[], rondesProgrammees:[] };
 var configEtab = { nom:"Etablissement", batiments:[] };
 var typesRondes = ["Ronde de securite","Ronde Extincteurs","Ronde BAES","Ouverture","Fermeture"];
 var PAGES = ["dashboard","priseposte","rondes","mainCourante","evenements","materiels","consignes","agents","admin"];
@@ -740,6 +801,7 @@ async function chargerDonnees() {
     if (data.evenements)    PTRDB.evenements    = data.evenements;
     if (data.main_courante) PTRDB.mainCourante  = data.main_courante;
     if (data.consignes)     PTRDB.consignes     = data.consignes;
+    if (data.rondes_programmees) PTRDB.rondesProgrammees = data.rondes_programmees;
     if (data.config)        configEtab       = data.config;
     if (data.types_rondes)  typesRondes      = data.types_rondes;
   }
@@ -757,6 +819,7 @@ async function sauvegarder() {
     evenements:    PTRDB.evenements,
     main_courante: PTRDB.mainCourante.slice(0,500),
     consignes:     PTRDB.consignes,
+    rondes_programmees: PTRDB.rondesProgrammees,
     config:        configEtab,
     types_rondes:  typesRondes,
     updated_at:    new Date().toISOString()
@@ -918,7 +981,96 @@ async function finPoste(id) {
 }
 
 // ═══ RONDES ═══
+// ═══ RONDES PROGRAMMÉES (modèles lancés à la demande) ═══
+var THEME2TYPE = { "Ronde Extincteurs":"Extincteur", "Ronde BAES":"BAES", "Ronde RIA":"RIA" };
+function rpBatiments(){ return ((configEtab&&configEtab.batiments)||[]); }
+function rpNiveaux(bat){ var b=rpBatiments().find(function(x){ return (x.nom||x.id)==bat; }); return b?(b.niveaux||b.secteurs||[]):[]; }
+function rpZones(bat,niv){ var n=rpNiveaux(bat).find(function(x){ return (x.nom||x.key)==niv; }); return n?(n.zones||[]):[]; }
+// Matériels d'un périmètre : filtre par type + fil d'ariane localisation « Bâtiment > Niveau > Zone > Local ».
+function scopeMateriels(prog){
+  return (PTRDB.materiels||[]).filter(function(m){
+    if(prog.filtreType && m.type!==prog.filtreType) return false;
+    if(prog.batiment || prog.niveau || prog.zone){
+      var parts=(m.localisation||"").split(">").map(function(s){ return s.trim(); });
+      if(prog.batiment && parts[0]!==prog.batiment) return false;
+      if(prog.niveau && parts[1]!==prog.niveau) return false;
+      if(prog.zone && parts[2]!==prog.zone) return false;
+    }
+    return true;
+  });
+}
+function showModalRondeProg(id){
+  var th=document.getElementById("rp-thematique");
+  th.innerHTML=(typesRondes||[]).map(function(t){ return "<option>"+esc(t)+"</option>"; }).join("");
+  var bs=document.getElementById("rp-batiment");
+  bs.innerHTML="<option value=\"\">Tous</option>"+rpBatiments().map(function(b){ return "<option>"+esc(b.nom||b.id)+"</option>"; }).join("");
+  document.getElementById("rp-niveau").innerHTML="<option value=\"\">Tous</option>";
+  document.getElementById("rp-zone").innerHTML="<option value=\"\">Toutes</option>";
+  var p=id?(PTRDB.rondesProgrammees||[]).find(function(x){ return String(x.id)===String(id); }):null;
+  document.getElementById("rp-id").value=p?p.id:"";
+  document.getElementById("rp-nom").value=p?p.nom:"";
+  if(p&&p.thematique) th.value=p.thematique;
+  document.getElementById("rp-filtretype").value=p?(p.filtreType||""):"";
+  bs.value=p?(p.batiment||""):"";
+  rpBatChange();
+  if(p&&p.niveau) document.getElementById("rp-niveau").value=p.niveau;
+  rpNivChange();
+  if(p&&p.zone) document.getElementById("rp-zone").value=p.zone;
+  rpPreview();
+  openModal("modal-ronde-prog");
+}
+function rpThemeChange(){ var t=document.getElementById("rp-thematique").value; if(THEME2TYPE[t]!==undefined) document.getElementById("rp-filtretype").value=THEME2TYPE[t]; rpPreview(); }
+function rpBatChange(){
+  var bat=document.getElementById("rp-batiment").value;
+  document.getElementById("rp-niveau").innerHTML="<option value=\"\">Tous</option>"+rpNiveaux(bat).map(function(n){ return "<option>"+esc(n.nom||n.key)+"</option>"; }).join("");
+  document.getElementById("rp-zone").innerHTML="<option value=\"\">Toutes</option>";
+  rpPreview();
+}
+function rpNivChange(){
+  var bat=document.getElementById("rp-batiment").value, niv=document.getElementById("rp-niveau").value;
+  document.getElementById("rp-zone").innerHTML="<option value=\"\">Toutes</option>"+rpZones(bat,niv).map(function(z){ return "<option>"+esc(z.nom||z.id)+"</option>"; }).join("");
+  rpPreview();
+}
+function rpCurrentProg(){
+  return { nom:document.getElementById("rp-nom").value.trim(), thematique:document.getElementById("rp-thematique").value,
+    filtreType:document.getElementById("rp-filtretype").value, batiment:document.getElementById("rp-batiment").value,
+    niveau:document.getElementById("rp-niveau").value, zone:document.getElementById("rp-zone").value };
+}
+function rpPreview(){
+  var n=scopeMateriels(rpCurrentProg()).length;
+  document.getElementById("rp-preview").innerHTML="🧭 "+n+" matériel(s) dans le périmètre → "+n+" point(s) de contrôle générés au lancement.";
+}
+async function saveRondeProg(){
+  var prog=rpCurrentProg();
+  if(!prog.nom){ toast("Nom requis.","err"); return; }
+  var id=document.getElementById("rp-id").value;
+  if(id){ var ex=(PTRDB.rondesProgrammees||[]).find(function(x){ return String(x.id)===String(id); }); if(ex) Object.assign(ex,prog); }
+  else { prog.id=genId(); prog.actif=true; PTRDB.rondesProgrammees.push(prog); }
+  await sauvegarder(); closeModal("modal-ronde-prog"); toast("Ronde programmée enregistrée.","ok"); renderRondesProgrammees();
+}
+async function deleteRondeProg(id){
+  var p=(PTRDB.rondesProgrammees||[]).find(function(x){ return String(x.id)===String(id); });
+  if(!p||!confirm("Supprimer la ronde programmée « "+p.nom+" » ?")) return;
+  PTRDB.rondesProgrammees=PTRDB.rondesProgrammees.filter(function(x){ return String(x.id)!==String(id); });
+  await sauvegarder(); toast("Supprimée.","ok"); renderRondesProgrammees();
+}
+function renderRondesProgrammees(){
+  var el=document.getElementById("tbl-rondes-prog"); if(!el) return;
+  var list=PTRDB.rondesProgrammees||[];
+  if(!list.length){ el.innerHTML="<div style=\"color:#94a3b8;font-size:.82rem;\">Aucune ronde programmée. Cliquez « Nouvelle ronde programmée ».</div>"; return; }
+  el.innerHTML=list.map(function(p){
+    var n=scopeMateriels(p).length;
+    var scope=[p.batiment,p.niveau,p.zone].filter(Boolean).join(" › ")||"Tout l'établissement";
+    return "<div style=\"display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px;\">"
+      +"<div><div style=\"font-weight:700;font-size:.86rem;\">"+esc(p.nom)+"</div>"
+      +"<div style=\"font-size:.72rem;color:#94a3b8;\">"+esc(p.thematique||"")+(p.filtreType?" · "+esc(p.filtreType):"")+" · "+esc(scope)+" · "+n+" point(s)</div></div>"
+      +"<div style=\"display:flex;gap:6px;\"><button onclick=\"showModalRondeProg('"+p.id+"')\" class=\"btn btn-blue btn-sm\" title=\"Modifier\">✏️</button>"
+      +"<button onclick=\"deleteRondeProg('"+p.id+"')\" class=\"btn btn-red btn-sm\" title=\"Supprimer\">🗑️</button></div></div>";
+  }).join("");
+}
+
 function renderRondes() {
+  renderRondesProgrammees();
   var tbody = document.getElementById("tbl-rondes");
   if (!tbody) return;
   var rondes = PTRDB.rondes.slice().sort(function(a,b){ return new Date(b.heureDebut)-new Date(a.heureDebut); });
@@ -930,8 +1082,8 @@ function renderRondes() {
     var hasHS  = (r.anomalies||[]).some(function(a){ return a.horsService; });
     var hasAno = (r.anomalies||[]).length > 0;
     var statut = r.heureFin ? (hasHS?"<span class=\"badge b-red\">HS</span>":hasAno?"<span class=\"badge b-orange\">Anomalie</span>":"<span class=\"badge b-green\">OK</span>") : "<span class=\"badge b-blue\">En cours</span>";
-    return "<tr>"
-      +"<td style=\"font-weight:600;font-size:.82rem;\">"+r.type+"</td>"
+    return "<tr style=\"cursor:pointer;\" onclick=\"voirRondeDetail('"+r.id+"')\" title=\"Voir le détail des points\">"
+      +"<td style=\"font-weight:600;font-size:.82rem;\">"+esc(r.type)+"</td>"
       +"<td style=\"font-size:.8rem;\">"+((agent?agent.prenom+" "+agent.nom:"—"))+"</td>"
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+fmtDT(r.heureDebut)+"</td>"
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+(r.heureFin?fmtDT(r.heureFin):"—")+"</td>"
@@ -941,17 +1093,103 @@ function renderRondes() {
   }).join("");
 }
 
+// Détail d'une ronde : tous les points, leur résultat, commentaires et photos d'anomalie.
+function voirRondeDetail(rondeId){
+  var r = PTRDB.rondes.find(function(x){ return String(x.id)===String(rondeId); });
+  if(!r) return;
+  var agent = PTRDB.agents.find(function(a){ return String(a.id)===String(r.agentId); });
+  var anoByPoint = {};
+  (r.anomalies||[]).forEach(function(a){ if(a.pointId){ (anoByPoint[a.pointId]=anoByPoint[a.pointId]||[]).push(a); } });
+  var pts = (r.pointsControle||[]);
+  var badge = function(p){
+    if(p.statut==="OK") return "<span class=\"badge b-green\">OK</span>";
+    if(p.statut==="HS") return "<span class=\"badge b-red\">HS</span>";
+    if(p.statut==="Anomalie") return "<span class=\"badge b-orange\">Anomalie</span>";
+    if(p.valide) return "<span class=\"badge b-green\">Validé</span>";
+    return "<span style=\"display:inline-block;padding:2px 8px;border-radius:999px;font-size:.68rem;background:#e2e8f0;color:#475569;\">Non contrôlé</span>";
+  };
+  var rows = pts.map(function(p){
+    var anos = anoByPoint[p.id]||[];
+    var detail = anos.map(function(a){
+      var photos = (a.photos||[]).map(function(u){ return "<img src=\""+esc(u)+"\" style=\"width:66px;height:66px;object-fit:cover;border-radius:8px;margin:6px 6px 0 0;cursor:zoom-in;\" onclick=\"window.open('"+esc(u)+"','_blank')\">"; }).join("");
+      return "<div style=\"font-size:.78rem;color:#475569;margin-top:5px;\">💬 "+esc(a.description||"")+"</div>"+(photos?"<div>"+photos+"</div>":"");
+    }).join("");
+    return "<div style=\"padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;\">"
+      +"<div style=\"display:flex;justify-content:space-between;gap:8px;align-items:flex-start;\">"
+      +"<div style=\"font-weight:600;font-size:.85rem;\">"+esc(p.nom)+"<div style=\"font-size:.72rem;color:#94a3b8;font-weight:400;\">"+esc(p.localisation||"")+"</div></div>"
+      +"<div style=\"text-align:right;white-space:nowrap;\">"+badge(p)+"<div style=\"font-size:.68rem;color:#94a3b8;margin-top:2px;\">"+(p.heureValidation?fmtDT(p.heureValidation):"—")+"</div></div>"
+      +"</div>"+detail+"</div>";
+  }).join("");
+  var horsPts = (r.anomalies||[]).filter(function(a){ return !a.pointId; });
+  var horsHtml = horsPts.length ? "<div style=\"font-weight:700;font-size:.8rem;margin:10px 0 6px;color:#dc2626;\">Anomalies hors point</div>"+horsPts.map(function(a){
+      var photos = (a.photos||[]).map(function(u){ return "<img src=\""+esc(u)+"\" style=\"width:66px;height:66px;object-fit:cover;border-radius:8px;margin:6px 6px 0 0;cursor:zoom-in;\" onclick=\"window.open('"+esc(u)+"','_blank')\">"; }).join("");
+      return "<div style=\"padding:8px;background:#fef2f2;border-radius:8px;margin-bottom:6px;font-size:.8rem;\">"+(a.horsService?"[HS] ":"")+esc(a.localisation?a.localisation+": ":"")+esc(a.description||"")+(photos?"<div>"+photos+"</div>":"")+"</div>";
+    }).join("") : "";
+  var pv = pts.filter(function(p){ return p.valide; }).length;
+  document.getElementById("rd-title").textContent = (r.nom||r.type);
+  document.getElementById("rd-meta").innerHTML = "<b>"+esc(r.type)+"</b> · "+(agent?esc(agent.prenom+" "+agent.nom):"—")+" · "+fmtDT(r.heureDebut)+(r.heureFin?" → "+fmtDT(r.heureFin):" (en cours)")+" · "+pv+"/"+pts.length+" points";
+  document.getElementById("rd-body").innerHTML = (rows||"<div style=\"color:#94a3b8;\">Aucun point.</div>")+horsHtml;
+  openModal("modal-ronde-detail");
+}
+
 // ═══ MAIN COURANTE ═══
+function mcVal(id){ var e=document.getElementById(id); return e?(e.value||""):""; }
+function getFilteredMC(){
+  var q=mcVal("mc-search").trim().toLowerCase();
+  var t=mcVal("mc-type");
+  var from=mcVal("mc-from"), to=mcVal("mc-to");
+  var fromT = from ? new Date(from+"T00:00:00").getTime() : null;
+  var toT   = to   ? new Date(to+"T23:59:59").getTime()   : null;
+  return (PTRDB.mainCourante||[]).filter(function(m){
+    if (t && m.type!==t) return false;
+    var d = new Date(m.date).getTime();
+    if (fromT!==null && d<fromT) return false;
+    if (toT!==null && d>toT) return false;
+    if (q && ![m.type,m.description,m.agent].some(function(x){ return (x||"").toString().toLowerCase().indexOf(q)>=0; })) return false;
+    return true;
+  });
+}
 function renderMainCourante() {
   var tbody = document.getElementById("tbl-main-courante");
   if (!tbody) return;
-  if (!PTRDB.mainCourante.length) { tbody.innerHTML="<tr><td colspan=\"4\" style=\"text-align:center;color:#94a3b8;padding:24px;\">Aucune entree</td></tr>"; return; }
-  tbody.innerHTML = PTRDB.mainCourante.slice(0,100).map(function(m){
+  // Alimente le filtre Type avec les types distincts (en préservant la sélection).
+  var sel = document.getElementById("mc-type");
+  if (sel){
+    var cur = sel.value;
+    var types = Array.from(new Set((PTRDB.mainCourante||[]).map(function(m){ return m.type; }).filter(Boolean))).sort();
+    sel.innerHTML = "<option value=\"\">Tous</option>"+types.map(function(t){ return "<option"+(t===cur?" selected":"")+">"+esc(t)+"</option>"; }).join("");
+  }
+  var list = getFilteredMC();
+  var cnt = document.getElementById("mc-count"); if(cnt) cnt.textContent = list.length+" entrée(s)";
+  if (!list.length) { tbody.innerHTML="<tr><td colspan=\"4\" style=\"text-align:center;color:#94a3b8;padding:24px;\">Aucune entrée</td></tr>"; return; }
+  tbody.innerHTML = list.slice(0,500).map(function(m){
     return "<tr><td style=\"font-size:.78rem;white-space:nowrap;\">"+fmtDT(m.date)+"</td>"
-      +"<td><span class=\"badge b-blue\" style=\"font-size:.64rem;\">"+m.type+"</span></td>"
+      +"<td><span class=\"badge b-blue\" style=\"font-size:.64rem;\">"+esc(m.type)+"</span></td>"
       +"<td style=\"font-size:.82rem;\">"+esc(m.description)+"</td>"
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+esc(m.agent||"")+"</td></tr>";
   }).join("");
+}
+function imprimerMainCourante(){
+  var list = getFilteredMC().slice().sort(function(a,b){ return new Date(a.date)-new Date(b.date); });
+  var from=mcVal("mc-from"), to=mcVal("mc-to");
+  var periode = (from||to) ? ("Période : "+(from?fmtDate(from):"…")+" → "+(to?fmtDate(to):"…")) : "Toutes dates";
+  var centre = (typeof CENTER!=="undefined" && CENTER && CENTER.nom) ? CENTER.nom : "";
+  var rows = list.map(function(m){
+    return "<tr><td style=\"white-space:nowrap;\">"+fmtDT(m.date)+"</td><td>"+esc(m.type)+"</td><td>"+esc(m.description)+"</td><td>"+esc(m.agent||"")+"</td></tr>";
+  }).join("") || "<tr><td colspan=\"4\" style=\"text-align:center;color:#888;\">Aucune entrée</td></tr>";
+  var html = "<html><head><meta charset=\"utf-8\"><title>Main courante</title><style>"
+    + "body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:24px;}h1{font-size:18px;margin:0 0 4px;}"
+    + ".sub{color:#555;font-size:12px;margin-bottom:16px;}table{width:100%;border-collapse:collapse;font-size:12px;}"
+    + "th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;vertical-align:top;}th{background:#f1f5f9;}"
+    + "@media print{.noprint{display:none;}}</style></head><body>"
+    + "<h1>Main courante"+(centre?" — "+esc(centre):"")+"</h1>"
+    + "<div class=\"sub\">"+esc(periode)+" · "+list.length+" entrée(s) · Édité le "+fmtDT(new Date().toISOString())+"</div>"
+    + "<table><thead><tr><th>Date/Heure</th><th>Type</th><th>Description</th><th>Agent</th></tr></thead><tbody>"+rows+"</tbody></table>"
+    + "<div class=\"noprint\" style=\"margin-top:20px;\"><button onclick=\"window.print()\">Imprimer</button></div>"
+    + "<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script></body></html>";
+  var w = window.open("","_blank");
+  if(!w){ toast("Autorisez les pop-ups pour imprimer.","err"); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 }
 
 // ═══ EVENEMENTS ═══
@@ -999,6 +1237,7 @@ function showModalMateriel(id) {
       document.getElementById("mat-nom").value = m.nom||"";
       document.getElementById("mat-numero").value = m.numero||"";
       document.getElementById("mat-type").value = m.type||"Extincteur";
+      document.getElementById("mat-agent").value = m.agent||"";
       document.getElementById("mat-statut").value = m.statut||"Operationnel";
       document.getElementById("mat-loc").value = m.localisation||"";
       document.getElementById("mat-adresse").value = m.adresse||"";
@@ -1008,10 +1247,16 @@ function showModalMateriel(id) {
   } else {
     Object.keys(fields).forEach(function(k){ document.getElementById(k).value=fields[k]; });
     document.getElementById("mat-type").value="Extincteur";
+    document.getElementById("mat-agent").value="";
     document.getElementById("mat-statut").value="Operationnel";
   }
   openModal("modal-materiel");
-  majQRPreview(); majAlerteControle();
+  majQRPreview(); majAlerteControle(); majAgentRow();
+}
+// Affiche le champ « Agent extincteur » uniquement pour le type Extincteur.
+function majAgentRow(){
+  var row=document.getElementById("mat-agent-row"); if(!row) return;
+  row.style.display = (document.getElementById("mat-type").value==="Extincteur") ? "" : "none";
 }
 // Rendu du QR dans l'aperçu de la fiche
 function majQRPreview(){
@@ -1058,9 +1303,11 @@ async function saveMateriel() {
   var nom = document.getElementById("mat-nom").value.trim();
   if (!nom) { toast("Nom requis.","err"); return; }
   var existingId = document.getElementById("mat-id").value;
+  var mtype = document.getElementById("mat-type").value;
   var vals = {
     nom:nom, numero:document.getElementById("mat-numero").value.trim(),
-    type:document.getElementById("mat-type").value, statut:document.getElementById("mat-statut").value,
+    type:mtype, agent:(mtype==="Extincteur" ? document.getElementById("mat-agent").value : ""),
+    statut:document.getElementById("mat-statut").value,
     localisation:document.getElementById("mat-loc").value.trim(), adresse:document.getElementById("mat-adresse").value.trim(),
     codeQR:document.getElementById("mat-qr").value.trim(), dernierControle:document.getElementById("mat-controle").value||""
   };
@@ -1157,7 +1404,7 @@ function getFilteredMateriels(){
   return (PTRDB.materiels||[]).filter(function(m){
     if (t && m.type!==t) return false;
     if (!q) return true;
-    return [m.nom,m.type,m.numero,m.adresse,m.localisation,m.codeQR,m.statut].some(function(x){ return (x||"").toString().toLowerCase().indexOf(q)>=0; });
+    return [m.nom,m.type,m.agent,m.numero,m.adresse,m.localisation,m.codeQR,m.statut].some(function(x){ return (x||"").toString().toLowerCase().indexOf(q)>=0; });
   });
 }
 function toggleAllMat(cb){ Array.prototype.forEach.call(document.querySelectorAll(".mat-check"), function(c){ c.checked=cb.checked; }); }
@@ -1174,7 +1421,7 @@ function renderMateriels() {
       +"<td><input type=\"checkbox\" class=\"mat-check\" data-id=\""+m.id+"\"></td>"
       +"<td style=\"font-weight:600;\">"+esc(m.nom)+"</td>"
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+esc(m.numero||"—")+"</td>"
-      +"<td style=\"font-size:.8rem;color:#64748b;\">"+esc(m.type)+"</td>"
+      +"<td style=\"font-size:.8rem;color:#64748b;\">"+esc(m.type)+(m.agent?" · "+esc(m.agent):"")+"</td>"
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+esc(m.localisation||"—")+"</td>"
       +"<td><span class=\"badge "+ci.badge+"\" style=\"font-size:.68rem;\">"+esc(ci.label)+"</span></td>"
       +"<td><span class=\"badge "+sc+"\">"+esc(m.statut)+"</span></td>"
@@ -1361,11 +1608,24 @@ async function importerEtablissementDepuisPlan() {
       if (m.codeQR) prev["qr:"+m.codeQR.trim().toUpperCase()] = m;
       var k = keyOf(m); if (!prev[k]) prev[k] = m;
     });
+    // Numérotation auto par type (EXT-01, RIA-01…) quand le matériel n'a pas de numéro.
+    // Les compteurs sont amorcés sur les numéros déjà présents pour éviter les doublons.
+    var numCounters = {};
+    var typePrefix = function(t){ return ({Extincteur:"EXT",RIA:"RIA",BAES:"BAES","Désenfumage":"DESENF",Desenfumage:"DESENF",Detecteur:"DET","Porte CF":"PCF",Autre:"DIV"})[t] || (t ? t.substring(0,3).toUpperCase() : "DIV"); };
+    var seedNum = function(list){ (list||[]).forEach(function(m){
+      var mm = (((m&&m.numero)||"").trim()).match(/^([A-Za-z]+)[-\s]?(\d+)$/); if(!mm) return;
+      var pfx = mm[1].toUpperCase(), n = parseInt(mm[2],10);
+      if(!numCounters[pfx] || n>numCounters[pfx]) numCounters[pfx]=n;
+    }); };
+    seedNum(PTRDB.materiels); seedNum(etab.materiels||[]);
+    var nextNum = function(type){ var pfx=typePrefix(type); numCounters[pfx]=(numCounters[pfx]||0)+1; return pfx+"-"+String(numCounters[pfx]).padStart(2,"0"); };
     PTRDB.materiels = (etab.materiels||[]).map(function(m){
       var qr = m.codeQR || ("MAT-"+genId());
       var p = (m.codeQR && prev["qr:"+m.codeQR.trim().toUpperCase()]) || prev[keyOf(m)] || {};
+      var numero = (p.numero || m.numero || "").trim() || nextNum(m.type);
       return { id: genId(), nom:m.nom, type:m.type,
-        numero: p.numero || m.numero || "",
+        agent: p.agent || m.agent || "",
+        numero: numero,
         adresse: p.adresse || m.adresse || "",
         localisation: m.localisation||"", codeQR: qr,
         statut: p.statut || m.statut || "Operationnel",
