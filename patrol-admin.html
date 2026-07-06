@@ -592,6 +592,22 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
   </div>
 </div>
 
+<div id="modal-verif" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h3 style="font-size:1rem;font-weight:800;" id="verif-title">Vérifications de prise de poste</h3>
+      <button onclick="closeModal('modal-verif')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div id="verif-count" style="font-size:.74rem;color:#94a3b8;margin-bottom:12px;"></div>
+    <div id="verif-body" style="max-height:52vh;overflow-y:auto;"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+      <button onclick="closeModal('modal-verif')" class="btn btn-gray" style="flex:1;justify-content:center;">Fermer</button>
+      <button onclick="saveVerifications('urgence')" class="btn btn-orange" style="flex:1;justify-content:center;" title="Enregistrer l'état actuel — vérifications non terminées (urgence)">⏱️ En cours (urgence)</button>
+      <button onclick="saveVerifications('valider')" id="verif-valider" class="btn btn-green" style="flex:1;justify-content:center;">✔ Valider</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-evenement" class="modal-bg hidden">
   <div class="modal-box">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
@@ -719,9 +735,10 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
 <div id="modal-consigne" class="modal-bg hidden">
   <div class="modal-box">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-      <h3 style="font-size:1rem;font-weight:800;">Nouvelle Consigne</h3>
+      <h3 style="font-size:1rem;font-weight:800;" id="modal-cons-title">Nouvelle Consigne</h3>
       <button onclick="closeModal('modal-consigne')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
     </div>
+    <input type="hidden" id="cons-id" value="">
     <div style="display:flex;flex-direction:column;gap:12px;">
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Titre *</label><input type="text" id="cons-titre" class="input" placeholder="Titre de la consigne"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -739,6 +756,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Contenu *</label><textarea id="cons-contenu" class="input" rows="4" placeholder="Detaillez la consigne..."></textarea></div>
       <div style="font-size:.72rem;color:#94a3b8;">Auteur : <b id="cons-auteur-lbl">—</b> &bull; créée le <span id="cons-date-lbl"></span></div>
       <div style="display:flex;gap:10px;margin-top:4px;">
+        <button onclick="supprimerConsigneModal()" id="cons-del-btn" class="btn btn-red" style="display:none;justify-content:center;">🗑️ Supprimer</button>
         <button onclick="closeModal('modal-consigne')" class="btn btn-gray" style="flex:1;justify-content:center;">Annuler</button>
         <button onclick="saveConsigne()" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
       </div>
@@ -943,7 +961,7 @@ function renderCurrentPage() {
 function getAgentsEnPoste() {
   return PTRDB.prisesPoste.filter(function(p){ return !p.finPoste; }).map(function(p){
     var a = PTRDB.agents.find(function(a){ return String(a.id)===String(p.agentId); });
-    return a ? Object.assign({},a,{prisePosteId:p.id,poste:p.poste,heureDebut:p.heureDebut}) : null;
+    return a ? Object.assign({},a,{prisePosteId:p.id,poste:p.poste,heureDebut:p.heureDebut,verif:p.verif||null}) : null;
   }).filter(Boolean);
 }
 
@@ -1033,12 +1051,66 @@ function renderPrisePoste() {
   if (!tbody) return;
   if (!enPoste.length) { tbody.innerHTML="<tr><td colspan=\"5\" style=\"text-align:center;color:#94a3b8;padding:24px;\">Aucun agent en poste</td></tr>"; return; }
   tbody.innerHTML = enPoste.map(function(a){
-    return "<tr><td style=\"font-weight:700;\">"+a.prenom+" "+a.nom+"</td>"
+    return "<tr><td style=\"font-weight:700;\">"+a.prenom+" "+a.nom+" "+verifBadge(a.verif)+"</td>"
       +"<td><span class=\"badge b-blue\">"+a.qualification+"</span></td>"
       +"<td><span class=\"badge b-orange\">"+a.poste+"</span></td>"
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+fmtDT(a.heureDebut)+"</td>"
-      +"<td><button onclick=\"finPoste("+a.prisePosteId+")\" class=\"btn btn-red btn-sm\">Fin de poste</button></td></tr>";
+      +"<td style=\"white-space:nowrap;\"><button onclick=\"showVerifications('"+a.prisePosteId+"')\" class=\"btn btn-gray btn-sm\" title=\"Fiche de vérifications de prise de poste\">✓ Vérifications</button> "
+      +"<button onclick=\"finPoste("+a.prisePosteId+")\" class=\"btn btn-red btn-sm\">Fin de poste</button></td></tr>";
   }).join("");
+}
+// Badge d'état des vérifications de prise de poste.
+function verifBadge(v){
+  if(!v||!v.statut) return "<span class=\"badge b-red\" style=\"font-size:.6rem;\">Vérifs à faire</span>";
+  if(v.statut==="terminee") return "<span class=\"badge b-green\" style=\"font-size:.6rem;\">Vérifs OK</span>";
+  return "<span class=\"badge b-orange\" style=\"font-size:.6rem;\">Vérifs en cours</span>";
+}
+// ── Fiche de vérifications de prise de poste (technique / matériel / administrative) ──
+var VERIF_ITEMS = {
+  "Technique": ["Essai de ligne directe","Essai signalisation","Essai radio"],
+  "Matériel": ["Gilet","Lampe","PTI","Clés et badge","Trousse de secours"],
+  "Administrative": ["Main courante","Registre de sécurité","Registre des clés","Cahier de consignes"]
+};
+var VERIF_PP_ID = null;
+function showVerifications(ppId){
+  var pp = PTRDB.prisesPoste.find(function(p){ return String(p.id)===String(ppId); }); if(!pp) return;
+  VERIF_PP_ID = ppId;
+  var agent = PTRDB.agents.find(function(a){ return String(a.id)===String(pp.agentId); });
+  document.getElementById("verif-title").textContent = "Vérifications — "+(agent?agent.prenom+" "+agent.nom:"");
+  var saved = (pp.verif && pp.verif.checked) || {};
+  var idx=0, html="";
+  Object.keys(VERIF_ITEMS).forEach(function(cat){
+    html += "<div style='margin-bottom:12px;'><div style='font-weight:800;font-size:.8rem;color:#334155;margin-bottom:6px;'>"+esc(cat)+"</div>";
+    VERIF_ITEMS[cat].forEach(function(it){
+      html += "<label style='display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:8px;background:#f8fafc;margin-bottom:5px;cursor:pointer;font-size:.85rem;'>"
+        +"<input type='checkbox' id='verif-chk-"+idx+"' data-item=\""+esc(it)+"\" onchange='verifUpdateState()' "+(saved[it]?"checked":"")+" style='width:18px;height:18px;flex:none;'> "+esc(it)+"</label>";
+      idx++;
+    });
+    html += "</div>";
+  });
+  document.getElementById("verif-body").innerHTML = html;
+  verifUpdateState();
+  openModal("modal-verif");
+}
+function verifBoxes(){ return Array.prototype.slice.call(document.querySelectorAll("#verif-body input[type=checkbox]")); }
+function verifAllChecked(){ var b=verifBoxes(); return b.length>0 && b.every(function(x){ return x.checked; }); }
+function verifUpdateState(){
+  var boxes=verifBoxes(), n=boxes.filter(function(x){return x.checked;}).length, all=(boxes.length>0 && n===boxes.length);
+  var c=document.getElementById("verif-count"); if(c) c.textContent = n+" / "+boxes.length+" vérifié(s)"+(all?" — complet ✔":"");
+  var btn=document.getElementById("verif-valider"); if(btn){ btn.disabled=!all; btn.style.opacity=all?"1":".5"; btn.style.cursor=all?"pointer":"not-allowed"; }
+}
+async function saveVerifications(mode){
+  var pp = PTRDB.prisesPoste.find(function(p){ return String(p.id)===String(VERIF_PP_ID); }); if(!pp) return;
+  if(mode==="valider" && !verifAllChecked()){ toast("Tous les items doivent être cochés pour valider.","err"); return; }
+  var checked={}; verifBoxes().forEach(function(b){ checked[b.getAttribute("data-item")]=b.checked; });
+  pp.verif = { checked:checked, statut:(mode==="valider"?"terminee":"en_cours"), date:new Date().toISOString() };
+  var agent = PTRDB.agents.find(function(a){ return String(a.id)===String(pp.agentId); });
+  var nom = agent?agent.prenom+" "+agent.nom:"";
+  if(mode==="valider") addMC("Vérifications", "Vérifications de prise de poste terminées — "+nom, pp.agentId);
+  else addMC("Vérifications", "Vérifications de prise de poste EN COURS (urgence) — "+nom, pp.agentId);
+  await sauvegarder(); closeModal("modal-verif");
+  toast(mode==="valider"?"Vérifications validées":"Vérifications en cours enregistrées","ok");
+  renderPrisePoste(); renderDashboard();
 }
 
 async function finPoste(id) {
@@ -1723,16 +1795,20 @@ function consToggleDates(){
   var perm = document.getElementById("cons-niveau").value==="Permanente";
   document.getElementById("cons-dates-row").style.display = perm ? "none" : "grid";
 }
-function showModalConsigne() {
-  document.getElementById("cons-titre").value="";
-  document.getElementById("cons-contenu").value="";
-  document.getElementById("cons-niveau").value="Permanente";
-  document.getElementById("cons-prio").value="Normale";
-  document.getElementById("cons-debut").value="";
-  document.getElementById("cons-fin").value="";
+function showModalConsigne(id) {
+  var c = id ? PTRDB.consignes.find(function(x){ return String(x.id)===String(id); }) : null;
+  document.getElementById("cons-id").value = c ? c.id : "";
+  document.getElementById("modal-cons-title").textContent = c ? "Modifier la consigne" : "Nouvelle Consigne";
+  document.getElementById("cons-del-btn").style.display = c ? "" : "none";
+  document.getElementById("cons-titre").value   = c ? (c.titre||"") : "";
+  document.getElementById("cons-contenu").value = c ? (c.contenu||"") : "";
+  document.getElementById("cons-niveau").value  = c ? (c.niveau||"Permanente") : "Permanente";
+  document.getElementById("cons-prio").value    = c ? (c.priorite||"Normale") : "Normale";
+  document.getElementById("cons-debut").value   = c ? (c.dateDebut||"") : "";
+  document.getElementById("cons-fin").value     = c ? (c.dateFin||"") : "";
   consToggleDates();
-  document.getElementById("cons-auteur-lbl").textContent = chefDePosteNom() || "—";
-  document.getElementById("cons-date-lbl").textContent = fmtDT(new Date().toISOString());
+  document.getElementById("cons-auteur-lbl").textContent = (c && c.auteur) ? c.auteur : (chefDePosteNom() || "—");
+  document.getElementById("cons-date-lbl").textContent = fmtDT((c && c.dateCreation) ? c.dateCreation : new Date().toISOString());
   openModal("modal-consigne");
 }
 
@@ -1742,15 +1818,30 @@ async function saveConsigne() {
   if (!titre || !contenu) { toast("Titre et contenu requis.","err"); return; }
   var niveau = document.getElementById("cons-niveau").value;
   var perm = niveau==="Permanente";
-  PTRDB.consignes.push({
-    id:genId(), titre:titre, niveau:niveau, priorite:document.getElementById("cons-prio").value,
-    contenu:contenu, active:true,
-    auteur: chefDePosteNom(),
-    dateCreation: new Date().toISOString(),
-    dateDebut: perm ? null : (document.getElementById("cons-debut").value || new Date().toISOString().split("T")[0]),
-    dateFin:   perm ? null : (document.getElementById("cons-fin").value || null)
-  });
-  await sauvegarder(); closeModal("modal-consigne"); toast("Consigne creee !","ok"); renderConsignes(); renderDashboard();
+  var id = document.getElementById("cons-id").value;
+  var dateDebut = perm ? null : (document.getElementById("cons-debut").value || new Date().toISOString().split("T")[0]);
+  var dateFin   = perm ? null : (document.getElementById("cons-fin").value || null);
+  var existing = id ? PTRDB.consignes.find(function(x){ return String(x.id)===String(id); }) : null;
+  if (existing) {
+    existing.titre=titre; existing.contenu=contenu; existing.niveau=niveau;
+    existing.priorite=document.getElementById("cons-prio").value;
+    existing.dateDebut=dateDebut; existing.dateFin=dateFin;
+  } else {
+    PTRDB.consignes.push({
+      id:genId(), titre:titre, niveau:niveau, priorite:document.getElementById("cons-prio").value,
+      contenu:contenu, active:true, auteur: chefDePosteNom(), dateCreation: new Date().toISOString(),
+      dateDebut: dateDebut, dateFin: dateFin
+    });
+  }
+  await sauvegarder(); closeModal("modal-consigne"); toast(existing?"Consigne modifiée":"Consigne creee !","ok"); renderConsignes(); renderDashboard();
+}
+
+async function supprimerConsigneModal(){
+  var id = document.getElementById("cons-id").value;
+  if(!id) return;
+  if(!confirm("Supprimer cette consigne ?")) return;
+  closeModal("modal-consigne");
+  await supprimerConsigne(id);
 }
 
 function renderConsignes() {
@@ -1764,19 +1855,20 @@ function renderConsignes() {
     if(c.auteur) meta.push("✍️ "+esc(c.auteur));
     if(c.dateCreation) meta.push("créée le "+fmtDT(c.dateCreation));
     if(c.niveau!=="Permanente" && (c.dateDebut||c.dateFin)) meta.push("📅 "+esc(c.dateDebut||"?")+" → "+esc(c.dateFin||"?"));
-    return "<div class=\"card\" style=\"margin-bottom:10px;\">"
+    return "<div class=\"card\" style=\"margin-bottom:10px;cursor:pointer;\" onclick=\"showModalConsigne('"+c.id+"')\">"
       +"<div style=\"display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;\">"
       +"<div style=\"font-weight:700;font-size:.88rem;\">"+esc(c.titre)+"</div>"
       +"<div style=\"display:flex;gap:5px;\"><span class=\"badge b-purple\">"+c.niveau+"</span><span class=\"badge "+prio+"\">"+c.priorite+"</span>"
-      +"<button onclick=\"supprimerConsigne("+c.id+")\" class=\"btn btn-red btn-sm\" style=\"padding:3px 8px;\"><i class=\"fas fa-trash\"></i></button></div></div>"
+      +"<button onclick=\"event.stopPropagation();supprimerConsigne('"+c.id+"')\" class=\"btn btn-red btn-sm\" style=\"padding:3px 8px;\"><i class=\"fas fa-trash\"></i></button></div></div>"
       +"<div style=\"font-size:.82rem;color:#64748b;\">"+esc(c.contenu.substring(0,150))+(c.contenu.length>150?"...":"")+"</div>"
       +(meta.length?"<div style=\"font-size:.7rem;color:#94a3b8;margin-top:8px;\">"+meta.join(" &bull; ")+"</div>":"")
+      +"<div style=\"font-size:.68rem;color:#cbd5e1;margin-top:6px;\">Cliquer pour modifier →</div>"
       +"</div>";
   }).join("");
 }
 
 async function supprimerConsigne(id) {
-  PTRDB.consignes = PTRDB.consignes.filter(function(c){ return c.id!==id; });
+  PTRDB.consignes = PTRDB.consignes.filter(function(c){ return String(c.id)!==String(id); });
   await sauvegarder(); renderConsignes(); renderDashboard(); toast("Consigne supprimee","ok");
 }
 
