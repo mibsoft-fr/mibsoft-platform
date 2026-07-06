@@ -596,11 +596,14 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Nom *</label><input type="text" id="mat-nom" class="input" placeholder="Ex: Extincteur CO2 Hall"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Type</label>
-          <select id="mat-type" class="input"><option>Extincteur</option><option>RIA</option><option>Detecteur</option><option>Porte CF</option><option>BAES</option><option>Autre</option></select>
+          <select id="mat-type" class="input" onchange="majAgentRow()"><option>Extincteur</option><option>RIA</option><option>Detecteur</option><option>Porte CF</option><option>BAES</option><option>Autre</option></select>
         </div>
         <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Statut</label>
           <select id="mat-statut" class="input"><option>Operationnel</option><option>A verifier</option><option>Hors Service</option></select>
         </div>
+      </div>
+      <div id="mat-agent-row" style="display:none;"><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Agent extincteur</label>
+        <select id="mat-agent" class="input"><option value="">—</option><option>Eau</option><option>Poudre</option><option>CO2</option><option>Lithium</option></select>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Numéro</label><input type="text" id="mat-numero" class="input" placeholder="Ex: EXT-04"></div>
@@ -999,6 +1002,7 @@ function showModalMateriel(id) {
       document.getElementById("mat-nom").value = m.nom||"";
       document.getElementById("mat-numero").value = m.numero||"";
       document.getElementById("mat-type").value = m.type||"Extincteur";
+      document.getElementById("mat-agent").value = m.agent||"";
       document.getElementById("mat-statut").value = m.statut||"Operationnel";
       document.getElementById("mat-loc").value = m.localisation||"";
       document.getElementById("mat-adresse").value = m.adresse||"";
@@ -1008,10 +1012,16 @@ function showModalMateriel(id) {
   } else {
     Object.keys(fields).forEach(function(k){ document.getElementById(k).value=fields[k]; });
     document.getElementById("mat-type").value="Extincteur";
+    document.getElementById("mat-agent").value="";
     document.getElementById("mat-statut").value="Operationnel";
   }
   openModal("modal-materiel");
-  majQRPreview(); majAlerteControle();
+  majQRPreview(); majAlerteControle(); majAgentRow();
+}
+// Affiche le champ « Agent extincteur » uniquement pour le type Extincteur.
+function majAgentRow(){
+  var row=document.getElementById("mat-agent-row"); if(!row) return;
+  row.style.display = (document.getElementById("mat-type").value==="Extincteur") ? "" : "none";
 }
 // Rendu du QR dans l'aperçu de la fiche
 function majQRPreview(){
@@ -1058,9 +1068,11 @@ async function saveMateriel() {
   var nom = document.getElementById("mat-nom").value.trim();
   if (!nom) { toast("Nom requis.","err"); return; }
   var existingId = document.getElementById("mat-id").value;
+  var mtype = document.getElementById("mat-type").value;
   var vals = {
     nom:nom, numero:document.getElementById("mat-numero").value.trim(),
-    type:document.getElementById("mat-type").value, statut:document.getElementById("mat-statut").value,
+    type:mtype, agent:(mtype==="Extincteur" ? document.getElementById("mat-agent").value : ""),
+    statut:document.getElementById("mat-statut").value,
     localisation:document.getElementById("mat-loc").value.trim(), adresse:document.getElementById("mat-adresse").value.trim(),
     codeQR:document.getElementById("mat-qr").value.trim(), dernierControle:document.getElementById("mat-controle").value||""
   };
@@ -1157,7 +1169,7 @@ function getFilteredMateriels(){
   return (PTRDB.materiels||[]).filter(function(m){
     if (t && m.type!==t) return false;
     if (!q) return true;
-    return [m.nom,m.type,m.numero,m.adresse,m.localisation,m.codeQR,m.statut].some(function(x){ return (x||"").toString().toLowerCase().indexOf(q)>=0; });
+    return [m.nom,m.type,m.agent,m.numero,m.adresse,m.localisation,m.codeQR,m.statut].some(function(x){ return (x||"").toString().toLowerCase().indexOf(q)>=0; });
   });
 }
 function toggleAllMat(cb){ Array.prototype.forEach.call(document.querySelectorAll(".mat-check"), function(c){ c.checked=cb.checked; }); }
@@ -1174,7 +1186,7 @@ function renderMateriels() {
       +"<td><input type=\"checkbox\" class=\"mat-check\" data-id=\""+m.id+"\"></td>"
       +"<td style=\"font-weight:600;\">"+esc(m.nom)+"</td>"
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+esc(m.numero||"—")+"</td>"
-      +"<td style=\"font-size:.8rem;color:#64748b;\">"+esc(m.type)+"</td>"
+      +"<td style=\"font-size:.8rem;color:#64748b;\">"+esc(m.type)+(m.agent?" · "+esc(m.agent):"")+"</td>"
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+esc(m.localisation||"—")+"</td>"
       +"<td><span class=\"badge "+ci.badge+"\" style=\"font-size:.68rem;\">"+esc(ci.label)+"</span></td>"
       +"<td><span class=\"badge "+sc+"\">"+esc(m.statut)+"</span></td>"
@@ -1377,6 +1389,7 @@ async function importerEtablissementDepuisPlan() {
       var p = (m.codeQR && prev["qr:"+m.codeQR.trim().toUpperCase()]) || prev[keyOf(m)] || {};
       var numero = (p.numero || m.numero || "").trim() || nextNum(m.type);
       return { id: genId(), nom:m.nom, type:m.type,
+        agent: p.agent || m.agent || "",
         numero: numero,
         adresse: p.adresse || m.adresse || "",
         localisation: m.localisation||"", codeQR: qr,
