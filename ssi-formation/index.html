@@ -151,6 +151,26 @@ function cleanupRealtime(){
 cleanupFirebaseListeners();
 activeMibRTUnsubs.forEach(u=>{try{u();}catch(e){console.log('MibRT cleanup:',e);}});
 activeMibRTUnsubs=[];
+stopSsiSyncHeartbeat();
+}
+
+// ─── Fiabilité : re-synchro périodique des voyants d'alimentation/état ───────
+// Les broadcasts Realtime sont éphémères : si un SDI_/SMSI_*_CHANGE est manqué,
+// le pupitre stagiaire reste désynchronisé. Le formateur rediffuse donc l'état
+// des voyants toutes les 3 s ; le stagiaire ne re-render que si ça a changé.
+let _ssiSyncTimer=null;
+function ssiSyncSnapshot(){
+return { sdi:{systemState:STATE.sdi.systemState,powerState:STATE.sdi.powerState,batteryState:STATE.sdi.batteryState},
+         smsi:{systemState:STATE.smsi.systemState,powerState:STATE.smsi.powerState,batteryState:STATE.smsi.batteryState,alarmState:STATE.smsi.alarmState} };
+}
+function sendSsiSync(){ if(STATE.userType==='formateur'&&STATE.sessionId){ try{ sendMessage('SSI_SYNC',ssiSyncSnapshot()); }catch(_){}} }
+function startSsiSyncHeartbeat(){ stopSsiSyncHeartbeat(); if(STATE.userType==='formateur'){ _ssiSyncTimer=setInterval(sendSsiSync,3000); } }
+function stopSsiSyncHeartbeat(){ if(_ssiSyncTimer){clearInterval(_ssiSyncTimer);_ssiSyncTimer=null;} }
+function applySsiSync(data){
+const s=data||{}; let ch=false;
+if(s.sdi){['systemState','powerState','batteryState'].forEach(k=>{ if(s.sdi[k]!==undefined&&STATE.sdi[k]!==s.sdi[k]){STATE.sdi[k]=s.sdi[k];ch=true;} }); }
+if(s.smsi){['systemState','powerState','batteryState','alarmState'].forEach(k=>{ if(s.smsi[k]!==undefined&&STATE.smsi[k]!==s.smsi[k]){STATE.smsi[k]=s.smsi[k];ch=true;} }); }
+if(ch)render();
 }
 
 // FIX: Full session cleanup for trainee logout
@@ -203,6 +223,8 @@ if(STATE.userType==='trainee'){handleFormateurCommand(message.type,message.data)
 else if(STATE.userType==='formateur'){handleTraineeAction(message.type,message.data);}
 });
 if(unsubRT)activeMibRTUnsubs.push(unsubRT);
+// Formateur : démarre la re-synchro périodique des voyants d'alimentation.
+if(STATE.userType==='formateur')startSsiSyncHeartbeat();
 // Stagiaire : demande au formateur s'il a un plan actif (pour afficher le bouton UAE).
 if(STATE.userType==='trainee')setTimeout(()=>{try{sendMessage('UAE_QUERY',{});}catch(_){}},1500);
 }
@@ -1097,6 +1119,7 @@ case 'SET_TEMPORIZATION':STATE.uga.temporization=data.minutes;break;
 case 'SET_ALARM_TYPE':STATE.uga.alarmType=data.alarmType;break;
 case 'SMSI_STATE_CHANGE':STATE.smsi.systemState=data.state;break;
 case 'SMSI_BATTERY_CHANGE':STATE.smsi.batteryState=data.state;break;
+case 'SSI_SYNC':applySsiSync(data);return;
 case 'SMSI_ALARM_CHANGE':STATE.smsi.alarmState=data.state;break;
 case 'SMSI_POWER_CHANGE':STATE.smsi.powerState=data.state;break;
 case 'SET_ZONE_STATE':setZoneState(data.zoneType,data.id,data.state);break;
