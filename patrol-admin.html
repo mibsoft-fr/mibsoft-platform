@@ -1453,7 +1453,12 @@ async function evtSetStatut(st){
 async function saveEvtCR(){
   var e = PTRDB.evenements.find(function(x){ return String(x.id)===String(EVT_DETAIL_ID); }); if(!e) return;
   evtCollectDetail(e);
-  await sauvegarder(); toast("Compte-rendu enregistré","ok"); renderEvenements();
+  var c = evtCfg(e);
+  var bits = [];
+  if(e.action) bits.push(e.action);
+  if(e.compteRendu) bits.push(e.compteRendu);
+  addMC(e.type, "SUIVI: "+(c.icon?c.icon+" ":"")+(e.localisation?("("+e.localisation+") "):"")+e.type+(bits.length?(" — "+bits.join(" · ")):""), PATROL_SESSION.agentId);
+  await sauvegarder(); toast("Suivi enregistré (main courante)","ok"); voirEvenement(EVT_DETAIL_ID); renderEvenements();
 }
 
 // ═══ MATERIELS ═══
