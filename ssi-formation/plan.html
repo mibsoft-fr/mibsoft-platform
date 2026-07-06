@@ -97,6 +97,9 @@
   .mk.ext .dot{background:#ea580c;box-shadow:0 0 0 2px #9a3412,0 2px 6px rgba(0,0,0,.4)}
   /* BAES : rectangulaire (bloc d'éclairage de sécurité) */
   .mk.baes .dot{background:#16a34a;width:36px;height:22px;border-radius:4px;box-shadow:0 0 0 2px #15803d,0 2px 6px rgba(0,0,0,.4)}
+  .mk.pi .dot{background:#2563eb;box-shadow:0 0 0 2px #1e40af,0 2px 6px rgba(0,0,0,.4)}
+  .mk.bi .dot{background:#2563eb;width:28px;height:28px;border-radius:5px;box-shadow:0 0 0 2px #1e40af,0 2px 6px rgba(0,0,0,.4)}
+  .mk.sprinkler .dot{background:#dc2626;width:36px;height:22px;border-radius:4px;box-shadow:0 0 0 2px #991b1b,0 2px 6px rgba(0,0,0,.4)}
   .mk.zfactive .dot{animation:blinkblue .7s infinite}
   @keyframes blinkblue{50%{background:#bae6fd;box-shadow:0 0 0 3px #38bdf8,0 0 12px #38bdf8}}
   /* ── États SSI (vue Jeu / UAE uniquement) : la couleur d'état prime sur la couleur de type ──
@@ -151,7 +154,7 @@
     <button class="btn edit-only" id="btn-ocr" onclick="detectNames()" title="Lit les noms des locaux sur le plan">🔤 Noms (OCR)</button>
     <button class="btn alt edit-only" id="btn-capture" onclick="toggleCapture()" title="Trace un rectangle : récupère locaux (OCR) + éléments → éditeur d'établissement">▭ Capturer une zone</button>
     <button class="btn alt edit-only" id="btn-capture-all" onclick="captureAllMarkers()" title="Capture TOUS les pictos SSI du plan comme matériels (ils se rattachent aux locaux de même nom dans l'éditeur)">🧯 Matériels</button>
-    <label class="sld edit-only">Clic ajoute <select id="add-kind"><option value="DAI">🔴 DAI</option><option value="DM">🟥 DM</option><option value="VH">🟦 VH</option><option value="VB">🟦 VB</option><option value="CCF">🔵 CCF</option><option value="PORTE">🚪 Porte</option><optgroup label="Matériel (Patrol)"><option value="RIA">🧯 RIA</option><option value="EXT">🧯 Extincteur</option><option value="BAES">🟢 BAES</option></optgroup></select></label>
+    <label class="sld edit-only">Clic ajoute <select id="add-kind"><option value="DAI">🔴 DAI</option><option value="DM">🟥 DM</option><option value="VH">🟦 VH</option><option value="VB">🟦 VB</option><option value="CCF">🔵 CCF</option><option value="PORTE">🚪 Porte</option><optgroup label="Matériel (Patrol)"><option value="RIA">🧯 RIA</option><option value="EXT">🧯 Extincteur</option><option value="BAES">🟢 BAES</option><option value="PI">🔵 PI (poteau incendie)</option><option value="BI">🟦 BI (bouche incendie)</option><option value="SPRINKLER">🟥 Sprinkler</option></optgroup></select></label>
     <label class="sld edit-only">Sensibilité <input id="rMin" type="range" min="80" max="200" value="110"></label>
     <label class="sld edit-only">Taille mini <input id="minA" type="range" min="5" max="400" value="30"></label>
     <button class="btn grey edit-only" onclick="clearMarkers()">🗑️ Effacer</button>
@@ -182,7 +185,7 @@
 <div class="editor" id="editor">
   <h4>Point sélectionné</h4>
   <label>Type</label>
-  <select id="ed-type" onchange="applyEditor()"><option value="DAI">🔴 DAI (auto)</option><option value="DM">🟥 DM (manuel)</option><option value="VH">🟦 VH ventil. haute</option><option value="VB">🟦 VB ventil. basse</option><option value="CCF">🔵 CCF clapet coupe-feu</option><option value="RIA">🧯 RIA (matériel)</option><option value="EXT">🧯 Extincteur (matériel)</option><option value="BAES">🟢 BAES (matériel)</option></select>
+  <select id="ed-type" onchange="applyEditor()"><option value="DAI">🔴 DAI (auto)</option><option value="DM">🟥 DM (manuel)</option><option value="VH">🟦 VH ventil. haute</option><option value="VB">🟦 VB ventil. basse</option><option value="CCF">🔵 CCF clapet coupe-feu</option><option value="RIA">🧯 RIA (matériel)</option><option value="EXT">🧯 Extincteur (matériel)</option><option value="BAES">🟢 BAES (matériel)</option><option value="PI">🔵 PI (matériel)</option><option value="BI">🟦 BI (matériel)</option><option value="SPRINKLER">🟥 Sprinkler (matériel)</option></select>
   <div id="ed-zf-row" style="display:none"><label id="ed-zf-label">Zone</label><select id="ed-zf" onchange="applyEditor()"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
   <div id="ed-zf2-row" style="display:none"><label>Zone 2 (clapet entre 2 ZC, optionnel)</label><select id="ed-zf2" onchange="applyEditor()"><option value="">(aucune)</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
   <div id="ed-link-row" style="display:none"><label id="ed-link-label">Mise en sécurité</label><select id="ed-link" onchange="applyEditor()"><option value="">(aucun)</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
@@ -236,9 +239,9 @@ let toastT;function toast(t){const e=$('toast');e.textContent=t;e.classList.add(
 const isSym=m=>m.type==='VH'||m.type==='VB'||m.type==='CCF';
 // Marqueurs « matériel » (RIA / extincteur / BAES) : purement informatifs pour la capture
 // d'établissement Patrol — exclus de la logique SSI (alarmes, zones, états).
-const isMat=m=>m.type==='RIA'||m.type==='EXT'||m.type==='BAES';
+const isMat=m=>m.type==='RIA'||m.type==='EXT'||m.type==='BAES'||m.type==='PI'||m.type==='BI'||m.type==='SPRINKLER';
 // Code affiché sur la pastille (le numéro, lui, reste sur l'étiquette). BAES -> "BES".
-const CODE={DAI:'DAI',DM:'DM',VH:'VH',VB:'VB',CCF:'CCF',RIA:'RIA',EXT:'EXT',BAES:'BES'};
+const CODE={DAI:'DAI',DM:'DM',VH:'VH',VB:'VB',CCF:'CCF',RIA:'RIA',EXT:'EXT',BAES:'BES',PI:'PI',BI:'BI',SPRINKLER:'SPR'};
 const symZoneType=m=>m.type==='CCF'?'compartment':'smoke';  // CCF -> ZC, VH/VB -> ZF
 const symPfx=m=>m.type==='CCF'?'ZC':'ZF';
 const tag=m=>isSym(m)?(symPfx(m)+(m.zf||1)+(m.type==='CCF'&&m.zf2?('/'+m.zf2):'')):((CODE[m.type]||m.type)+String(m.id).padStart(2,'0'));
@@ -330,7 +333,7 @@ function refreshLink(){
 
 // Numérotation automatique : DAI et DM numérotés 1..N dans l'ordre de placement.
 // (En mode exploitation réelle on rebranchera un choix manuel du numéro ici.)
-function renumber(){const c={DAI:0,DM:0,RIA:0,EXT:0,BAES:0};MARKERS.forEach(k=>{if(c[k.type]!==undefined)k.id=++c[k.type];});
+function renumber(){const c={DAI:0,DM:0,RIA:0,EXT:0,BAES:0,PI:0,BI:0,SPRINKLER:0};MARKERS.forEach(k=>{if(c[k.type]!==undefined)k.id=++c[k.type];});
   const tooMany=MARKERS.filter(k=>(k.type==='DAI'||k.type==='DM')&&k.id>10);if(tooMany.length)toast('Plus de 10 '+(tooMany[0].type)+' : au-delà de 10, non géré par le SSI');}
 
 function setMode(m){MODE=m;document.body.classList.remove('mode-play','mode-edit');document.body.classList.add('mode-'+m);$('m-play').classList.toggle('on',m==='play');$('m-edit').classList.toggle('on',m==='edit');if(m==='play'){selectMarker(-1);selectDoor(-1);}logLine('Mode : '+(m==='edit'?'Édition':'Jeu'));renderMarkers();renderDoors();}
@@ -583,7 +586,7 @@ function renderMarkers(){
   stage.querySelectorAll('.mk').forEach(e=>e.remove());
   MARKERS.forEach((m,idx)=>{
     const wrap=document.createElement('div');
-    const kindClass={DAI:'dai',DM:'dm',VH:'vh',VB:'vb',CCF:'ccf',RIA:'ria',EXT:'ext',BAES:'baes'}[m.type]||'dai';
+    const kindClass={DAI:'dai',DM:'dm',VH:'vh',VB:'vb',CCF:'ccf',RIA:'ria',EXT:'ext',BAES:'baes',PI:'pi',BI:'bi',SPRINKLER:'sprinkler'}[m.type]||'dai';
     wrap.className='mk '+kindClass+(idx===selected?' sel':'')+(m._hs?' hs':'')+(isMat(m)?'':' ssi-'+(m._ssi||'attente'))+matStateClass(m);
     wrap.dataset.idx=idx;
     wrap.style.left=(m.x/img.naturalWidth*100)+'%';wrap.style.top=(m.y/img.naturalHeight*100)+'%';
@@ -611,7 +614,7 @@ function applyMarkerStates(){
     const m=MARKERS[idx],wrap=els[idx];if(!wrap)continue;
     const hasX=!!wrap.querySelector('.xmark');
     if(!!m._hs!==hasX){renderMarkers();return;} // structure modifiée → rebuild complet (rare)
-    const kindClass={DAI:'dai',DM:'dm',VH:'vh',VB:'vb',CCF:'ccf',RIA:'ria',EXT:'ext',BAES:'baes'}[m.type]||'dai';
+    const kindClass={DAI:'dai',DM:'dm',VH:'vh',VB:'vb',CCF:'ccf',RIA:'ria',EXT:'ext',BAES:'baes',PI:'pi',BI:'bi',SPRINKLER:'sprinkler'}[m.type]||'dai';
     const cls='mk '+kindClass+(idx===selected?' sel':'')+(m._hs?' hs':'')+(isMat(m)?'':' ssi-'+(m._ssi||'attente'))+matStateClass(m);
     if(wrap.className!==cls)wrap.className=cls; // n'écrit que si différent → pas de restart d'animation
   }

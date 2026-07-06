@@ -492,7 +492,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
       <input type="text" id="mat-search" class="input" placeholder="🔎 Rechercher (nom, numéro, adresse, QR, localisation…)" oninput="renderMateriels()" style="flex:1;min-width:220px;">
       <select id="mat-filtre-type" class="input" onchange="renderMateriels()" style="max-width:200px;">
         <option value="">Tous les types</option>
-        <option>Extincteur</option><option>RIA</option><option>BAES</option><option>Desenfumage</option><option>Detecteur</option><option>Porte CF</option><option>Autre</option>
+        <option>Extincteur</option><option>RIA</option><option>BAES</option><option>PI</option><option>BI</option><option>Sprinkler</option><option>Desenfumage</option><option>Detecteur</option><option>Porte CF</option><option>Autre</option>
       </select>
     </div>
     <div class="card">
@@ -611,7 +611,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
       <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Nom *</label><input type="text" id="mat-nom" class="input" placeholder="Ex: Extincteur CO2 Hall"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Type</label>
-          <select id="mat-type" class="input" onchange="majAgentRow()"><option>Extincteur</option><option>RIA</option><option>Detecteur</option><option>Porte CF</option><option>BAES</option><option>Autre</option></select>
+          <select id="mat-type" class="input" onchange="majAgentRow()"><option>Extincteur</option><option>RIA</option><option>BAES</option><option>PI</option><option>BI</option><option>Sprinkler</option><option>Detecteur</option><option>Porte CF</option><option>Autre</option></select>
         </div>
         <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Statut</label>
           <select id="mat-statut" class="input"><option>Operationnel</option><option>A verifier</option><option>Hors Service</option></select>
