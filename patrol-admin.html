@@ -1408,23 +1408,32 @@ function voirEvenement(id){
   if(e.statut!=="Termine") h += "<button onclick=\"evtSetStatut('Termine')\" class='btn btn-green' style='flex:1;justify-content:center;'>✔ Clôturer</button>";
   if(e.statut==="Termine") h += "<button onclick=\"evtSetStatut('En cours')\" class='btn btn-gray' style='flex:1;justify-content:center;'>↩ Rouvrir</button>";
   h += "</div>";
+  var actChamp = (c.champs||[]).filter(function(f){ return f.id==="action"; })[0];
+  if(actChamp){
+    var opts = "<option value=''>—</option>" + actChamp.options.map(function(o){ var sel=(e.action===o)?" selected":""; return "<option"+sel+">"+esc(o)+"</option>"; }).join("");
+    h += "<div style='margin-bottom:10px;'><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;'>Action</label><select id='ed-action' class='input'>"+opts+"</select></div>";
+  }
   h += "<div><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;'>Compte-rendu / suivi</label><textarea id='ed-cr' rows='4' class='input' placeholder='Chronologie, actions menées, moyens engagés…'>"+esc(e.compteRendu||"")+"</textarea></div>";
   h += "<div style='display:flex;gap:10px;margin-top:12px;'><button onclick=\"closeModal('modal-evt-detail')\" class='btn btn-gray' style='flex:1;justify-content:center;'>Fermer</button><button onclick='saveEvtCR()' class='btn btn-primary' style='flex:1;justify-content:center;'>Enregistrer</button></div>";
   document.getElementById("ed-body").innerHTML = h;
   openModal("modal-evt-detail");
 }
+function evtCollectDetail(e){
+  var cr = document.getElementById("ed-cr"); if(cr) e.compteRendu = cr.value.trim();
+  var ac = document.getElementById("ed-action"); if(ac) e.action = ac.value;
+}
 async function evtSetStatut(st){
   var e = PTRDB.evenements.find(function(x){ return String(x.id)===String(EVT_DETAIL_ID); }); if(!e) return;
-  var cr = document.getElementById("ed-cr"); if(cr) e.compteRendu = cr.value.trim();
+  evtCollectDetail(e);
   e.statut = st;
   var c = (typeof EVT_CONFIG!=="undefined" && EVT_CONFIG[e.categorie]) || {};
   var lbl = st==="En cours"?"SUIVI":st==="Termine"?"FIN":"MAJ";
-  addMC(e.type, lbl+": "+(c.icon?c.icon+" ":"")+(e.localisation?("("+e.localisation+") "):"")+e.type+" → "+st, PATROL_SESSION.agentId);
+  addMC(e.type, lbl+": "+(c.icon?c.icon+" ":"")+(e.localisation?("("+e.localisation+") "):"")+e.type+(e.action?(" · "+e.action):"")+" → "+st, PATROL_SESSION.agentId);
   await sauvegarder(); toast("Statut mis à jour","ok"); voirEvenement(EVT_DETAIL_ID); renderEvenements();
 }
 async function saveEvtCR(){
   var e = PTRDB.evenements.find(function(x){ return String(x.id)===String(EVT_DETAIL_ID); }); if(!e) return;
-  var cr = document.getElementById("ed-cr"); if(cr) e.compteRendu = cr.value.trim();
+  evtCollectDetail(e);
   await sauvegarder(); toast("Compte-rendu enregistré","ok"); renderEvenements();
 }
 
