@@ -216,6 +216,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
 .b-orange{background:var(--warning-50);color:var(--warning-700);border:1px solid var(--warning-200);}
 .b-red{background:var(--danger-50);color:var(--danger-700);border:1px solid var(--danger-200);}
 .b-gray{background:var(--neutral-50);color:var(--text-3);border:1px solid var(--border-default);}
+.b-yellow{background:#fef9c3;color:#854d0e;border:1px solid #fde68a;}
 
 /* Badge "Admin" dans sidebar sombre */
 .sidebar .badge.b-purple{
@@ -1310,6 +1311,16 @@ function getFilteredMC(){
     return true;
   });
 }
+// Couleur du badge de type dans la main courante.
+function mcTypeBadge(type){
+  var t = (type||"").toLowerCase();
+  if (/feu|incendie|alarme/.test(t)) return "b-red";
+  if (/secours/.test(t)) return "b-green";
+  if (/intervention/.test(t)) return "b-gray";
+  if (/poste|v[ée]rif/.test(t)) return "b-yellow";
+  if (/ronde/.test(t)) return "b-orange";
+  return "b-blue";
+}
 function renderMainCourante() {
   var tbody = document.getElementById("tbl-main-courante");
   if (!tbody) return;
@@ -1325,7 +1336,7 @@ function renderMainCourante() {
   if (!list.length) { tbody.innerHTML="<tr><td colspan=\"4\" style=\"text-align:center;color:#94a3b8;padding:24px;\">Aucune entrée</td></tr>"; return; }
   tbody.innerHTML = list.slice(0,500).map(function(m){
     return "<tr><td style=\"font-size:.78rem;white-space:nowrap;\">"+fmtDT(m.date)+"</td>"
-      +"<td><span class=\"badge b-blue\" style=\"font-size:.64rem;\">"+esc(m.type)+"</span></td>"
+      +"<td><span class=\"badge "+mcTypeBadge(m.type)+"\" style=\"font-size:.64rem;\">"+esc(m.type)+"</span></td>"
       +"<td style=\"font-size:.82rem;\">"+esc(m.description)+"</td>"
       +"<td style=\"font-size:.78rem;color:#64748b;\">"+esc(m.agent||"")+"</td></tr>";
   }).join("");
@@ -1335,8 +1346,10 @@ function imprimerMainCourante(){
   var from=mcVal("mc-from"), to=mcVal("mc-to");
   var periode = (from||to) ? ("Période : "+(from?fmtDate(from):"…")+" → "+(to?fmtDate(to):"…")) : "Toutes dates";
   var centre = (typeof CENTER!=="undefined" && CENTER && CENTER.nom) ? CENTER.nom : "";
+  var typeColors = { "b-red":"#fee2e2;color:#991b1b", "b-green":"#dcfce7;color:#166534", "b-gray":"#f1f5f9;color:#475569", "b-yellow":"#fef9c3;color:#854d0e", "b-orange":"#ffedd5;color:#9a3412", "b-blue":"#dbeafe;color:#1e40af" };
   var rows = list.map(function(m){
-    return "<tr><td style=\"white-space:nowrap;\">"+fmtDT(m.date)+"</td><td>"+esc(m.type)+"</td><td>"+esc(m.description)+"</td><td>"+esc(m.agent||"")+"</td></tr>";
+    var st = typeColors[mcTypeBadge(m.type)] || typeColors["b-blue"];
+    return "<tr><td style=\"white-space:nowrap;\">"+fmtDT(m.date)+"</td><td><span style=\"display:inline-block;padding:1px 7px;border-radius:6px;font-size:11px;background:"+st+";\">"+esc(m.type)+"</span></td><td>"+esc(m.description)+"</td><td>"+esc(m.agent||"")+"</td></tr>";
   }).join("") || "<tr><td colspan=\"4\" style=\"text-align:center;color:#888;\">Aucune entrée</td></tr>";
   var html = "<html><head><meta charset=\"utf-8\"><title>Main courante</title><style>"
     + "body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:24px;}h1{font-size:18px;margin:0 0 4px;}"
