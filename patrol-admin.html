@@ -1389,7 +1389,7 @@ function renderEvenements() {
   if (!PTRDB.evenements.length) { el.innerHTML="<div style=\"text-align:center;color:#94a3b8;padding:32px;\">Aucun evenement</div>"; return; }
   el.innerHTML = PTRDB.evenements.map(function(e){
     var col = e.statut==="Debut"?"b-red":e.statut==="En cours"?"b-orange":"b-green";
-    var ic = ((typeof EVT_CONFIG!=="undefined" && EVT_CONFIG[e.categorie])||{}).icon || "";
+    var ic = evtCfg(e).icon || "";
     return "<div class=\"card\" style=\"margin-bottom:10px;cursor:pointer;\" onclick=\"voirEvenement('"+e.id+"')\">"
       +"<div style=\"display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;\">"
       +"<div><div style=\"font-weight:700;font-size:.88rem;\">"+(ic?ic+" ":"")+esc(e.type)+"</div>"
@@ -1400,12 +1400,22 @@ function renderEvenements() {
       +"</div>";
   }).join("");
 }
+// Retrouve la config d'un événement par sa catégorie, sinon par son type (événements anciens sans catégorie).
+function evtCfg(e){
+  if(!e || typeof EVT_CONFIG==="undefined") return {};
+  if(EVT_CONFIG[e.categorie]) return EVT_CONFIG[e.categorie];
+  var found = {};
+  Object.keys(EVT_CONFIG).forEach(function(k){ if(EVT_CONFIG[k].type===e.type) found=EVT_CONFIG[k]; });
+  return found;
+}
+// Liste d'actions par défaut si l'événement ne correspond à aucune catégorie connue.
+var EVT_ACTIONS_DEFAULT = ["Levée de doute","Intervention en cours","Mise en sécurité","Résolu","Transféré","Autre"];
 // ── Fiche de suivi d'un événement (statut Début › En cours › Terminé + compte-rendu) ──
 var EVT_DETAIL_ID = null;
 function voirEvenement(id){
   var e = PTRDB.evenements.find(function(x){ return String(x.id)===String(id); }); if(!e) return;
   EVT_DETAIL_ID = id;
-  var c = (typeof EVT_CONFIG!=="undefined" && EVT_CONFIG[e.categorie]) || {};
+  var c = evtCfg(e);
   document.getElementById("ed-title").innerHTML = (c.icon?c.icon+" ":"")+esc(e.type);
   var col = e.statut==="Debut"?"b-red":e.statut==="En cours"?"b-orange":"b-green";
   var h = "<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;'><span class='badge "+col+"'>"+esc(e.statut)+"</span><span style='font-size:.78rem;color:#64748b;'>"+fmtDT(e.date)+"</span></div>";
@@ -1418,10 +1428,10 @@ function voirEvenement(id){
   if(e.statut==="Termine") h += "<button onclick=\"evtSetStatut('En cours')\" class='btn btn-gray' style='flex:1;justify-content:center;'>↩ Rouvrir</button>";
   h += "</div>";
   var actChamp = (c.champs||[]).filter(function(f){ return f.id==="action"; })[0];
-  if(actChamp){
-    var opts = "<option value=''>—</option>" + actChamp.options.map(function(o){ var sel=(e.action===o)?" selected":""; return "<option"+sel+">"+esc(o)+"</option>"; }).join("");
-    h += "<div style='margin-bottom:10px;'><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;'>Action</label><select id='ed-action' class='input'>"+opts+"</select></div>";
-  }
+  var actOptions = actChamp ? actChamp.options.slice() : EVT_ACTIONS_DEFAULT.slice();
+  if(e.action && actOptions.indexOf(e.action)<0) actOptions.unshift(e.action);
+  var opts = "<option value=''>—</option>" + actOptions.map(function(o){ var sel=(e.action===o)?" selected":""; return "<option"+sel+">"+esc(o)+"</option>"; }).join("");
+  h += "<div style='margin-bottom:10px;'><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;'>Action</label><select id='ed-action' class='input'>"+opts+"</select></div>";
   h += "<div><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;'>Compte-rendu / suivi</label><textarea id='ed-cr' rows='4' class='input' placeholder='Chronologie, actions menées, moyens engagés…'>"+esc(e.compteRendu||"")+"</textarea></div>";
   h += "<div style='display:flex;gap:10px;margin-top:12px;'><button onclick=\"closeModal('modal-evt-detail')\" class='btn btn-gray' style='flex:1;justify-content:center;'>Fermer</button><button onclick='saveEvtCR()' class='btn btn-primary' style='flex:1;justify-content:center;'>Enregistrer</button></div>";
   document.getElementById("ed-body").innerHTML = h;
