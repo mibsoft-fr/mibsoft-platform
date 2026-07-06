@@ -461,21 +461,22 @@ function readCaptures(){
 // Type d'élément SSI du plan → type de matériel Patrol (l'utilisateur ajuste ensuite).
 var ELEM2MAT = { RIA:"RIA", EXT:"Extincteur", BAES:"BAES", VH:"Désenfumage", VB:"Désenfumage", CCF:"Désenfumage", DAI:"Autre", DM:"Autre" };
 
-// Repli fiable : lit les pictos directement depuis le plan publié (bucket « ssi-plans »,
+// Lit les pictos directement depuis le plan publié (bucket « ssi-plans »,
 // chemin « <scope>/<plan>/<niveau>.json »), sans dépendre du localStorage partagé entre fenêtres.
 async function fetchPlanCapturesFromServer(){
   if(!PLAN_KEY) return [];
   var scope = TEMPLATE ? "shared" : CENTER_ID;
   var folder = scope + "/" + PLAN_KEY;   // ex. shared/centre-commercial
+  var caps = [];
   try{
     var lst = await sb.storage.from("ssi-plans").list(folder, { limit: 200 });
-    if(lst.error || !lst.data) return [];
-    var files = lst.data.filter(function(f){ return /\.json$/i.test(f.name); });
-    var caps = [];
+    if(lst.error){ console.warn("[import] list", lst.error); toast("Plan serveur illisible : "+(lst.error.message||lst.error)); return []; }
+    var files = (lst.data||[]).filter(function(f){ return /\.json$/i.test(f.name); });
+    if(!files.length){ console.info("[import] aucun .json sous "+folder); return []; }
     for(var i=0;i<files.length;i++){
       var lvl = files[i].name.replace(/\.json$/i,"");
       var dl = await sb.storage.from("ssi-plans").download(folder + "/" + files[i].name);
-      if(dl.error || !dl.data) continue;
+      if(dl.error || !dl.data){ console.warn("[import] download "+files[i].name, dl.error); continue; }
       var obj; try{ obj = JSON.parse(await dl.data.text()); }catch(_){ continue; }
       var markers = (obj && obj.markers) || [];
       var elements = markers.filter(function(m){ return ELEM2MAT[m.type]; })
@@ -484,13 +485,14 @@ async function fetchPlanCapturesFromServer(){
       caps.push({ id:"srv-"+lvl, level:lvl, zone:"Matériels "+lvl, locaux:[], elements:elements, rect:null, allMarkers:true, __src:"server" });
     }
     return caps;
-  }catch(e){ console.warn("[import] plan serveur:", e); return []; }
+  }catch(e){ console.warn("[import] plan serveur:", e); toast("Plan serveur : "+((e&&e.message)||e)); return []; }
 }
 async function importerDuPlan(){
   if(!PLAN_KEY){ toast("Sélectionne d'abord un plan."); return; }
-  var caps = readCaptures();
-  if(!caps.length){ toast("Lecture du plan publié…"); caps = await fetchPlanCapturesFromServer(); }
-  if(!caps.length){ toast("Rien à importer. Publie le plan (RDC, 1er étage…) ou capture-le via « 🧯 Matériels », puis reviens ici."); return; }
+  toast("Lecture du plan publié…");
+  var caps = await fetchPlanCapturesFromServer();   // priorité au plan PUBLIÉ (fiable, à jour)
+  if(!caps.length){ caps = readCaptures(); }        // repli : captures localStorage
+  if(!caps.length){ toast("Rien à importer. Vérifie que le plan (RDC…) est bien publié, puis réessaie."); return; }
   if(!ETAB.batiments.length){ addBatiment(); }
   var selB = document.getElementById("imp-bat");
   selB.innerHTML = ETAB.batiments.map(function(b){ return "<option value=\""+b.id+"\">"+esc(b.nom)+"</option>"; }).join("");
