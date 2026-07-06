@@ -1417,7 +1417,20 @@ function canResetSdiSystem(){if(STATE.accessLevel!==2)return false;const allDMRe
 function canResetSmsiSystem(){if(STATE.smsiAccessLevel!==2)return false;const allZonesReady=[...STATE.smsi.compartmentZones,...STATE.smsi.smokeZones].every(zone=>zone.state==='attente');return allZonesReady;}
 
 function resetSdiSystem(){if(!canResetSdiSystem()){showCustomAlert('Impossible de réarmer le SDI: niveau 2 requis, tous les DM doivent être réarmés et aucun DAI ne doit être actif');return;}STATE.sdi.alarms=[];STATE.sdi.fireAlarmActive=false;STATE.sdi.alarmSound=false;STATE.sdi.detectors.forEach(d=>d.triggered=false);STATE.sdi.manualAlarms.forEach(d=>d.triggered=false);stopAlarmSound(true);if(STATE.uga.temporizationActive){clearInterval(temporizationTimer);STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;}logAction('Réarmement SDI complet');render();}
-function resetSmsiSystem(){if(!canResetSmsiSystem()){showCustomAlert('Impossible de réarmer le SMSI: niveau 2 requis et tous les DAS en position d\'attente');return;}STATE.smsi.messages=[];STATE.smsi.alarmSound=false;STATE.smsi.compartmentZones.forEach(z=>z.commandActive=false);STATE.smsi.smokeZones.forEach(z=>z.commandActive=false);STATE.uga.alarmActive=false;STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;stopGeneralAlarm();stopAlarmSound(true);logAction('Réarmement SMSI complet');render();}
+function resetSmsiSystem(){if(!canResetSmsiSystem()){showCustomAlert('Impossible de réarmer le SMSI: niveau 2 requis et tous les DAS en position d\'attente');return;}
+STATE.smsi.messages=[];STATE.smsi.alarmSound=false;
+// Réarmement COMPLET : zones ZC/ZF + coffrets relayage CR remis en attente (voyants
+// éteints), surcharges élément (clic droit) effacées, puis on repousse l'état au plan
+// pour que les symboles DAS repassent au vert (sinon coffret rouge figé / clignotement).
+STATE.elemVoyants={};STATE.elementStates={};
+const rz=z=>{z.commandActive=false;z.state='attente';z._elemVoyant='';updateZoneLeds(z);};
+STATE.smsi.compartmentZones.forEach(rz);
+STATE.smsi.smokeZones.forEach(rz);
+STATE.smsi.relayBoxes.forEach(r=>{r.state='attente';r.stopped=false;r._elemVoyant='';r.commandActive=false;updateRelayLeds(r);});
+STATE.uga.alarmActive=false;STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;
+stopGeneralAlarm();stopAlarmSound(true);
+try{broadcastPlanState();}catch(_){}
+logAction('Réarmement SMSI complet');render();}
 
 function resetSdiToIdle(){STATE.sdi.alarms=[];STATE.sdi.fireAlarmActive=false;STATE.sdi.alarmSound=false;STATE.sdi.detectors.forEach(d=>{d.triggered=false;});STATE.sdi.manualAlarms.forEach(d=>{d.triggered=false;});STATE.sdi.systemState='service';STATE.sdi.powerState='secteur';STATE.sdi.batteryState='service';try{stopAlarmSound(true);}catch(e){}if(STATE.uga.temporizationActive){clearInterval(temporizationTimer);STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;}}
 function resetSmsiToIdle(){STATE.smsi.messages=[];STATE.smsi.alarmSound=false;STATE.smsi.compartmentZones.forEach(z=>{z.commandActive=false;z.state='attente';z.ledRed={on:false,blink:false};z.ledOrange={on:false,blink:false};z.ledGreen={on:false,blink:false};});STATE.smsi.smokeZones.forEach(z=>{z.commandActive=false;z.state='attente';z.ledRed={on:false,blink:false};z.ledOrange={on:false,blink:false};z.ledGreen={on:false,blink:false};});STATE.smsi.relayBoxes.forEach(r=>{r.state='attente';r.ledRed={on:false,blink:false};r.ledOrange={on:false,blink:false};r.ledGreen={on:false,blink:false};});STATE.smsi.systemState='service';STATE.smsi.powerState='secteur';STATE.smsi.batteryState='service';STATE.smsi.alarmState='service';STATE.uga.alarmActive=false;STATE.uga.temporization=0;STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;try{stopGeneralAlarm();stopAlarmSound(true);}catch(e){}}
