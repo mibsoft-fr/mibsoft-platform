@@ -1361,11 +1361,23 @@ async function importerEtablissementDepuisPlan() {
       if (m.codeQR) prev["qr:"+m.codeQR.trim().toUpperCase()] = m;
       var k = keyOf(m); if (!prev[k]) prev[k] = m;
     });
+    // Numérotation auto par type (EXT-01, RIA-01…) quand le matériel n'a pas de numéro.
+    // Les compteurs sont amorcés sur les numéros déjà présents pour éviter les doublons.
+    var numCounters = {};
+    var typePrefix = function(t){ return ({Extincteur:"EXT",RIA:"RIA",BAES:"BAES","Désenfumage":"DESENF",Desenfumage:"DESENF",Detecteur:"DET","Porte CF":"PCF",Autre:"DIV"})[t] || (t ? t.substring(0,3).toUpperCase() : "DIV"); };
+    var seedNum = function(list){ (list||[]).forEach(function(m){
+      var mm = (((m&&m.numero)||"").trim()).match(/^([A-Za-z]+)[-\s]?(\d+)$/); if(!mm) return;
+      var pfx = mm[1].toUpperCase(), n = parseInt(mm[2],10);
+      if(!numCounters[pfx] || n>numCounters[pfx]) numCounters[pfx]=n;
+    }); };
+    seedNum(PTRDB.materiels); seedNum(etab.materiels||[]);
+    var nextNum = function(type){ var pfx=typePrefix(type); numCounters[pfx]=(numCounters[pfx]||0)+1; return pfx+"-"+String(numCounters[pfx]).padStart(2,"0"); };
     PTRDB.materiels = (etab.materiels||[]).map(function(m){
       var qr = m.codeQR || ("MAT-"+genId());
       var p = (m.codeQR && prev["qr:"+m.codeQR.trim().toUpperCase()]) || prev[keyOf(m)] || {};
+      var numero = (p.numero || m.numero || "").trim() || nextNum(m.type);
       return { id: genId(), nom:m.nom, type:m.type,
-        numero: p.numero || m.numero || "",
+        numero: numero,
         adresse: p.adresse || m.adresse || "",
         localisation: m.localisation||"", codeQR: qr,
         statut: p.statut || m.statut || "Operationnel",

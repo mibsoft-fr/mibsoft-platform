@@ -549,6 +549,7 @@ function confirmerImport(){
   });
   fermerImport(); markDirty(); render();
   toast("Importé : "+nZ+" zone(s), "+nL+" local(aux), "+nM+" matériel(s) ✓");
+  enregistrer();   // persistance immédiate : l'import ne doit pas être perdu si l'on recharge le plan
 }
 
 // ════════════ SAVE ════════════
@@ -565,7 +566,12 @@ async function enregistrer(){
       if (ex.data && ex.data.id) res = await sb.from("patrol_etablissements").update(payload).eq("id", ex.data.id);
       else res = await sb.from("patrol_etablissements").insert(payload);
     } else {
-      res = await sb.from("patrol_etablissements").upsert(payload, { onConflict:"center_id,plan_key" });
+      // L'index unique est une expression (coalesce(center_id,…)), donc onConflict:"center_id,plan_key"
+      // n'est pas satisfait par PostgREST et l'upsert échoue silencieusement. On fait donc un
+      // update explicite si la ligne existe, sinon un insert (même logique que la branche TEMPLATE).
+      var exc = await sb.from("patrol_etablissements").select("id").eq("center_id",CENTER_ID).eq("plan_key",PLAN_KEY).maybeSingle();
+      if (exc.data && exc.data.id) res = await sb.from("patrol_etablissements").update(payload).eq("id", exc.data.id);
+      else res = await sb.from("patrol_etablissements").insert(payload);
     }
     if (res.error) throw res.error;
     dirty=false;
