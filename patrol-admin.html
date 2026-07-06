@@ -1376,7 +1376,7 @@ async function saveEvenement(){
   var loc = sel ? (sel.value==="__autre__" ? ((document.getElementById("evt-loc-free")||{}).value||"").trim() : sel.value) : "";
   var com=((document.getElementById("evt-desc")||{}).value||"").trim();
   var desc = parts.join(" · ") + (com?(" — "+com):"");
-  var evt = { id:genId(), type:c.type, categorie:EVT_CUR, statut:"Debut", localisation:loc, description:desc, details:parts, commentaire:com, compteRendu:"", date:new Date().toISOString(), agentId:PATROL_SESSION.agentId };
+  var evt = { id:genId(), type:c.type, categorie:EVT_CUR, statut:"En cours", localisation:loc, description:desc, details:parts, commentaire:com, compteRendu:"", date:new Date().toISOString(), agentId:PATROL_SESSION.agentId };
   PTRDB.evenements.unshift(evt);
   addMC(c.type, "DÉBUT: "+c.icon+" "+(loc?("("+loc+") "):"")+desc, PATROL_SESSION.agentId);
   await sauvegarder(); closeModal("modal-evenement"); toast("Événement créé !","ok"); renderEvenements();
@@ -1423,7 +1423,6 @@ function voirEvenement(id){
   if((e.details||[]).length) h += "<div style='font-size:.85rem;margin-bottom:6px;'><b>Détails :</b> "+esc(e.details.join(" · "))+"</div>";
   if(e.commentaire) h += "<div style='font-size:.85rem;margin-bottom:6px;'><b>Commentaire :</b> "+esc(e.commentaire)+"</div>";
   h += "<div style='display:flex;gap:8px;flex-wrap:wrap;margin:14px 0;'>";
-  if(e.statut==="Debut") h += "<button onclick=\"evtSetStatut('En cours')\" class='btn btn-orange' style='flex:1;justify-content:center;'>▶ Passer En cours</button>";
   if(e.statut!=="Termine") h += "<button onclick=\"evtSetStatut('Termine')\" class='btn btn-green' style='flex:1;justify-content:center;'>✔ Clôturer</button>";
   if(e.statut==="Termine") h += "<button onclick=\"evtSetStatut('En cours')\" class='btn btn-gray' style='flex:1;justify-content:center;'>↩ Rouvrir</button>";
   h += "</div>";
