@@ -217,6 +217,10 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
 .b-red{background:var(--danger-50);color:var(--danger-700);border:1px solid var(--danger-200);}
 .b-gray{background:var(--neutral-50);color:var(--text-3);border:1px solid var(--border-default);}
 .b-yellow{background:#fef9c3;color:#854d0e;border:1px solid #fde68a;}
+@keyframes mibBlink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+.blink{ animation: mibBlink 1.1s ease-in-out infinite; }
+@keyframes mibPulseCard { 0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.5);} 50%{box-shadow:0 0 0 5px rgba(245,158,11,0);} }
+.evt-live{ border-left:4px solid #f59e0b; animation: mibPulseCard 1.6s ease-in-out infinite; }
 
 /* Badge "Admin" dans sidebar sombre */
 .sidebar .badge.b-purple{
@@ -1525,12 +1529,13 @@ function renderEvenements() {
   if (!PTRDB.evenements.length) { el.innerHTML="<div style=\"text-align:center;color:#94a3b8;padding:32px;\">Aucun evenement</div>"; return; }
   el.innerHTML = PTRDB.evenements.map(function(e){
     var col = e.statut==="Debut"?"b-red":e.statut==="En cours"?"b-orange":"b-green";
+    var live = (e.statut==="En cours" || e.statut==="Debut");
     var ic = evtCfg(e).icon || "";
-    return "<div class=\"card\" style=\"margin-bottom:10px;cursor:pointer;\" onclick=\"voirEvenement('"+e.id+"')\">"
+    return "<div class=\"card"+(live?" evt-live":"")+"\" style=\"margin-bottom:10px;cursor:pointer;\" onclick=\"voirEvenement('"+e.id+"')\">"
       +"<div style=\"display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;\">"
       +"<div><div style=\"font-weight:700;font-size:.88rem;\">"+(ic?ic+" ":"")+esc(e.type)+"</div>"
       +"<div style=\"font-size:.75rem;color:#64748b;margin-top:2px;\">"+esc(e.localisation||"")+" &bull; "+fmtDT(e.date)+"</div></div>"
-      +"<span class=\"badge "+col+"\">"+e.statut+"</span></div>"
+      +"<span class=\"badge "+col+(live?" blink":"")+"\">"+e.statut+"</span></div>"
       +"<div style=\"margin-top:8px;font-size:.83rem;\">"+esc(e.description)+"</div>"
       +"<div style=\"margin-top:8px;font-size:.72rem;color:#94a3b8;\">Cliquer pour suivre l'événement →</div>"
       +"</div>";
