@@ -588,17 +588,8 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
       <h3 style="font-size:1rem;font-weight:800;">Nouvel Evenement</h3>
       <button onclick="closeModal('modal-evenement')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
     </div>
-    <div style="display:flex;flex-direction:column;gap:12px;">
-      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Type</label>
-        <select id="evt-type" class="input"><option>Alarme Incendie</option><option>Secours a personne</option><option>Incident</option><option>Intrusion</option><option>Probleme technique</option><option>Autre</option></select>
-      </div>
-      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Localisation</label><input type="text" id="evt-loc" class="input" list="evt-loc-list" placeholder="Choisir ou saisir (ex. RDC · Pharmacie)…"><datalist id="evt-loc-list"></datalist></div>
-      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Description *</label><textarea id="evt-desc" class="input" rows="3" placeholder="Decrivez l'evenement..."></textarea></div>
-      <div style="display:flex;gap:10px;margin-top:4px;">
-        <button onclick="closeModal('modal-evenement')" class="btn btn-gray" style="flex:1;justify-content:center;">Annuler</button>
-        <button onclick="saveEvenement()" class="btn btn-red" style="flex:1;justify-content:center;">Creer (Alerte)</button>
-      </div>
-    </div>
+    <div id="evt-cats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;"></div>
+    <div id="evt-fields"></div>
   </div>
 </div>
 
@@ -1308,22 +1299,60 @@ function voirStructure(){
   body.innerHTML = html;
   openModal("modal-structure");
 }
-function showModalEvenement() {
-  document.getElementById("evt-desc").value="";
-  document.getElementById("evt-loc").value="";
-  remplirLocalisations("evt-loc-list");
+// Création d'événement guidée : 3 catégories à symbole, puis listes déroulantes + localisation + commentaire.
+var EVT_CONFIG = {
+  feu: { label:"Feu", icon:"🔥", type:"Alarme Incendie", color:"#dc2626", champs:[
+    { id:"detection", label:"Détection", options:["DM","DAI","Voix"] },
+    { id:"loc", type:"loc", label:"Adresse" },
+    { id:"nature", label:"Nature", options:["Poubelle","Palette","Stockage","Hydrocarbure","Décoration","Autre"] },
+    { id:"action", label:"Action", options:["Levée de doute","Extinction extincteur","Extinction RIA","Non maîtrisable","Feu éteint","Mise en sécurité","Évacuation partielle","Évacuation générale"] }
+  ] },
+  secours: { label:"Secours", icon:"🚑", type:"Secours a personne", color:"#2563eb", champs:[
+    { id:"nature", label:"Nature", options:["Malaise","Blessé"] },
+    { id:"loc", type:"loc", label:"Lieu" },
+    { id:"gravite", label:"Gravité", options:["Bénin","Grave"] },
+    { id:"action", label:"Action", options:["Traité sur place","Prise en charge pompier","Prise en charge SAMU"] }
+  ] },
+  intervention: { label:"Intervention", icon:"🔧", type:"Intervention", color:"#d97706", champs:[
+    { id:"nature", label:"Type", options:["Électrique","Gaz","Eau","Chauffage","Climatisation","Frigo","Autre"] },
+    { id:"loc", type:"loc", label:"Lieu" },
+    { id:"action", label:"Action", options:["Levée de doute","Intervention maintenance","Technicien externe","Mise hors service","Remise en service"] }
+  ] }
+};
+var EVT_CUR = null;
+function showModalEvenement(){ EVT_CUR=null; evtRenderCats();
+  document.getElementById("evt-fields").innerHTML = "<div style='color:#94a3b8;font-size:.85rem;text-align:center;padding:14px;'>Choisissez un type d'événement ci-dessus.</div>";
   openModal("modal-evenement");
 }
-
-async function saveEvenement() {
-  var type = document.getElementById("evt-type").value;
-  var loc  = document.getElementById("evt-loc").value.trim();
-  var desc = document.getElementById("evt-desc").value.trim();
-  if (!desc) { toast("Description requise.","err"); return; }
-  var evt = { id:genId(), type:type, statut:"Debut", localisation:loc, description:desc, date:new Date().toISOString(), agentId:PATROL_SESSION.agentId, commentaire:"", compteRendu:"" };
+function evtRenderCats(){
+  document.getElementById("evt-cats").innerHTML = Object.keys(EVT_CONFIG).map(function(k){
+    var c=EVT_CONFIG[k], on=(EVT_CUR===k);
+    return "<button onclick=\"evtPick('"+k+"')\" style=\"padding:14px 6px;border-radius:12px;border:2px solid "+(on?c.color:"#e2e8f0")+";background:"+(on?c.color+"14":"#fff")+";cursor:pointer;font-weight:700;font-size:.8rem;display:flex;flex-direction:column;align-items:center;gap:6px;\"><span style='font-size:1.6rem;'>"+c.icon+"</span>"+esc(c.label)+"</button>";
+  }).join("");
+}
+function evtPick(k){
+  EVT_CUR=k; evtRenderCats();
+  var c=EVT_CONFIG[k];
+  var html = c.champs.map(function(f){
+    if(f.type==="loc") return "<div style='margin-bottom:10px;'><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;'>"+esc(f.label)+"</label><input id='evt-loc' class='input' list='evt-loc-list' placeholder='Choisir ou saisir…'><datalist id='evt-loc-list'></datalist></div>";
+    return "<div style='margin-bottom:10px;'><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;'>"+esc(f.label)+"</label><select id='evt-f-"+f.id+"' class='input'>"+f.options.map(function(o){return "<option>"+esc(o)+"</option>";}).join("")+"</select></div>";
+  }).join("");
+  html += "<div style='margin-bottom:10px;'><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;'>Commentaire</label><textarea id='evt-desc' class='input' rows='2' placeholder='Précisions libres (optionnel)…'></textarea></div>";
+  html += "<div style='display:flex;gap:10px;margin-top:4px;'><button onclick=\"closeModal('modal-evenement')\" class='btn btn-gray' style='flex:1;justify-content:center;'>Annuler</button><button onclick='saveEvenement()' class='btn btn-red' style='flex:1;justify-content:center;'>Créer l'événement</button></div>";
+  document.getElementById("evt-fields").innerHTML = html;
+  remplirLocalisations("evt-loc-list");
+}
+async function saveEvenement(){
+  if(!EVT_CUR){ toast("Choisissez un type d'événement.","err"); return; }
+  var c=EVT_CONFIG[EVT_CUR], parts=[];
+  c.champs.forEach(function(f){ if(f.type==="loc") return; var el=document.getElementById("evt-f-"+f.id); if(el&&el.value) parts.push(el.value); });
+  var loc=((document.getElementById("evt-loc")||{}).value||"").trim();
+  var com=((document.getElementById("evt-desc")||{}).value||"").trim();
+  var desc = parts.join(" · ") + (com?(" — "+com):"");
+  var evt = { id:genId(), type:c.type, categorie:EVT_CUR, statut:"Debut", localisation:loc, description:desc, details:parts, commentaire:com, compteRendu:"", date:new Date().toISOString(), agentId:PATROL_SESSION.agentId };
   PTRDB.evenements.unshift(evt);
-  addMC(type, "DEBUT: "+desc.substring(0,50), PATROL_SESSION.agentId);
-  await sauvegarder(); closeModal("modal-evenement"); toast("Evenement cree !","ok"); renderEvenements();
+  addMC(c.type, "DÉBUT: "+c.icon+" "+(loc?("("+loc+") "):"")+desc, PATROL_SESSION.agentId);
+  await sauvegarder(); closeModal("modal-evenement"); toast("Événement créé !","ok"); renderEvenements();
 }
 
 function renderEvenements() {
@@ -1332,9 +1361,10 @@ function renderEvenements() {
   if (!PTRDB.evenements.length) { el.innerHTML="<div style=\"text-align:center;color:#94a3b8;padding:32px;\">Aucun evenement</div>"; return; }
   el.innerHTML = PTRDB.evenements.map(function(e){
     var col = e.statut==="Debut"?"b-red":e.statut==="En cours"?"b-orange":"b-green";
+    var ic = ((typeof EVT_CONFIG!=="undefined" && EVT_CONFIG[e.categorie])||{}).icon || "";
     return "<div class=\"card\" style=\"margin-bottom:10px;\">"
       +"<div style=\"display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;\">"
-      +"<div><div style=\"font-weight:700;font-size:.88rem;\">"+e.type+"</div>"
+      +"<div><div style=\"font-weight:700;font-size:.88rem;\">"+(ic?ic+" ":"")+esc(e.type)+"</div>"
       +"<div style=\"font-size:.75rem;color:#64748b;margin-top:2px;\">"+esc(e.localisation||"")+" &bull; "+fmtDT(e.date)+"</div></div>"
       +"<span class=\"badge "+col+"\">"+e.statut+"</span></div>"
       +"<div style=\"margin-top:8px;font-size:.83rem;\">"+esc(e.description)+"</div>"
