@@ -646,6 +646,9 @@ function renderDoors(){
     if(d._fault){const ang=34*Math.PI/180,vx=bx-d.x2,vy=by-d.y2;bx2=d.x2+vx*Math.cos(ang)-vy*Math.sin(ang);by2=d.y2+vx*Math.sin(ang)+vy*Math.cos(ang);fcls=' class="dfault"';}
     html+=`<line x1="${d.x1}" y1="${d.y1}" x2="${ax}" y2="${ay}" stroke="#DC2626" stroke-width="${sw}" stroke-linecap="round" opacity="${op}"/>`;
     html+=`<line${fcls} x1="${d.x2}" y1="${d.y2}" x2="${bx2}" y2="${by2}" stroke="#DC2626" stroke-width="${sw}" stroke-linecap="round" opacity="${op}"/>`;
+    // Formateur en mode Jeu : porte active (sécurité/défaut) cliquable au clic droit
+    // pour rouvrir le menu d'état (sinon impossible de la réarmer une fois en rouge).
+    if(!UAE&&MODE==='play')html+=`<line data-door="${i}" x1="${d.x1}" y1="${d.y1}" x2="${d.x2}" y2="${d.y2}" stroke="#000" stroke-opacity="0.001" stroke-width="${sw*2.4}" style="pointer-events:stroke;cursor:context-menu"/>`;
     if(MODE==='edit'){
       html+=`<line data-door="${i}" x1="${d.x1}" y1="${d.y1}" x2="${d.x2}" y2="${d.y2}" stroke="${sel?'#111':'#fff'}" stroke-opacity="${sel?0.5:0.01}" stroke-width="${sw*2.4}" style="pointer-events:stroke;cursor:pointer"/>`;
       html+=`<circle data-door="${i}" data-end="1" cx="${d.x1}" cy="${d.y1}" r="${hr}" fill="#fff" stroke="#111" stroke-width="${sw*0.5}" style="pointer-events:all;cursor:grab"/>`;

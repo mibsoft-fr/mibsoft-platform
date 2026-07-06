@@ -1862,6 +1862,12 @@ STATE.elemVoyants=STATE.elemVoyants||{};
 (zones||[]).forEach(zn=>{
 const mk=zn.t+':'+zn.id;const c=STATE.elemVoyants[mk]=STATE.elemVoyants[mk]||{};
 if(!state||state==='attente')delete c[key];else c[key]=state;
+// États FONCTIONNELS (attente/sécurité) : on pilote aussi l'état réel de la zone,
+// sinon un réarmement d'élément laissait le voyant CMSI rouge (état de zone figé
+// en « sécurité » par le déclenchement) et le plan/DAS ne repassaient pas au vert.
+const zarr=zn.t==='compartment'?STATE.smsi.compartmentZones:(zn.t==='smoke'?STATE.smsi.smokeZones:STATE.smsi.relayBoxes);
+const zz=zarr&&zarr.find(x=>x.id===zn.id);
+if(zz){ if(state==='attente'){zz.state='attente';zz.commandActive=false;} else if(state==='securite'){zz.state='securite';} }
 recomputeZoneVoyant(zn.t,zn.id);
 });
 const lbl=(label||'Élément')+(addr?(' '+addr):'');
