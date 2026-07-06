@@ -161,7 +161,8 @@ stopSsiSyncHeartbeat();
 let _ssiSyncTimer=null;
 function ssiSyncSnapshot(){
 return { sdi:{systemState:STATE.sdi.systemState,powerState:STATE.sdi.powerState,batteryState:STATE.sdi.batteryState},
-         smsi:{systemState:STATE.smsi.systemState,powerState:STATE.smsi.powerState,batteryState:STATE.smsi.batteryState,alarmState:STATE.smsi.alarmState} };
+         smsi:{systemState:STATE.smsi.systemState,powerState:STATE.smsi.powerState,batteryState:STATE.smsi.batteryState,alarmState:STATE.smsi.alarmState},
+         uga:{temporization:STATE.uga.temporization,alarmType:STATE.uga.alarmType} };
 }
 function sendSsiSync(){ if(STATE.userType==='formateur'&&STATE.sessionId){ try{ sendMessage('SSI_SYNC',ssiSyncSnapshot()); }catch(_){}} }
 function startSsiSyncHeartbeat(){ stopSsiSyncHeartbeat(); if(STATE.userType==='formateur'){ _ssiSyncTimer=setInterval(sendSsiSync,3000); } }
@@ -170,6 +171,11 @@ function applySsiSync(data){
 const s=data||{}; let ch=false;
 if(s.sdi){['systemState','powerState','batteryState'].forEach(k=>{ if(s.sdi[k]!==undefined&&STATE.sdi[k]!==s.sdi[k]){STATE.sdi[k]=s.sdi[k];ch=true;} }); }
 if(s.smsi){['systemState','powerState','batteryState','alarmState'].forEach(k=>{ if(s.smsi[k]!==undefined&&STATE.smsi[k]!==s.smsi[k]){STATE.smsi[k]=s.smsi[k];ch=true;} }); }
+// Réglages UGA (temporisation, type d'alarme) : indispensables AVANT un déclenchement
+// pour que la tempo soit respectée côté stagiaire (sinon alarme générale immédiate).
+// On ne touche pas au décompte en cours (temporizationActive/Remaining).
+if(s.uga){ if(s.uga.temporization!==undefined&&STATE.uga.temporization!==s.uga.temporization){STATE.uga.temporization=s.uga.temporization;ch=true;}
+           if(s.uga.alarmType!==undefined&&STATE.uga.alarmType!==s.uga.alarmType){STATE.uga.alarmType=s.uga.alarmType;ch=true;} }
 if(ch)render();
 }
 
@@ -1619,12 +1625,12 @@ function handleCreateTrainee(event){event.preventDefault();const data={nom:docum
 
 function deleteTrainee(id){showCustomConfirm('Êtes-vous sûr de vouloir supprimer ce stagiaire?',()=>{STATE.trainees=STATE.trainees.filter(t=>t.id!==id);saveTrainees();render();showCustomAlert('Stagiaire supprimé.');});}
 
-function changeSdiState(state){if(!checkSessionBeforeAction())return;STATE.sdi.systemState=state;sendMessage('SDI_STATE_CHANGE',{state});const labels={'service':'En service','hors-service':'Hors service','hors-tension':'Hors tension'};logAction('SDI - Changement état système',labels[state]||state,'formateur');}
-function changeSdiBattery(state){if(!checkSessionBeforeAction())return;STATE.sdi.batteryState=state;sendMessage('SDI_BATTERY_CHANGE',{state});logAction('SDI - Batterie',state==='service'?'En service':'Hors service','formateur');}
-function changeSdiPower(state){if(!checkSessionBeforeAction())return;STATE.sdi.powerState=state;sendMessage('SDI_POWER_CHANGE',{state});logAction('SDI - Alimentation',state==='secteur'?'Secteur':'Batterie','formateur');}
-function changeSmsiPower(state){if(!checkSessionBeforeAction())return;STATE.smsi.powerState=state;sendMessage('SMSI_POWER_CHANGE',{state});logAction('SMSI - Alimentation',state==='secteur'?'Secteur':'Batterie','formateur');}
-function setTemporization(minutes){if(!checkSessionBeforeAction())return;STATE.uga.temporization=parseInt(minutes);sendMessage('SET_TEMPORIZATION',{minutes:parseInt(minutes)});logAction('Temporisation modifiée',minutes+' min','formateur');}
-function setAlarmType(type){if(!checkSessionBeforeAction())return;STATE.uga.alarmType=type;sendMessage('SET_ALARM_TYPE',{alarmType:type});const labels={'generale':'Générale','generale-selective':'Générale sélective','generale-message':'Générale avec message'};logAction('Type alarme modifié',labels[type]||type,'formateur');}
+function changeSdiState(state){if(!checkSessionBeforeAction())return;STATE.sdi.systemState=state;sendMessage('SDI_STATE_CHANGE',{state});sendSsiSync();const labels={'service':'En service','hors-service':'Hors service','hors-tension':'Hors tension'};logAction('SDI - Changement état système',labels[state]||state,'formateur');}
+function changeSdiBattery(state){if(!checkSessionBeforeAction())return;STATE.sdi.batteryState=state;sendMessage('SDI_BATTERY_CHANGE',{state});sendSsiSync();logAction('SDI - Batterie',state==='service'?'En service':'Hors service','formateur');}
+function changeSdiPower(state){if(!checkSessionBeforeAction())return;STATE.sdi.powerState=state;sendMessage('SDI_POWER_CHANGE',{state});sendSsiSync();logAction('SDI - Alimentation',state==='secteur'?'Secteur':'Batterie','formateur');}
+function changeSmsiPower(state){if(!checkSessionBeforeAction())return;STATE.smsi.powerState=state;sendMessage('SMSI_POWER_CHANGE',{state});sendSsiSync();logAction('SMSI - Alimentation',state==='secteur'?'Secteur':'Batterie','formateur');}
+function setTemporization(minutes){if(!checkSessionBeforeAction())return;STATE.uga.temporization=parseInt(minutes);sendMessage('SET_TEMPORIZATION',{minutes:parseInt(minutes)});sendSsiSync();logAction('Temporisation modifiée',minutes+' min','formateur');}
+function setAlarmType(type){if(!checkSessionBeforeAction())return;STATE.uga.alarmType=type;sendMessage('SET_ALARM_TYPE',{alarmType:type});sendSsiSync();const labels={'generale':'Générale','generale-selective':'Générale sélective','generale-message':'Générale avec message'};logAction('Type alarme modifié',labels[type]||type,'formateur');}
 
 function toggleDetector(type,id){if(!checkSessionBeforeAction())return;const detectorArray=type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const detector=detectorArray.find(d=>d.id===id);if(detector.triggered){resetDetector(type,id);sendMessage('RESET_DETECTOR',{type,id});logAction(`Réarmement ${type}`,detector.address,'formateur');}else{triggerDetector(type,id,false);sendMessage('TRIGGER_DETECTOR',{type,id});logAction(`Déclenchement ${type}`,detector.address,'formateur');}render();}
 function changeDetectorState(type,id,state){const detectorArray=type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const detector=detectorArray.find(d=>d.id===id);detector.state=state;sendMessage('CHANGE_DETECTOR_STATE',{type,id,state});logAction(`${type}${String(id).padStart(2,'0')} - ${state==='service'?'Remis en service':'Mis hors service'}`,detector.address,'formateur');render();}
@@ -2023,9 +2029,9 @@ printWindow.document.close();
 function deleteSessionLog(sessionId){showCustomConfirm('Supprimer ce journal?',()=>{if(firebaseInitialized){db.ref(`session_logs/${sessionId}`).remove();}STATE.sessionLogs=STATE.sessionLogs.filter(l=>l.sessionId!==sessionId);render();showCustomAlert('Journal supprimé.');});}
 
 function updateDetectorAddressInput(type,id,address){const detectorArray=type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const detector=detectorArray.find(d=>d.id===id);if(detector){detector.address=address;}sendMessage('UPDATE_DETECTOR_ADDRESS',{type,id,address});}
-function changeSmsiState(state){if(!checkSessionBeforeAction())return;STATE.smsi.systemState=state;sendMessage('SMSI_STATE_CHANGE',{state});const labels={'service':'En service','hors-service':'Hors service','hors-tension':'Hors tension'};logAction('SMSI - Changement état système',labels[state]||state,'formateur');}
-function changeSmsBattery(state){if(!checkSessionBeforeAction())return;STATE.smsi.batteryState=state;sendMessage('SMSI_BATTERY_CHANGE',{state});logAction('SMSI - Batterie',state==='service'?'En service':'Hors service','formateur');}
-function changeSmsiAlarm(state){if(!checkSessionBeforeAction())return;STATE.smsi.alarmState=state;sendMessage('SMSI_ALARM_CHANGE',{state});logAction('SMSI - Alarme',state==='service'?'En service':'Hors service','formateur');}
+function changeSmsiState(state){if(!checkSessionBeforeAction())return;STATE.smsi.systemState=state;sendMessage('SMSI_STATE_CHANGE',{state});sendSsiSync();const labels={'service':'En service','hors-service':'Hors service','hors-tension':'Hors tension'};logAction('SMSI - Changement état système',labels[state]||state,'formateur');}
+function changeSmsBattery(state){if(!checkSessionBeforeAction())return;STATE.smsi.batteryState=state;sendMessage('SMSI_BATTERY_CHANGE',{state});sendSsiSync();logAction('SMSI - Batterie',state==='service'?'En service':'Hors service','formateur');}
+function changeSmsiAlarm(state){if(!checkSessionBeforeAction())return;STATE.smsi.alarmState=state;sendMessage('SMSI_ALARM_CHANGE',{state});sendSsiSync();logAction('SMSI - Alarme',state==='service'?'En service':'Hors service','formateur');}
 function changeZoneState(zoneType,id,state){if(!checkSessionBeforeAction())return;setZoneState(zoneType,id,state);sendMessage('SET_ZONE_STATE',{zoneType,id,state});const typeLabels={'compartment':'PC','smoke':'DF','relay':'CR'};const stateLabels={'attente':'Attente','defaut-attente':'Défaut attente','securite':'Sécurité','defaut-securite':'Défaut sécurité','defaut-alim':'Défaut alimentation'};logAction(`${typeLabels[zoneType]||zoneType}${id} - ${stateLabels[state]||state}`,'','formateur');render();}
 function updateZoneAddressInput(zoneType,id,address){updateZoneAddress(zoneType,id,address);sendMessage('UPDATE_ZONE_ADDRESS',{zoneType,id,address});}
 function traineeStopAlarmSound(){stopAlarmSound();render();}
