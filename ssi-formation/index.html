@@ -1218,7 +1218,9 @@ const _loc=(detector.address||'').trim();
 const _label=/^(DAI|DM)/i.test(_loc)?_loc:`${type}${String(id).padStart(2,'0')} - ${_loc}`;
 const alarm=`Alarme feu ${_label}`;
 STATE.sdi.alarms.push({text:alarm,timestamp:new Date().toISOString()});
-addSmsiMessage(`Alarme détectée: ${_label}`);
+// Sur le SMSI on ne donne que la localisation (le DAI/DM est déjà indiqué sur le SDI).
+const _place=_loc.replace(/^(DAI|DM)\s*\d*\s*[-–—·:]?\s*/i,'').trim();
+addSmsiMessage(`Alarme feu ${_place||_loc}`);
 if(!STATE.uga.alarmActive){
 if(STATE.uga.temporization>0&&!STATE.uga.temporizationActive){STATE.uga.temporizationActive=true;STATE.uga.temporizationRemaining=STATE.uga.temporization*60;startTemporization();}
 else if(STATE.uga.temporization===0){triggerGeneralAlarm();}
@@ -1461,10 +1463,13 @@ function triggerGeneralAlarm(){STATE.uga.alarmActive=true;STATE.uga.temporizatio
 function forceGeneralAlarm(){if(STATE.uga.temporizationActive){clearInterval(temporizationTimer);STATE.uga.temporizationActive=false;}if(!STATE.uga.alarmActive){triggerGeneralAlarm();}}
 function acquitProcess(){if(STATE.smsiAccessLevel!==2){addSmsiMessage('Acquit processus impossible: niveau 2 requis');showCustomAlert("L'acquittement du processus d'alarme n'est possible qu'en niveau 2");return;}if(STATE.uga.temporizationActive){clearInterval(temporizationTimer);STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;addSmsiMessage('Processus alarme acquitté - Alarme générale annulée');logAction('Acquit processus alarme');render();}}
 function canResetSdiSystem(){if(STATE.accessLevel!==2)return false;const allDMReset=STATE.sdi.manualAlarms.every(d=>!d.triggered);const noDaiActive=STATE.sdi.detectors.every(d=>!d.triggered);return allDMReset&&noDaiActive;}
-// Le RÉARMEMENT SMSI est le reset maître du CMSI (niveau 2) : il ramène zones,
-// coffrets et surcharges en attente. Ne pas le conditionner à l'état des zones,
-// sinon une zone restée en sécurité (DAS/DAI/CMD) bloque tout réarmement.
-function canResetSmsiSystem(){return STATE.smsiAccessLevel===2;}
+// RÉARMEMENT SMSI : niveau 2 requis ET toutes les zones ZC/ZF revenues en attente
+// (on rearme d'abord chaque DAS sur le plan, ce qui repasse sa zone en attente,
+// puis on rearme le CMSI). Reflète la procédure réelle.
+function canResetSmsiSystem(){
+if(STATE.smsiAccessLevel!==2)return false;
+return [].concat(STATE.smsi.compartmentZones,STATE.smsi.smokeZones).every(function(z){return z.state==='attente';});
+}
 
 function resetSdiSystem(){if(!canResetSdiSystem()){showCustomAlert('Impossible de réarmer le SDI: niveau 2 requis, tous les DM doivent être réarmés et aucun DAI ne doit être actif');return;}STATE.sdi.alarms=[];STATE.sdi.fireAlarmActive=false;STATE.sdi.alarmSound=false;STATE.sdi.detectors.forEach(d=>d.triggered=false);STATE.sdi.manualAlarms.forEach(d=>d.triggered=false);stopAlarmSound(true);if(STATE.uga.temporizationActive){clearInterval(temporizationTimer);STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;}logAction('Réarmement SDI complet');render();}
 // Remise à zéro fonctionnelle du SMSI (zones ZC/ZF + coffrets CR + surcharges élément).
@@ -1480,7 +1485,7 @@ STATE.uga.alarmActive=false;STATE.uga.temporizationActive=false;STATE.uga.tempor
 try{stopGeneralAlarm();stopAlarmSound(true);}catch(_){}
 try{broadcastPlanState();}catch(_){}
 }
-function resetSmsiSystem(){if(!canResetSmsiSystem()){showCustomAlert('Impossible de réarmer le SMSI : niveau 2 requis (clé/code d\'accès).');return;}
+function resetSmsiSystem(){if(!canResetSmsiSystem()){showCustomAlert('Impossible de réarmer le SMSI : niveau 2 requis ET toutes les zones ZC/ZF doivent être remises en attente (rearmez d\'abord les DAS sur le plan).');return;}
 // Réarmement COMPLET : voyants ZC/ZF + coffrets CR éteints, surcharges effacées, plan
 // rafraîchi. Diffusé à l'autre poste (SMSI_RESET) pour éviter qu'un coffret resté en
 // sécurité côté formateur/stagiaire ne soit re-poussé (ex. CR4 figé en rouge).
