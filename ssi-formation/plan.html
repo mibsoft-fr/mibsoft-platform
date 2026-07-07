@@ -1040,13 +1040,37 @@ function elemZones(kind,idx){
 function applyElementState(kind,idx,state,label,addr){
   if(UAE)return;
   const key=(kind==='door'?'D':'M')+idx;
-  if(state==='attente')delete ELEM_OV[key];else ELEM_OV[key]=state;
+  // On épingle l'état de CHAQUE dispositif (y compris « attente ») pour qu'il soit
+  // individuel : réarmer un clapet ne doit pas réarmer la porte de la même zone.
+  ELEM_OV[key]=state;
   // Retour visuel immédiat côté formateur (réconcilié par l'état renvoyé par l'onglet formateur).
   if(kind==='door'){const d=DOORS[idx];if(d){const pos=(state==='securite'||state==='defaut-securite'||state==='defaut-position');d._active=pos;d._fault=(state==='defaut-securite'||state==='defaut-position');}renderDoors();}
   else{const m=MARKERS[idx];if(m){m._ssi=(state==='attente')?'attente':state;if(isSym(m))m._zfactive=(state==='securite'||state==='defaut-securite'||state==='defaut-position');}applyMarkerStates();}
   renderMediaThumbs();
-  const sent=post({kind:'set-element',key,label,addr,state,zones:elemZones(kind,idx)});
+  const zones=elemZones(kind,idx);
+  const sent=post({kind:'set-element',key,label,addr,state,zones,zoneClear:zonesFullyClear(zones)});
   logLine('🛠️ '+label+(addr?(' '+addr):'')+' → '+state+(sent?'':' (onglet formateur non détecté)'));
+}
+// Zones dont TOUS les DAS (clapets/ventilos/portes) sont revenus en attente → le
+// CMSI peut alors repasser la zone au vert (réarmement possible), pas avant.
+function zonesFullyClear(zones){
+  const clear={compartment:[],smoke:[]};
+  const secu=st=>(st==='securite'||st==='defaut-securite'||st==='defaut-position');
+  (zones||[]).forEach(zn=>{
+    if(zn.t!=='compartment'&&zn.t!=='smoke')return;
+    let active=false;
+    MARKERS.forEach((m,i)=>{
+      if(!isSym(m)||symZoneType(m)!==zn.t)return;
+      if(m.zf!==zn.id&&!(m.type==='CCF'&&m.zf2===zn.id))return;
+      if(secu(ELEM_OV['M'+i]||m._ssi||'attente'))active=true;
+    });
+    if(zn.t==='compartment')DOORS.forEach((d,i)=>{
+      if((d.zc||1)!==zn.id&&d.zc2!==zn.id)return;
+      if(secu(ELEM_OV['D'+i]||(d._active?'securite':'attente')))active=true;
+    });
+    if(!active)clear[zn.t].push(zn.id);
+  });
+  return clear;
 }
 document.addEventListener('click',()=>closeElementMenu());
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape')closeElementMenu();});

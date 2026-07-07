@@ -1175,7 +1175,7 @@ case 'SSI_SYNC':applySsiSync(data);return;
 case 'SMSI_ALARM_CHANGE':STATE.smsi.alarmState=data.state;break;
 case 'SMSI_POWER_CHANGE':STATE.smsi.powerState=data.state;break;
 case 'SET_ZONE_STATE':setZoneState(data.zoneType,data.id,data.state);break;
-case 'SET_ELEMENT_STATE':setElementState(data.key,data.label,data.addr,data.state,data.zones,false);break;
+case 'SET_ELEMENT_STATE':setElementState(data.key,data.label,data.addr,data.state,data.zones,false,data.zoneClear);break;
 case 'UPDATE_ZONE_ADDRESS':updateZoneAddress(data.zoneType,data.id,data.address);break;
 case 'DETECTOR_OUT_OF_SERVICE':
 {const detArray=data.type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const det=detArray.find(d=>d.id===data.id);if(det){det.outOfService=data.outOfService;}}break;
@@ -1751,7 +1751,7 @@ triggerZfFromPlan(m.zoneType||'smoke',(m.zone||m.zf),m.label,m.symbol);
 broadcastPlanState();
 return;
 }
-if(m.kind==='set-element'){setElementState(m.key,m.label,m.addr,m.state,m.zones,true);return;}
+if(m.kind==='set-element'){setElementState(m.key,m.label,m.addr,m.state,m.zones,true,m.zoneClear);return;}
 if(m.kind==='set-mat'){STATE.matStates=STATE.matStates||{};if(m.code)STATE.matStates[m.code]=m.statut;try{sendMessage('SET_MAT_STATE',{code:m.code,statut:m.statut});}catch(_){}broadcastPlanState();return;}
 };
 return PLAN_BUS;
@@ -1934,23 +1934,29 @@ z._elemVoyant=best;
 // dispositif (clapet, porte, ventilateur, détecteur). Affiche le message sur l'écran SMSI ET allume
 // le voyant de la/les zone(s) du dispositif sur le CMSI. Propagé au stagiaire (propagate=true côté
 // formateur) pour que sa vue reflète l'état dès le début de session.
-function setElementState(key,label,addr,state,zones,propagate){
+function setElementState(key,label,addr,state,zones,propagate,zoneClear){
 STATE.elementStates=STATE.elementStates||{};
-if(!state||state==='attente')delete STATE.elementStates[key];
-else STATE.elementStates[key]=state;
+// On garde l'état de CHAQUE dispositif (y compris « attente ») pour un pilotage
+// individuel : réarmer un clapet ne réarme pas la porte de la même zone.
+STATE.elementStates[key]=state;
 // voyants CMSI des zones rattachées
 STATE.elemVoyants=STATE.elemVoyants||{};
+var secu=function(st){return st==='securite'||st==='defaut-securite'||st==='defaut-position';};
 (zones||[]).forEach(zn=>{
 const mk=zn.t+':'+zn.id;const c=STATE.elemVoyants[mk]=STATE.elemVoyants[mk]||{};
-if(!state||state==='attente')delete c[key];else c[key]=state;
-// Réarmer/mettre en sécurité un DAS (VH/VB/CCF/porte) sur le plan pilote aussi
-// l'état FONCTIONNEL de sa zone → le voyant CMSI et le symbole du plan repassent
-// au vert au réarmement (et le SMSI peut ensuite être réarmé, cf. RÉARMEMENT SMSI).
+c[key]=state;
+// Mise en sécurité d'un DAS ⇒ sa zone passe en sécurité. Le retour en attente de la
+// ZONE n'a lieu que lorsque TOUS ses DAS sont réarmés (zoneClear, calculé par le plan).
 const zarr=zn.t==='compartment'?STATE.smsi.compartmentZones:(zn.t==='smoke'?STATE.smsi.smokeZones:STATE.smsi.relayBoxes);
 const zz=zarr&&zarr.find(x=>x.id===zn.id);
-if(zz){ if(state==='attente'){zz.state='attente';zz.commandActive=false;} else if(state==='securite'){zz.state='securite';} }
+if(zz&&secu(state))zz.state='securite';
 recomputeZoneVoyant(zn.t,zn.id);
 });
+// Zones dont tous les DAS sont réarmés (signalé par le plan) → retour en attente.
+if(zoneClear){
+(zoneClear.compartment||[]).forEach(function(id){var z=STATE.smsi.compartmentZones.find(x=>x.id===id);if(z){z.state='attente';z.commandActive=false;updateZoneLeds(z);}});
+(zoneClear.smoke||[]).forEach(function(id){var z=STATE.smsi.smokeZones.find(x=>x.id===id);if(z){z.state='attente';z.commandActive=false;updateZoneLeds(z);}});
+}
 const lbl=(label||'Élément')+(addr?(' '+addr):'');
 const STL={'securite':'en sécurité','defaut-position':'défaut de position','defaut-securite':'défaut de sécurité','defaut-attente':'défaut (dérangement)','defaut-alim':'défaut d\'alimentation','attente':'réarmé (attente)'};
 // Détecteur SDI (DAI/DM) : le message va sur l'ECS (SDI), pas sur le SMSI, et on
@@ -1966,7 +1972,7 @@ addSdiMessage(`${lbl} : ${STL[state]||state}`);
 }else{
 addSmsiMessage(`${lbl} : ${STL[state]||state}`);
 }
-if(propagate){try{logAction(lbl,STL[state]||state,'formateur');}catch(_){}try{sendMessage('SET_ELEMENT_STATE',{key,label,addr,state,zones});}catch(_){}}
+if(propagate){try{logAction(lbl,STL[state]||state,'formateur');}catch(_){}try{sendMessage('SET_ELEMENT_STATE',{key,label,addr,state,zones,zoneClear});}catch(_){}}
 try{broadcastPlanState();}catch(_){}
 try{render();}catch(_){}
 }
