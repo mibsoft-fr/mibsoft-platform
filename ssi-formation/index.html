@@ -340,9 +340,10 @@ if(STATE.sessionActive&&STATE.sessionId===row.session_number)return;
 console.log('nextSessionWatch: nouvelle session détectée',row.session_number);
 STATE.mibSessionId=row.sessions_formation_id||STATE.mibSessionId;
 STATE.ssiSessionId=row.ssi_session_id||null;
-// joinKnownSession arrête le poller lui-même sur succès ; en cas d'échec
-// (session déjà retombée inactive) on laisse le poller retenter au tick suivant.
-joinKnownSession(row.session_number,{silent:true});
+// Rejoint via le chemin Supabase Realtime (autoRejoinSession), INDÉPENDANT de
+// Firebase : si Firebase n'est pas initialisé/bloqué, joinKnownSession restait
+// muet et le stagiaire bloquait sur « ⏳ En attente » malgré une session active.
+autoRejoinSession(row.ssi_session_id||null,row.session_number,row.session_number);
 }catch(e){console.warn('nextSessionWatch threw',e);}
 },12000);
 }
@@ -1635,6 +1636,10 @@ async function handleTraineePinLogin(event){
         if(firebaseSessionId){joinKnownSession(firebaseSessionId);}
         else{joinActiveSession();}
       }catch(e){console.warn('join session failed',e);}
+      // Filet de sécurité : si le join initial (dépendant de Firebase) échoue en
+      // silence, le poller re-résout la session via Supabase et rejoint (autoRejoin).
+      // Il s'arrête tout seul dès que la session est active.
+      try{startNextSessionWatch();}catch(_){}
     },500);
   }catch(e){
     errEl.textContent='❌ '+(e.message||'Échec de connexion');
