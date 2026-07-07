@@ -1572,7 +1572,7 @@ async function handleTraineePinLogin(event){
   if(!sessionIdFromMib&&!centerIdRaccourci){errEl.textContent='❌ Lien invalide. Demandez le lien au formateur ou au centre.';errEl.style.display='flex';return;}
   btn.disabled=true;btn.textContent='… Vérification';
   try{
-    let centerId,sessionsFormationId,firebaseSessionId,stagiaireEmail,stagId,stagNom,stagPrenom,stagNiveau;
+    let centerId,sessionsFormationId,firebaseSessionId,resolvedSsiSessionId,stagiaireEmail,stagId,stagNom,stagPrenom,stagNiveau;
     if(sessionIdFromMib){
       // ── Chemin A : flow MIB classique, session SSIAP connue ──
       sessionsFormationId=sessionIdFromMib;
@@ -1599,6 +1599,7 @@ async function handleTraineePinLogin(event){
       stagiaireEmail=row.stagiaire_email;
       sessionsFormationId=row.sessions_formation_id;
       firebaseSessionId=row.session_number;
+      resolvedSsiSessionId=row.ssi_session_id||null;
       stagId=row.stagiaire_id;stagPrenom=row.stagiaire_prenom;stagNom=row.stagiaire_nom;
     }
     const{error:authErr}=await sbStag.auth.signInWithPassword({email:stagiaireEmail,password:pin});
@@ -1633,12 +1634,13 @@ async function handleTraineePinLogin(event){
     // Chemin A : fallback legacy via active_session singleton
     setTimeout(()=>{
       try{
-        if(firebaseSessionId){joinKnownSession(firebaseSessionId);}
+        // Session déjà résolue via Supabase (ssi_resolve_stagiaire) → on rejoint
+        // directement le canal Supabase Realtime, SANS dépendre de Firebase.
+        if(firebaseSessionId){autoRejoinSession(resolvedSsiSessionId||null,firebaseSessionId,firebaseSessionId);}
         else{joinActiveSession();}
       }catch(e){console.warn('join session failed',e);}
-      // Filet de sécurité : si le join initial (dépendant de Firebase) échoue en
-      // silence, le poller re-résout la session via Supabase et rejoint (autoRejoin).
-      // Il s'arrête tout seul dès que la session est active.
+      // Filet de sécurité : si le join initial échoue, le poller re-résout la
+      // session via Supabase et rejoint automatiquement, puis s'arrête.
       try{startNextSessionWatch();}catch(_){}
     },500);
   }catch(e){
