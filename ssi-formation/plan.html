@@ -260,7 +260,16 @@ let ELEM_OV={}; // surcharges d'état par élément (clé 'M'+idx / 'D'+idx → 
 // ── Transport : BroadcastChannel (robuste), repli sur window.opener ──
 let BUS=null;try{BUS=new BroadcastChannel('mib-ssi-plan');}catch(_){}
 function opener(){try{return window.opener&&!window.opener.closed?window.opener:null;}catch(_){return null;}}
-if(BUS)BUS.onmessage=(ev)=>{const m=ev.data||{};if(m.kind==='state'){lastStateAt=Date.now();applyState(m.data);}};
+if(BUS)BUS.onmessage=(ev)=>{const m=ev.data||{};
+  if(m.kind==='state'){lastStateAt=Date.now();applyState(m.data);}
+  else if(m.kind==='set-mat'&&m.code){applyMatFromBus(m.code,m.statut);} // maj matériel en direct (UAE)
+};
+// Applique en direct un changement d'état matériel reçu du plan formateur (même origine).
+function applyMatFromBus(code,statut){
+  const c=String(code).toUpperCase();let ch=false;
+  MARKERS.forEach(mk=>{if(isMat(mk)&&matCode(mk)===c){if(mk._matStatut!==statut){mk._matStatut=statut;mk._hs=(statut==='Hors Service');ch=true;}}});
+  if(ch){applyMarkerStates();renderMarkers();}
+}
 
 function post(msg){
   let sent=false;
