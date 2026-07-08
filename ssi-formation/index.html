@@ -844,22 +844,22 @@ STATE.mediaRecorder.onstop=async()=>{
 const blob=new Blob(STATE.recordedChunks,{type:'video/webm'});
 const filename=STATE.currentRecordingFilename||`debriefing_${Date.now()}.webm`;
 const blobUrl=URL.createObjectURL(blob);
-if(STATE.sessionId){STATE.sessionVideos[STATE.sessionId]={blob,blobUrl,filename,date:new Date().toISOString()};}// Save to chosen directory or download
-let saved=false;
-if(STATE.videoStorageHandle){
+const sid=STATE.sessionId;
+if(sid){STATE.sessionVideos[sid]={blob,blobUrl,filename,date:new Date().toISOString()};}
+render();
+// Stockage TEMPORAIRE sur Supabase (bucket privé ssi-debriefs), purgé en fin de
+// session (RGPD). On garde aussi le blob en mémoire pour une lecture immédiate.
+const path=(STATE.ssiSessionId||sid||'orphan')+'/'+filename;
 try{
-const fileHandle=await STATE.videoStorageHandle.getFileHandle(filename,{create:true});
-const writable=await fileHandle.createWritable();
-await writable.write(blob);
-await writable.close();
-saved=true;
-showCustomAlert(`📹 Vidéo sauvegardée: ${STATE.storageDirName}/${filename}\nOuvrez ce dossier pour retrouver la vidéo à tout moment.`);
-}catch(e){console.error('Erreur sauvegarde:',e);}
-}
-if(!saved){
-// Fallback: standard download
+if(!(window.supabase&&window.supabase.storage))throw new Error('Supabase indisponible');
+const{error}=await supabase.storage.from(DEBRIEF_BUCKET).upload(path,blob,{contentType:'video/webm',upsert:true});
+if(error)throw error;
+if(sid&&STATE.sessionVideos[sid])STATE.sessionVideos[sid].storagePath=path;
+showCustomAlert('📹 Vidéo enregistrée sur stockage temporaire (effacée à la fin de la session).');
+}catch(e){
+console.warn('Upload vidéo Supabase échoué — repli téléchargement local',e);
 const a=document.createElement('a');a.href=blobUrl;a.download=filename;a.click();
-showCustomAlert(`📹 Vidéo téléchargée: ${filename}\nRetrouvez-la dans votre dossier Téléchargements.`);
+showCustomAlert('⚠️ Envoi Supabase impossible — vidéo téléchargée localement.\n('+((e&&e.message)||e)+')');
 }
 render();
 };
@@ -964,30 +964,21 @@ return file;
 }
 
 async function playSessionVideo(sessionId){
-// First check in-memory blobs (current browser session)
+// 1) blob en mémoire (session courante)
 const memVideo=STATE.sessionVideos[sessionId];
 if(memVideo&&memVideo.blobUrl){
 openVideoPlayer(memVideo.blobUrl,memVideo.filename,memVideo.date);
 return;
 }
-// Otherwise, try to read from stored directory using filename from log
-const log=STATE.sessionLogs.find(l=>l.sessionId===sessionId);
-if(!log||!log.videoFilename){
-showCustomAlert('Aucun fichier vidéo associé à cette session.');
-return;
+// 2) stockage temporaire Supabase : URL signée (tant que la session n'est pas terminée).
+const path=memVideo&&memVideo.storagePath;
+if(path&&window.supabase&&window.supabase.storage){
+try{
+const{data,error}=await supabase.storage.from(DEBRIEF_BUCKET).createSignedUrl(path,3600);
+if(!error&&data&&data.signedUrl){openVideoPlayer(data.signedUrl,memVideo.filename||path,memVideo.date);return;}
+}catch(e){console.warn('signed url échoué',e);}
 }
-if(!STATE.videoStorageHandle){
-showCustomAlert('📁 Sélectionnez d\'abord le dossier vidéo (bouton "Stockage vidéo") pour accéder au fichier:\n'+log.videoFilename);
-return;
-}
-showCustomAlert('Chargement de la vidéo...');
-const file=await getFileFromStoredDir(log.videoFilename);
-if(file){
-const blobUrl=URL.createObjectURL(file);
-openVideoPlayer(blobUrl,log.videoFilename,log.endTime);
-}else{
-showCustomAlert('Fichier non trouvé dans le dossier "'+STATE.storageDirName+'":\n'+log.videoFilename+'\n\nVérifiez que le bon dossier est sélectionné.');
-}
+showCustomAlert('Vidéo indisponible : le stockage temporaire est purgé à la fin de la session (RGPD). Rejouez-la pendant la session, ou téléchargez-la si le repli local a été utilisé.');
 }
 
 function openVideoPlayer(blobUrl,filename,date){
