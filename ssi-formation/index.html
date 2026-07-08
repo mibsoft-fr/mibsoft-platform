@@ -107,7 +107,7 @@ try{ loadSessionLogsLocal(); if(STATE.currentView==='session-logs')render(); }ca
 
 // Version applicative affichée dans les interfaces : permet de vérifier que le
 // poste formateur ET le poste stagiaire tournent bien sur la même version.
-var APP_VERSION='2.38';
+var APP_VERSION='2.39';
 
 const STATE={currentView:'trainee-login',currentUser:null,userType:null,trainees:[],currentSession:null,sessionActive:false,sessionId:null,centerId:null,mibSessionId:null,ssiSessionId:null,accessLevel:1,smsiAccessLevel:1,planTypes:[{key:'centre-commercial',label:'Centre commercial'},{key:'hopital',label:'Hôpital'}],
 sdi:{systemState:'service',batteryState:'service',powerState:'secteur',alarms:[],
@@ -1873,7 +1873,25 @@ function handleCreateTrainee(event){event.preventDefault();const data={nom:docum
 function deleteTrainee(id){showCustomConfirm('Êtes-vous sûr de vouloir supprimer ce stagiaire?',()=>{STATE.trainees=STATE.trainees.filter(t=>t.id!==id);saveTrainees();render();showCustomAlert('Stagiaire supprimé.');});}
 
 var SDI_STATE_LABELS={'service':'Sous tension','test':'Test','hors-service':'Hors service','systeme-hs':'Système H.S.','defaut-batteries':'Défaut batteries','defaut-secteur':'Défaut secteur','derangement':'Dérangement','hors-tension':'Hors tension','ecran-hs':'Écran HS'};
-function changeSdiState(state){if(!checkSessionBeforeAction())return;STATE.sdi.systemState=state;sendMessage('SDI_STATE_CHANGE',{state});sendSsiSync();logAction('SDI - Changement état système',SDI_STATE_LABELS[state]||state,'formateur');}
+// Dérangement SDI : une fonction tombe HS aléatoirement (un DAI ou un DM), pour
+// que le stagiaire cherche laquelle. Rétabli quand on quitte le dérangement.
+function applySdiDerangement(){
+var pool=[].concat(
+STATE.sdi.detectors.filter(function(d){return d.state!=='hors-service'&&!d.outOfService;}).map(function(d){return {type:'DAI',id:d.id};}),
+STATE.sdi.manualAlarms.filter(function(d){return d.state!=='hors-service'&&!d.outOfService;}).map(function(d){return {type:'DM',id:d.id};})
+);
+if(!pool.length)return;
+var pick=pool[Math.floor(Math.random()*pool.length)];
+STATE.sdi._randDerangement=pick;
+changeDetectorState(pick.type,pick.id,'hors-service');
+}
+function clearSdiDerangement(){
+var p=STATE.sdi._randDerangement;if(!p)return;
+var arr=p.type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;var d=arr.find(function(x){return x.id===p.id;});
+if(d&&d.state==='hors-service'){changeDetectorState(p.type,p.id,'service');}
+STATE.sdi._randDerangement=null;
+}
+function changeSdiState(state){if(!checkSessionBeforeAction())return;var prev=STATE.sdi.systemState;STATE.sdi.systemState=state;sendMessage('SDI_STATE_CHANGE',{state});sendSsiSync();logAction('SDI - Changement état système',SDI_STATE_LABELS[state]||state,'formateur');if(state==='derangement'&&prev!=='derangement'){applySdiDerangement();}else if(state!=='derangement'&&STATE.sdi._randDerangement){clearSdiDerangement();}render();}
 function changeSdiBattery(state){if(!checkSessionBeforeAction())return;STATE.sdi.batteryState=state;sendMessage('SDI_BATTERY_CHANGE',{state});sendSsiSync();logAction('SDI - Batterie',state==='service'?'En service':'Hors service','formateur');}
 function changeSdiPower(state){if(!checkSessionBeforeAction())return;STATE.sdi.powerState=state;sendMessage('SDI_POWER_CHANGE',{state});sendSsiSync();logAction('SDI - Alimentation',state==='secteur'?'Secteur':'Batterie','formateur');}
 function changeSmsiPower(state){if(!checkSessionBeforeAction())return;STATE.smsi.powerState=state;sendMessage('SMSI_POWER_CHANGE',{state});sendSsiSync();logAction('SMSI - Alimentation',state==='secteur'?'Secteur':'Batterie','formateur');}
@@ -2382,7 +2400,25 @@ function deleteSessionLog(sessionId){showCustomConfirm('Supprimer ce journal?',(
 
 function updateDetectorAddressInput(type,id,address){const detectorArray=type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const detector=detectorArray.find(d=>d.id===id);if(detector){detector.address=address;}sendMessage('UPDATE_DETECTOR_ADDRESS',{type,id,address});}
 var SMSI_STATE_LABELS={'service':'Sous tension','test':'Test','hors-service':'Hors service','defaut-systeme':'Défaut système','defaut-batteries':'Défaut batteries','defaut-secteur':'Défaut secteur','derangement':'Dérangement','hors-tension':'Hors tension','ecran-hs':'Écran HS'};
-function changeSmsiState(state){if(!checkSessionBeforeAction())return;STATE.smsi.systemState=state;sendMessage('SMSI_STATE_CHANGE',{state});sendSsiSync();logAction('SMSI - Changement état système',SMSI_STATE_LABELS[state]||state,'formateur');}
+// Défaut système SMSI : une fonction (ZC / ZF / coffret) tombe en défaut
+// aléatoirement, pour que le stagiaire cherche laquelle. Rétabli à la sortie.
+function applySmsiDefautSysteme(){
+var pool=[].concat(
+STATE.smsi.compartmentZones.filter(function(z){return z.state==='attente';}).map(function(z){return {t:'compartment',id:z.id};}),
+STATE.smsi.smokeZones.filter(function(z){return z.state==='attente';}).map(function(z){return {t:'smoke',id:z.id};}),
+STATE.smsi.relayBoxes.filter(function(z){return z.state==='attente';}).map(function(z){return {t:'relay',id:z.id};})
+);
+if(!pool.length)return;
+var pick=pool[Math.floor(Math.random()*pool.length)];
+STATE.smsi._randDefaut=pick;
+changeZoneState(pick.t,pick.id,'defaut-attente');
+}
+function clearSmsiDefautSysteme(){
+var p=STATE.smsi._randDefaut;if(!p)return;
+changeZoneState(p.t,p.id,'attente');
+STATE.smsi._randDefaut=null;
+}
+function changeSmsiState(state){if(!checkSessionBeforeAction())return;var prev=STATE.smsi.systemState;STATE.smsi.systemState=state;sendMessage('SMSI_STATE_CHANGE',{state});sendSsiSync();logAction('SMSI - Changement état système',SMSI_STATE_LABELS[state]||state,'formateur');if(state==='defaut-systeme'&&prev!=='defaut-systeme'){applySmsiDefautSysteme();}else if(state!=='defaut-systeme'&&STATE.smsi._randDefaut){clearSmsiDefautSysteme();}render();}
 function changeSmsBattery(state){if(!checkSessionBeforeAction())return;STATE.smsi.batteryState=state;sendMessage('SMSI_BATTERY_CHANGE',{state});sendSsiSync();logAction('SMSI - Batterie',state==='service'?'En service':'Hors service','formateur');}
 function changeSmsiAlarm(state){if(!checkSessionBeforeAction())return;STATE.smsi.alarmState=state;sendMessage('SMSI_ALARM_CHANGE',{state});sendSsiSync();logAction('SMSI - Alarme',state==='service'?'En service':'Hors service','formateur');}
 function changeZoneState(zoneType,id,state){if(!checkSessionBeforeAction())return;setZoneState(zoneType,id,state);sendMessage('SET_ZONE_STATE',{zoneType,id,state});const typeLabels={'compartment':'PC','smoke':'DF','relay':'CR'};const stateLabels={'attente':'Attente','defaut-attente':'Défaut attente','securite':'Sécurité','defaut-securite':'Défaut sécurité','defaut-alim':'Défaut alimentation'};logAction(`${typeLabels[zoneType]||zoneType}${id} - ${stateLabels[state]||state}`,'','formateur');render();}
