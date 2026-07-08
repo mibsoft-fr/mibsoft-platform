@@ -100,6 +100,9 @@ let activeMibRTUnsubs=[];
 window.addEventListener('load',()=>{
 // Restore stored directory handle for video access
 restoreDirHandleFromIDB().then(()=>{if(STATE.storageDirName)console.log('✓ Dossier vidéo restauré:',STATE.storageDirName);}).catch(e=>console.log('Pas de dossier vidéo sauvegardé'));
+// Restaure le journal des exercices depuis le stockage local (survit à la
+// fermeture/réouverture de la fenêtre pendant toute la formation).
+try{ loadSessionLogsLocal(); if(STATE.currentView==='session-logs')render(); }catch(_){}
 });
 
 const STATE={currentView:'trainee-login',currentUser:null,userType:null,trainees:[],currentSession:null,sessionActive:false,sessionId:null,centerId:null,mibSessionId:null,ssiSessionId:null,accessLevel:1,smsiAccessLevel:1,planTypes:[{key:'centre-commercial',label:'Centre commercial'},{key:'hopital',label:'Hôpital'}],
@@ -595,6 +598,8 @@ videoFilename:videoInfo?videoInfo.filename:(STATE.currentRecordingFilename||null
 sessionsFormationId:STATE.mibSessionId||null
 };
 STATE.sessionLogs.push(sessionLog);
+// Persiste le journal localement pour qu'il survive à la déconnexion / fermeture.
+persistSessionLogs();
 // Broadcast fermeture aux stagiaires (canal session: + canal formation: plus robuste).
 try{MibRT.send(`session:${sessionId}`,'_session_ended',{sessionId},STATE.userType);}catch(e){console.warn('_session_ended broadcast failed',e);}
 if(STATE.mibSessionId){try{MibRT.send(`formation:${STATE.mibSessionId}`,'_formation_session_ended',{sessionId},STATE.userType);}catch(e){console.warn('_formation_session_ended broadcast failed',e);}}
@@ -907,16 +912,19 @@ async function purgeAllSessionVideos(){
 var ids=Object.keys(STATE.sessionVideos||{});
 for(var i=0;i<ids.length;i++){ try{ await purgeSessionVideos(ids[i]); }catch(_){} }
 }
-// Déconnexion formateur de la session : purge UNIQUEMENT les vidéos de
-// débriefing (RGPD). Le journal des actions (STATE.sessionLogs) reste EN
-// MÉMOIRE et disponible pendant toute la durée de la formation.
-// On ne recharge PAS / on ne ferme PAS la page : un reload détruirait le
-// journal en mémoire. On reste dans l'appli, journal consultable.
+// Déconnexion formateur : purge UNIQUEMENT les vidéos de débriefing (RGPD),
+// puis ferme la fenêtre / revient au login. Le journal des exercices est
+// persisté LOCALEMENT (localStorage) : il survit à la déconnexion et reste
+// disponible pendant toute la durée de la formation (rechargé au prochain
+// accès à la vue Journaux). Un reload ne détruit donc plus le journal.
 async function formateurDisconnect(){
-showCustomConfirm('Se déconnecter de la session ? La vidéo de débriefing sera définitivement supprimée (RGPD). Le journal des actions restera disponible pendant toute la formation.',async()=>{
+showCustomConfirm('Se déconnecter de la session ? La vidéo de débriefing sera définitivement supprimée (RGPD). Le journal des exercices reste disponible pendant toute la formation.',async()=>{
+try{ persistSessionLogs(); }catch(_){}
 try{ await purgeAllSessionVideos(); }catch(_){}
-try{ render(); }catch(_){}
-try{ showCustomAlert('Vidéo(s) de débriefing supprimée(s). Le journal des actions reste disponible.'); }catch(_){}
+// Tente de fermer la fenêtre (si ouverte par script) ; sinon revient au login.
+// Le journal est déjà persisté en local, la fermeture/le reload ne le perd pas.
+try{ window.close(); }catch(_){}
+setTimeout(function(){ try{ location.reload(); }catch(_){} },300);
 });
 }
 
@@ -1514,6 +1522,20 @@ let importOffered=false;
 function saveTrainees(){if(firebaseInitialized){db.ref('trainees').set(STATE.trainees);}}
 function loadTraineesFromFirebase(){if(!firebaseInitialized)return;db.ref('trainees').once('value',(snapshot)=>{const trainees=snapshot.val();if(trainees){STATE.trainees=trainees;render();}});db.ref('trainees').on('value',(snapshot)=>{const trainees=snapshot.val();if(trainees){STATE.trainees=trainees;if(STATE.currentView==='trainee-management'||STATE.currentView==='trainee-login'){render();}}});}
 function loadSessionLogsFromFirebase(){if(!firebaseInitialized)return;db.ref('session_logs').once('value',(snapshot)=>{const logs=snapshot.val();if(logs){STATE.sessionLogs=Object.values(logs);}});db.ref('session_logs').on('child_added',(snapshot)=>{const log=snapshot.val();if(log&&!STATE.sessionLogs.find(l=>l.sessionId===log.sessionId)){STATE.sessionLogs.push(log);if(STATE.currentView==='session-logs'){render();}}});}
+// Persistance LOCALE du journal des exercices (RGPD : reste sur le poste du
+// formateur, jamais centralisé en base). Survit à la fermeture/réouverture de
+// la fenêtre pendant toute la durée de la formation. Seule la vidéo est purgée
+// à la déconnexion ; le journal, lui, reste disponible.
+var SESSION_LOGS_KEY='ssi_session_logs_v1';
+function persistSessionLogs(){
+try{ localStorage.setItem(SESSION_LOGS_KEY,JSON.stringify(STATE.sessionLogs||[])); }catch(_){}
+}
+function loadSessionLogsLocal(){
+try{
+var raw=localStorage.getItem(SESSION_LOGS_KEY);
+if(raw){var arr=JSON.parse(raw); if(Array.isArray(arr))STATE.sessionLogs=arr;}
+}catch(_){}
+}
 function printTraineeList(){if(STATE.trainees.length===0){showCustomAlert('Aucun stagiaire à imprimer');return;}const printWindow=window.open('','_blank');const html=`<!DOCTYPE html><html><head><title>Liste des Stagiaires</title><style>body{font-family:Arial,sans-serif;padding:20px;max-width:800px;margin:0 auto}h1{text-align:center;color:#5D5CDE}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #333;padding:12px;text-align:left}th{background-color:#5D5CDE;color:white}.pin{font-weight:bold;font-size:18px;letter-spacing:2px;color:#5D5CDE}@media print{button{display:none}}.nav-btn{width:38px;height:38px;border-radius:50%;background:linear-gradient(180deg,#7ec8e3 0%,#4fa3c7 100%);color:#1a3a5c;font-size:16px;font-weight:bold;border:2px solid #a0d2e8;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:2px 2px 4px rgba(0,0,0,0.3);transition:all 0.1s}.nav-btn:active{transform:scale(0.9);box-shadow:0 0 2px rgba(0,0,0,0.3)}.kp-btn{width:28px;height:28px;border-radius:50%;background:linear-gradient(180deg,#7ec8e3 0%,#4fa3c7 100%);color:#1a3a5c;font-size:12px;font-weight:bold;border:2px solid #a0d2e8;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:1px 1px 3px rgba(0,0,0,0.3);transition:all 0.1s}.kp-btn:active{transform:scale(0.9)}.kp-red{background:linear-gradient(180deg,#f87171 0%,#dc2626 100%);border-color:#fca5a5;color:white}.kp-green{background:linear-gradient(180deg,#4ade80 0%,#16a34a 100%);border-color:#86efac;color:white}</style></head><body><h1>Liste des Stagiaires - Formation SSI SSIAP</h1><p>Date: ${new Date().toLocaleDateString('fr-FR',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'})}</p><table><thead><tr><th>Nom</th><th>Prénom</th><th>Email</th><th>Code PIN</th><th>Niveau</th><th>Dates</th></tr></thead><tbody>${STATE.trainees.map(t=>`<tr><td>${t.nom}</td><td>${t.prenom}</td><td>${t.email||'N/A'}</td><td class="pin">${t.pin}</td><td>SSIAP ${t.niveau}</td><td>${new Date(t.dateDebut).toLocaleDateString('fr-FR')} - ${new Date(t.dateFin).toLocaleDateString('fr-FR')}</td></tr>`).join('')}</tbody></table><p>Total: ${STATE.trainees.length} stagiaire(s)</p></body></html>`;printWindow.document.write(html);printWindow.document.close();setTimeout(()=>{printWindow.print();},250);}
 function exportTrainees(){const dataStr=JSON.stringify(STATE.trainees,null,2);const dataBlob=new Blob([dataStr],{type:'application/json'});const url=URL.createObjectURL(dataBlob);const link=document.createElement('a');link.href=url;link.download='stagiaires.json';link.click();URL.revokeObjectURL(url);}
 function importTrainees(){const input=document.createElement('input');input.type='file';input.accept='application/json';input.onchange=(e)=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=(event)=>{try{const imported=JSON.parse(event.target.result);if(Array.isArray(imported)){STATE.trainees=imported;saveTrainees();render();showCustomAlert(`${imported.length} stagiaire(s) importé(s) avec succès`);}else{showCustomAlert('Format de fichier invalide');}}catch(error){showCustomAlert('Erreur lors de la lecture du fichier');}};reader.readAsText(file);};input.click();}
@@ -2129,7 +2151,7 @@ printWindow.document.write(html);
 printWindow.document.close();
 }
 
-function deleteSessionLog(sessionId){showCustomConfirm('Supprimer ce journal?',()=>{if(firebaseInitialized){db.ref(`session_logs/${sessionId}`).remove();}STATE.sessionLogs=STATE.sessionLogs.filter(l=>l.sessionId!==sessionId);render();showCustomAlert('Journal supprimé.');});}
+function deleteSessionLog(sessionId){showCustomConfirm('Supprimer ce journal?',()=>{if(firebaseInitialized){db.ref(`session_logs/${sessionId}`).remove();}STATE.sessionLogs=STATE.sessionLogs.filter(l=>l.sessionId!==sessionId);persistSessionLogs();render();showCustomAlert('Journal supprimé.');});}
 
 function updateDetectorAddressInput(type,id,address){const detectorArray=type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const detector=detectorArray.find(d=>d.id===id);if(detector){detector.address=address;}sendMessage('UPDATE_DETECTOR_ADDRESS',{type,id,address});}
 function changeSmsiState(state){if(!checkSessionBeforeAction())return;STATE.smsi.systemState=state;sendMessage('SMSI_STATE_CHANGE',{state});sendSsiSync();const labels={'service':'En service','hors-service':'Hors service','hors-tension':'Hors tension'};logAction('SMSI - Changement état système',labels[state]||state,'formateur');}
