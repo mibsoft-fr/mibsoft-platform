@@ -107,7 +107,7 @@ try{ loadSessionLogsLocal(); if(STATE.currentView==='session-logs')render(); }ca
 
 // Version applicative affichée dans les interfaces : permet de vérifier que le
 // poste formateur ET le poste stagiaire tournent bien sur la même version.
-var APP_VERSION='2.36';
+var APP_VERSION='2.37';
 
 const STATE={currentView:'trainee-login',currentUser:null,userType:null,trainees:[],currentSession:null,sessionActive:false,sessionId:null,centerId:null,mibSessionId:null,ssiSessionId:null,accessLevel:1,smsiAccessLevel:1,planTypes:[{key:'centre-commercial',label:'Centre commercial'},{key:'hopital',label:'Hôpital'}],
 sdi:{systemState:'service',batteryState:'service',powerState:'secteur',alarms:[],
@@ -1179,18 +1179,25 @@ return '<div class="mb-1">'+out+'</div>';
 }
 // Contenu de l'écran SDI selon l'état système : éteint (hors tension), brouillé
 // (écran HS) ou normal.
-function sdiScreenInner(){
-var st=STATE.sdi.systemState;
+// SDI/SMSI opérationnel ? Hors service ou hors tension = plus de réception
+// d'alarme, plus de diffusion sonore, plus de remontée ZC/ZF.
+function sdiOperational(){return STATE.sdi.systemState!=='hors-service'&&STATE.sdi.systemState!=='hors-tension';}
+function smsiOperational(){return STATE.smsi.systemState!=='hors-service'&&STATE.smsi.systemState!=='hors-tension';}
+// Contenu d'écran commun : éteint (hors tension), brouillé (écran HS), bandeau
+// « HORS SERVICE » (rouge), bandeau de défaut (orange) + libellé, ou normal.
+function ssiScreenBuild(st,labels,items){
 if(st==='hors-tension')return '';
-if(st==='ecran-hs')return garbleHtml(STATE.sdi.alarms.length===0?['SYSTÈME EN VEILLE']:STATE.sdi.alarms.map(function(a){return a.text;}));
-return STATE.sdi.alarms.length===0?'<div class="text-center">SYSTÈME EN VEILLE</div>':STATE.sdi.alarms.map(function(a){return '<div class="mb-1">'+esc(a.text)+'</div>';}).join('');
+if(st==='ecran-hs')return garbleHtml(items.length?items:['SYSTÈME EN VEILLE']);
+if(st==='hors-service')return '<div class="text-center font-bold" style="color:#ff3b3b">■ HORS SERVICE ■</div>';
+var body=items.length===0?'<div class="text-center">SYSTÈME EN VEILLE</div>':items.map(function(t){return '<div class="mb-1">'+esc(t)+'</div>';}).join('');
+if(st&&st!=='service'){
+var lbl=(labels[st]||st).toUpperCase();
+return '<div class="text-center font-bold" style="color:#ffae42">⚠ '+esc(lbl)+' ⚠</div>'+body;
 }
-function smsiScreenInner(){
-var st=STATE.smsi.systemState;
-if(st==='hors-tension')return '';
-if(st==='ecran-hs')return garbleHtml(STATE.smsi.messages.length===0?['SYSTÈME EN VEILLE']:STATE.smsi.messages.map(function(m){return m.text;}));
-return STATE.smsi.messages.length===0?'<div class="text-center">SYSTÈME EN VEILLE</div>':STATE.smsi.messages.map(function(m){return '<div class="mb-1">'+esc(m.text)+'</div>';}).join('');
+return body;
 }
+function sdiScreenInner(){return ssiScreenBuild(STATE.sdi.systemState,SDI_STATE_LABELS,STATE.sdi.alarms.map(function(a){return a.text;}));}
+function smsiScreenInner(){return ssiScreenBuild(STATE.smsi.systemState,SMSI_STATE_LABELS,STATE.smsi.messages.map(function(m){return m.text;}));}
 // Re-brouille périodiquement l'écran tant qu'un panneau est en « écran HS »
 // (effet clignotant avec mots qui manquent aléatoirement).
 var ecranHsTimer=null;
@@ -1343,6 +1350,8 @@ function updateDetectorAddress(type,id,address){const detectorArray=type==='DAI'
 function updateZoneAddress(zoneType,id,address){let zone;if(zoneType==='compartment'){zone=STATE.smsi.compartmentZones.find(z=>z.id===id);}else if(zoneType==='smoke'){zone=STATE.smsi.smokeZones.find(z=>z.id===id);}else if(zoneType==='relay'){zone=STATE.smsi.relayBoxes.find(z=>z.id===id);}if(zone){zone.address=address;}}
 
 function triggerDetector(type,id,playSound=false){
+// SDI hors service / hors tension : aucune réception d'alarme.
+if(!sdiOperational())return;
 const detectorArray=type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;
 const detector=detectorArray.find(d=>d.id===id);
 if(detector){
@@ -1369,6 +1378,8 @@ updateAllLeds();
 function resetDetector(type,id){const detectorArray=type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const detector=detectorArray.find(d=>d.id===id);if(detector){detector.triggered=false;}}
 
 function setZoneState(zoneType,id,state){
+// SMSI hors service / hors tension : plus de remontée ZC/ZF.
+if(!smsiOperational())return;
 let zone;
 if(zoneType==='compartment'){zone=STATE.smsi.compartmentZones.find(z=>z.id===id);if(zone){zone.state=state;if(state==='attente')zone.commandActive=false;updateZoneLeds(zone);addSmsiMessage(`${zone.address}: ${state}`);}}
 else if(zoneType==='smoke'){zone=STATE.smsi.smokeZones.find(z=>z.id===id);if(zone){zone.state=state;if(state==='attente')zone.commandActive=false;updateZoneLeds(zone);addSmsiMessage(`${zone.address}: ${state}`);}}
@@ -1595,7 +1606,7 @@ function handleRSConfirm(value){if(value==='1'){STATE.workflowStep='RS_MODE';add
 function handleRSMode(value){if(value==='1'){STATE.outOfService.forEach(item=>{if(item.type==='DAI'){const detector=STATE.sdi.detectors.find(d=>d.id===item.number);if(detector){detector.outOfService=false;sendMessage('DETECTOR_OUT_OF_SERVICE',{type:'DAI',id:item.number,outOfService:false});}}else if(item.type==='DM'){const dm=STATE.sdi.manualAlarms.find(d=>d.id===item.number);if(dm){dm.outOfService=false;sendMessage('DETECTOR_OUT_OF_SERVICE',{type:'DM',id:item.number,outOfService:false});}}addSdiMessage(`${item.label} remis en service`);logAction(`Remise en service ${item.label}`);});STATE.outOfService=[];addSdiMessage('Tous les matériels remis en service');STATE.workflowStep=null;STATE.workflowData={};render();}else if(value==='2'){STATE.workflowStep='RS_SELECT';addSdiMessage('Matériels hors service:');STATE.outOfService.forEach((item,index)=>{addSdiMessage(`${index+1}) ${item.label}`);});addSdiMessage('Tapez le numéro à remettre en service');render();}else{addSdiMessage('Choix invalide');render();}}
 function handleRSSelect(value){const index=parseInt(value)-1;if(index<0||index>=STATE.outOfService.length){addSdiMessage('Numéro invalide');render();return;}const item=STATE.outOfService[index];if(item.type==='DAI'){const detector=STATE.sdi.detectors.find(d=>d.id===item.number);if(detector){detector.outOfService=false;sendMessage('DETECTOR_OUT_OF_SERVICE',{type:'DAI',id:item.number,outOfService:false});}}else if(item.type==='DM'){const dm=STATE.sdi.manualAlarms.find(d=>d.id===item.number);if(dm){dm.outOfService=false;sendMessage('DETECTOR_OUT_OF_SERVICE',{type:'DM',id:item.number,outOfService:false});}}addSdiMessage(`${item.label} remis en service`);logAction(`Remise en service ${item.label}`);STATE.outOfService.splice(index,1);if(STATE.outOfService.length>0){addSdiMessage('Matériels hors service:');STATE.outOfService.forEach((item,index)=>{addSdiMessage(`${index+1}) ${item.label}`);});addSdiMessage('Tapez un autre numéro ou C pour terminer');render();}else{addSdiMessage('Tous les matériels remis en service');STATE.workflowStep=null;STATE.workflowData={};render();}}
 
-function triggerGeneralAlarm(){STATE.uga.alarmActive=true;STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;if(temporizationTimer)clearInterval(temporizationTimer);playGeneralAlarm(STATE.uga.alarmType);addSmsiMessage(`Alarme ${STATE.uga.alarmType} déclenchée`);logAction('Déclenchement alarme générale',STATE.uga.alarmType);render();}
+function triggerGeneralAlarm(){if(!smsiOperational())return;STATE.uga.alarmActive=true;STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;if(temporizationTimer)clearInterval(temporizationTimer);playGeneralAlarm(STATE.uga.alarmType);addSmsiMessage(`Alarme ${STATE.uga.alarmType} déclenchée`);logAction('Déclenchement alarme générale',STATE.uga.alarmType);render();}
 function forceGeneralAlarm(){if(STATE.uga.temporizationActive){clearInterval(temporizationTimer);STATE.uga.temporizationActive=false;}if(!STATE.uga.alarmActive){triggerGeneralAlarm();}}
 function acquitProcess(){if(STATE.smsiAccessLevel!==2){addSmsiMessage('Acquit processus impossible: niveau 2 requis');showCustomAlert("L'acquittement du processus d'alarme n'est possible qu'en niveau 2");return;}if(STATE.uga.temporizationActive){clearInterval(temporizationTimer);STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;addSmsiMessage('Processus alarme acquitté - Alarme générale annulée');logAction('Acquit processus alarme');render();}}
 function canResetSdiSystem(){if(STATE.accessLevel!==2)return false;const allDMReset=STATE.sdi.manualAlarms.every(d=>!d.triggered);const noDaiActive=STATE.sdi.detectors.every(d=>!d.triggered);return allDMReset&&noDaiActive;}
@@ -1864,7 +1875,7 @@ function changeSmsiPower(state){if(!checkSessionBeforeAction())return;STATE.smsi
 function setTemporization(minutes){if(!checkSessionBeforeAction())return;STATE.uga.temporization=parseInt(minutes);sendMessage('SET_TEMPORIZATION',{minutes:parseInt(minutes)});sendSsiSync();logAction('Temporisation modifiée',minutes+' min','formateur');}
 function setAlarmType(type){if(!checkSessionBeforeAction())return;STATE.uga.alarmType=type;sendMessage('SET_ALARM_TYPE',{alarmType:type});sendSsiSync();const labels={'generale':'Générale','generale-selective':'Générale sélective','generale-message':'Générale avec message'};logAction('Type alarme modifié',labels[type]||type,'formateur');}
 
-function toggleDetector(type,id){if(!checkSessionBeforeAction())return;const detectorArray=type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const detector=detectorArray.find(d=>d.id===id);if(detector.triggered){resetDetector(type,id);sendMessage('RESET_DETECTOR',{type,id});logAction(`Réarmement ${type}`,detector.address,'formateur');}else{triggerDetector(type,id,false);sendMessage('TRIGGER_DETECTOR',{type,id});logAction(`Déclenchement ${type}`,detector.address,'formateur');}render();}
+function toggleDetector(type,id){if(!checkSessionBeforeAction())return;if(!sdiOperational()){showCustomAlert('SDI hors service : aucune alarme possible.');return;}const detectorArray=type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const detector=detectorArray.find(d=>d.id===id);if(detector.triggered){resetDetector(type,id);sendMessage('RESET_DETECTOR',{type,id});logAction(`Réarmement ${type}`,detector.address,'formateur');}else{triggerDetector(type,id,false);sendMessage('TRIGGER_DETECTOR',{type,id});logAction(`Déclenchement ${type}`,detector.address,'formateur');}render();}
 function changeDetectorState(type,id,state){const detectorArray=type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const detector=detectorArray.find(d=>d.id===id);detector.state=state;sendMessage('CHANGE_DETECTOR_STATE',{type,id,state});logAction(`${type}${String(id).padStart(2,'0')} - ${state==='service'?'Remis en service':'Mis hors service'}`,detector.address,'formateur');render();}
 function changeDetectorZone(type,id,zone){const detectorArray=type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const detector=detectorArray.find(d=>d.id===id);detector.zone=zone;logAction(`${type}${String(id).padStart(2,'0')} - Affecté à ${zone}`,detector.address,'formateur');render();}
 
@@ -2087,6 +2098,8 @@ z._elemVoyant=best;
 // le voyant de la/les zone(s) du dispositif sur le CMSI. Propagé au stagiaire (propagate=true côté
 // formateur) pour que sa vue reflète l'état dès le début de session.
 function setElementState(key,label,addr,state,zones,propagate,zoneClear){
+// SMSI hors service / hors tension : les DAS ne remontent plus.
+if(!smsiOperational())return;
 STATE.elementStates=STATE.elementStates||{};
 // On garde l'état de CHAQUE dispositif (y compris « attente ») pour un pilotage
 // individuel : réarmer un clapet ne réarme pas la porte de la même zone.
@@ -2416,6 +2429,7 @@ function cancelForceAlarm(){if(forceAlarmTimeout){clearTimeout(forceAlarmTimeout
 function traineeAcquitProcess(){acquitProcess();}
 
 function commandZone(zoneType,id){
+if(!smsiOperational()){showCustomAlert('SMSI hors service : commande impossible.');return;}
 let zone;
 if(zoneType==='compartment'){zone=STATE.smsi.compartmentZones.find(z=>z.id===id);addSmsiMessage(`Commande fermeture ${zone.address}`);logAction(`Commande fermeture ${zone.address}`);}
 else{zone=STATE.smsi.smokeZones.find(z=>z.id===id);addSmsiMessage(`Commande démarrage ${zone.address}`);logAction(`Commande démarrage ${zone.address}`);}
