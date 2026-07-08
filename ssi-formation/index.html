@@ -400,14 +400,44 @@ resetSmsiToIdle();
 listenToSession(sessionId);
 // Persiste le stagiaire courant sur la ligne ssi_sessions (jamais set par ssi_start_session)
 // pour que le formateur récupère un nom à la fermeture (au lieu de « Inconnu »).
-try{
-  const sb=window.supabaseStagiaire||window.supabase;
-  if(sb&&sb.rpc)sb.rpc('ssi_session_set_trainee',{p_session_number:sessionId}).then(({error})=>{if(error)console.warn('set_trainee failed',error);});
-}catch(e){console.warn('set_trainee threw',e);}
+// La session peut ne pas être encore 'en_cours' au moment du join (course) : on
+// retente tant que l'UPDATE ne touche aucune ligne (RETURNING null).
+persistTraineeLink(sessionId,0);
+// Annonce l'identité du stagiaire au formateur via le bus (indépendant de la
+// base) : garantit un nom dans le journal même si set_trainee échoue.
+sendTraineeIdentity();
 watchFormationChannel();
 startSessionAliveCheck();
 render();
 showCustomAlert('🎬 Nouvelle session démarrée. Vous êtes connecté !');
+}
+
+// Lie le stagiaire connecté à la ligne ssi_sessions (RPC ssi_session_set_trainee).
+// Retente si l'UPDATE ne touche aucune ligne (session pas encore 'en_cours' au
+// moment du join) — jusqu'à 6 tentatives espacées de 1,5 s.
+function persistTraineeLink(sessionNumber,attempt){
+if(STATE.userType!=='trainee'||!sessionNumber)return;
+// N'insiste plus si le stagiaire a changé de session entre-temps.
+if(STATE.sessionId!==sessionNumber)return;
+var sb=window.supabaseStagiaire||window.supabase;
+if(!sb||!sb.rpc)return;
+sb.rpc('ssi_session_set_trainee',{p_session_number:sessionNumber}).then(function(res){
+if(res&&res.error){console.warn('set_trainee failed',res.error);return;}
+if(!(res&&res.data)&&(attempt||0)<6){
+setTimeout(function(){persistTraineeLink(sessionNumber,(attempt||0)+1);},1500);
+}
+}).catch(function(e){console.warn('set_trainee threw',e);});
+}
+
+// Diffuse le nom du stagiaire au formateur (bus Realtime). Le formateur le stocke
+// dans STATE.connectedTraineeName et l'inscrit dans le journal à la fin de session,
+// même si la liaison base (set_trainee) n'a pas abouti.
+function sendTraineeIdentity(){
+if(STATE.userType!=='trainee'||!STATE.sessionId)return;
+var u=STATE.currentUser||{};
+var name=`${u.prenom||''} ${u.nom||''}`.trim();
+if(!name)return;
+try{sendMessage('TRAINEE_IDENTITY',{name:name,stagiaireId:u.id||null});}catch(_){}
 }
 
 function watchForNewSession(){
@@ -547,6 +577,8 @@ STATE.currentSessionNumber=sessionNumber;
 STATE.sessionStartTime=startTimeISO;
 if(!STATE.sessionMode)STATE.sessionMode='formation';
 STATE.actionLog=[];
+// Réinitialise le nom du stagiaire connecté (annoncé via le bus au join).
+STATE.connectedTraineeName=null;STATE.connectedTraineeId=null;
 resetSdiToIdle();
 resetSmsiToIdle();
 listenToSession(sessionId);
@@ -579,6 +611,8 @@ const{data:row}=await supabase.from('ssi_sessions').select('stagiaire_id,stagiai
 if(row&&row.stagiaires){const n=`${row.stagiaires.prenom||''} ${row.stagiaires.nom||''}`.trim();if(n)traineeName=n;}
 }catch(e){console.warn('endSession: ssi_sessions stagiaire lookup failed',e);}
 }
+// Fallback : nom annoncé en direct par le stagiaire via le bus (TRAINEE_IDENTITY).
+if(traineeName==='Inconnu'&&STATE.connectedTraineeName)traineeName=STATE.connectedTraineeName;
 // Fallback : extraire d'une action stagiaire dans le journal courant.
 if(traineeName==='Inconnu'){
 const tAct=STATE.actionLog.find(a=>(a.actor==='trainee'||!a.actor)&&a.trainee&&a.trainee!=='Formateur');
@@ -795,6 +829,9 @@ var offer=await pc.createOffer();
 await pc.setLocalDescription(offer);
 vSend('VIDEO_OFFER',{type:offer.type,sdp:offer.sdp});
 vSend('VIDEO_STREAM_ACTIVE',{active:true});
+// Ré-annonce l'identité au formateur au démarrage du flux vidéo (au cas où le
+// broadcast au join aurait été manqué) — c'est le moment où une vidéo est faite.
+try{sendTraineeIdentity();}catch(_){}
 }
 // Stagiaire : réception de la réponse du formateur.
 async function traineeHandleAnswer(answer){
@@ -1224,6 +1261,7 @@ case 'SMSI_RESET':smsiClearFunctional();break;
 case 'VIDEO_OFFER':formateurHandleOffer(data);return;
 case 'VIDEO_ICE_TRAINEE':vAddIce(data&&data.candidate);return;
 case 'VIDEO_STREAM_ACTIVE':STATE.traineeStreamActive=!!(data&&data.active);render();return;
+case 'TRAINEE_IDENTITY':if(data&&data.name){STATE.connectedTraineeName=data.name;STATE.connectedTraineeId=data.stagiaireId||null;}return;
 }
 render();
 }
