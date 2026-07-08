@@ -432,12 +432,19 @@ setTimeout(function(){persistTraineeLink(sessionNumber,(attempt||0)+1);},1500);
 // Diffuse le nom du stagiaire au formateur (bus Realtime). Le formateur le stocke
 // dans STATE.connectedTraineeName et l'inscrit dans le journal à la fin de session,
 // même si la liaison base (set_trainee) n'a pas abouti.
-function sendTraineeIdentity(){
+function emitTraineeIdentity(){
 if(STATE.userType!=='trainee'||!STATE.sessionId)return;
 var u=STATE.currentUser||{};
 var name=`${u.prenom||''} ${u.nom||''}`.trim();
 if(!name)return;
 try{sendMessage('TRAINEE_IDENTITY',{name:name,stagiaireId:u.id||null});}catch(_){}
+}
+// Envoi + ré-émissions : au moment du join le canal Realtime n'est pas toujours
+// prêt et les broadcasts sont éphémères (le formateur peut ne pas encore être
+// abonné). On ré-émet quelques fois pour garantir la réception.
+function sendTraineeIdentity(){
+emitTraineeIdentity();
+[600,1500,3000,6000].forEach(function(ms){setTimeout(emitTraineeIdentity,ms);});
 }
 
 function watchForNewSession(){
@@ -1228,6 +1235,7 @@ case 'SMSI_BATTERY_CHANGE':STATE.smsi.batteryState=data.state;break;
 case 'SMSI_RESET':smsiClearFunctional();break;
 case 'SET_MAT_STATE':STATE.matStates=STATE.matStates||{};if(data&&data.code)STATE.matStates[data.code]=data.statut;try{broadcastPlanState();}catch(_){}break;
 case 'SSI_SYNC':applySsiSync(data);return;
+case 'REQUEST_TRAINEE_IDENTITY':emitTraineeIdentity();return; // le formateur demande le nom du stagiaire
 case 'VIDEO_REQUEST':if(STATE.localStream)setupPeerConnection();return; // formateur (re)connecte → renvoyer l'offre
 case 'VIDEO_ANSWER':traineeHandleAnswer(data);return;
 case 'VIDEO_ICE_FORMATEUR':vAddIce(data&&data.candidate);return;
@@ -1249,8 +1257,12 @@ render();
 
 function handleTraineeAction(type,data){
 switch(type){
-case 'ACTION_LOG':STATE.actionLog.push(data);break;
-case 'UAE_QUERY':if(STATE.activePlanKey)sendMessage('UAE_PLAN_AVAILABLE',{planKey:STATE.activePlanKey,centerId:planCenterId(),levels:getLevelsFor(STATE.activePlanKey),mode:STATE.sessionMode||'formation'});break;
+case 'ACTION_LOG':STATE.actionLog.push(data);
+// Capture opportuniste du nom du stagiaire depuis ses actions (filet en plus
+// de TRAINEE_IDENTITY, au cas où l'annonce d'identité aurait été manquée).
+if(data&&data.trainee&&data.trainee!=='Formateur'&&!STATE.connectedTraineeName){STATE.connectedTraineeName=data.trainee;}
+break;
+case 'UAE_QUERY':if(STATE.activePlanKey)sendMessage('UAE_PLAN_AVAILABLE',{planKey:STATE.activePlanKey,centerId:planCenterId(),levels:getLevelsFor(STATE.activePlanKey),mode:STATE.sessionMode||'formation'});if(!STATE.connectedTraineeName){try{sendMessage('REQUEST_TRAINEE_IDENTITY',{});}catch(_){}}break;
 case 'DETECTOR_OUT_OF_SERVICE':
 {const detArray=data.type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;const det=detArray.find(d=>d.id===data.id);if(det){det.outOfService=data.outOfService;}}break;
 case 'CHANGE_DETECTOR_STATE':
@@ -1258,9 +1270,9 @@ case 'CHANGE_DETECTOR_STATE':
 case 'ZONE_COMMAND':
 {const arr=data.zoneType==='compartment'?STATE.smsi.compartmentZones:STATE.smsi.smokeZones;const z=arr.find(x=>x.id===data.id);if(z){z.commandActive=true;z.state='securite';updateZoneLeds(z);}if(typeof broadcastPlanState==='function')broadcastPlanState();}break;
 case 'SMSI_RESET':smsiClearFunctional();break;
-case 'VIDEO_OFFER':formateurHandleOffer(data);return;
+case 'VIDEO_OFFER':formateurHandleOffer(data);if(!STATE.connectedTraineeName){try{sendMessage('REQUEST_TRAINEE_IDENTITY',{});}catch(_){}}return;
 case 'VIDEO_ICE_TRAINEE':vAddIce(data&&data.candidate);return;
-case 'VIDEO_STREAM_ACTIVE':STATE.traineeStreamActive=!!(data&&data.active);render();return;
+case 'VIDEO_STREAM_ACTIVE':STATE.traineeStreamActive=!!(data&&data.active);if(data&&data.active&&!STATE.connectedTraineeName){try{sendMessage('REQUEST_TRAINEE_IDENTITY',{});}catch(_){}}render();return;
 case 'TRAINEE_IDENTITY':if(data&&data.name){STATE.connectedTraineeName=data.name;STATE.connectedTraineeId=data.stagiaireId||null;}return;
 }
 render();
