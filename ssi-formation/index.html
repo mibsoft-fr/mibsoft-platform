@@ -2096,12 +2096,13 @@ navigate('session-logs');
 
 // Appelé par les inputs validation / textarea commentaire. Merge avec le rapport existant
 // puis persiste via ssi_set_rapport (RLS : seul le formateur propriétaire peut écrire).
+// Écrit le rapport en base (ssi_set_rapport). Renvoie true si succès.
 async function updateRapport(sessionId,patch){
 const entry=STATE.rapportMap[sessionId];
 const log=(STATE.sessionLogs||[]).find(l=>l.sessionId===sessionId);
 // ssiSessionId depuis le serveur (entry) OU capturé dans le log à la fin de session.
 const ssiSessionId=(entry&&entry.ssiSessionId)||(log&&log.ssiSessionId)||null;
-if(!ssiSessionId){showCustomAlert('❌ Session non enregistrée côté serveur : évaluation impossible.');return;}
+if(!ssiSessionId){showCustomAlert('❌ Session non enregistrée côté serveur : évaluation impossible.');return false;}
 const base=(entry&&entry.rapport)||(log&&log.rapport)||{};
 const newRapport={...base,...patch};
 if(entry)entry.rapport=newRapport;
@@ -2109,11 +2110,31 @@ if(entry)entry.rapport=newRapport;
 if(log){log.rapport=newRapport;try{persistSessionLogs();}catch(_){}}
 try{
 const{error}=await supabase.rpc('ssi_set_rapport',{p_ssi_session_id:ssiSessionId,p_rapport:newRapport});
-if(error){console.warn('ssi_set_rapport failed',error);showCustomAlert('❌ Échec sauvegarde rapport : '+(error.message||'erreur'));}
-}catch(e){console.warn('ssi_set_rapport threw',e);}
+if(error){console.warn('ssi_set_rapport failed',error);showCustomAlert('❌ Échec sauvegarde rapport : '+(error.message||'erreur'));return false;}
+return true;
+}catch(e){console.warn('ssi_set_rapport threw',e);showCustomAlert('❌ Erreur réseau lors de la sauvegarde.');return false;}
 }
-function setRapportValidation(sessionId,value){updateRapport(sessionId,{validation:value});render();}
-function setRapportCommentaire(sessionId,value){updateRapport(sessionId,{commentaire:value});}
+// Modification LOCALE (brouillon) de l'avis/commentaire : pas d'écriture base
+// tant que le formateur n'a pas cliqué « Enregistrer l'évaluation ».
+function rapportDraft(sessionId){const log=(STATE.sessionLogs||[]).find(l=>l.sessionId===sessionId);return log||null;}
+function setRapportValidation(sessionId,value){
+const log=rapportDraft(sessionId);if(!log)return;
+log.rapport=Object.assign({},log.rapport||{},{validation:value});
+log._rapportDirty=true;try{persistSessionLogs();}catch(_){}
+render();
+}
+function setRapportCommentaire(sessionId,value){
+const log=rapportDraft(sessionId);if(!log)return;
+log.rapport=Object.assign({},log.rapport||{},{commentaire:value});
+log._rapportDirty=true;try{persistSessionLogs();}catch(_){}
+// pas de render() : garde le focus/curseur dans le textarea
+}
+// Bouton explicite : écrit l'avis + le commentaire en base.
+async function saveRapport(sessionId){
+const log=rapportDraft(sessionId);if(!log)return;
+const ok=await updateRapport(sessionId,log.rapport||{});
+if(ok){log._rapportDirty=false;render();showCustomAlert('✅ Évaluation enregistrée.');}
+}
 
 // ─── Jury d'examen (modal éditable depuis la vue Journaux) ────────────────────
 // Le draft est cloné depuis STATE.formationInfo.jury à l'ouverture, modifié en
@@ -2173,14 +2194,16 @@ const entry=STATE.rapportMap[log.sessionId];
 // L'évaluation est éditable dès qu'on a un ssiSessionId, sans dépendre du
 // préchargement rapportMap (qui peut échouer/tarder).
 const ssiSessionId=(entry&&entry.ssiSessionId)||log.ssiSessionId||null;
-const rap=(entry&&entry.rapport&&Object.keys(entry.rapport).length)?entry.rapport:(log.rapport||{});
+// Brouillon local prioritaire (avis/commentaire en cours de saisie non encore
+// enregistrés) ; sinon rapport serveur ; sinon rapport local déjà persisté.
+const rap=log._rapportDirty?(log.rapport||{}):((entry&&entry.rapport&&Object.keys(entry.rapport).length)?entry.rapport:(log.rapport||{}));
 const editable=!!ssiSessionId;
 const trainee=(entry&&entry.stagiaireNom)||log.trainee||'Inconnu';
 // Nom formateur : formateurNom (nouveau), sinon objet {prenom,nom}, sinon string.
 const formateurNom=log.formateurNom||(typeof log.formateur==='object'?`${log.formateur.prenom||''} ${log.formateur.nom||''}`.trim():(log.formateur||''))||'Formateur';
 const escAttr=(s)=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const valBtn=(value,label,activeBg)=>`<button onclick="setRapportValidation('${log.sessionId}','${value}')" ${editable?'':'disabled'} class="px-3 py-1.5 rounded text-sm font-bold ${rap.validation===value?activeBg+' text-white shadow-md':'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} ${editable?'hover:opacity-90':'opacity-50 cursor-not-allowed'}">${label}</button>`;
-return `<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg"><div class="flex justify-between items-start mb-4"><div><h3 class="text-2xl font-bold text-primary">Session ${log.sessionNumber}</h3><div class="text-sm text-gray-600 dark:text-gray-400 mt-1"><span>👤 ${trainee}</span><span class="mx-2">•</span><span>👨‍🏫 ${formateurNom}</span></div>${log.videoFilename?`<div class="text-xs text-teal-600 dark:text-teal-400 mt-1">📹 ${log.videoFilename}</div>`:''}</div><div class="text-right text-sm"><div class="text-gray-600 dark:text-gray-400">📅 ${new Date(log.startTime).toLocaleDateString('fr-FR')}</div><div class="text-gray-600 dark:text-gray-400">🕐 ${new Date(log.startTime).toLocaleTimeString('fr-FR')} - ${new Date(log.endTime).toLocaleTimeString('fr-FR')}</div></div></div><div class="border-t pt-4"><h4 class="font-bold mb-3">📋 Actions (${log.actions.length})</h4><div class="ssi-screen max-h-96 overflow-y-auto">${log.actions.length===0?'<div class="text-center opacity-50">Aucune action dans cette session</div>':log.actions.slice(-50).reverse().map(action=>`<div class="mb-2 pb-2 border-b border-green-900"><div class="text-xs opacity-75">${new Date(action.timestamp).toLocaleString('fr-FR')}</div><div>${action.trainee}: <span class="text-yellow-400">${action.action}</span></div>${action.details?`<div class="text-sm opacity-75">${action.details}</div>`:''}</div>`).join('')}</div></div><div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700"><h4 class="font-bold mb-2">📝 Évaluation formateur (rapport Qualiopi)</h4><div class="flex flex-wrap gap-2 mb-3">${valBtn('valide','✅ Validé','bg-green-600')}${valBtn('non_valide','❌ Non validé','bg-red-600')}${valBtn('a_revoir','🔁 À revoir','bg-orange-500')}${!editable?'<span class="text-xs text-gray-500 italic self-center">⚠️ Exercice legacy — non éditable</span>':''}</div><textarea onblur="setRapportCommentaire('${log.sessionId}',this.value)" placeholder="Commentaire de l'exercice (visible sur le rapport imprimé pour jury / Qualiopi)" class="w-full px-3 py-2 text-sm border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${editable?'':'opacity-50 cursor-not-allowed'}" rows="3" ${editable?'':'disabled'}>${escAttr(rap.commentaire||'')}</textarea></div><div class="mt-4 flex justify-end gap-2">${(log.videoFilename||STATE.sessionVideos[log.sessionId])?`<button onclick="playSessionVideo('${log.sessionId}')" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition text-sm font-bold">▶️ Ouvrir vidéo</button>`:''}<button onclick="printSessionLog('${log.sessionId}')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-sm">🖨️ Imprimer</button><button onclick="deleteSessionLog('${log.sessionId}')" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition text-sm">🗑️ Supprimer</button></div></div>`;
+return `<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg"><div class="flex justify-between items-start mb-4"><div><h3 class="text-2xl font-bold text-primary">Session ${log.sessionNumber}</h3><div class="text-sm text-gray-600 dark:text-gray-400 mt-1"><span>👤 ${trainee}</span><span class="mx-2">•</span><span>👨‍🏫 ${formateurNom}</span></div>${log.videoFilename?`<div class="text-xs text-teal-600 dark:text-teal-400 mt-1">📹 ${log.videoFilename}</div>`:''}</div><div class="text-right text-sm"><div class="text-gray-600 dark:text-gray-400">📅 ${new Date(log.startTime).toLocaleDateString('fr-FR')}</div><div class="text-gray-600 dark:text-gray-400">🕐 ${new Date(log.startTime).toLocaleTimeString('fr-FR')} - ${new Date(log.endTime).toLocaleTimeString('fr-FR')}</div></div></div><div class="border-t pt-4"><h4 class="font-bold mb-3">📋 Actions (${log.actions.length})</h4><div class="ssi-screen max-h-96 overflow-y-auto">${log.actions.length===0?'<div class="text-center opacity-50">Aucune action dans cette session</div>':log.actions.slice(-50).reverse().map(action=>`<div class="mb-2 pb-2 border-b border-green-900"><div class="text-xs opacity-75">${new Date(action.timestamp).toLocaleString('fr-FR')}</div><div>${action.trainee}: <span class="text-yellow-400">${action.action}</span></div>${action.details?`<div class="text-sm opacity-75">${action.details}</div>`:''}</div>`).join('')}</div></div><div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700"><h4 class="font-bold mb-2">📝 Évaluation formateur (rapport Qualiopi)</h4><div class="flex flex-wrap gap-2 mb-3">${valBtn('valide','✅ Validé','bg-green-600')}${valBtn('non_valide','❌ Non validé','bg-red-600')}${valBtn('a_revoir','🔁 À revoir','bg-orange-500')}${!editable?'<span class="text-xs text-gray-500 italic self-center">⚠️ Exercice legacy — non éditable</span>':''}</div><textarea oninput="setRapportCommentaire('${log.sessionId}',this.value)" placeholder="Commentaire de l'exercice (visible sur le rapport imprimé pour jury / Qualiopi)" class="w-full px-3 py-2 text-sm border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${editable?'':'opacity-50 cursor-not-allowed'}" rows="3" ${editable?'':'disabled'}>${escAttr(rap.commentaire||'')}</textarea><div class="mt-3 flex items-center justify-end gap-3">${log._rapportDirty?'<span class="text-xs text-orange-600 dark:text-orange-400 font-semibold self-center">● Modifications non enregistrées</span>':''}<button onclick="saveRapport('${log.sessionId}')" ${editable?'':'disabled'} class="px-4 py-2 rounded font-bold text-sm ${editable?'bg-indigo-600 text-white hover:bg-indigo-700':'bg-gray-300 text-gray-500 cursor-not-allowed'}">💾 Enregistrer l'évaluation</button></div></div><div class="mt-4 flex justify-end gap-2">${(log.videoFilename||STATE.sessionVideos[log.sessionId])?`<button onclick="playSessionVideo('${log.sessionId}')" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition text-sm font-bold">▶️ Ouvrir vidéo</button>`:''}<button onclick="printSessionLog('${log.sessionId}')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-sm">🖨️ Imprimer</button><button onclick="deleteSessionLog('${log.sessionId}')" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition text-sm">🗑️ Supprimer</button></div></div>`;
 }
 
 function updateSearchQuery(value){STATE.searchQuery=value;render();}
