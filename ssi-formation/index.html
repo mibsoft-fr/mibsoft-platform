@@ -586,13 +586,20 @@ if(tAct)traineeName=tAct.trainee;
 }
 // Journal conservé EN MÉMOIRE (pas de persistance base) — RGPD.
 const videoInfo=STATE.sessionVideos[sessionId];
+// Nom formateur lisible (STATE.currentUser peut être un objet {nom,prenom} ou une string).
+const formateurNom=(function(){const u=STATE.currentUser;if(!u)return 'Formateur';if(typeof u==='string')return u;return `${u.prenom||''} ${u.nom||''}`.trim()||'Formateur';})();
 const sessionLog={
 sessionId:sessionId,
 sessionNumber:sessionNumber,
+// ssiSessionId capturé ICI (connu pendant la session) : rend l'évaluation
+// formateur éditable même si le préchargement rapportMap échoue/tarde.
+ssiSessionId:STATE.ssiSessionId||null,
 startTime:startTimeISO,
 endTime:endTimeISO,
 formateur:STATE.currentUser||'Formateur',
+formateurNom:formateurNom,
 trainee:traineeName,
+rapport:{},
 actions:[...STATE.actionLog],
 videoFilename:videoInfo?videoInfo.filename:(STATE.currentRecordingFilename||null),
 sessionsFormationId:STATE.mibSessionId||null
@@ -2030,9 +2037,20 @@ if(f)STATE.formationInfo=f;
 // avec le bon ssi_session_id, (c) compléter le nom du stagiaire pour les logs legacy
 // dont l'écriture Firebase a échoué (« Inconnu » historique).
 try{
-const{data:rows}=await supabase.from('ssi_sessions').select('id,session_number,rapport,stagiaire_id,stagiaires:stagiaire_id(nom,prenom)').eq('sessions_formation_id',STATE.mibSessionId);
+const{data:rows,error:rapErr}=await supabase.from('ssi_sessions').select('id,session_number,rapport,stagiaire_id,stagiaires:stagiaire_id(nom,prenom)').eq('sessions_formation_id',STATE.mibSessionId);
+if(rapErr)console.warn('ssi_sessions rapport prefetch error',rapErr);
 STATE.rapportMap={};
 (rows||[]).forEach(r=>{STATE.rapportMap[r.session_number]={ssiSessionId:r.id,rapport:r.rapport||{},stagiaireNom:r.stagiaires?`${r.stagiaires.prenom||''} ${r.stagiaires.nom||''}`.trim():''};});
+// Backfill des journaux persistés (anciens logs sans ssiSessionId) à partir du
+// serveur : rend l'évaluation éditable et récupère le rapport/nom stagiaire.
+let _changed=false;
+(STATE.sessionLogs||[]).forEach(l=>{
+const e=STATE.rapportMap[l.sessionId];if(!e)return;
+if(!l.ssiSessionId){l.ssiSessionId=e.ssiSessionId;_changed=true;}
+if(e.rapport&&Object.keys(e.rapport).length){l.rapport=e.rapport;_changed=true;}
+if(e.stagiaireNom&&(!l.trainee||l.trainee==='Inconnu')){l.trainee=e.stagiaireNom;_changed=true;}
+});
+if(_changed){try{persistSessionLogs();}catch(_){}}
 }catch(e){console.warn('ssi_sessions rapport prefetch failed',e);}
 }
 navigate('session-logs');
@@ -2042,11 +2060,17 @@ navigate('session-logs');
 // puis persiste via ssi_set_rapport (RLS : seul le formateur propriétaire peut écrire).
 async function updateRapport(sessionId,patch){
 const entry=STATE.rapportMap[sessionId];
-if(!entry||!entry.ssiSessionId)return;
-const newRapport={...(entry.rapport||{}),...patch};
-entry.rapport=newRapport;
+const log=(STATE.sessionLogs||[]).find(l=>l.sessionId===sessionId);
+// ssiSessionId depuis le serveur (entry) OU capturé dans le log à la fin de session.
+const ssiSessionId=(entry&&entry.ssiSessionId)||(log&&log.ssiSessionId)||null;
+if(!ssiSessionId){showCustomAlert('❌ Session non enregistrée côté serveur : évaluation impossible.');return;}
+const base=(entry&&entry.rapport)||(log&&log.rapport)||{};
+const newRapport={...base,...patch};
+if(entry)entry.rapport=newRapport;
+// Persiste aussi localement (le journal reste consultable même si rapportMap est vide).
+if(log){log.rapport=newRapport;try{persistSessionLogs();}catch(_){}}
 try{
-const{error}=await supabase.rpc('ssi_set_rapport',{p_ssi_session_id:entry.ssiSessionId,p_rapport:newRapport});
+const{error}=await supabase.rpc('ssi_set_rapport',{p_ssi_session_id:ssiSessionId,p_rapport:newRapport});
 if(error){console.warn('ssi_set_rapport failed',error);showCustomAlert('❌ Échec sauvegarde rapport : '+(error.message||'erreur'));}
 }catch(e){console.warn('ssi_set_rapport threw',e);}
 }
@@ -2107,12 +2131,18 @@ return `<div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-cen
 
 function renderLogCard(log){
 const entry=STATE.rapportMap[log.sessionId];
-const rap=(entry&&entry.rapport)||{};
-const editable=!!(entry&&entry.ssiSessionId);
+// ssiSessionId : serveur (entry) OU capturé dans le log à la fin de session.
+// L'évaluation est éditable dès qu'on a un ssiSessionId, sans dépendre du
+// préchargement rapportMap (qui peut échouer/tarder).
+const ssiSessionId=(entry&&entry.ssiSessionId)||log.ssiSessionId||null;
+const rap=(entry&&entry.rapport&&Object.keys(entry.rapport).length)?entry.rapport:(log.rapport||{});
+const editable=!!ssiSessionId;
 const trainee=(entry&&entry.stagiaireNom)||log.trainee||'Inconnu';
+// Nom formateur : formateurNom (nouveau), sinon objet {prenom,nom}, sinon string.
+const formateurNom=log.formateurNom||(typeof log.formateur==='object'?`${log.formateur.prenom||''} ${log.formateur.nom||''}`.trim():(log.formateur||''))||'Formateur';
 const escAttr=(s)=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const valBtn=(value,label,activeBg)=>`<button onclick="setRapportValidation('${log.sessionId}','${value}')" ${editable?'':'disabled'} class="px-3 py-1.5 rounded text-sm font-bold ${rap.validation===value?activeBg+' text-white shadow-md':'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'} ${editable?'hover:opacity-90':'opacity-50 cursor-not-allowed'}">${label}</button>`;
-return `<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg"><div class="flex justify-between items-start mb-4"><div><h3 class="text-2xl font-bold text-primary">Session ${log.sessionNumber}</h3><div class="text-sm text-gray-600 dark:text-gray-400 mt-1"><span>👤 ${trainee}</span><span class="mx-2">•</span><span>👨‍🏫 ${typeof log.formateur==='object'?(log.formateur.prenom||''):'Formateur'}</span></div>${log.videoFilename?`<div class="text-xs text-teal-600 dark:text-teal-400 mt-1">📹 ${log.videoFilename}</div>`:''}</div><div class="text-right text-sm"><div class="text-gray-600 dark:text-gray-400">📅 ${new Date(log.startTime).toLocaleDateString('fr-FR')}</div><div class="text-gray-600 dark:text-gray-400">🕐 ${new Date(log.startTime).toLocaleTimeString('fr-FR')} - ${new Date(log.endTime).toLocaleTimeString('fr-FR')}</div></div></div><div class="border-t pt-4"><h4 class="font-bold mb-3">📋 Actions (${log.actions.length})</h4><div class="ssi-screen max-h-96 overflow-y-auto">${log.actions.length===0?'<div class="text-center opacity-50">Aucune action dans cette session</div>':log.actions.slice(-50).reverse().map(action=>`<div class="mb-2 pb-2 border-b border-green-900"><div class="text-xs opacity-75">${new Date(action.timestamp).toLocaleString('fr-FR')}</div><div>${action.trainee}: <span class="text-yellow-400">${action.action}</span></div>${action.details?`<div class="text-sm opacity-75">${action.details}</div>`:''}</div>`).join('')}</div></div><div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700"><h4 class="font-bold mb-2">📝 Évaluation formateur (rapport Qualiopi)</h4><div class="flex flex-wrap gap-2 mb-3">${valBtn('valide','✅ Validé','bg-green-600')}${valBtn('non_valide','❌ Non validé','bg-red-600')}${valBtn('a_revoir','🔁 À revoir','bg-orange-500')}${!editable?'<span class="text-xs text-gray-500 italic self-center">⚠️ Exercice legacy — non éditable</span>':''}</div><textarea onblur="setRapportCommentaire('${log.sessionId}',this.value)" placeholder="Commentaire de l'exercice (visible sur le rapport imprimé pour jury / Qualiopi)" class="w-full px-3 py-2 text-sm border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${editable?'':'opacity-50 cursor-not-allowed'}" rows="3" ${editable?'':'disabled'}>${escAttr(rap.commentaire||'')}</textarea></div><div class="mt-4 flex justify-end gap-2">${(log.videoFilename||STATE.sessionVideos[log.sessionId])?`<button onclick="playSessionVideo('${log.sessionId}')" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition text-sm font-bold">▶️ Ouvrir vidéo</button>`:''}<button onclick="printSessionLog('${log.sessionId}')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-sm">🖨️ Imprimer</button><button onclick="deleteSessionLog('${log.sessionId}')" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition text-sm">🗑️ Supprimer</button></div></div>`;
+return `<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg"><div class="flex justify-between items-start mb-4"><div><h3 class="text-2xl font-bold text-primary">Session ${log.sessionNumber}</h3><div class="text-sm text-gray-600 dark:text-gray-400 mt-1"><span>👤 ${trainee}</span><span class="mx-2">•</span><span>👨‍🏫 ${formateurNom}</span></div>${log.videoFilename?`<div class="text-xs text-teal-600 dark:text-teal-400 mt-1">📹 ${log.videoFilename}</div>`:''}</div><div class="text-right text-sm"><div class="text-gray-600 dark:text-gray-400">📅 ${new Date(log.startTime).toLocaleDateString('fr-FR')}</div><div class="text-gray-600 dark:text-gray-400">🕐 ${new Date(log.startTime).toLocaleTimeString('fr-FR')} - ${new Date(log.endTime).toLocaleTimeString('fr-FR')}</div></div></div><div class="border-t pt-4"><h4 class="font-bold mb-3">📋 Actions (${log.actions.length})</h4><div class="ssi-screen max-h-96 overflow-y-auto">${log.actions.length===0?'<div class="text-center opacity-50">Aucune action dans cette session</div>':log.actions.slice(-50).reverse().map(action=>`<div class="mb-2 pb-2 border-b border-green-900"><div class="text-xs opacity-75">${new Date(action.timestamp).toLocaleString('fr-FR')}</div><div>${action.trainee}: <span class="text-yellow-400">${action.action}</span></div>${action.details?`<div class="text-sm opacity-75">${action.details}</div>`:''}</div>`).join('')}</div></div><div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700"><h4 class="font-bold mb-2">📝 Évaluation formateur (rapport Qualiopi)</h4><div class="flex flex-wrap gap-2 mb-3">${valBtn('valide','✅ Validé','bg-green-600')}${valBtn('non_valide','❌ Non validé','bg-red-600')}${valBtn('a_revoir','🔁 À revoir','bg-orange-500')}${!editable?'<span class="text-xs text-gray-500 italic self-center">⚠️ Exercice legacy — non éditable</span>':''}</div><textarea onblur="setRapportCommentaire('${log.sessionId}',this.value)" placeholder="Commentaire de l'exercice (visible sur le rapport imprimé pour jury / Qualiopi)" class="w-full px-3 py-2 text-sm border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${editable?'':'opacity-50 cursor-not-allowed'}" rows="3" ${editable?'':'disabled'}>${escAttr(rap.commentaire||'')}</textarea></div><div class="mt-4 flex justify-end gap-2">${(log.videoFilename||STATE.sessionVideos[log.sessionId])?`<button onclick="playSessionVideo('${log.sessionId}')" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition text-sm font-bold">▶️ Ouvrir vidéo</button>`:''}<button onclick="printSessionLog('${log.sessionId}')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-sm">🖨️ Imprimer</button><button onclick="deleteSessionLog('${log.sessionId}')" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition text-sm">🗑️ Supprimer</button></div></div>`;
 }
 
 function updateSearchQuery(value){STATE.searchQuery=value;render();}
@@ -2127,14 +2157,14 @@ const fmtTime=(d)=>new Date(d).toLocaleTimeString('fr-FR',{hour:'2-digit',minute
 const cell=(a)=>a?'<div class="action-cell"><div class="timestamp">'+fmtTime(a.timestamp)+'</div><div class="action-content">'+a.action+'</div>'+(a.details?'<div class="details">'+a.details+'</div>':'')+'</div>':'<div class="action-cell empty"></div>';
 let rowsHtml='';
 for(let i=0;i<maxLength;i++){rowsHtml+='<tr><td class="scenario-col">'+cell(formateurActions[i])+'</td><td class="trainee-col">'+cell(traineeActions[i])+'</td></tr>';}
-const supName=typeof log.formateur==='object'?((log.formateur.prenom||'')+' '+(log.formateur.nom||'')).trim():'Formateur';
+const supName=log.formateurNom||(typeof log.formateur==='object'?((log.formateur.prenom||'')+' '+(log.formateur.nom||'')).trim():(log.formateur||''))||'Formateur';
 // Référence de formation (cohorte INI SSIAP X) — affichée pour Qualiopi / jury.
 const f=STATE.formationInfo;
 const formationLine=f?`${(f.type_formation||'').toUpperCase()} ${f.niveau||''}${f.titre?' — '+f.titre:''}`.trim():'';
 const formationDates=f&&f.date_debut&&f.date_fin?`du ${new Date(f.date_debut).toLocaleDateString('fr-FR')} au ${new Date(f.date_fin).toLocaleDateString('fr-FR')}`:'';
-// Rapport formateur (validation + commentaire) depuis ssi_sessions.rapport
+// Rapport formateur (validation + commentaire) : serveur (rapportMap) OU local (log.rapport).
 const entry=STATE.rapportMap[log.sessionId];
-const rap=(entry&&entry.rapport)||{};
+const rap=(entry&&entry.rapport&&Object.keys(entry.rapport).length)?entry.rapport:(log.rapport||{});
 const valLabels={valide:'✅ VALIDÉ',non_valide:'❌ NON VALIDÉ',a_revoir:'🔁 À REVOIR'};
 const valColors={valide:'#16a34a',non_valide:'#dc2626',a_revoir:'#ea580c'};
 const valHtml=rap.validation?'<div class="valid-badge" style="background:'+valColors[rap.validation]+'">'+valLabels[rap.validation]+'</div>':'<div class="valid-badge" style="background:#9ca3af">— Non noté —</div>';
