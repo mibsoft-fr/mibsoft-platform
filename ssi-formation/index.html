@@ -107,7 +107,7 @@ try{ loadSessionLogsLocal(); if(STATE.currentView==='session-logs')render(); }ca
 
 // Version applicative affichée dans les interfaces : permet de vérifier que le
 // poste formateur ET le poste stagiaire tournent bien sur la même version.
-var APP_VERSION='2.37';
+var APP_VERSION='2.38';
 
 const STATE={currentView:'trainee-login',currentUser:null,userType:null,trainees:[],currentSession:null,sessionActive:false,sessionId:null,centerId:null,mibSessionId:null,ssiSessionId:null,accessLevel:1,smsiAccessLevel:1,planTypes:[{key:'centre-commercial',label:'Centre commercial'},{key:'hopital',label:'Hôpital'}],
 sdi:{systemState:'service',batteryState:'service',powerState:'secteur',alarms:[],
@@ -1363,12 +1363,17 @@ const _loc=(detector.address||'').trim();
 const _label=/^(DAI|DM)/i.test(_loc)?_loc:`${type}${String(id).padStart(2,'0')} - ${_loc}`;
 const alarm=`Alarme feu ${_label}`;
 STATE.sdi.alarms.push({text:alarm,timestamp:new Date().toISOString()});
+// Remontée vers le SMSI/UGA uniquement si le SMSI est opérationnel. Si le SMSI
+// est hors service, le feu est bien reçu et affiché sur le SDI (ECS), mais il
+// n'y a ni relais SMSI, ni temporisation, ni diffusion d'alarme générale.
+if(smsiOperational()){
 // Sur le SMSI on ne donne que la localisation (le DAI/DM est déjà indiqué sur le SDI).
 const _place=_loc.replace(/^(DAI|DM)\s*\d*\s*[-–—·:]?\s*/i,'').trim();
 addSmsiMessage(`Alarme feu ${_place||_loc}`);
 if(!STATE.uga.alarmActive){
 if(STATE.uga.temporization>0&&!STATE.uga.temporizationActive){STATE.uga.temporizationActive=true;STATE.uga.temporizationRemaining=STATE.uga.temporization*60;startTemporization();}
 else if(STATE.uga.temporization===0){triggerGeneralAlarm();}
+}
 }
 if(playSound){playAlarmSound();}
 updateAllLeds();
