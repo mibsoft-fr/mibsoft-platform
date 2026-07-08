@@ -907,12 +907,17 @@ async function purgeAllSessionVideos(){
 var ids=Object.keys(STATE.sessionVideos||{});
 for(var i=0;i<ids.length;i++){ try{ await purgeSessionVideos(ids[i]); }catch(_){} }
 }
-// Déconnexion formateur : purge les vidéos puis ferme/renvoie au login.
+// Déconnexion formateur de la session : purge UNIQUEMENT les vidéos de
+// débriefing (RGPD). Le journal des actions (STATE.sessionLogs) reste EN
+// MÉMOIRE et disponible pendant toute la durée de la formation.
+// On ne recharge PAS / on ne ferme PAS la page : un reload détruirait le
+// journal en mémoire. On reste dans l'appli, journal consultable.
 async function formateurDisconnect(){
+showCustomConfirm('Se déconnecter de la session ? La vidéo de débriefing sera définitivement supprimée (RGPD). Le journal des actions restera disponible pendant toute la formation.',async()=>{
 try{ await purgeAllSessionVideos(); }catch(_){}
-try{ window.close(); }catch(_){}
-// Si la fenêtre n'a pas pu être fermée (onglet normal), on recharge sur le login.
-setTimeout(function(){ try{ location.reload(); }catch(_){} },400);
+try{ render(); }catch(_){}
+try{ showCustomAlert('Vidéo(s) de débriefing supprimée(s). Le journal des actions reste disponible.'); }catch(_){}
+});
 }
 
 async function chooseStorageDirectory(){
