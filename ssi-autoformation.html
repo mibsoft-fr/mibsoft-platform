@@ -93,6 +93,9 @@ h1, h2, h3, .panel-title { font-family: var(--font-display); font-weight: var(--
   box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.65);
   overflow-y: auto;
 }
+.screen-off{color:#021a08!important;text-shadow:none!important}
+.screen-hs{animation:scrHs .28s steps(2,end) infinite}
+@keyframes scrHs{0%{opacity:.2}35%{opacity:.9}55%{opacity:.35}100%{opacity:.7}}
 
 /* Switch à clé */
 .key-switch {
@@ -382,12 +385,17 @@ function showCustomAlert(msg){
   document.body.appendChild(m);
 }
 function triggerDetector(type,id,playSound){
+  // SDI hors service / hors tension : aucune réception d'alarme.
+  if(!sdiOperational())return;
   const arr=type==='DAI'?STATE.sdi.detectors:STATE.sdi.manualAlarms;
   const d=arr.find(x=>x.id===id);
   if(!d||d.outOfService||d.state==='hors-service'){addSdiMessage((d?d.address:type+id)+' hors service');return;}
   d.triggered=true;STATE.sdi.fireAlarmActive=true;STATE.sdi.alarmSound=true;
   const locStr=d.location?' - '+d.location:'';
   STATE.sdi.alarms.push({text:'⚠️ Alarme feu '+d.address+locStr+' ('+d.zone+')',timestamp:new Date().toISOString()});
+  // Relais vers le SMSI/UGA uniquement si le SMSI est opérationnel (le feu reste
+  // reçu et affiché sur le SDI même si le SMSI est hors service).
+  if(smsiOperational()){
   addSmsiMessage('Alarme détectée: '+d.address+locStr);
   if(!STATE.uga.alarmActive){
     if(STATE.uga.temporization>0&&!STATE.uga.temporizationActive){
@@ -395,10 +403,13 @@ function triggerDetector(type,id,playSound){
       startTemporization();
     } else if(STATE.uga.temporization===0){triggerGeneralAlarm();}
   }
+  }
   if(playSound) playAlarmSound();
   updateAllLeds();render();
 }
 function setZoneState(zt,id,state){
+  // SMSI hors service / hors tension : plus de remontée ZC/ZF.
+  if(!smsiOperational())return;
   let z;
   if(zt==='compartment'){z=STATE.smsi.compartmentZones.find(x=>x.id===id);if(z){z.state=state;updateZoneLeds(z);addSmsiMessage(z.address+': '+state);}}
   else if(zt==='smoke'){z=STATE.smsi.smokeZones.find(x=>x.id===id);if(z){z.state=state;updateZoneLeds(z);addSmsiMessage(z.address+': '+state);}}
@@ -453,6 +464,7 @@ function updateTemporizationDisplay(){
   } else if(el) el.innerHTML='';
 }
 function triggerGeneralAlarm(){
+  if(!smsiOperational())return;
   STATE.uga.alarmActive=true;STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;
   if(temporizationTimer)clearInterval(temporizationTimer);
   playGeneralAlarm(STATE.uga.alarmType);
@@ -578,6 +590,7 @@ function openSmsiLevelModal(){
 }
 function setSmsiLevel(l){STATE.smsiAccessLevel=l;logAction('SMSI niveau '+l);addSmsiMessage('Niveau '+l);const m=document.getElementById('smsi-level-modal');if(m)m.remove();render();}
 function commandZone(zt,id){
+  if(!smsiOperational()){showCustomAlert('🛡️ SMSI hors service : commande ZC/ZF impossible.');return;}
   if(STATE.smsiAccessLevel<2){
     showCustomAlert('⚠️ Niveau 2 SMSI requis pour commander les DAS.<br>Utilisez la clé 🔑 pour passer en niveau 2.');
     return;
@@ -723,6 +736,7 @@ STATE.smsi.smokeZones.forEach(z=>{const das=[['Clapet CF 1','Gaine technique RDC
 STATE.smsi.relayBoxes.forEach(r=>{r.state='attente';r.stopped=false;r.ledRed={on:false,blink:false};r.ledOrange={on:false,blink:false};r.ledGreen={on:false,blink:false};});
 STATE.uga.alarmActive=false;STATE.uga.temporizationActive=false;STATE.uga.temporizationRemaining=0;
 STATE.accessLevel=1;STATE.smsiAccessLevel=1;STATE.outOfService=[];STATE.keypadInput='';STATE.workflowStep=null;STATE.actionLog=[];
+STATE.sdi._randDerangement=null;STATE.smsi._randDefaut=null;
 if(STATE.scenarioState&&STATE.scenarioState.mhsCheckInterval)clearInterval(STATE.scenarioState.mhsCheckInterval);
 if(STATE.scenarioState&&STATE.scenarioState.rsCheckInterval)clearInterval(STATE.scenarioState.rsCheckInterval);
 stopGeneralAlarm();try{stopAlarmSound(true);}catch(e){}
@@ -861,6 +875,29 @@ STATE.scenarioState.rsTarget={type:'DM',id:id,address:d.address,location:d.locat
 addSdiMessage('⚠️ '+d.address+' - '+d.location+' HORS SERVICE');
 setTimeout(()=>{showRsInstructionModal('DM',d.address+' - '+d.location);},800);
 }
+}
+else if(type==='derangement'){
+changeSdiState('derangement');
+setTimeout(function(){showCustomAlert('🟠 <b>Dérangement SDI</b><br><br>Le voyant DÉRANGEMENT est allumé et l\'ECS affiche « DÉRANGEMENT ». Une fonction (un détecteur) est <b>hors service</b>.<br><br>👉 Identifiez le détecteur en défaut (bandeau « HS » / ECS), puis traitez-le via la procédure de remise en service.');},700);
+}
+else if(type==='defaut_systeme'){
+changeSmsiState('defaut-systeme');
+setTimeout(function(){showCustomAlert('🟠 <b>Défaut système SMSI</b><br><br>Le voyant DÉFAUT SYSTÈME est allumé. Une fonction (ZC / ZF / coffret) est <b>en défaut</b>.<br><br>👉 Repérez l\'élément en défaut sur l\'UCMC/UCMF et corrigez-le.');},700);
+}
+else if(type==='hors_service'){
+var hsPanel=rand(2)===0?'sdi':'smsi';
+if(hsPanel==='sdi')changeSdiState('hors-service');else changeSmsiState('hors-service');
+setTimeout(function(){showCustomAlert('🔴 <b>'+(hsPanel==='sdi'?'SDI':'SMSI')+' hors service</b><br><br>L\'écran affiche « HORS SERVICE ». Le pupitre ne fonctionne plus : '+(hsPanel==='sdi'?'aucune réception d\'alarme ni signal sonore SDI':'aucune diffusion d\'alarme générale ni remontée ZC/ZF')+'.<br><br>👉 Constatez les conséquences, consignez le registre, et remettez en service quand c\'est possible.');},700);
+}
+else if(type==='ecran_hs'){
+var ehPanel=rand(2)===0?'sdi':'smsi';
+if(ehPanel==='sdi')changeSdiState('ecran-hs');else changeSmsiState('ecran-hs');
+setTimeout(function(){showCustomAlert('⚡ <b>Écran HS ('+(ehPanel==='sdi'?'ECS / SDI':'SMSI')+')</b><br><br>L\'afficheur est défaillant : le texte clignote et des mots manquent. Ne vous fiez pas aux informations affichées.<br><br>👉 Signalez le dérangement de l\'afficheur et consignez-le.');},700);
+}
+else if(type==='hors_tension'){
+var htPanel=rand(2)===0?'sdi':'smsi';
+if(htPanel==='sdi')changeSdiState('hors-tension');else changeSmsiState('hors-tension');
+setTimeout(function(){showCustomAlert('⚫ <b>'+(htPanel==='sdi'?'SDI':'SMSI')+' hors tension</b><br><br>Plus d\'alimentation (ni secteur ni batterie) : écran éteint, aucun voyant. Le pupitre est totalement inopérant.<br><br>👉 Défaut d\'alimentation majeur : consignez et alertez la maintenance.');},700);
 }
 render();
 }
@@ -1541,11 +1578,12 @@ function _userName(u){
 /* ===================== RENDER ===================== */
 function render(){
   document.getElementById('app').innerHTML=renderTraining();
+  try{syncEcranHsTimer();}catch(_){}
 }
 
 function renderTraining(){
 const u=STATE.currentUser;const sc=STATE.activeScenario;
-const scLabels={prise_de_poste:'Prise de poste',declenchement_dai:'Déclenchement DAI',declenchement_dm:'Déclenchement DM',rearmement:'Réarmement SSI',mise_hs:'Mise Hors Service',remise_service:'Remise en Service'};
+const scLabels={prise_de_poste:'Prise de poste',declenchement_dai:'Déclenchement DAI',declenchement_dm:'Déclenchement DM',rearmement:'Réarmement SSI',mise_hs:'Mise Hors Service',remise_service:'Remise en Service',derangement:'Dérangement SDI',defaut_systeme:'Défaut système SMSI',hors_service:'Hors service',ecran_hs:'Écran HS',hors_tension:'Hors tension'};
 let h='<div class="min-h-screen p-2 bg-gray-100">';
 h+='<div class="max-w-7xl mx-auto">';
 // Header
@@ -1568,7 +1606,7 @@ phases.forEach(p=>{
   const active=STATE.learningPhase===p.key;
   h+='<button onclick="setLearningPhase(\''+p.key+'\')" class="px-2 py-1.5 rounded-lg font-bold text-xs text-white '+(active?p.bg+' shadow-md':'bg-gray-400 opacity-60 hover:opacity-90')+'" title="'+p.title+'">'+p.label+'</button>';
 });
-h+='<select onchange="const v=this.value;this.value=\'\';if(v)try{startScenario(v)}catch(e){console.error(\'startScenario failed:\',e);showCustomAlert(\'❌ Erreur au démarrage du scénario : \'+e.message);}" class="px-3 py-1.5 bg-orange-500 text-white rounded-lg font-bold text-xs cursor-pointer border-0 outline-none"><option value="">🎯 Scénario...</option><option value="prise_de_poste">📋 Prise de poste</option><option value="declenchement_dai">🔍 Déclenchement DAI</option><option value="declenchement_dm">🚨 Déclenchement DM</option><option value="rearmement">🔄 Réarmement SSI</option><option value="mise_hs">🔒 Mise Hors Service</option><option value="remise_service">🔓 Remise en Service</option></select>';
+h+='<select onchange="const v=this.value;this.value=\'\';if(v)try{startScenario(v)}catch(e){console.error(\'startScenario failed:\',e);showCustomAlert(\'❌ Erreur au démarrage du scénario : \'+e.message);}" class="px-3 py-1.5 bg-orange-500 text-white rounded-lg font-bold text-xs cursor-pointer border-0 outline-none"><option value="">🎯 Scénario...</option><option value="prise_de_poste">📋 Prise de poste</option><option value="declenchement_dai">🔍 Déclenchement DAI</option><option value="declenchement_dm">🚨 Déclenchement DM</option><option value="rearmement">🔄 Réarmement SSI</option><option value="mise_hs">🔒 Mise Hors Service</option><option value="remise_service">🔓 Remise en Service</option><option value="derangement">🟠 Dérangement SDI</option><option value="defaut_systeme">🟠 Défaut système SMSI</option><option value="hors_service">🔴 Hors service</option><option value="ecran_hs">⚡ Écran HS</option><option value="hors_tension">⚫ Hors tension</option></select>';
 if(sc)h+='<button onclick="showScenarioHelp()" class="px-3 py-1.5 bg-green-500 text-white rounded-lg font-bold text-xs">📖 Aide</button>';
 h+='</div></div>';
 // Scenario banner
@@ -1619,35 +1657,79 @@ function statusBar(label,leds,testActive){
   return '<div class="bg-gray-800 px-1.5 py-1 rounded flex flex-col items-center gap-1"><span class="text-white text-[10px] font-medium leading-tight text-center">'+label+'</span><div class="flex gap-1">'+ledHtml+'</div></div>';
 }
 
+// ══ État système SDI/SMSI (parité avec le mode formateur) ═══════════════════
+var SDI_STATE_LABELS={service:'Sous tension',test:'Test','hors-service':'Hors service','systeme-hs':'Système H.S.','defaut-batteries':'Défaut batteries','defaut-secteur':'Défaut secteur',derangement:'Dérangement','hors-tension':'Hors tension','ecran-hs':'Écran HS'};
+var SMSI_STATE_LABELS={service:'Sous tension',test:'Test','hors-service':'Hors service','defaut-systeme':'Défaut système','defaut-batteries':'Défaut batteries','defaut-secteur':'Défaut secteur',derangement:'Dérangement','hors-tension':'Hors tension','ecran-hs':'Écran HS'};
+function sdiStateSelect(){var s=STATE.sdi.systemState,o=function(v,l){return '<option value="'+v+'" '+(s===v?'selected':'')+'>'+l+'</option>';};return '<select onchange="changeSdiState(this.value)" class="w-full px-2 py-1 text-xs rounded bg-gray-700 text-white border border-gray-600">'+o('service','Sous tension')+o('test','Test')+o('hors-service','Hors service')+o('systeme-hs','Système H.S.')+o('defaut-batteries','Défaut batteries')+o('defaut-secteur','Défaut secteur')+o('derangement','Dérangement')+o('hors-tension','Hors tension')+o('ecran-hs','Écran HS')+'</select>';}
+function smsiStateSelect(){var s=STATE.smsi.systemState,o=function(v,l){return '<option value="'+v+'" '+(s===v?'selected':'')+'>'+l+'</option>';};return '<select onchange="changeSmsiState(this.value)" class="w-full px-2 py-1 text-xs rounded bg-gray-700 text-white border border-gray-600">'+o('service','Sous tension')+o('test','Test')+o('hors-service','Hors service')+o('defaut-systeme','Défaut système')+o('defaut-batteries','Défaut batteries')+o('defaut-secteur','Défaut secteur')+o('derangement','Dérangement')+o('hors-tension','Hors tension')+o('ecran-hs','Écran HS')+'</select>';}
+function sdiOperational(){return STATE.sdi.systemState!=='hors-service'&&STATE.sdi.systemState!=='hors-tension';}
+function smsiOperational(){return STATE.smsi.systemState!=='hors-service'&&STATE.smsi.systemState!=='hors-tension';}
+function voyantColumn(rows,test){
+return '<div class="flex flex-col gap-2 justify-center bg-gray-900 rounded px-2 py-2" style="min-width:118px;">'+rows.map(function(r){var on=test?true:r.on;return '<div class="flex items-center gap-2"><span class="led-light '+(on?('led-'+r.c):'led-off')+'"></span><span class="font-bold leading-none" style="color:'+(r.tc||'#fff')+';font-size:8.5px;letter-spacing:.02em;white-space:nowrap;">'+r.l+'</span></div>';}).join('')+'</div>';
+}
+function sdiVoyants(){
+var s=STATE.sdi;var off=s.systemState==='hors-tension';var test=!off&&!!s.testSignalActive;var st=off?'':s.systemState;
+var anyHS=s.detectors.some(function(d){return d.outOfService||d.state==='hors-service';})||s.manualAlarms.some(function(d){return d.outOfService||d.state==='hors-service';});
+var rows=[
+{c:'red',l:'FEU',on:!off&&!!s.fireAlarmActive,tc:'#ef4444'},
+{c:'orange',l:'DÉRANGEMENT',on:st==='derangement'||(!off&&hasSdiFault())},
+{c:'orange',l:'DÉFAUT SECTEUR',on:st==='defaut-secteur'},
+{c:'orange',l:'DÉFAUT BATTERIES',on:st==='defaut-batteries'},
+{c:'orange',l:'SYSTÈME H.S.',on:st==='systeme-hs'},
+{c:'orange',l:'HORS SERVICE',on:st==='hors-service'||(!off&&anyHS)},
+{c:'orange',l:'TEST',on:st==='test'},
+{c:'green',l:'SOUS TENSION',on:!off}
+];
+return voyantColumn(rows,test);
+}
+function smsiVoyants(){
+var s=STATE.smsi;var off=s.systemState==='hors-tension';var test=!off&&!!s.testSignalActive;var st=off?'':s.systemState;
+var enSecu=[].concat(s.compartmentZones,s.smokeZones,s.relayBoxes).some(function(z){return z.state==='securite'||z.state==='defaut-securite';});
+var rows=[
+{c:'red',l:'ÉVACUATION',on:!off&&!!STATE.uga.alarmActive,tc:'#ef4444'},
+{c:'red',l:'ALARME',on:!off&&(!!STATE.uga.alarmActive||enSecu),tc:'#ef4444'},
+{c:'orange',l:'DÉRANGEMENT',on:st==='derangement'||(!off&&hasSmsiFault())},
+{c:'orange',l:'DÉFAUT SECTEUR',on:st==='defaut-secteur'},
+{c:'orange',l:'DÉFAUT BATTERIES',on:st==='defaut-batteries'},
+{c:'orange',l:'DÉFAUT SYSTÈME',on:st==='defaut-systeme'},
+{c:'orange',l:'HORS SERVICE',on:st==='hors-service'},
+{c:'orange',l:'TEST',on:st==='test'},
+{c:'green',l:'SOUS TENSION',on:!off}
+];
+return voyantColumn(rows,test);
+}
+function garbleHtml(lines){var g='▓▒░#@*%¤';return (lines||[]).map(function(line){var out=String(line).split(/\s+/).map(function(w){if(!w)return '';var r=Math.random();if(r<0.4)return '&nbsp;&nbsp;';if(r<0.62)return w.split('').map(function(ch){return Math.random()<0.5?g.charAt(Math.floor(Math.random()*g.length)):ch;}).join('');return w;}).join(' ');return '<div class="mb-0.5">'+out+'</div>';}).join('');}
+function ssiScreenBuild(st,labels,items){
+if(st==='hors-tension')return '';
+if(st==='ecran-hs')return garbleHtml(items.length?items:['SYSTÈME EN VEILLE']);
+if(st==='hors-service')return '<div class="text-center font-bold py-3" style="color:#ff3b3b">■ HORS SERVICE ■</div>';
+var body=items.length===0?'<div class="text-center py-3 opacity-60">SYSTÈME EN VEILLE</div>':items.map(function(t){return '<div class="mb-0.5">'+t+'</div>';}).join('');
+if(st&&st!=='service')return '<div class="text-center font-bold" style="color:#ffae42">⚠ '+((labels[st]||st).toUpperCase())+' ⚠</div>'+body;
+return body;
+}
+function sdiScreenInner(){return ssiScreenBuild(STATE.sdi.systemState,SDI_STATE_LABELS,STATE.sdi.alarms.map(function(a){return a.text;}));}
+function smsiScreenInner(){return ssiScreenBuild(STATE.smsi.systemState,SMSI_STATE_LABELS,STATE.smsi.messages.map(function(m){return m.text;}));}
+var ecranHsTimer=null;
+function syncEcranHsTimer(){var need=STATE.sdi.systemState==='ecran-hs'||STATE.smsi.systemState==='ecran-hs';if(need&&!ecranHsTimer){ecranHsTimer=setInterval(function(){var a=document.getElementById('sdi-screen');if(a&&STATE.sdi.systemState==='ecran-hs')a.innerHTML=sdiScreenInner();var b=document.getElementById('smsi-screen');if(b&&STATE.smsi.systemState==='ecran-hs')b.innerHTML=smsiScreenInner();},320);}else if(!need&&ecranHsTimer){clearInterval(ecranHsTimer);ecranHsTimer=null;}}
+// Dérangement SDI / Défaut système SMSI : une fonction tombe HS aléatoirement.
+function applySdiDerangement(){var pool=[].concat(STATE.sdi.detectors.filter(function(d){return d.state!=='hors-service'&&!d.outOfService;}),STATE.sdi.manualAlarms.filter(function(d){return d.state!=='hors-service'&&!d.outOfService;}));if(!pool.length)return;var d=pool[Math.floor(Math.random()*pool.length)];d.outOfService=true;d.state='hors-service';STATE.sdi._randDerangement=d;try{addSdiMessage('⚠️ '+d.address+(d.location?' - '+d.location:'')+' HORS SERVICE');}catch(_){}}
+function clearSdiDerangement(){var d=STATE.sdi._randDerangement;if(d){d.outOfService=false;d.state='service';}STATE.sdi._randDerangement=null;}
+function applySmsiDefautSysteme(){var pool=[].concat(STATE.smsi.compartmentZones.filter(function(z){return z.state==='attente';}).map(function(z){return {t:'compartment',id:z.id};}),STATE.smsi.smokeZones.filter(function(z){return z.state==='attente';}).map(function(z){return {t:'smoke',id:z.id};}),STATE.smsi.relayBoxes.filter(function(z){return z.state==='attente';}).map(function(z){return {t:'relay',id:z.id};}));if(!pool.length)return;var pick=pool[Math.floor(Math.random()*pool.length)];STATE.smsi._randDefaut=pick;setZoneState(pick.t,pick.id,'defaut-attente');}
+function clearSmsiDefautSysteme(){var p=STATE.smsi._randDefaut;if(p){var arr=p.t==='compartment'?STATE.smsi.compartmentZones:(p.t==='smoke'?STATE.smsi.smokeZones:STATE.smsi.relayBoxes);var z=arr.find(function(x){return x.id===p.id;});if(z){z.state='attente';try{updateZoneLeds(z);}catch(_){}}}STATE.smsi._randDefaut=null;}
+function changeSdiState(state){var prev=STATE.sdi.systemState;STATE.sdi.systemState=state;try{logAction('SDI - État système',SDI_STATE_LABELS[state]||state);}catch(_){}if(state==='derangement'&&prev!=='derangement')applySdiDerangement();else if(state!=='derangement'&&STATE.sdi._randDerangement)clearSdiDerangement();render();}
+function changeSmsiState(state){var prev=STATE.smsi.systemState;STATE.smsi.systemState=state;try{logAction('SMSI - État système',SMSI_STATE_LABELS[state]||state);}catch(_){}if(state==='defaut-systeme'&&prev!=='defaut-systeme')applySmsiDefautSysteme();else if(state!=='defaut-systeme'&&STATE.smsi._randDefaut)clearSmsiDefautSysteme();render();}
+
 function renderSdiPanel(){
 let h='<div class="ssi-panel"><h3 class="text-base font-bold mb-2 text-white">🔥 SDI — Système de Détection Incendie</h3>';
 const sdiTest=!!STATE.sdi.testSignalActive;
-h+='<div class="grid grid-cols-3 gap-1.5 mb-2">';
-h+=statusBar('État',[
-  {color:'green',on:STATE.sdi.systemState==='service'&&!hasSdiFault()},
-  {color:'orange',on:STATE.sdi.systemState==='service'&&hasSdiFault()},
-  {color:'red',on:STATE.sdi.systemState==='hors-service'}
-],sdiTest);
-h+=statusBar('Alimentation secteur',[
-  {color:'green',on:STATE.sdi.powerState==='secteur'},
-  {color:'red',on:STATE.sdi.powerState!=='secteur'}
-],sdiTest);
-h+=statusBar('Alimentation batterie',[
-  {color:'green',on:STATE.sdi.batteryState==='service'&&STATE.sdi.powerState==='secteur'},
-  {color:'orange',on:STATE.sdi.batteryState==='service'&&STATE.sdi.powerState==='batterie',blink:true},
-  {color:'red',on:STATE.sdi.batteryState==='hors-service'}
-],sdiTest);
-h+='</div>';
-h+='<div class="mb-2"><p class="text-white text-xs font-bold mb-1">📟 ECS — État du système</p>';
-h+='<div id="sdi-screen" class="ssi-screen text-xs" style="max-height:140px;overflow-y:auto">';
-if(STATE.sdi.alarms.length===0)h+='<div class="text-center py-3 opacity-60">SYSTÈME EN VEILLE — Aucune alarme</div>';
-else STATE.sdi.alarms.forEach(a=>{h+='<div class="mb-0.5">'+a.text+'</div>';});
-h+='</div>';
+h+='<div class="mb-2"><label class="block text-white text-[11px] font-bold mb-1">État système</label>'+sdiStateSelect()+'</div>';
+h+='<div class="flex gap-2 mb-2">'+sdiVoyants()+'<div class="flex-1 min-w-0"><p class="text-white text-xs font-bold mb-1">📟 ECS — État du système</p>';
+h+='<div id="sdi-screen" class="ssi-screen text-xs '+(STATE.sdi.systemState==='hors-tension'?'screen-off':'')+' '+(STATE.sdi.systemState==='ecran-hs'?'screen-hs':'')+'" style="max-height:140px;overflow-y:auto">'+sdiScreenInner()+'</div>';
 h+='<div class="grid grid-cols-3 gap-1 mt-1 w-28 mx-auto">';
 h+='<div></div><button onclick="scrollScreen(\'sdi-screen\',\'up\')" class="nav-btn">▲</button><div></div>';
 h+='<button onclick="scrollScreen(\'sdi-screen\',\'first\')" class="nav-btn">◀</button><div></div><button onclick="scrollScreen(\'sdi-screen\',\'last\')" class="nav-btn">▶</button>';
 h+='<div></div><button onclick="scrollScreen(\'sdi-screen\',\'down\')" class="nav-btn">▼</button><div></div>';
-h+='</div></div>';
+h+='</div></div></div>';
 h+='<div class="bg-gray-800 px-2 py-2 rounded mb-2 flex items-center justify-between">';
 h+='<span class="text-white text-xs font-bold">ALARME FEU</span>';
 h+='<div class="flex items-center gap-2"><span class="led-light '+(STATE.sdi.fireAlarmActive?'led-red blink':'led-off')+'"></span>';
@@ -1679,36 +1761,14 @@ return h;
 function renderSmsiPanel(){
 let h='<div class="ssi-panel"><h3 class="text-base font-bold mb-2 text-white">🛡️ SMSI — Système de Mise en Sécurité</h3>';
 const smsiTest=!!STATE.smsi.testSignalActive;
-h+='<div class="grid grid-cols-4 gap-1 mb-2">';
-h+=statusBar('État',[
-  {color:'green',on:STATE.smsi.systemState==='service'&&!hasSmsiFault()},
-  {color:'orange',on:STATE.smsi.systemState==='service'&&hasSmsiFault()},
-  {color:'red',on:STATE.smsi.systemState==='hors-service'}
-],smsiTest);
-h+=statusBar('Alimentation secteur',[
-  {color:'green',on:STATE.smsi.powerState==='secteur'},
-  {color:'red',on:STATE.smsi.powerState!=='secteur'}
-],smsiTest);
-h+=statusBar('Alimentation batterie',[
-  {color:'green',on:STATE.smsi.batteryState==='service'&&STATE.smsi.powerState==='secteur'},
-  {color:'orange',on:STATE.smsi.batteryState==='service'&&STATE.smsi.powerState==='batterie',blink:true},
-  {color:'red',on:STATE.smsi.batteryState==='hors-service'}
-],smsiTest);
-h+=statusBar('Alarme',[
-  {color:'green',on:STATE.smsi.alarmState==='service'&&!STATE.uga.alarmActive},
-  {color:'red',on:STATE.uga.alarmActive,blink:true}
-],smsiTest);
-h+='</div>';
-h+='<div class="mb-2"><p class="text-white text-xs font-bold mb-1">📟 SMSI — Messages</p>';
-h+='<div id="smsi-screen" class="ssi-screen text-xs" style="max-height:120px;overflow-y:auto">';
-if(STATE.smsi.messages.length===0)h+='<div class="text-center py-3 opacity-60">SYSTÈME EN VEILLE</div>';
-else STATE.smsi.messages.forEach(m=>{h+='<div class="mb-0.5">'+m.text+'</div>';});
-h+='</div>';
+h+='<div class="mb-2"><label class="block text-white text-[11px] font-bold mb-1">État système</label>'+smsiStateSelect()+'</div>';
+h+='<div class="flex gap-2 mb-2">'+smsiVoyants()+'<div class="flex-1 min-w-0"><p class="text-white text-xs font-bold mb-1">📟 SMSI — Messages</p>';
+h+='<div id="smsi-screen" class="ssi-screen text-xs '+(STATE.smsi.systemState==='hors-tension'?'screen-off':'')+' '+(STATE.smsi.systemState==='ecran-hs'?'screen-hs':'')+'" style="max-height:120px;overflow-y:auto">'+smsiScreenInner()+'</div>';
 h+='<div class="grid grid-cols-3 gap-1 mt-1 w-28 mx-auto">';
 h+='<div></div><button onclick="scrollScreen(\'smsi-screen\',\'up\')" class="nav-btn">▲</button><div></div>';
 h+='<button onclick="scrollScreen(\'smsi-screen\',\'first\')" class="nav-btn">◀</button><div></div><button onclick="scrollScreen(\'smsi-screen\',\'last\')" class="nav-btn">▶</button>';
 h+='<div></div><button onclick="scrollScreen(\'smsi-screen\',\'down\')" class="nav-btn">▼</button><div></div>';
-h+='</div></div>';
+h+='</div></div></div>';
 h+='<div class="bg-gray-800 p-2 rounded mb-2">';
 h+='<p class="text-white font-bold mb-1 text-xs">🔔 UGA — Unité de Gestion d\'Alarme</p>';
 h+='<div class="temporization-display">';
