@@ -788,65 +788,81 @@ if(STATE.localStream){STATE.localStream.getTracks().forEach(track=>track.stop())
 if(STATE.peerConnection){STATE.peerConnection.close();STATE.peerConnection=null;}
 STATE.videoEnabled=false;
 STATE.audioEnabled=false;
-if(STATE.sessionId&&firebaseInitialized){
-try{db.ref(`sessions/${STATE.sessionId}/video/trainee_stream_active`).set(false);}catch(e){}
-}
+if(STATE.sessionId){try{vSend('VIDEO_STREAM_ACTIVE',{active:false});}catch(e){}}
 }
 
 function toggleVideo(){if(STATE.videoEnabled&&STATE.localStream){const videoTrack=STATE.localStream.getVideoTracks()[0];if(videoTrack){videoTrack.enabled=!videoTrack.enabled;STATE.videoEnabled=videoTrack.enabled;render();}}}
 function toggleAudio(){if(STATE.audioEnabled&&STATE.localStream){const audioTrack=STATE.localStream.getAudioTracks()[0];if(audioTrack){audioTrack.enabled=!audioTrack.enabled;STATE.audioEnabled=audioTrack.enabled;render();}}}
 
-async function setupPeerConnection(){
-if(!STATE.sessionId)return;
-STATE.peerConnection=new RTCPeerConnection(iceServers);
-STATE.localStream.getTracks().forEach(track=>{STATE.peerConnection.addTrack(track,STATE.localStream);});
-STATE.peerConnection.onicecandidate=(event)=>{if(event.candidate){db.ref(`sessions/${STATE.sessionId}/video/trainee_ice_candidates`).push(event.candidate.toJSON());}};
-STATE.peerConnection.ontrack=(event)=>{const st=(event.streams&&event.streams[0])||new MediaStream([event.track]);STATE.remoteStream=st;const fa=document.getElementById('formateur-audio');if(fa){fa.srcObject=st;fa.muted=false;fa.volume=1;fa.play().catch(()=>{})}};
-if(STATE.userType==='trainee'){
-const offer=await STATE.peerConnection.createOffer();
-await STATE.peerConnection.setLocalDescription(offer);
-db.ref(`sessions/${STATE.sessionId}/video/offer`).set({type:offer.type,sdp:offer.sdp});
-db.ref(`sessions/${STATE.sessionId}/video/trainee_stream_active`).set(true);
-const answerRef=db.ref(`sessions/${STATE.sessionId}/video/answer`);
-answerRef.on('value',async(snapshot)=>{const answer=snapshot.val();if(answer&&STATE.peerConnection&&!STATE.peerConnection.currentRemoteDescription){try{await STATE.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));}catch(_){}}});
-activeFirebaseListeners.push(answerRef);
-const supIceRef=db.ref(`sessions/${STATE.sessionId}/video/formateur_ice_candidates`);
-supIceRef.on('child_added',async(snapshot)=>{const candidate=snapshot.val();if(candidate&&STATE.peerConnection){try{await STATE.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));}catch(_){}}});
-activeFirebaseListeners.push(supIceRef);
+// ─── Signaling WebRTC via Supabase Realtime (broadcast) — remplace Firebase ───
+// Messages sur le canal session:<id> : VIDEO_REQUEST (formateur→demande d'offre),
+// VIDEO_OFFER (stagiaire), VIDEO_ANSWER (formateur), VIDEO_ICE_TRAINEE/FORMATEUR.
+function vSend(type,data){ try{ sendMessage(type,data||{}); }catch(_){} }
+function vAddIce(cand){
+if(!cand||!STATE.peerConnection)return;
+var pc=STATE.peerConnection;
+if(pc.remoteDescription&&pc.remoteDescription.type){ pc.addIceCandidate(new RTCIceCandidate(cand)).catch(function(){}); }
+else{ (STATE._pendingIce=STATE._pendingIce||[]).push(cand); }
 }
+function vFlushIce(){
+var pc=STATE.peerConnection; if(!pc||!STATE._pendingIce)return;
+STATE._pendingIce.forEach(function(c){ try{ pc.addIceCandidate(new RTCIceCandidate(c)); }catch(_){} });
+STATE._pendingIce=[];
 }
 
+// Stagiaire : crée l'offre et l'envoie ; ré-appelée sur VIDEO_REQUEST (formateur qui (re)connecte).
+async function setupPeerConnection(){
+if(!STATE.sessionId||!STATE.localStream)return;
+if(STATE.peerConnection){try{STATE.peerConnection.close();}catch(_){}}
+STATE._pendingIce=[];
+var pc=STATE.peerConnection=new RTCPeerConnection(iceServers);
+STATE.localStream.getTracks().forEach(function(t){pc.addTrack(t,STATE.localStream);});
+pc.onicecandidate=function(e){ if(e.candidate)vSend('VIDEO_ICE_TRAINEE',{candidate:e.candidate.toJSON()}); };
+pc.ontrack=function(event){ var st=(event.streams&&event.streams[0])||new MediaStream([event.track]); STATE.remoteStream=st; var fa=document.getElementById('formateur-audio'); if(fa){fa.srcObject=st;fa.muted=false;fa.volume=1;fa.play().catch(function(){});} };
+var offer=await pc.createOffer();
+await pc.setLocalDescription(offer);
+vSend('VIDEO_OFFER',{type:offer.type,sdp:offer.sdp});
+vSend('VIDEO_STREAM_ACTIVE',{active:true});
+}
+// Stagiaire : réception de la réponse du formateur.
+async function traineeHandleAnswer(answer){
+var pc=STATE.peerConnection; if(!pc||!answer)return;
+if(pc.currentRemoteDescription)return;
+try{ await pc.setRemoteDescription(new RTCSessionDescription(answer)); vFlushIce(); }catch(e){ console.warn('answer failed',e); }
+}
+
+// Formateur : demande le flux → envoie VIDEO_REQUEST, prépare la connexion et attend l'offre.
 async function formateurConnectToVideo(){
 if(!STATE.sessionId)return;
-if(STATE.peerConnection){STATE.peerConnection.close();}
-STATE.peerConnection=new RTCPeerConnection(iceServers);
-STATE.peerConnection.onicecandidate=(event)=>{if(event.candidate){db.ref(`sessions/${STATE.sessionId}/video/formateur_ice_candidates`).push(event.candidate.toJSON());}};
-STATE.peerConnection.ontrack=(event)=>{STATE.remoteStream=event.streams[0];render();};
-db.ref(`sessions/${STATE.sessionId}/video/offer`).once('value',async(snapshot)=>{
-const offer=snapshot.val();
-if(offer&&STATE.peerConnection){
-await STATE.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-// Capture le micro du formateur et le greffe sur la piste audio existante
-// (réutilise le transceiver audio de l'offre stagiaire -> audio bidirectionnel,
-// sans renégociation). Le bouton « Micro » active/coupe ensuite la piste.
-try{
-  STATE.formateurStream=await navigator.mediaDevices.getUserMedia({audio:true});
-  const fTrack=STATE.formateurStream.getAudioTracks()[0];
-  if(fTrack){
-    fTrack.enabled=!!STATE.formateurMicActive;
-    const audioTx=STATE.peerConnection.getTransceivers().find(t=>t.receiver&&t.receiver.track&&t.receiver.track.kind==='audio');
-    if(audioTx){await audioTx.sender.replaceTrack(fTrack);try{audioTx.direction='sendrecv';}catch(_){}}
-    else{STATE.peerConnection.addTrack(fTrack,STATE.formateurStream);}
-  }
-}catch(micErr){console.warn('Micro formateur indisponible',micErr);}
-const answer=await STATE.peerConnection.createAnswer();
-await STATE.peerConnection.setLocalDescription(answer);
-db.ref(`sessions/${STATE.sessionId}/video/answer`).set({type:answer.type,sdp:answer.sdp});
-const traineeIceRef=db.ref(`sessions/${STATE.sessionId}/video/trainee_ice_candidates`);
-traineeIceRef.on('child_added',async(snapshot)=>{const candidate=snapshot.val();if(candidate&&STATE.peerConnection){try{await STATE.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));}catch(_){}}});
-activeFirebaseListeners.push(traineeIceRef);
+if(STATE.peerConnection){try{STATE.peerConnection.close();}catch(_){}}
+STATE._pendingIce=[];
+var pc=STATE.peerConnection=new RTCPeerConnection(iceServers);
+pc.onicecandidate=function(e){ if(e.candidate)vSend('VIDEO_ICE_FORMATEUR',{candidate:e.candidate.toJSON()}); };
+pc.ontrack=function(event){ STATE.remoteStream=(event.streams&&event.streams[0])||new MediaStream([event.track]); render(); };
+STATE._videoAwaitingOffer=true;
+vSend('VIDEO_REQUEST',{});
 }
-});
+// Formateur : réception de l'offre stagiaire → répond (avec micro formateur greffé).
+async function formateurHandleOffer(offer){
+var pc=STATE.peerConnection; if(!pc||!offer||!STATE._videoAwaitingOffer)return;
+try{
+await pc.setRemoteDescription(new RTCSessionDescription(offer));
+vFlushIce();
+// Micro formateur greffé sur le transceiver audio existant (audio bidirectionnel).
+try{
+STATE.formateurStream=await navigator.mediaDevices.getUserMedia({audio:true});
+var fTrack=STATE.formateurStream.getAudioTracks()[0];
+if(fTrack){
+fTrack.enabled=!!STATE.formateurMicActive;
+var audioTx=pc.getTransceivers().find(function(t){return t.receiver&&t.receiver.track&&t.receiver.track.kind==='audio';});
+if(audioTx){await audioTx.sender.replaceTrack(fTrack);try{audioTx.direction='sendrecv';}catch(_){}}
+else{pc.addTrack(fTrack,STATE.formateurStream);}
+}
+}catch(micErr){console.warn('Micro formateur indisponible',micErr);}
+var answer=await pc.createAnswer();
+await pc.setLocalDescription(answer);
+vSend('VIDEO_ANSWER',{type:answer.type,sdp:answer.sdp});
+}catch(e){console.warn('formateurHandleOffer failed',e);}
 }
 
 function disconnectVideo(){
@@ -1172,6 +1188,9 @@ case 'SMSI_BATTERY_CHANGE':STATE.smsi.batteryState=data.state;break;
 case 'SMSI_RESET':smsiClearFunctional();break;
 case 'SET_MAT_STATE':STATE.matStates=STATE.matStates||{};if(data&&data.code)STATE.matStates[data.code]=data.statut;try{broadcastPlanState();}catch(_){}break;
 case 'SSI_SYNC':applySsiSync(data);return;
+case 'VIDEO_REQUEST':if(STATE.localStream)setupPeerConnection();return; // formateur (re)connecte → renvoyer l'offre
+case 'VIDEO_ANSWER':traineeHandleAnswer(data);return;
+case 'VIDEO_ICE_FORMATEUR':vAddIce(data&&data.candidate);return;
 case 'SMSI_ALARM_CHANGE':STATE.smsi.alarmState=data.state;break;
 case 'SMSI_POWER_CHANGE':STATE.smsi.powerState=data.state;break;
 case 'SET_ZONE_STATE':setZoneState(data.zoneType,data.id,data.state);break;
@@ -1199,6 +1218,9 @@ case 'CHANGE_DETECTOR_STATE':
 case 'ZONE_COMMAND':
 {const arr=data.zoneType==='compartment'?STATE.smsi.compartmentZones:STATE.smsi.smokeZones;const z=arr.find(x=>x.id===data.id);if(z){z.commandActive=true;z.state='securite';updateZoneLeds(z);}if(typeof broadcastPlanState==='function')broadcastPlanState();}break;
 case 'SMSI_RESET':smsiClearFunctional();break;
+case 'VIDEO_OFFER':formateurHandleOffer(data);return;
+case 'VIDEO_ICE_TRAINEE':vAddIce(data&&data.candidate);return;
+case 'VIDEO_STREAM_ACTIVE':STATE.traineeStreamActive=!!(data&&data.active);render();return;
 }
 render();
 }
