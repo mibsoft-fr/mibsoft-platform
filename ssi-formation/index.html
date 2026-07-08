@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><title>Formation SSI - SSIAP v2.1</title><!-- PWA Meta Tags --><meta name="description" content="Application de formation SSIAP - Système de Sécurité Incendie"><meta name="theme-color" content="#62be1e"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="SSI Formation"><meta name="mobile-web-app-capable" content="yes"><meta name="application-name" content="SSI Formation"><meta name="msapplication-TileColor" content="#62be1e"><meta name="msapplication-config" content="browserconfig.xml"><!-- PWA Manifest --><link rel="manifest" href="manifest.json"><!-- Fonts MIB Vigil --><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><!-- MIB Design System --><link rel="stylesheet" href="../design-tokens.css"><link rel="stylesheet" href="../mib-design.css"><!-- Icônes --><link rel="icon" type="image/svg+xml" href="icons/favicon.svg"><link rel="apple-touch-icon" href="/logo/icon.png"><link rel="icon" sizes="192x192" href="icons/icon-192x192.svg"><link rel="icon" sizes="512x512" href="icons/icon-512x512.svg"><!-- Splash Screen iOS --><meta name="apple-mobile-web-app-capable" content="yes"><link rel="apple-touch-startup-image" href="icons/icon-512x512.svg"><script src="https://cdn.tailwindcss.com"></script><!-- Firebase SDK via unpkg (autorisé par CSP) --><script src="https://unpkg.com/firebase@10.7.1/firebase-app-compat.js"></script><script src="https://unpkg.com/firebase@10.7.1/firebase-database-compat.js"></script><!-- Supabase SDK + config partagée MIB --><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script>window._sbFactory=window.supabase;/* sauve createClient avant que supabase.js n'écrase window.supabase avec une instance */</script><script src="../supabase.js"></script><script>if(window.tailwind)tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#5D5CDE',}}}}</script><style>@keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}.blink{animation:blink 1s infinite}.led-light{width:16px;height:16px;border-radius:50%;border:2px solid #333;display:inline-block;box-shadow:inset 0 0 5px rgba(0,0,0,0.5)}.led-green{background-color:#00ff00;box-shadow:0 0 10px #00ff00}.led-orange{background-color:#ff8800;box-shadow:0 0 10px #ff8800}.led-red{background-color:#ff0000;box-shadow:0 0 10px #ff0000}.led-off{background-color:#333;box-shadow:none}.ssi-panel{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 50%,#1e4d7a 100%);border:3px solid #a0b4c8;border-radius:8px;padding:20px;box-shadow:0 4px 6px rgba(0,0,0,0.3)}.ssi-button{padding:10px 20px;border:2px solid #333;border-radius:5px;cursor:pointer;font-weight:bold;transition:all 0.2s;text-align:center}.ssi-button:active{transform:scale(0.95)}.ssi-button-red{background-color:#c0392b;color:white}.ssi-button-green{background-color:#27ae60;color:white}.ssi-button-yellow{background-color:#f39c12;color:white}.ssi-screen{background-color:#000;color:#00ff00;font-family:monospace;padding:15px;border-radius:5px;min-height:100px;border:2px solid #333}.key-switch{width:35px;height:35px;border-radius:50%;border:3px solid #95a5a6;background:linear-gradient(135deg,#bdc3c7 0%,#ecf0f1 100%);cursor:pointer;transition:transform 0.3s;display:flex;align-items:center;justify-content:center;font-size:16px}.key-switch.active{transform:rotate(90deg);background:linear-gradient(135deg,#3498db 0%,#2980b9 100%)}.command-led{width:12px;height:12px;border-radius:50%;background-color:#333;border:1px solid #666}.command-led.active{background-color:#ff0000;box-shadow:0 0 8px #ff0000}.nav-btn{width:38px;height:38px;border-radius:50%;background:linear-gradient(180deg,#7ec8e3 0%,#4fa3c7 100%);color:#1a3a5c;font-size:16px;font-weight:bold;border:2px solid #a0d2e8;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:2px 2px 4px rgba(0,0,0,0.3);transition:all 0.1s}.nav-btn:active{transform:scale(0.9);box-shadow:0 0 2px rgba(0,0,0,0.3)}.kp-btn{width:28px;height:28px;border-radius:50%;background:linear-gradient(180deg,#7ec8e3 0%,#4fa3c7 100%);color:#1a3a5c;font-size:12px;font-weight:bold;border:2px solid #a0d2e8;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:1px 1px 3px rgba(0,0,0,0.3);transition:all 0.1s}.kp-btn:active{transform:scale(0.9)}.kp-red{background:linear-gradient(180deg,#f87171 0%,#dc2626 100%);border-color:#fca5a5;color:white}.kp-green{background:linear-gradient(180deg,#4ade80 0%,#16a34a 100%);border-color:#86efac;color:white}</style></head><body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><title>Formation SSI - SSIAP v2.1</title><!-- PWA Meta Tags --><meta name="description" content="Application de formation SSIAP - Système de Sécurité Incendie"><meta name="theme-color" content="#62be1e"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="SSI Formation"><meta name="mobile-web-app-capable" content="yes"><meta name="application-name" content="SSI Formation"><meta name="msapplication-TileColor" content="#62be1e"><meta name="msapplication-config" content="browserconfig.xml"><!-- PWA Manifest --><link rel="manifest" href="manifest.json"><!-- Fonts MIB Vigil --><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><!-- MIB Design System --><link rel="stylesheet" href="../design-tokens.css"><link rel="stylesheet" href="../mib-design.css"><!-- Icônes --><link rel="icon" type="image/svg+xml" href="icons/favicon.svg"><link rel="apple-touch-icon" href="/logo/icon.png"><link rel="icon" sizes="192x192" href="icons/icon-192x192.svg"><link rel="icon" sizes="512x512" href="icons/icon-512x512.svg"><!-- Splash Screen iOS --><meta name="apple-mobile-web-app-capable" content="yes"><link rel="apple-touch-startup-image" href="icons/icon-512x512.svg"><script src="https://cdn.tailwindcss.com"></script><!-- Supabase SDK + config partagée MIB (Firebase entièrement retiré) --><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script>window._sbFactory=window.supabase;/* sauve createClient avant que supabase.js n'écrase window.supabase avec une instance */</script><script src="../supabase.js"></script><script>if(window.tailwind)tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#5D5CDE',}}}}</script><style>@keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}.blink{animation:blink 1s infinite}.led-light{width:16px;height:16px;border-radius:50%;border:2px solid #333;display:inline-block;box-shadow:inset 0 0 5px rgba(0,0,0,0.5)}.led-green{background-color:#00ff00;box-shadow:0 0 10px #00ff00}.led-orange{background-color:#ff8800;box-shadow:0 0 10px #ff8800}.led-red{background-color:#ff0000;box-shadow:0 0 10px #ff0000}.led-off{background-color:#333;box-shadow:none}.ssi-panel{background:linear-gradient(135deg,#1a3a5c 0%,#2563a8 50%,#1e4d7a 100%);border:3px solid #a0b4c8;border-radius:8px;padding:20px;box-shadow:0 4px 6px rgba(0,0,0,0.3)}.ssi-button{padding:10px 20px;border:2px solid #333;border-radius:5px;cursor:pointer;font-weight:bold;transition:all 0.2s;text-align:center}.ssi-button:active{transform:scale(0.95)}.ssi-button-red{background-color:#c0392b;color:white}.ssi-button-green{background-color:#27ae60;color:white}.ssi-button-yellow{background-color:#f39c12;color:white}.ssi-screen{background-color:#000;color:#00ff00;font-family:monospace;padding:15px;border-radius:5px;min-height:100px;border:2px solid #333}.key-switch{width:35px;height:35px;border-radius:50%;border:3px solid #95a5a6;background:linear-gradient(135deg,#bdc3c7 0%,#ecf0f1 100%);cursor:pointer;transition:transform 0.3s;display:flex;align-items:center;justify-content:center;font-size:16px}.key-switch.active{transform:rotate(90deg);background:linear-gradient(135deg,#3498db 0%,#2980b9 100%)}.command-led{width:12px;height:12px;border-radius:50%;background-color:#333;border:1px solid #666}.command-led.active{background-color:#ff0000;box-shadow:0 0 8px #ff0000}.nav-btn{width:38px;height:38px;border-radius:50%;background:linear-gradient(180deg,#7ec8e3 0%,#4fa3c7 100%);color:#1a3a5c;font-size:16px;font-weight:bold;border:2px solid #a0d2e8;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:2px 2px 4px rgba(0,0,0,0.3);transition:all 0.1s}.nav-btn:active{transform:scale(0.9);box-shadow:0 0 2px rgba(0,0,0,0.3)}.kp-btn{width:28px;height:28px;border-radius:50%;background:linear-gradient(180deg,#7ec8e3 0%,#4fa3c7 100%);color:#1a3a5c;font-size:12px;font-weight:bold;border:2px solid #a0d2e8;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:1px 1px 3px rgba(0,0,0,0.3);transition:all 0.1s}.kp-btn:active{transform:scale(0.9)}.kp-red{background:linear-gradient(180deg,#f87171 0%,#dc2626 100%);border-color:#fca5a5;color:white}.kp-green{background:linear-gradient(180deg,#4ade80 0%,#16a34a 100%);border-color:#86efac;color:white}</style></head><body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
 <a href="/index.html" aria-label="Accueil MIBsoft" data-mib-logo style="position:fixed;left:12px;bottom:12px;z-index:2147483000;display:block;line-height:0;opacity:.9;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))"><img src="/logo/icon.png" alt="MIBsoft" width="34" height="34" style="display:block"></a><div id="app"></div><script>
 document.addEventListener('contextmenu',function(e){e.preventDefault();});
 document.addEventListener('keydown',function(e){if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&e.key==='I')||(e.ctrlKey&&e.key==='u')){e.preventDefault();}});
@@ -17,8 +17,9 @@ getRemainingLockTime(){if(!this.lockedUntil)return 0;return Math.ceil((this.lock
 if(window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches){document.documentElement.classList.add('dark');}
 window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',event=>{if(event.matches){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}});
 
-const firebaseConfig={apiKey:"AIzaSyAV4UZ_j2M017lZoFdcbyuxe1oV7VxjWLs",authDomain:"ssi-ssiap-training.firebaseapp.com",databaseURL:"https://ssi-ssiap-training-default-rtdb.firebaseio.com",projectId:"ssi-ssiap-training",storageBucket:"ssi-ssiap-training.firebasestorage.app",messagingSenderId:"1024486187072",appId:"1:1024486187072:web:4e452ab8549cac24d3ffa5"};
-
+// Firebase entièrement retiré : tout passe par Supabase (Postgres + Realtime + Storage).
+// db/firebaseInitialized conservés à null/false pour neutraliser l'ancien code legacy
+// encore gardé par `if(firebaseInitialized)`.
 let db=null;
 let firebaseInitialized=false;
 
@@ -97,10 +98,6 @@ let activeFirebaseListeners=[];
 let activeMibRTUnsubs=[];
 
 window.addEventListener('load',()=>{
-try{
-if(typeof firebase!=='undefined'){firebase.initializeApp(firebaseConfig);db=firebase.database();firebaseInitialized=true;console.log('✓ Firebase initialized successfully');/* loadTraineesFromFirebase() retiré — stagiaires gérés depuis MIB (Supabase). */loadSessionLogsFromFirebase();}
-else{console.error('✗ Firebase library not loaded');}
-}catch(error){console.error('✗ Firebase initialization error:',error);}
 // Restore stored directory handle for video access
 restoreDirHandleFromIDB().then(()=>{if(STATE.storageDirName)console.log('✓ Dossier vidéo restauré:',STATE.storageDirName);}).catch(e=>console.log('Pas de dossier vidéo sauvegardé'));
 });
@@ -503,7 +500,6 @@ o.querySelector('#mode-cancel').onclick=()=>o.remove();
 o.addEventListener('click',e=>{if(e.target===o)o.remove();});
 }
 async function createSession(){
-if(!firebaseInitialized){showCustomAlert('Erreur: Firebase non disponible');return;}
 STATE.startingSession=true;render();
 const now=new Date();
 const year=now.getFullYear();const month=String(now.getMonth()+1).padStart(2,'0');const day=String(now.getDate()).padStart(2,'0');
@@ -541,12 +537,6 @@ if(STATE.mibSessionId&&window.supabase?.rpc){
     return;
   }
 }
-const sessionData={id:sessionId,sessionNumber:sessionNumber,startTime:firebase.database.ServerValue.TIMESTAMP,startTimeISO:startTimeISO,endTime:null,active:true,formateur:STATE.currentUser||'Formateur',trainees:{}};
-// active_session = singleton Firebase, legacy. Conservé UNIQUEMENT en accès direct
-// (sans MIB context, donc sans bookkeeping Supabase). Pour les formateurs venant de MIB,
-// on a ssiSessionId — le singleton n'est jamais utilisé pour eux (multi-tenant safe).
-if(!ssiSessionId){db.ref(`active_session`).set(sessionId);}
-db.ref(`sessions/${sessionId}`).set(sessionData);
 STATE.sessionActive=true;
 STATE.sessionId=sessionId;
 STATE.ssiSessionId=ssiSessionId;
@@ -571,41 +561,27 @@ showCustomAlert(`Session ${sessionNumber} démarrée (${STATE.sessionMode==='exa
 
 function endSession(){
 if(!STATE.sessionActive||!STATE.sessionId)return;
-showCustomConfirm('Êtes-vous sûr de vouloir terminer la session?',()=>{
+showCustomConfirm('Êtes-vous sûr de vouloir terminer la session?',async()=>{
 // Auto-stop recording if still running
 if(STATE.isRecording){stopRecording();}
 const sessionNumber=STATE.currentSessionNumber;
 const sessionId=STATE.sessionId;
 const endTimeISO=new Date().toISOString();
-
-// FIX: Get session data including start time from Firebase
-db.ref(`sessions/${sessionId}`).once('value',(sessionSnapshot)=>{
-const sessionData=sessionSnapshot.val();
-const startTimeISO=sessionData?.startTimeISO||STATE.sessionStartTime||new Date().toISOString();
-
-db.ref(`sessions/${sessionId}/trainees`).once('value',async(traineesSnapshot)=>{
-const traineesData=traineesSnapshot.val();
+const startTimeISO=STATE.sessionStartTime||endTimeISO;
 let traineeName='Inconnu';
-// 1) source de vérité : ssi_sessions.stagiaire_id rempli par ssi_session_set_trainee
-//    au join. Pas dépendant de Firebase, fiable même sans aucune action loggée.
+// Source de vérité : ssi_sessions.stagiaire_id (rempli au join via ssi_session_set_trainee).
 if(STATE.ssiSessionId&&window.supabase&&window.supabase.from){
 try{
 const{data:row}=await supabase.from('ssi_sessions').select('stagiaire_id,stagiaires:stagiaire_id(nom,prenom)').eq('id',STATE.ssiSessionId).maybeSingle();
 if(row&&row.stagiaires){const n=`${row.stagiaires.prenom||''} ${row.stagiaires.nom||''}`.trim();if(n)traineeName=n;}
 }catch(e){console.warn('endSession: ssi_sessions stagiaire lookup failed',e);}
 }
-// 2) fallback Firebase (mode legacy / écritures déjà faites par joinKnownSession)
-if(traineeName==='Inconnu'&&traineesData){
-const traineeIds=Object.keys(traineesData);
-if(traineeIds.length>0){const firstTrainee=traineesData[traineeIds[0]];const n=`${firstTrainee.prenom||''} ${firstTrainee.nom||''}`.trim();if(n)traineeName=n;}
-}
-// 3) ultime fallback : extraire d'une action stagiaire dans le journal courant
+// Fallback : extraire d'une action stagiaire dans le journal courant.
 if(traineeName==='Inconnu'){
 const tAct=STATE.actionLog.find(a=>(a.actor==='trainee'||!a.actor)&&a.trainee&&a.trainee!=='Formateur');
 if(tAct)traineeName=tAct.trainee;
 }
-
-// FIX: Always save session log, even with 0 actions (for record keeping)
+// Journal conservé EN MÉMOIRE (pas de persistance base) — RGPD.
 const videoInfo=STATE.sessionVideos[sessionId];
 const sessionLog={
 sessionId:sessionId,
@@ -616,37 +592,22 @@ formateur:STATE.currentUser||'Formateur',
 trainee:traineeName,
 actions:[...STATE.actionLog],
 videoFilename:videoInfo?videoInfo.filename:(STATE.currentRecordingFilename||null),
-// Scope chaque exercice à la session de formation (cohorte INI SSIAP X) pour
-// pouvoir filtrer les journaux par formation dans renderSessionLogs.
 sessionsFormationId:STATE.mibSessionId||null
 };
 STATE.sessionLogs.push(sessionLog);
-db.ref(`session_logs/${sessionId}`).set(sessionLog);
-
-// Phase 3a : broadcast à tous les stagiaires connectés que la session se ferme.
-// Envoyé AVANT le cleanup pour que la WS ait le temps de flusher.
-// Doublé sur le canal formation: car le canal session: peut être tombé côté
-// stagiaire (déconnexion RT, perte réseau). Le formation: persiste sur toute
-// la durée de la cohorte donc plus robuste pour les notifications de fermeture.
+// Broadcast fermeture aux stagiaires (canal session: + canal formation: plus robuste).
 try{MibRT.send(`session:${sessionId}`,'_session_ended',{sessionId},STATE.userType);}catch(e){console.warn('_session_ended broadcast failed',e);}
 if(STATE.mibSessionId){try{MibRT.send(`formation:${STATE.mibSessionId}`,'_formation_session_ended',{sessionId},STATE.userType);}catch(e){console.warn('_formation_session_ended broadcast failed',e);}}
-
-db.ref(`sessions/${sessionId}`).update({endTime:firebase.database.ServerValue.TIMESTAMP,endTimeISO:endTimeISO,active:false});
-// Si on a bookkept côté Supabase au démarrage, on termine la session SSI proprement.
-// Sinon (mode legacy hors MIB), on retire le singleton Firebase comme avant.
-// IMPORTANT : on AWAIT le ssi_end_session pour s'assurer que la session est bien
-// marquée 'terminee' AVANT de redémarrer une nouvelle. Sinon, en cas d'échec
-// silencieux, la ligne reste 'en_cours' indéfiniment et le stagiaire qui re-PIN
-// retombe dessus (bug constaté en preview phase 2).
+// Clôture Supabase de la session SSI (marquée 'terminee').
 if(STATE.ssiSessionId&&window.supabase?.rpc){
   const{error:endErr}=await supabase.rpc('ssi_end_session',{p_ssi_session_id:STATE.ssiSessionId});
   if(endErr){
     console.error('ssi_end_session failed',endErr);
     showCustomAlert('⚠️ Erreur lors de la fermeture côté Supabase : '+(endErr.message||endErr.code||'')+'\n\nLa session reste marquée active dans la base — un re-login sera nécessaire.');
   }
-}else{
-  db.ref(`active_session`).remove();
 }
+// Purge du stockage vidéo temporaire de la session (RGPD).
+try{await purgeSessionVideos(sessionId);}catch(e){console.warn('purge vidéo échouée',e);}
 cleanupRealtime();
 STATE.sessionActive=false;
 STATE.sessionId=null;
@@ -658,9 +619,7 @@ resetSdiToIdle();
 resetSmsiToIdle();
 disconnectVideo();
 render();
-showCustomAlert(`Session ${sessionNumber} terminée. Journal sauvegardé (${sessionLog.actions.length} actions).`);
-});
-});
+showCustomAlert(`Session ${sessionNumber} terminée. Journal conservé en mémoire (${sessionLog.actions.length} actions).`);
 });
 }
 
@@ -678,7 +637,7 @@ STATE.sessionActive=true;
 STATE.sessionNumber=sessionData.sessionNumber;
 STATE.actionLog=[];
 if(STATE.currentUser){
-db.ref(`sessions/${sessionId}/trainees/${STATE.currentUser.id}`).set({nom:STATE.currentUser.nom,prenom:STATE.currentUser.prenom,niveau:STATE.currentUser.niveau,joinedAt:firebase.database.ServerValue.TIMESTAMP});
+db.ref(`sessions/${sessionId}/trainees/${STATE.currentUser.id}`).set({nom:STATE.currentUser.nom,prenom:STATE.currentUser.prenom,niveau:STATE.currentUser.niveau,joinedAt:Date.now()});
 }
 listenToSession(sessionId);
 // Idem autoRejoin : persiste le stagiaire sur ssi_sessions pour le rapport Qualiopi.
@@ -718,7 +677,7 @@ STATE.sessionActive=true;
 STATE.sessionNumber=sessionData.sessionNumber;
 STATE.actionLog=[];
 if(STATE.currentUser){
-db.ref(`sessions/${sessionId}/trainees/${STATE.currentUser.id}`).set({nom:STATE.currentUser.nom,prenom:STATE.currentUser.prenom,niveau:STATE.currentUser.niveau,joinedAt:firebase.database.ServerValue.TIMESTAMP});
+db.ref(`sessions/${sessionId}/trainees/${STATE.currentUser.id}`).set({nom:STATE.currentUser.nom,prenom:STATE.currentUser.prenom,niveau:STATE.currentUser.niveau,joinedAt:Date.now()});
 }
 listenToSession(sessionId);
 render();
@@ -922,6 +881,23 @@ if(STATE.recordingInterval){clearInterval(STATE.recordingInterval);STATE.recordi
 render();showCustomAlert('⏹️ Enregistrement arrêté. Sauvegarde en cours...');
 }
 }
+
+// Purge des vidéos de débriefing d'une session (RGPD) : libère les blobs en mémoire
+// et supprime le stockage temporaire Supabase associé à la session (upload par
+// uploadDebriefToSupabase). Le journal des actions, lui, reste en mémoire.
+async function purgeSessionVideos(sessionId){
+if(!sessionId)return;
+var v=STATE.sessionVideos&&STATE.sessionVideos[sessionId];
+if(v){ try{ if(v.blobUrl)URL.revokeObjectURL(v.blobUrl); }catch(_){} }
+// Suppression du stockage temporaire Supabase (bucket privé), si utilisé.
+try{
+if(v&&v.storagePath&&window.supabase&&window.supabase.storage){
+await supabase.storage.from(DEBRIEF_BUCKET).remove([v.storagePath]);
+}
+}catch(e){console.warn('purge Supabase vidéo échouée',e);}
+if(STATE.sessionVideos)delete STATE.sessionVideos[sessionId];
+}
+var DEBRIEF_BUCKET='ssi-debriefs';
 
 async function chooseStorageDirectory(){
 try{
