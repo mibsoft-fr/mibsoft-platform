@@ -3,16 +3,14 @@
  * Permet le fonctionnement hors-ligne et la mise en cache
  */
 
-const CACHE_NAME = 'ssi-formation-v2.29.5';
+const CACHE_NAME = 'ssi-formation-v2.30.0';
 const CACHE_URLS = [
   './',
   './index.html',
   './manifest.json',
   './icons/icon-192x192.svg',
   './icons/icon-512x512.svg',
-  'https://cdn.tailwindcss.com',
-  'https://unpkg.com/firebase@10.7.1/firebase-app-compat.js',
-  'https://unpkg.com/firebase@10.7.1/firebase-database-compat.js'
+  'https://cdn.tailwindcss.com'
 ];
 
 // Installation du Service Worker
