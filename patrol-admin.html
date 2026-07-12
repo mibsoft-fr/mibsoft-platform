@@ -1453,18 +1453,18 @@ var EVT_CONFIG = {
     { id:"detection", label:"Détection", options:["DM","DAI","Voix"] },
     { id:"loc", type:"loc", label:"Lieu" },
     { id:"nature", label:"Nature", options:["Poubelle","Palette","Stockage","Hydrocarbure","Décoration","Autre"] },
-    { id:"action", label:"Action", options:["Levée de doute","Extinction extincteur","Extinction RIA","Non maîtrisable","Feu éteint","Mise en sécurité","Évacuation partielle","Évacuation générale"] }
+    { id:"action", label:"Action", options:["Levée de doute","Extinction extincteur","Extinction RIA","Non maîtrisable","Feu éteint","Mise en sécurité","Évacuation partielle","Évacuation générale","Fin d'intervention"] }
   ] },
   secours: { label:"Secours", icon:"🚑", type:"Secours a personne", color:"#2563eb", champs:[
     { id:"nature", label:"Nature", options:["Malaise","Blessé"] },
     { id:"loc", type:"loc", label:"Lieu" },
     { id:"gravite", label:"Gravité", options:["Bénin","Grave"] },
-    { id:"action", label:"Action", options:["Traité sur place","Prise en charge pompier","Prise en charge SAMU"] }
+    { id:"action", label:"Action", options:["Bilan victime","Traité sur place","Prise en charge pompier","Prise en charge SAMU","Fin d'intervention"] }
   ] },
   intervention: { label:"Intervention", icon:"🔧", type:"Intervention", color:"#d97706", champs:[
     { id:"nature", label:"Type", options:["Électrique","Gaz","Eau","Chauffage","Climatisation","Frigo","Autre"] },
     { id:"loc", type:"loc", label:"Lieu" },
-    { id:"action", label:"Action", options:["Levée de doute","Intervention maintenance","Technicien externe","Mise hors service","Remise en service"] }
+    { id:"action", label:"Action", options:["Levée de doute","Intervention maintenance","Technicien externe","Mise hors service","Remise en service","Fin d'intervention"] }
   ] }
 };
 var EVT_CUR = null;
@@ -1551,7 +1551,7 @@ function evtCfg(e){
   return found;
 }
 // Liste d'actions par défaut si l'événement ne correspond à aucune catégorie connue.
-var EVT_ACTIONS_DEFAULT = ["Levée de doute","Intervention en cours","Mise en sécurité","Résolu","Transféré","Autre"];
+var EVT_ACTIONS_DEFAULT = ["Levée de doute","Intervention en cours","Mise en sécurité","Résolu","Transféré","Autre","Fin d'intervention"];
 // ── Fiche de suivi d'un événement (statut Début › En cours › Terminé + compte-rendu) ──
 var EVT_DETAIL_ID = null;
 function voirEvenement(id){
@@ -1565,7 +1565,7 @@ function voirEvenement(id){
   if((e.details||[]).length) h += "<div style='font-size:.85rem;margin-bottom:6px;'><b>Détails :</b> "+esc(e.details.join(" · "))+"</div>";
   if(e.commentaire) h += "<div style='font-size:.85rem;margin-bottom:6px;'><b>Commentaire :</b> "+esc(e.commentaire)+"</div>";
   h += "<div style='display:flex;gap:8px;flex-wrap:wrap;margin:14px 0;'>";
-  if(e.statut!=="Termine") h += "<button onclick=\"evtSetStatut('Termine')\" class='btn btn-green' style='flex:1;justify-content:center;'>✔ Clôturer</button>";
+  // La clôture se fait via l'action « Fin d'intervention » (plus de bouton dédié).
   if(e.statut==="Termine") h += "<button onclick=\"evtSetStatut('En cours')\" class='btn btn-gray' style='flex:1;justify-content:center;'>↩ Rouvrir</button>";
   h += "</div>";
   var actChamp = (c.champs||[]).filter(function(f){ return f.id==="action"; })[0];
@@ -1595,11 +1595,14 @@ async function saveEvtCR(){
   var e = PTRDB.evenements.find(function(x){ return String(x.id)===String(EVT_DETAIL_ID); }); if(!e) return;
   evtCollectDetail(e);
   var c = evtCfg(e);
+  // L'action « Fin d'intervention » clôture l'événement (remplace le bouton Clôturer).
+  var clot = (e.action==="Fin d'intervention");
+  if(clot) e.statut = "Termine";
   var bits = [];
   if(e.action) bits.push(e.action);
   if(e.compteRendu) bits.push(e.compteRendu);
-  addMC(e.type, "SUIVI: "+(c.icon?c.icon+" ":"")+(e.localisation?("("+e.localisation+") "):"")+e.type+(bits.length?(" — "+bits.join(" · ")):""), chefDePosteId());
-  await sauvegarder(); toast("Suivi enregistré (main courante)","ok"); voirEvenement(EVT_DETAIL_ID); renderEvenements();
+  addMC(e.type, (clot?"FIN: ":"SUIVI: ")+(c.icon?c.icon+" ":"")+(e.localisation?("("+e.localisation+") "):"")+e.type+(bits.length?(" — "+bits.join(" · ")):""), chefDePosteId());
+  await sauvegarder(); toast(clot?"Intervention terminée":"Suivi enregistré (main courante)","ok"); voirEvenement(EVT_DETAIL_ID); renderEvenements();
 }
 
 // ═══ MATERIELS ═══
