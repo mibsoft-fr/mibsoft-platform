@@ -1,0 +1,80 @@
+name: Sauvegarde base Supabase → Backblaze B2
+
+# Sauvegarde quotidienne, chiffrée, hors-site de la base PostgreSQL de production.
+# Objectif : pouvoir tout restaurer même si Supabase est perdu (cf. docs/PRA.md).
+#
+# ⚠️ SECRETS À CRÉER (Settings → Secrets and variables → Actions) :
+#   SUPABASE_DB_URL                -> chaîne de connexion « Session pooler » (port 5432)
+#                                     ex: postgresql://postgres.vsddtohdkcwihlybfief:[MDP]@aws-0-eu-central-1.pooler.supabase.com:5432/postgres
+#                                     (⚠️ PAS la connexion directe : GitHub Actions est en IPv4,
+#                                      seul le « Session pooler » fonctionne)
+#   BACKUP_ENCRYPTION_PASSPHRASE   -> phrase secrète forte (À GARDER dans ton gestionnaire de
+#                                     mots de passe : sans elle les sauvegardes sont illisibles)
+#   B2_ACCESS_KEY_ID               -> keyID de l'application key Backblaze
+#   B2_SECRET_ACCESS_KEY           -> applicationKey Backblaze
+#   B2_ENDPOINT                    -> ex: https://s3.eu-central-003.backblazeb2.com  (région UE)
+#   B2_BUCKET                      -> ex: mibsoft-backups
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # tous les jours à 02:00 UTC
+  workflow_dispatch:        # permet aussi un déclenchement manuel (bouton "Run workflow")
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Installer pg_dump (client PostgreSQL 17)
+        run: |
+          set -euo pipefail
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Dump de la base + chiffrement AES-256
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          ENC_PASS: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          STAMP=$(date -u +%Y-%m-%d_%H%M)
+          FILE="mibsoft_prod_${STAMP}.dump"
+          # Schémas sauvegardés : public (données appli), auth (comptes/utilisateurs),
+          # storage (métadonnées des fichiers). Format -Fc = compressé et restaurable.
+          pg_dump "$SUPABASE_DB_URL" \
+            -Fc --no-owner --no-privileges \
+            -n public -n auth -n storage \
+            -f "$FILE"
+          ls -lh "$FILE"
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+            --passphrase "$ENC_PASS" -o "${FILE}.gpg" "$FILE"
+          rm -f "$FILE"
+          echo "ARCHIVE=${FILE}.gpg" >> "$GITHUB_ENV"
+
+      - name: Installer AWS CLI
+        run: |
+          set -euo pipefail
+          if ! command -v aws >/dev/null 2>&1; then
+            sudo apt-get install -y -qq awscli
+          fi
+
+      - name: Envoi vers Backblaze B2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          aws s3 cp "$ARCHIVE" "s3://${{ secrets.B2_BUCKET }}/daily/$ARCHIVE" \
+            --endpoint-url "${{ secrets.B2_ENDPOINT }}"
+          echo "✅ Sauvegarde envoyée : daily/$ARCHIVE"
+
+      - name: Vérification de présence sur B2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          aws s3 ls "s3://${{ secrets.B2_BUCKET }}/daily/$ARCHIVE" \
+            --endpoint-url "${{ secrets.B2_ENDPOINT }}"
