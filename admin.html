@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+a<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -397,57 +397,75 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
 
 <!-- ═══════════ ACCUEIL : UNIVERS (Entreprise / Formation) ═══════════ -->
 <div id="page-landing" class="hidden relative z-10 min-h-screen flex items-center justify-center p-4">
-  <div style="width:100%;max-width:960px;">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-      <button onclick="logout()" class="btn btn-gray btn-sm">🚪 Déconnexion</button>
-    </div>
-    <div class="text-center mb-8">
-      <div style="font-size:2.2rem;margin-bottom:6px;">⚙️</div>
-      <h1 style="font-size:1.7rem;font-weight:800;color:var(--text1,#0f172a);">MIBsoft — Administration</h1>
-      <p style="color:var(--text2,#64748b);margin-top:4px;">Choisissez un univers</p>
+  <div style="width:100%;max-width:960px;position:relative;">
+    <button onclick="logout()" class="btn btn-gray btn-sm" style="position:absolute;top:0;right:0;z-index:5;">🚪 Déconnexion</button>
+    <div class="text-center mb-3" style="padding-top:2px;">
+      <img src="/logo/logo-web-transparent.png" alt="MIBsoft" style="height:48px;width:auto;margin:0 auto 4px;display:block;" onerror="this.outerHTML='<div style=&quot;font-size:1.6rem;margin-bottom:2px;&quot;>⚙️</div>'">
+      <h1 style="font-size:1.35rem;font-weight:800;color:var(--text1,#0f172a);">MIBsoft — Administration</h1>
+      <p style="color:var(--text2,#64748b);margin-top:2px;font-size:.88rem;">Choisissez un univers</p>
     </div>
 
     <!-- Synthèse globale du site -->
-    <div class="grid mb-6" style="grid-template-columns:repeat(auto-fit,minmax(122px,1fr));gap:10px;">
-      <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#059669;" id="gk-actives">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Licences actives</div></div>
-      <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#d97706;" id="gk-renew">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">À renouveler ≤60j</div></div>
-      <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#ef4444;" id="gk-stopped">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Expirées / arrêtées</div></div>
-      <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:var(--text1,#0f172a);" id="gk-avis">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Avis & retours</div></div>
-      <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:var(--text1,#0f172a);" id="gk-note">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Note moyenne</div></div>
-      <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#d97706;" id="gk-tech">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Alertes techniques</div></div>
-      <div class="card" style="padding:13px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#ef4444;" id="gk-secu">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Alertes sécurité</div></div>
+    <div class="grid mb-3" style="grid-template-columns:repeat(auto-fit,minmax(122px,1fr));gap:10px;">
+      <div class="card" style="padding:9px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#059669;" id="gk-actives">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Licences actives</div></div>
+      <div class="card" style="padding:9px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#d97706;" id="gk-renew">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">À renouveler ≤60j</div></div>
+      <div class="card" style="padding:9px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#ef4444;" id="gk-stopped">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Expirées / arrêtées</div></div>
+      <div class="card" style="padding:9px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:var(--text1,#0f172a);" id="gk-avis">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Avis & retours</div></div>
+      <div class="card" style="padding:9px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:var(--text1,#0f172a);" id="gk-note">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Note moyenne</div></div>
+      <div class="card" style="padding:9px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#d97706;" id="gk-tech">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Alertes techniques</div></div>
+      <div class="card" style="padding:9px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#ef4444;" id="gk-secu">—</div><div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-top:2px;">Alertes sécurité</div></div>
     </div>
 
-    <!-- Graphiques de synthèse -->
-    <div class="grid mb-6" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
-      <div class="card" style="padding:16px;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Répartition des licences par plan</div><div style="height:170px;"><canvas id="chart-plans"></canvas></div></div>
-      <div class="card" style="padding:16px;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Nouvelles licences (6 derniers mois)</div><div style="height:170px;"><canvas id="chart-newlic"></canvas></div></div>
-    </div>
-
-    <!-- Graphiques de synthèse (suite) -->
-    <div class="grid mb-6" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
-      <div class="card" style="padding:16px;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Note moyenne des avis (6 mois)</div><div style="height:170px;"><canvas id="chart-avis"></canvas></div></div>
-      <div class="card" style="padding:16px;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Activité d'entraînement / mois</div><div style="height:170px;"><canvas id="chart-activite"></canvas></div></div>
-      <div class="card" style="padding:16px;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Alertes par sévérité</div><div style="height:170px;"><canvas id="chart-alertes"></canvas></div></div>
+    <!-- Grille de synthèse responsive : 2 colonnes desktop/tablette, empilée sur mobile (auto-fit) ; cartes à hauteur de contenu, égalisées par rangée (align-items:stretch) -->
+    <div class="grid mb-3" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;align-items:stretch;">
+      <div class="card" style="padding:16px;display:flex;flex-direction:column;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Répartition des licences par plan</div><div style="flex:1;min-height:190px;position:relative;"><canvas id="chart-plans"></canvas></div></div>
+      <div class="card" style="padding:16px;display:flex;flex-direction:column;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Nouvelles licences (6 derniers mois)</div><div style="flex:1;min-height:190px;position:relative;"><canvas id="chart-newlic"></canvas></div></div>
+      <div class="card" style="padding:16px;display:flex;flex-direction:column;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Alertes par sévérité</div><div style="flex:1;min-height:190px;position:relative;"><canvas id="chart-alertes"></canvas></div></div>
+      <!-- ── SUPERVISION & INCIDENTS (couvre toute l'appli : Formation + Entreprise) ── -->
+      <div class="card" style="padding:16px;display:flex;flex-direction:column;overflow:hidden;" id="card-supervision">
+        <div class="flex items-center justify-between mb-2">
+          <h2 style="font-size:1rem;font-weight:700;">🛡️ Supervision &amp; incidents</h2>
+          <div style="display:flex;gap:6px;">
+            <button onclick="runHealthCheck(this)" class="btn btn-blue btn-sm">🔄 Vérifier</button>
+            <button onclick="runSecurityScan(this)" class="btn btn-gray btn-sm">🛡️ Sécurité</button>
+            <button onclick="loadSupervision()" class="btn btn-gray btn-sm">Actualiser</button>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;min-height:0;">
+          <div id="supv-reco"></div>
+          <div id="supv-alerts" style="margin-top:6px;"></div>
+          <div id="supv-security" style="margin-top:6px;"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:12px 0 8px;">
+            <h3 style="font-size:.9rem;font-weight:700;">📢 Incidents clients</h3>
+            <button onclick="openIncidentForm()" class="btn btn-green btn-sm">+ Déclarer</button>
+          </div>
+          <div id="supv-inc-form" class="hidden"></div>
+          <div id="supv-incidents"></div>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="openLogsFull()" class="btn btn-gray btn-sm">🪵 Logs</button>
+          <button onclick="openMonitoringFull()" class="btn btn-gray btn-sm">🚨 Monitoring</button>
+        </div>
+      </div>
     </div>
 
     <div id="landing-univers" class="grid grid-cols-1 md:grid-cols-2 gap-5">
-      <div class="card" style="padding:26px;opacity:.78;">
+      <div class="card" style="padding:16px;opacity:.78;">
         <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div style="font-size:2rem;">🏢</div>
-          <div style="text-align:right;"><div style="font-size:1.8rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-entreprises">—</div><div style="font-size:.66rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">entreprises activées</div></div>
+          <div style="font-size:1.5rem;">🏢</div>
+          <div style="text-align:right;"><div style="font-size:1.4rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-entreprises">—</div><div style="font-size:.66rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">entreprises activées</div></div>
         </div>
-        <h2 style="font-size:1.15rem;font-weight:800;margin-top:8px;">Entreprise</h2>
-        <p style="color:var(--text2,#64748b);font-size:.85rem;margin:6px 0 12px;">CSE, HSE, recherche des causes, visites de sécurité, réglementation…</p>
+        <h2 style="font-size:1.05rem;font-weight:800;margin-top:4px;">Entreprise</h2>
+        <p style="color:var(--text2,#64748b);font-size:.85rem;margin:3px 0 8px;">CSE, HSE, recherche des causes, visites de sécurité, réglementation…</p>
         <span class="badge b-gray">À venir</span>
       </div>
-      <div class="card" style="padding:26px;cursor:pointer;" onclick="landingShowFormation()">
+      <div class="card" style="padding:16px;cursor:pointer;" onclick="landingShowFormation()">
         <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div style="font-size:2rem;">🎓</div>
-          <div style="text-align:right;"><div style="font-size:1.8rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-centres-q">—</div><div style="font-size:.66rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">centres de formation</div></div>
+          <div style="font-size:1.5rem;">🎓</div>
+          <div style="text-align:right;"><div style="font-size:1.4rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-centres-q">—</div><div style="font-size:.66rem;color:var(--text3,#94a3b8);text-transform:uppercase;letter-spacing:.04em;">centres de formation</div></div>
         </div>
-        <h2 style="font-size:1.15rem;font-weight:800;margin-top:8px;">Formation</h2>
-        <p style="color:var(--text2,#64748b);font-size:.85rem;margin:6px 0 12px;">Centres de formation, formateurs, stagiaires.</p>
+        <h2 style="font-size:1.05rem;font-weight:800;margin-top:4px;">Formation</h2>
+        <p style="color:var(--text2,#64748b);font-size:.85rem;margin:3px 0 8px;">Centres de formation, formateurs, stagiaires.</p>
         <button class="btn btn-green btn-sm" onclick="event.stopPropagation();landingShowFormation()">Ouvrir →</button>
       </div>
     </div>
@@ -455,31 +473,31 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
     <div id="landing-formation" class="hidden">
       <button onclick="landingBack()" class="btn btn-gray btn-sm" style="margin-bottom:16px;">← Retour aux univers</button>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div class="card" style="padding:26px;cursor:pointer;" onclick="openCentreFormation()">
+        <div class="card" style="padding:16px;cursor:pointer;" onclick="openCentreFormation()">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div style="font-size:2rem;">🏫</div>
             <div style="font-size:2rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-centres">—</div>
           </div>
           <h2 style="font-size:1.1rem;font-weight:800;margin-top:8px;">Centre de formation</h2>
-          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Centres clients, licences et modules.</p>
+          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:3px 0 8px;">Centres clients, licences et modules.</p>
           <button class="btn btn-green btn-sm" onclick="event.stopPropagation();openCentreFormation()">Ouvrir l'admin →</button>
         </div>
-        <div class="card" style="padding:26px;cursor:pointer;" onclick="openIndependantAdmin()">
+        <div class="card" style="padding:16px;cursor:pointer;" onclick="openIndependantAdmin()">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div style="font-size:2rem;">👨‍🏫</div>
             <div style="font-size:2rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-formateurs">—</div>
           </div>
           <h2 style="font-size:1.1rem;font-weight:800;margin-top:8px;">Indépendant</h2>
-          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Formateurs indépendants ayant acheté une licence.</p>
+          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:3px 0 8px;">Formateurs indépendants ayant acheté une licence.</p>
           <button class="btn btn-green btn-sm" onclick="event.stopPropagation();openIndependantAdmin()">Ouvrir l'admin →</button>
         </div>
-        <div class="card" style="padding:26px;cursor:pointer;" onclick="openApprenantAdmin()">
+        <div class="card" style="padding:16px;cursor:pointer;" onclick="openApprenantAdmin()">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div style="font-size:2rem;">👨‍🎓</div>
             <div style="font-size:2rem;font-weight:800;color:var(--text1,#0f172a);" id="kpi-l-stagiaires">—</div>
           </div>
           <h2 style="font-size:1.1rem;font-weight:800;margin-top:8px;">Apprenant</h2>
-          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:6px 0 12px;">Apprenants ayant acheté une licence pour s'entraîner.</p>
+          <p style="color:var(--text2,#64748b);font-size:.82rem;margin:3px 0 8px;">Apprenants ayant acheté une licence pour s'entraîner.</p>
           <button class="btn btn-green btn-sm" onclick="event.stopPropagation();openApprenantAdmin()">Ouvrir l'admin →</button>
         </div>
       </div>
@@ -584,12 +602,6 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
       </div>
       <div class="nav-item" onclick="showTab('activite')" id="nav-activite">
         <span class="nav-icon">📡</span> Activité
-      </div>
-      <div class="nav-item" onclick="showTab('logs')" id="nav-logs">
-        <span class="nav-icon">🪵</span> Logs
-      </div>
-      <div class="nav-item" onclick="showTab('monitoring')" id="nav-monitoring">
-        <span class="nav-icon">🚨</span> Monitoring
       </div>
       <div class="nav-item" onclick="showTab('contenus')" id="nav-contenus">
         <span class="nav-icon">🎬</span> Contenus
@@ -1071,10 +1083,9 @@ html, body { height: 100%; font-family: var(--font-body); color: var(--text-1); 
           <div class="kpi-lbl">Sessions SSI</div>
         </div>
       </div>
-      <div class="card p-5">
-        <p style="color:var(--text2);font-size:.85rem;text-align:center;padding:20px;">
-          📊 Les graphiques d'évolution seront ajoutés prochainement.
-        </p>
+      <div class="grid mb-6" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+        <div class="card" style="padding:16px;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Note moyenne des avis (6 mois)</div><div style="height:200px;"><canvas id="stat-chart-avis"></canvas></div></div>
+        <div class="card" style="padding:16px;"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3,#94a3b8);margin-bottom:8px;">Activité d'entraînement / mois</div><div style="height:200px;"><canvas id="stat-chart-activite"></canvas></div></div>
       </div>
     </div>
 
@@ -1562,7 +1573,7 @@ async function loadGlobalKpis(){
       supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_status','active').not('license_expires_at','is',null).gte('license_expires_at',nowIso).lte('license_expires_at',soonIso),
       supabase.from('centers').select('*',{count:'exact',head:true}).in('license_status',['expired','suspended']),
       supabase.from('avis_retours').select('note'),
-      supabase.from('monitoring_alerts').select('severity,resolved_at')
+      supabase.from('monitoring_alerts').select('severity,source,resolved_at')
     ]);
     const setG=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
     setG('gk-actives', act.count??0);
@@ -1572,8 +1583,9 @@ async function loadGlobalKpis(){
     setG('gk-avis', (avis.data||[]).length);
     setG('gk-note', notes.length? (notes.reduce((s,n)=>s+n,0)/notes.length).toFixed(1)+' ⭐' : '—');
     const open=(alerts.data||[]).filter(a=>!a.resolved_at);
-    setG('gk-tech', open.filter(a=>a.severity==='warning'||a.severity==='error').length);
-    setG('gk-secu', open.filter(a=>a.severity==='critical').length);
+    // Techniques = agent de monitoring (health-monitor) ; Sécurité = agent IA (security-monitor)
+    setG('gk-tech', open.filter(a=>a.source!=='security-monitor').length);
+    setG('gk-secu', open.filter(a=>a.source==='security-monitor').length);
   }catch(e){ console.warn('[global kpis]', e); }
   renderLandingCharts();
 }
@@ -1597,25 +1609,8 @@ async function renderLandingCharts(){
     if (_landingCharts.newlic) _landingCharts.newlic.destroy();
     _landingCharts.newlic = new Chart(document.getElementById('chart-newlic'), { type:'bar', data:{ labels:months.map(m=>m.label), datasets:[{ data:counts, backgroundColor:'#10b981', borderRadius:6 }] }, options:{ maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } });
 
-    // Note moyenne des avis par mois
-    const avisRes = await supabase.from('avis_retours').select('created_at,note');
-    const noteSum = months.map(()=>0), noteCnt = months.map(()=>0);
-    (avisRes.data||[]).forEach(a => { if(!a.created_at || !a.note) return; const d = new Date(a.created_at); const key = d.getFullYear()+'-'+(d.getMonth()+1); const idx = months.findIndex(m=>m.key===key); if(idx>=0){ noteSum[idx]+=a.note; noteCnt[idx]++; } });
-    const noteAvg = months.map((m,i)=> noteCnt[i] ? +(noteSum[i]/noteCnt[i]).toFixed(2) : null);
-    if (_landingCharts.avis) _landingCharts.avis.destroy();
-    _landingCharts.avis = new Chart(document.getElementById('chart-avis'), { type:'line', data:{ labels:months.map(m=>m.label), datasets:[{ data:noteAvg, borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.15)', fill:true, tension:.3, spanGaps:true, pointRadius:4 }] }, options:{ maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ min:0, max:5, ticks:{ stepSize:1 } } } } });
-
-    // Activité d'entraînement par mois (auto-entraînement + quiz salle + challenge)
-    const [entr, qsr, ccr] = await Promise.all([
-      supabase.from('entrainement_sessions').select('started_at'),
-      supabase.from('quiz_salle_sessions').select('created_at'),
-      supabase.from('cc_sessions').select('created_at')
-    ]);
-    const act = months.map(()=>0);
-    const addAct = (rs, field) => (rs||[]).forEach(r => { const v = r[field]; if(!v) return; const d = new Date(v); const key = d.getFullYear()+'-'+(d.getMonth()+1); const idx = months.findIndex(m=>m.key===key); if(idx>=0) act[idx]++; });
-    addAct(entr.data,'started_at'); addAct(qsr.data,'created_at'); addAct(ccr.data,'created_at');
-    if (_landingCharts.act) _landingCharts.act.destroy();
-    _landingCharts.act = new Chart(document.getElementById('chart-activite'), { type:'bar', data:{ labels:months.map(m=>m.label), datasets:[{ data:act, backgroundColor:'#2563eb', borderRadius:6 }] }, options:{ maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } } });
+    // (Graphiques « Note moyenne des avis » et « Activité d'entraînement » déplacés
+    //  dans la page Statistiques — voir renderStatsCharts().)
 
     // Alertes par sévérité
     const al = await supabase.from('monitoring_alerts').select('severity');
@@ -2470,6 +2465,30 @@ async function loadStats(){
     document.getElementById('stat-challenge').textContent=ch??'0';
     document.getElementById('stat-ssi').textContent=ssi??'0';
   }catch(e){console.error(e);}
+  renderStatsCharts();
+}
+
+// Graphiques de la page Statistiques (Note moyenne des avis + Activité d'entraînement,
+// déplacés depuis la page d'accueil).
+var _statsCharts = {};
+async function renderStatsCharts(){
+  if (typeof Chart === 'undefined') return;
+  try{
+    const now=new Date(), months=[];
+    for(let i=5;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); months.push({key:d.getFullYear()+'-'+(d.getMonth()+1), label:d.toLocaleDateString('fr-FR',{month:'short'})}); }
+    const avisRes = await supabase.from('avis_retours').select('created_at,note');
+    const noteSum=months.map(()=>0), noteCnt=months.map(()=>0);
+    (avisRes.data||[]).forEach(a=>{ if(!a.created_at||!a.note) return; const d=new Date(a.created_at); const key=d.getFullYear()+'-'+(d.getMonth()+1); const idx=months.findIndex(m=>m.key===key); if(idx>=0){ noteSum[idx]+=a.note; noteCnt[idx]++; } });
+    const noteAvg=months.map((m,i)=> noteCnt[i]?+(noteSum[i]/noteCnt[i]).toFixed(2):null);
+    const elAvis=document.getElementById('stat-chart-avis');
+    if(elAvis){ if(_statsCharts.avis)_statsCharts.avis.destroy(); _statsCharts.avis=new Chart(elAvis,{type:'line',data:{labels:months.map(m=>m.label),datasets:[{data:noteAvg,borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,.15)',fill:true,tension:.3,spanGaps:true,pointRadius:4}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:5,ticks:{stepSize:1}}}}}); }
+    const [entr,qsr,ccr]=await Promise.all([supabase.from('entrainement_sessions').select('started_at'),supabase.from('quiz_salle_sessions').select('created_at'),supabase.from('cc_sessions').select('created_at')]);
+    const act=months.map(()=>0);
+    const addAct=(rs,field)=>(rs||[]).forEach(r=>{const v=r[field];if(!v)return;const d=new Date(v);const key=d.getFullYear()+'-'+(d.getMonth()+1);const idx=months.findIndex(m=>m.key===key);if(idx>=0)act[idx]++;});
+    addAct(entr.data,'started_at'); addAct(qsr.data,'created_at'); addAct(ccr.data,'created_at');
+    const elAct=document.getElementById('stat-chart-activite');
+    if(elAct){ if(_statsCharts.act)_statsCharts.act.destroy(); _statsCharts.act=new Chart(elAct,{type:'bar',data:{labels:months.map(m=>m.label),datasets:[{data:act,backgroundColor:'#2563eb',borderRadius:6}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}}); }
+  }catch(e){ console.warn('[stats charts]',e); }
 }
 
 // ============================================================
@@ -3133,6 +3152,182 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(__recoveryMode || /type=recovery/.test(window.location.hash)) return;
   if(SESSION.load('admin'))showApp();
 });
+</script>
+<script>
+/* ============================================================
+   Supervision & Incidents — poste de supervision (Dashboard)
+   Bloc auto-contenu et défensif : n'altère pas l'existant.
+   ============================================================ */
+(function(){
+  function _esc(s){ try{ return esc(s); }catch(e){ return String(s==null?'':s).replace(/[&<>]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m];}); } }
+  function _date(ts){ try{ return UTILS.dateStr(ts)+' '+new Date(ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } }
+  var SEV = { minor:'Mineur', major:'Majeur', critical:'Critique' };
+  var STATUT = { open:'En cours', monitoring:'Sous surveillance', resolved:'Résolu' };
+
+  window.loadSupervision = async function(){
+    try{
+      var res = await supabase.from('monitoring_alerts').select('*').eq('resolved',false).order('ts',{ascending:false}).limit(100);
+      var all = res.data || [];
+      var clientAlerts = all.filter(function(a){ return a.client_facing; });
+      window.__recoPrefills = {};
+      var reco = document.getElementById('supv-reco');
+      if(reco){
+        reco.innerHTML = clientAlerts.map(function(a){
+          window.__recoPrefills[a.id] = { title:a.title, message:a.message||'' };
+          return '<div style="background:#fff7ed;border:1px solid #fdba74;border-left:5px solid #ea580c;border-radius:10px;padding:12px 14px;margin-bottom:8px;">'
+            + '<div style="font-weight:800;color:#9a3412;">⚠️ Incident susceptible d\'impacter les clients — '+_esc(a.title)+'</div>'
+            + (a.reco?'<div style="font-size:.82rem;margin-top:4px;color:#7c2d12;">'+_esc(a.reco)+'</div>':'')
+            + '<button onclick="openIncidentForm(window.__recoPrefills['+a.id+'])" class="btn btn-blue btn-sm" style="margin-top:8px;">Déclarer un incident à partir de cette alerte</button>'
+            + '</div>';
+        }).join('');
+      }
+      var cnt = { critical:0, error:0, warning:0, info:0 };
+      all.forEach(function(a){ if(cnt[a.severity]!=null) cnt[a.severity]++; });
+      var sa = document.getElementById('supv-alerts');
+      if(sa){
+        sa.innerHTML = all.length
+          ? '<div style="font-size:.82rem;color:var(--text3);">Alertes ouvertes : <b style="color:var(--red);">'+(cnt.critical+cnt.error)+'</b> critiques/erreurs · <b style="color:var(--orange);">'+cnt.warning+'</b> warnings · <b style="color:var(--blue);">'+cnt.info+'</b> infos</div>'
+          : '<div style="font-size:.82rem;color:var(--green);">✨ Aucune alerte ouverte.</div>';
+      }
+      // Dernière analyse sécurité (agent IA)
+      try{
+        var scanRes = await supabase.from('security_scans').select('severity,summary,finished_at').order('started_at',{ascending:false}).limit(1).maybeSingle();
+        var sc = scanRes.data, secEl = document.getElementById('supv-security');
+        if(secEl){
+          if(!sc){ secEl.innerHTML = '<div style="font-size:.8rem;color:var(--text3);">🛡️ Sécurité : aucune analyse effectuée.</div>'; }
+          else { var col = (sc.severity==='critical'||sc.severity==='error')?'var(--red)':(sc.severity==='warning'?'var(--orange)':'var(--green)');
+            secEl.innerHTML = '<div style="font-size:.8rem;">🛡️ <b>Sécurité</b> : <b style="color:'+col+';">'+_esc(sc.severity||'—')+'</b>'+(sc.summary?' — '+_esc(sc.summary):'')+' <span style="color:var(--text3);">('+_date(sc.finished_at)+')</span></div>'; }
+        }
+      }catch(e){}
+      var incRes = await supabase.from('incidents').select('*').neq('status','resolved').order('started_at',{ascending:false});
+      var incs = incRes.data || [];
+      var box = document.getElementById('supv-incidents');
+      if(box){
+        box.innerHTML = incs.length ? incs.map(function(i){
+          var bord = i.severity==='critical'?'#dc2626':(i.severity==='major'?'#ea580c':'#ca8a04');
+          return '<div class="card" style="padding:12px 14px;margin-bottom:8px;border-left:4px solid '+bord+';">'
+            + '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">'
+            + '<div><b>'+_esc(i.title)+'</b> · <span style="font-size:.75rem;color:var(--text3);">'+(SEV[i.severity]||i.severity)+' · '+(i.scope==='global'?'🌐 Global':'🎯 Ciblé')+' · '+(STATUT[i.status]||i.status)+'</span></div>'
+            + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+            + '<button onclick="notifyInc(\''+i.id+'\',\'test\')" class="btn btn-gray btn-sm">✉️ Test</button>'
+            + '<button onclick="notifyInc(\''+i.id+'\',\'send\')" class="btn btn-blue btn-sm">📤 Notifier</button>'
+            + (i.status!=='monitoring'?'<button onclick="setIncStatus(\''+i.id+'\',\'monitoring\')" class="btn btn-gray btn-sm">👁 Surveiller</button>':'')
+            + '<button onclick="setIncStatus(\''+i.id+'\',\'resolved\')" class="btn btn-green btn-sm">✓ Clôturer</button>'
+            + '</div></div>'
+            + (i.message?'<div style="font-size:.82rem;margin-top:6px;color:#374151;white-space:pre-wrap;">'+_esc(i.message)+'</div>':'')
+            + '<div style="font-size:.7rem;color:var(--text3);margin-top:6px;">Début : '+_date(i.started_at)+'</div>'
+            + '</div>';
+        }).join('') : '<div style="font-size:.82rem;color:var(--text3);">Aucun incident en cours.</div>';
+      }
+    }catch(e){ console.error('supervision', e); }
+  };
+
+  window.openIncidentForm = async function(prefill){
+    prefill = prefill || {};
+    var el = document.getElementById('supv-inc-form'); if(!el) return;
+    el.classList.remove('hidden');
+    el.innerHTML = '<div class="card" style="padding:14px;margin-bottom:10px;">'
+      + '<div style="display:grid;gap:10px;">'
+      + '<input id="inc-title" class="inp" placeholder="Titre de l\'incident" value="'+_esc(prefill.title||'')+'">'
+      + '<textarea id="inc-msg" class="inp" rows="3" placeholder="Message affiché aux clients / sur la page de statut">'+_esc(prefill.message||'')+'</textarea>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap;">'
+      + '<select id="inc-sev" class="inp" style="width:auto;"><option value="minor">Mineur</option><option value="major" selected>Majeur</option><option value="critical">Critique</option></select>'
+      + '<select id="inc-scope" class="inp" style="width:auto;" onchange="document.getElementById(\'inc-centers-wrap\').classList.toggle(\'hidden\', this.value!==\'targeted\')"><option value="global">🌐 Panne générale (tous les centres)</option><option value="targeted">🎯 Ciblé (centres concernés)</option></select>'
+      + '</div>'
+      + '<div id="inc-centers-wrap" class="hidden">'
+      + '<input id="inc-center-search" class="inp" placeholder="Rechercher un centre…" oninput="filterIncCenters(this.value)">'
+      + '<div id="inc-center-list" style="max-height:180px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px;margin-top:6px;"></div>'
+      + '</div>'
+      + '<div style="display:flex;gap:8px;"><button onclick="submitIncident(this)" class="btn btn-green btn-sm">Créer l\'incident</button>'
+      + '<button onclick="document.getElementById(\'supv-inc-form\').classList.add(\'hidden\')" class="btn btn-gray btn-sm">Annuler</button></div>'
+      + '</div></div>';
+    try{
+      var res = await supabase.from('centers').select('id,nom').eq('is_test',false).order('nom');
+      window.__incCenters = res.data || [];
+      renderIncCenters(window.__incCenters);
+    }catch(e){ window.__incCenters = []; }
+  };
+  window.renderIncCenters = function(list){
+    var box = document.getElementById('inc-center-list'); if(!box) return;
+    box.innerHTML = (list||[]).map(function(c){ return '<label style="display:block;font-size:.85rem;padding:2px 0;"><input type="checkbox" class="inc-cbx" value="'+c.id+'"> '+_esc(c.nom)+'</label>'; }).join('') || '<span style="font-size:.8rem;color:var(--text3);">Aucun centre</span>';
+  };
+  window.filterIncCenters = function(q){
+    q=(q||'').toLowerCase();
+    renderIncCenters((window.__incCenters||[]).filter(function(c){ return (c.nom||'').toLowerCase().indexOf(q)>=0; }));
+  };
+
+  window.submitIncident = async function(btn){
+    var title = (document.getElementById('inc-title').value||'').trim();
+    if(!title){ alert('Titre requis.'); return; }
+    var message = document.getElementById('inc-msg').value||'';
+    var severity = document.getElementById('inc-sev').value;
+    var scope = document.getElementById('inc-scope').value;
+    var centerIds = [];
+    if(scope==='targeted'){
+      centerIds = Array.prototype.slice.call(document.querySelectorAll('.inc-cbx:checked')).map(function(x){ return x.value; });
+      if(!centerIds.length){ alert('Sélectionne au moins un centre concerné.'); return; }
+    }
+    try{
+      var u = await supabase.auth.getUser();
+      var ins = await supabase.from('incidents').insert({ title:title, message:message, severity:severity, scope:scope, status:'open', created_by:(u.data&&u.data.user?u.data.user.id:null) }).select('id').single();
+      if(ins.error) throw ins.error;
+      if(scope==='targeted' && ins.data){
+        var rows = centerIds.map(function(cid){ return { incident_id: ins.data.id, center_id: cid }; });
+        var e2 = await supabase.from('incident_centers').insert(rows);
+        if(e2.error) throw e2.error;
+      }
+      document.getElementById('supv-inc-form').classList.add('hidden');
+      await loadSupervision();
+      alert('✅ Incident créé. « Test » = prévisualiser l\'email (à toi) ; « Notifier » = envoyer aux centres.');
+    }catch(e){ alert('Erreur : '+(e.message||e)); }
+  };
+
+  window.notifyInc = async function(id, mode){
+    if(mode==='send' && !confirm('Envoyer la notification aux centres concernés ?')) return;
+    try{
+      var r = await supabase.functions.invoke('notify-incident', { body:{ incident_id:id, mode:mode } });
+      if(r.error) throw r.error;
+      if(r.data && r.data.ok){ alert(mode==='test' ? '✉️ Email de test envoyé (à toi).' : '📤 Notifié à '+r.data.recipients+' centre(s).'); }
+      else { alert('Échec : '+JSON.stringify(r.data)); }
+    }catch(e){ alert('Erreur : '+(e.message||e)); }
+  };
+
+  window.setIncStatus = async function(id, status){
+    if(status==='resolved' && !confirm('Clôturer cet incident ?')) return;
+    try{
+      var patch = { status:status, updated_at:new Date().toISOString() };
+      if(status==='resolved') patch.resolved_at = new Date().toISOString();
+      var r = await supabase.from('incidents').update(patch).eq('id', id);
+      if(r.error) throw r.error;
+      await loadSupervision();
+    }catch(e){ alert('Erreur : '+(e.message||e)); }
+  };
+
+  // Lancer une analyse de sécurité (agent IA security-monitor)
+  window.runSecurityScan = async function(btn){
+    var run = async function(){
+      try{
+        var r = await fetch(supabase.supabaseUrl + '/functions/v1/security-monitor', { method:'POST', headers:{ 'Content-Type':'application/json', 'apikey': supabase.supabaseKey } });
+        var body = await r.json();
+        if(!r.ok){ alert('Analyse sécurité : ' + (body.error||r.status)); }
+        else if(body.skipped){ alert('Analyse déjà effectuée récemment (moins de 5 min).'); }
+        else { alert('🛡️ Analyse sécurité terminée — gravité : '+(body.severity||'?')+' · '+(body.alerts_created||0)+' alerte(s) créée(s).'); }
+        await loadSupervision();
+      }catch(e){ alert('Erreur : '+(e.message||e)); }
+    };
+    return (typeof withSpin==='function' && btn) ? withSpin(btn, run) : run();
+  };
+
+  // Boutons détaillés : entrer dans l'admin Formation puis afficher l'onglet voulu
+  window.openLogsFull = function(){ try{ openCentreFormation(); }catch(e){} setTimeout(function(){ try{ showTab('logs'); }catch(e){} }, 60); };
+  window.openMonitoringFull = function(){ try{ openCentreFormation(); }catch(e){} setTimeout(function(){ try{ showTab('monitoring'); }catch(e){} }, 60); };
+
+  // Recharge la supervision quand la page d'accueil « univers » se charge (hook non invasif)
+  if(window.loadLandingKpis){
+    var _origLLK = window.loadLandingKpis;
+    window.loadLandingKpis = async function(){ var r = await _origLLK.apply(this, arguments); try{ await window.loadSupervision(); }catch(e){} return r; };
+  }
+})();
 </script>
 </body>
 </html>
