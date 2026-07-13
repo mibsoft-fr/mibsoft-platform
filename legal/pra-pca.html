@@ -35,8 +35,8 @@
     <h1>Plan de Continuité et de Reprise d'Activité</h1>
     <p class="lead">Plan combiné PCA / PRA de MIBsoft, décrivant les dispositifs de continuité du service et les procédures de reprise en cas de sinistre majeur.</p>
     <div class="meta">
-      <span><strong>Version :</strong> 1.0 — Projet</span>
-      <span><strong>Dernière mise à jour :</strong> Mai 2026</span>
+      <span><strong>Version :</strong> 1.1</span>
+      <span><strong>Dernière mise à jour :</strong> Juillet 2026</span>
       <span><strong>Statut :</strong> À valider par avocat / RSSI</span>
     </div>
   </div>
@@ -83,11 +83,12 @@
     </ul>
 
     <h3>3.2 Sauvegardes</h3>
+    <p>Le dispositif de sauvegarde repose sur deux niveaux indépendants et applique la règle <strong>3-2-1</strong> (trois copies, deux types de supports, une conservée hors-site) :</p>
     <ul>
-      <li><strong>Point-In-Time Recovery (PITR) Supabase</strong> : restauration à n'importe quel instant des 7 derniers jours ;</li>
-      <li>Backups quotidiens automatiques chiffrés ;</li>
-      <li>Snapshots stockés en cross-region sur l'infra AWS de Supabase pour résilience régionale ;</li>
-      <li>Test de restauration <strong>trimestriel</strong> sur environnement isolé.</li>
+      <li><strong>Niveau 1 — Hébergeur (Supabase)</strong> : durabilité assurée par l'infrastructure managée AWS (stockage répliqué sur plusieurs zones de disponibilité) et sauvegardes automatiques quotidiennes de l'offre Pro (rétention 7 jours). Le Point-In-Time Recovery (PITR) est activable pour une restauration à la minute près.</li>
+      <li><strong>Niveau 2 — Sauvegarde indépendante MIB</strong> : export quotidien de la base de données, <strong>chiffré en AES-256 côté client</strong> (clé de chiffrement détenue exclusivement par MIB, jamais transmise à l'hébergeur de sauvegarde), stocké <strong>hors-site</strong> chez Backblaze B2 (région Union européenne — Amsterdam) <strong>et</strong> sur support physique externe. Rétention glissante de <strong>30 jours</strong> avec purge automatique.</li>
+      <li><strong>Sauvegarde du code source</strong> : archivage du dépôt complet (miroir Git + archive datée), sur support physique externe et chez Backblaze B2 (UE), rétention 90 jours.</li>
+      <li><strong>Test de restauration</strong> : réalisé périodiquement sur environnement isolé (cf. section 7). Dernier test concluant : <strong>13 juillet 2026</strong>.</li>
     </ul>
 
     <h3>3.3 Monitoring et alerting</h3>
@@ -203,11 +204,15 @@
     <h2>7. Tests du PCA / PRA</h2>
     <p>Le présent plan fait l'objet de tests réguliers :</p>
     <ul>
-      <li><strong>Tests de restauration backup</strong> : trimestriels, sur environnement isolé ;</li>
+      <li><strong>Tests de restauration backup</strong> : trimestriels, sur environnement isolé (base de données jetable), avec vérification de l'intégrité des données restaurées ;</li>
       <li><strong>Exercice complet PRA</strong> : annuel — simulation d'un sinistre majeur (Supabase indisponible 4 h) avec mobilisation de la cellule de crise ;</li>
       <li><strong>Exercice de communication</strong> : annuel ;</li>
       <li><strong>Revue documentaire</strong> : annuelle ou suite à incident significatif.</li>
     </ul>
+    <div class="legal-callout">
+      <strong>Dernier test de restauration — 13 juillet 2026 — Résultat : concluant.</strong><br>
+      Restauration complète d'une sauvegarde chiffrée dans une base isolée : déchiffrement, restauration et vérification d'intégrité réussis (comptes utilisateurs, stagiaires, formateurs, sessions et données pédagogiques restaurés et cohérents).
+    </div>
     <p>Le rapport de chaque test (synthèse anonymisée) est disponible sur demande sous NDA.</p>
 
     <h2>8. Améliorations continues</h2>
