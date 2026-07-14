@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>État des services — MIBsoft</title>
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f8fafc; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
+    --green:#16a34a; --green-bg:#dcfce7; --yellow:#ca8a04; --yellow-bg:#fef9c3;
+    --orange:#ea580c; --orange-bg:#ffedd5; --red:#dc2626; --red-bg:#fee2e2;
+    --brand:#0ea5e9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f172a; --card:#1e293b; --ink:#f1f5f9; --muted:#94a3b8; --line:#334155; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+  .wrap{max-width:760px;margin:0 auto;padding:32px 20px 64px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+  header img{height:38px;width:auto}
+  header h1{font-size:1.15rem;font-weight:700;margin:0}
+  .banner{border-radius:16px;padding:22px 24px;display:flex;align-items:center;gap:16px;margin-bottom:24px;border:1px solid var(--line)}
+  .banner .dot{width:14px;height:14px;border-radius:50%;flex:0 0 auto}
+  .banner.ok{background:var(--green-bg);border-color:#86efac}
+  .banner.ok .dot{background:var(--green)}
+  .banner.incident{background:var(--orange-bg);border-color:#fdba74}
+  .banner.incident .dot{background:var(--orange)}
+  .banner .txt strong{display:block;font-size:1.1rem;font-weight:700}
+  .banner .txt span{font-size:.9rem;color:var(--muted)}
+  .banner.ok .txt strong{color:var(--green)}
+  .banner.incident .txt strong{color:var(--orange)}
+  h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:28px 0 12px}
+  .inc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px}
+  .inc .head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .inc .sev{font-size:.7rem;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:999px}
+  .sev.minor{background:var(--yellow-bg);color:var(--yellow)}
+  .sev.major{background:var(--orange-bg);color:var(--orange)}
+  .sev.critical{background:var(--red-bg);color:var(--red)}
+  .inc .title{font-weight:700}
+  .inc .st{font-size:.72rem;font-weight:600;color:var(--muted);margin-left:auto}
+  .inc .msg{margin:8px 0 0;font-size:.92rem;color:var(--muted);white-space:pre-wrap}
+  .inc .time{margin-top:8px;font-size:.75rem;color:var(--muted)}
+  .resolved .inc{opacity:.75}
+  .empty{color:var(--muted);font-size:.9rem;text-align:center;padding:12px}
+  footer{margin-top:40px;text-align:center;font-size:.8rem;color:var(--muted)}
+  footer a{color:var(--brand);text-decoration:none}
+  .spin{text-align:center;color:var(--muted);padding:40px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <img src="/logo/logo-web-transparent.png" alt="MIBsoft" onerror="this.style.display='none'">
+      <h1>État des services</h1>
+    </header>
+
+    <div id="banner" class="banner ok" style="display:none">
+      <span class="dot"></span>
+      <div class="txt"><strong id="banner-title">—</strong><span id="banner-sub"></span></div>
+    </div>
+
+    <div id="loading" class="spin">Chargement de l'état des services…</div>
+
+    <div id="active-wrap" style="display:none">
+      <h2>Incident(s) en cours</h2>
+      <div id="active"></div>
+    </div>
+
+    <div id="history-wrap" style="display:none">
+      <h2>Historique récent</h2>
+      <div id="history" class="resolved"></div>
+    </div>
+
+    <footer>
+      MIBsoft — Plateforme SSIAP · <a href="/index.html">Retour au site</a><br>
+      Cette page affiche les incidents affectant l'ensemble des centres.
+      Les incidents ponctuels sont notifiés directement aux centres concernés.
+    </footer>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="supabase.js"></script>
+<script>
+(async function(){
+  var sb = window.supabase;
+  var loading = document.getElementById('loading');
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function fmt(ts){ try{ return new Date(ts).toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'}); }catch(e){ return ''; } }
+  var STATUT = { open:'Investigation en cours', monitoring:'Sous surveillance', resolved:'Résolu' };
+
+  function card(i){
+    return '<div class="inc"><div class="head">'
+      + '<span class="sev '+esc(i.severity)+'">'+esc(i.severity)+'</span>'
+      + '<span class="title">'+esc(i.title)+'</span>'
+      + '<span class="st">'+esc(STATUT[i.status]||i.status)+'</span></div>'
+      + (i.message ? '<div class="msg">'+esc(i.message)+'</div>' : '')
+      + '<div class="time">Début : '+fmt(i.started_at)+(i.resolved_at?(' · Résolu : '+fmt(i.resolved_at)):'')+'</div>'
+      + '</div>';
+  }
+
+  try{
+    // RLS : anon ne voit que les incidents globaux
+    var { data, error } = await sb.from('incidents')
+      .select('id,title,message,severity,status,scope,started_at,resolved_at')
+      .eq('scope','global')
+      .order('started_at',{ascending:false})
+      .limit(40);
+    if(error) throw error;
+    loading.style.display='none';
+
+    var active = (data||[]).filter(function(i){ return i.status!=='resolved'; });
+    var resolved = (data||[]).filter(function(i){ return i.status==='resolved'; }).slice(0,8);
+
+    var banner = document.getElementById('banner');
+    banner.style.display='flex';
+    if(active.length===0){
+      banner.className='banner ok';
+      document.getElementById('banner-title').textContent='Tous les systèmes sont opérationnels';
+      document.getElementById('banner-sub').textContent='Aucun incident en cours.';
+    } else {
+      banner.className='banner incident';
+      document.getElementById('banner-title').textContent = active.length+' incident'+(active.length>1?'s':'')+' en cours';
+      document.getElementById('banner-sub').textContent='Nos équipes sont mobilisées.';
+      document.getElementById('active').innerHTML = active.map(card).join('');
+      document.getElementById('active-wrap').style.display='block';
+    }
+    if(resolved.length){
+      document.getElementById('history').innerHTML = resolved.map(card).join('');
+      document.getElementById('history-wrap').style.display='block';
+    }
+  }catch(e){
+    loading.textContent = "Impossible de charger l'état des services pour le moment.";
+  }
+})();
+</script>
+</body>
+</html>
