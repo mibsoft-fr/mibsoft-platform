@@ -1680,7 +1680,7 @@ async function loadSoloDash(type){
   }catch(e){console.error(e);tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--red);padding:20px;">Erreur de chargement.</td></tr>';}
 }
 window.soloExtend=async function(type,id){
-  const mois=prompt('Prolonger de combien de mois ?','12');
+  const mois=await mibPrompt('Prolonger de combien de mois ?','12');
   if(!mois||isNaN(mois))return;
   const{data}=await supabase.from('centers').select('license_expires_at').eq('id',id).single();
   const base=data?.license_expires_at?new Date(data.license_expires_at):new Date();
@@ -1691,7 +1691,7 @@ window.soloExtend=async function(type,id){
 };
 window.soloToggle=async function(type,id,current){
   const newStatus=current==='active'?'suspended':'active';
-  if(!confirm(`${newStatus==='suspended'?'Suspendre':'Réactiver'} ce compte ?`))return;
+  if(!(await mibConfirm(`${newStatus==='suspended'?'Suspendre':'Réactiver'} ce compte ?`)))return;
   await supabase.from('centers').update({license_status:newStatus}).eq('id',id);
   loadSoloDash(type);
 };
@@ -1989,7 +1989,7 @@ async function toggleFlagAdmin(centreId, field, newValue){
 }
 
 async function deleteCentreAdmin(centreId, nom){
-  if (!confirm(`Supprimer définitivement le centre « ${nom} » ?\n\nCette opération est irréversible (auth.users sera orphelin).`)) return;
+  if (!(await mibConfirm(`Supprimer définitivement le centre « ${nom} » ?\n\nCette opération est irréversible (auth.users sera orphelin).`))) return;
   const { error } = await supabase.from('centers').delete().eq('id', centreId);
   if (error) { alert('Erreur : '+error.message); return; }
   await loadCentres();
@@ -2340,7 +2340,7 @@ async function refreshQCounts(bank){
 
 async function bulkVerify(val){
   if(!QSTATE.lastIds.length) return;
-  if(!confirm((val?'Vérifier':'Dévérifier')+' les '+QSTATE.lastIds.length+' question(s) affichée(s) ?')) return;
+  if(!(await mibConfirm((val?'Vérifier':'Dévérifier')+' les '+QSTATE.lastIds.length+' question(s) affichée(s) ?'))) return;
   const { error } = await supabase.from(QSTATE.bank).update({ verifiee: val }).in('id', QSTATE.lastIds);
   if(error){ alert('Erreur : '+error.message); return; }
   loadQuestions();
@@ -2447,7 +2447,7 @@ async function saveQuestion(alsoVerify){
 }
 
 async function deleteQuestion(bank, id){
-  if(!confirm('Supprimer définitivement cette question ?\nCette action est irréversible.')) return;
+  if(!(await mibConfirm('Supprimer définitivement cette question ?\nCette action est irréversible.'))) return;
   const { error } = await supabase.from(bank).delete().eq('id', id);
   if(error){ alert('Suppression refusée : '+error.message + (/foreign key|violates/i.test(error.message||'')?'\n(Question déjà utilisée dans une partie — non supprimable.)':'')); return; }
   closeQuestionModal(); loadQuestions();
@@ -2576,13 +2576,13 @@ async function genLicence(){
 
 async function toggleStatus(id,current){
   const newStatus=current==='active'?'suspended':'active';
-  if(!confirm(`${newStatus==='suspended'?'Suspendre':'Réactiver'} ce centre ?`))return;
+  if(!(await mibConfirm(`${newStatus==='suspended'?'Suspendre':'Réactiver'} ce centre ?`)))return;
   await supabase.from('centers').update({license_status:newStatus}).eq('id',id);
   loadCentres();loadLicences();
 }
 
 async function extendLicence(id){
-  const mois=prompt('Prolonger de combien de mois ?','12');
+  const mois=await mibPrompt('Prolonger de combien de mois ?','12');
   if(!mois||isNaN(mois))return;
   const{data}=await supabase.from('centers').select('license_expires_at').eq('id',id).single();
   const base=data?.license_expires_at?new Date(data.license_expires_at):new Date();
@@ -2593,7 +2593,7 @@ async function extendLicence(id){
 }
 
 async function deleteContenu(id){
-  if(!confirm('Supprimer ce contenu ?'))return;
+  if(!(await mibConfirm('Supprimer ce contenu ?')))return;
   await supabase.from('contenus').delete().eq('id',id);
   loadContenus();
 }
@@ -2626,7 +2626,7 @@ window.__ssiMediaUpload=async(path,file,contentType)=>{
 function openAdminLevelEditor(estabKey,levelKey){window.open('ssi-formation/plan.html?plan='+encodeURIComponent(estabKey+'/'+levelKey)+'&scope=shared','_blank','width=1100,height=820');}
 
 async function addPlanType(){
-  const name=prompt('Nom du type d\'établissement (ex. EHPAD, Parking, Tour de bureaux) :');
+  const name=await mibPrompt('Nom du type d\'établissement (ex. EHPAD, Parking, Tour de bureaux) :');
   if(!name)return;
   const label=name.trim();const key=planSlug(label);
   if(!key){alert('Nom invalide.');return;}
@@ -2639,8 +2639,8 @@ async function addPlanType(){
 }
 async function removePlanType(key,label){
   const nom=label||key;
-  if(!confirm('⚠️ ATTENTION — SUPPRESSION DÉFINITIVE\n\nVous allez supprimer le plan « '+nom+' » et TOUS ses niveaux (image, pictos, publication).\n\nToutes les données du plan seront PERDUES et IRRÉCUPÉRABLES.'))return;
-  const saisie=prompt('Pour confirmer la suppression, tapez le nom exact du plan :\n\n« '+nom+' »');
+  if(!(await mibConfirm('⚠️ ATTENTION — SUPPRESSION DÉFINITIVE\n\nVous allez supprimer le plan « '+nom+' » et TOUS ses niveaux (image, pictos, publication).\n\nToutes les données du plan seront PERDUES et IRRÉCUPÉRABLES.')))return;
+  const saisie=await mibPrompt('Pour confirmer la suppression, tapez le nom exact du plan :\n\n« '+nom+' »');
   if(saisie===null)return;
   if((saisie||'').trim().toLowerCase()!==String(nom).trim().toLowerCase()){alert('Nom incorrect — suppression annulée.');return;}
   try{
@@ -2754,7 +2754,7 @@ async function addAdminLevel(estabKey){
 async function removeAdminLevel(estabKey,levelKey){
   const t=(window._adminTypes||[]).find(x=>x.key===estabKey);if(!t)return;
   const lvl=(t.levels||[]).find(l=>l.key===levelKey);const lname=(lvl&&lvl.label)||levelKey;
-  if(!confirm('⚠️ ATTENTION — Retirer le niveau « '+lname+' »\n\nCela supprime DÉFINITIVEMENT le plan de ce niveau (image + pictos) et le retire du modèle. Données PERDUES et irrécupérables.\n\nContinuer ?'))return;
+  if(!(await mibConfirm('⚠️ ATTENTION — Retirer le niveau « '+lname+' »\n\nCela supprime DÉFINITIVEMENT le plan de ce niveau (image + pictos) et le retire du modèle. Données PERDUES et irrécupérables.\n\nContinuer ?')))return;
   try{
     await supabase.storage.from(PLAN_EX_BUCKET).remove(['shared/'+estabKey+'/'+levelKey+'.json']);
     const levels=(t.levels||[]).filter(l=>l.key!==levelKey);
@@ -2788,7 +2788,7 @@ async function publishAdminLevel(estabKey,levelKey){
 }
 
 async function deleteAdminLevel(estabKey,levelKey){
-  if(!confirm('⚠️ ATTENTION — Dépublier le niveau « '+levelKey+' »\n\nCela SUPPRIME le fichier publié du plan (image + pictos) de ce niveau. Les données seront PERDUES et irrécupérables — il faudra republier depuis l\'éditeur.\n\nContinuer ?'))return;
+  if(!(await mibConfirm('⚠️ ATTENTION — Dépublier le niveau « '+levelKey+' »\n\nCela SUPPRIME le fichier publié du plan (image + pictos) de ce niveau. Les données seront PERDUES et irrécupérables — il faudra republier depuis l\'éditeur.\n\nContinuer ?')))return;
   try{
     const{error}=await supabase.storage.from(PLAN_EX_BUCKET).remove(['shared/'+estabKey+'/'+levelKey+'.json']);
     if(error)throw error;
@@ -2950,7 +2950,7 @@ async function markAvisNouveau(id){
   loadAvis();
 }
 async function repondreAvis(id){
-  const r = prompt('Réponse à transmettre :');
+  const r = await mibPrompt('Réponse à transmettre :');
   if (r === null) return;
   await supabase.from('avis_retours').update({ reponse: r, statut: 'traite' }).eq('id', id);
   loadAvis();
@@ -3040,7 +3040,7 @@ async function loadLogs(){
 }
 
 async function purgeLogs(){
-  if (!confirm('Supprimer tous les logs antérieurs à 30 jours ?')) return;
+  if (!(await mibConfirm('Supprimer tous les logs antérieurs à 30 jours ?'))) return;
   const cutoff = new Date(Date.now() - 30*24*3600*1000).toISOString();
   const { error } = await supabase.from('app_logs').delete().lt('ts', cutoff);
   if (error) { alert('Erreur : ' + error.message); return; }
@@ -3285,7 +3285,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   };
 
   window.notifyInc = async function(id, mode){
-    if(mode==='send' && !confirm('Envoyer la notification aux centres concernés ?')) return;
+    if(mode==='send' && !(await mibConfirm('Envoyer la notification aux centres concernés ?'))) return;
     try{
       var r = await supabase.functions.invoke('notify-incident', { body:{ incident_id:id, mode:mode } });
       if(r.error) throw r.error;
@@ -3295,7 +3295,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   };
 
   window.setIncStatus = async function(id, status){
-    if(status==='resolved' && !confirm('Clôturer cet incident ?')) return;
+    if(status==='resolved' && !(await mibConfirm('Clôturer cet incident ?'))) return;
     try{
       var patch = { status:status, updated_at:new Date().toISOString() };
       if(status==='resolved') patch.resolved_at = new Date().toISOString();
@@ -3329,6 +3329,76 @@ window.addEventListener('DOMContentLoaded',()=>{
     var _origLLK = window.loadLandingKpis;
     window.loadLandingKpis = async function(){ var r = await _origLLK.apply(this, arguments); try{ await window.loadSupervision(); }catch(e){} return r; };
   }
+})();
+</script>
+<!-- ===== Modales in-app (remplacent alert/confirm/prompt natifs du navigateur) ===== -->
+<style>
+#mib-modal-ov{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:100000;padding:16px}
+#mib-modal-ov.hidden{display:none}
+#mib-modal-ov .mm-box{background:#fff;border-radius:16px;max-width:430px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.28);overflow:hidden;animation:mmpop .15s ease}
+@keyframes mmpop{from{transform:scale(.96);opacity:.5}to{transform:scale(1);opacity:1}}
+#mib-modal-ov .mm-head{display:flex;align-items:center;gap:10px;padding:18px 22px 0}
+#mib-modal-ov .mm-ico{font-size:1.35rem;line-height:1}
+#mib-modal-ov .mm-title{font-weight:800;font-size:1.02rem;color:#0f172a}
+#mib-modal-ov .mm-body{padding:10px 22px 4px;color:#334155;font-size:.9rem;white-space:pre-wrap;line-height:1.5}
+#mib-modal-ov .mm-inp{width:100%;margin:12px 22px 2px;max-width:calc(100% - 44px);padding:10px 12px;border:1px solid #cbd5e1;border-radius:9px;font-size:.9rem;box-sizing:border-box}
+#mib-modal-ov .mm-foot{display:flex;justify-content:flex-end;gap:8px;padding:16px 22px 20px}
+#mib-modal-ov .mm-btn{border:0;border-radius:9px;padding:9px 17px;font-weight:700;font-size:.85rem;cursor:pointer}
+#mib-modal-ov .mm-ok{background:#16a34a;color:#fff}
+#mib-modal-ov .mm-danger{background:#dc2626;color:#fff}
+#mib-modal-ov .mm-cancel{background:#e2e8f0;color:#0f172a}
+@media (prefers-color-scheme:dark){#mib-modal-ov .mm-box{background:#1e293b}#mib-modal-ov .mm-title{color:#f1f5f9}#mib-modal-ov .mm-body{color:#cbd5e1}#mib-modal-ov .mm-cancel{background:#334155;color:#f1f5f9}#mib-modal-ov .mm-inp{background:#0f172a;color:#f1f5f9;border-color:#334155}}
+</style>
+<script>
+(function(){
+  var ov;
+  function ensure(){
+    if(ov) return ov;
+    ov=document.createElement('div'); ov.id='mib-modal-ov'; ov.className='hidden';
+    ov.innerHTML='<div class="mm-box"><div class="mm-head"><span class="mm-ico"></span><span class="mm-title"></span></div><div class="mm-body"></div><input class="mm-inp" style="display:none"><div class="mm-foot"></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click',function(e){ if(e.target===ov && ov.__cancelable){ ov.__done(ov.__isPrompt?null:false); }});
+    document.addEventListener('keydown',function(e){ if(ov && ov.className!=='hidden' && e.key==='Escape' && ov.__cancelable){ ov.__done(ov.__isPrompt?null:false); }});
+    return ov;
+  }
+  function pick(opts){
+    ensure();
+    ov.querySelector('.mm-ico').textContent=opts.icon||'';
+    ov.querySelector('.mm-title').textContent=opts.title||'';
+    ov.querySelector('.mm-body').textContent=opts.message||'';
+    var inp=ov.querySelector('.mm-inp');
+    inp.style.display=opts.prompt?'block':'none';
+    if(opts.prompt) inp.value=opts.def||'';
+    var foot=ov.querySelector('.mm-foot'); foot.innerHTML='';
+    return new Promise(function(resolve){
+      ov.__cancelable=opts.cancel!==false; ov.__isPrompt=!!opts.prompt;
+      ov.__done=function(v){ ov.className='hidden'; resolve(v); };
+      if(opts.cancel!==false){
+        var cb=document.createElement('button'); cb.className='mm-btn mm-cancel'; cb.textContent=opts.cancelLabel||'Annuler';
+        cb.onclick=function(){ ov.__done(opts.prompt?null:false); }; foot.appendChild(cb);
+      }
+      var ok=document.createElement('button'); ok.className='mm-btn '+(opts.danger?'mm-danger':'mm-ok'); ok.textContent=opts.okLabel||'OK';
+      ok.onclick=function(){ ov.__done(opts.prompt?inp.value:true); }; foot.appendChild(ok);
+      inp.onkeydown=function(e){ if(e.key==='Enter'){ ov.__done(inp.value); } };
+      ov.className='';
+      setTimeout(function(){ (opts.prompt?inp:ok).focus(); if(opts.prompt) inp.select(); },30);
+    });
+  }
+  window.mibAlert=function(message,title){
+    var m=String(message==null?'':message);
+    var err=/erreur|échec|echec|refus|❌|invalide|incorrect/i.test(m);
+    return pick({icon:err?'⚠️':'ℹ️',title:title||(err?'Erreur':'Information'),message:m,cancel:false,okLabel:'OK'});
+  };
+  window.mibConfirm=function(message,title){
+    var m=String(message==null?'':message);
+    var danger=/supprim|irr[ée]versible|d[ée]finiti|perdu|dépublier|retirer/i.test(m);
+    return pick({icon:danger?'⚠️':'❓',title:title||'Confirmation',message:m,cancel:true,danger:danger,okLabel:'Confirmer'});
+  };
+  window.mibPrompt=function(message,def,title){
+    return pick({icon:'✏️',title:title||'Saisie',message:String(message==null?'':message),prompt:true,def:def==null?'':def,cancel:true,okLabel:'Valider'});
+  };
+  // Remplace alert() natif : non bloquant, stylé. Couvre tous les alert() du code sans modification.
+  window.alert=function(m){ window.mibAlert(m); };
 })();
 </script>
 </body>
