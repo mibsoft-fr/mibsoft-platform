@@ -1,9 +1,9 @@
-a<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8"> 
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>MIB Admin — Panneau de contrôle</title> 
+<title>MIB Admin — Panneau de contrôle</title>
 <meta name="theme-color" content="#F8FAFC">
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
@@ -1550,10 +1550,10 @@ function showApp(){
 async function loadLandingKpis(){
   try{
     const [c, indep, appr, ent] = await Promise.all([
-      supabase.from('centers').select('*',{count:'exact',head:true}).not('license_type','in','(apprenant,independant)'),
-      supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_type','independant'),
-      supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_type','apprenant'),
-      supabase.from('centers').select('themes')
+      supabase.from('centers').select('*',{count:'exact',head:true}).eq('is_test',false).not('license_type','in','(apprenant,independant)'),
+      supabase.from('centers').select('*',{count:'exact',head:true}).eq('is_test',false).eq('license_type','independant'),
+      supabase.from('centers').select('*',{count:'exact',head:true}).eq('is_test',false).eq('license_type','apprenant'),
+      supabase.from('centers').select('themes').eq('is_test',false)
     ]);
     const setN=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=(v??0);};
     setN('kpi-l-centres', c.count); setN('kpi-l-centres-q', c.count);
@@ -1569,9 +1569,9 @@ async function loadGlobalKpis(){
     const nowIso=new Date().toISOString();
     const soonIso=new Date(Date.now()+60*864e5).toISOString();
     const [act, renew, stopped, avis, alerts] = await Promise.all([
-      supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_status','active'),
-      supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_status','active').not('license_expires_at','is',null).gte('license_expires_at',nowIso).lte('license_expires_at',soonIso),
-      supabase.from('centers').select('*',{count:'exact',head:true}).in('license_status',['expired','suspended']),
+      supabase.from('centers').select('*',{count:'exact',head:true}).eq('is_test',false).eq('license_status','active'),
+      supabase.from('centers').select('*',{count:'exact',head:true}).eq('is_test',false).eq('license_status','active').not('license_expires_at','is',null).gte('license_expires_at',nowIso).lte('license_expires_at',soonIso),
+      supabase.from('centers').select('*',{count:'exact',head:true}).eq('is_test',false).in('license_status',['expired','suspended']),
       supabase.from('avis_retours').select('note'),
       supabase.from('monitoring_alerts').select('severity,source,resolved_at')
     ]);
@@ -1594,7 +1594,7 @@ var _landingCharts = {};
 async function renderLandingCharts(){
   if (typeof Chart === 'undefined') return;
   try{
-    const { data } = await supabase.from('centers').select('plan,created_at');
+    const { data } = await supabase.from('centers').select('plan,created_at').eq('is_test',false);
     const rows = data || [];
     const byPlan = {};
     rows.forEach(r => { const p = r.plan || '—'; byPlan[p] = (byPlan[p]||0) + 1; });
@@ -1782,9 +1782,9 @@ async function loadAllCore(){
   try{
     const[{count:nc},{count:nl},{count:ns},{count:nses}]=await Promise.all([
       // Centres actifs = vrais centres uniquement (hors indépendants et apprenants), cohérent avec l'onglet Centres.
-      supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_status','active').not('license_type','in','(apprenant,independant)'),
+      supabase.from('centers').select('*',{count:'exact',head:true}).eq('is_test',false).eq('license_status','active').not('license_type','in','(apprenant,independant)'),
       // Licences valides = toutes les licences actives (centres + indépendants + apprenants).
-      supabase.from('centers').select('*',{count:'exact',head:true}).eq('license_status','active'),
+      supabase.from('centers').select('*',{count:'exact',head:true}).eq('is_test',false).eq('license_status','active'),
       supabase.from('stagiaires').select('*',{count:'exact',head:true}).eq('actif',true),
       supabase.from('quiz_salle_sessions').select('*',{count:'exact',head:true})
         .gte('created_at',new Date(new Date().setDate(1)).toISOString())
@@ -1797,7 +1797,7 @@ async function loadAllCore(){
 
   // Derniers centres
   try{
-    const{data}=await supabase.from('centers').select('nom,email,plan,license_status,license_expires_at').not('license_type','in','(apprenant,independant)').order('created_at',{ascending:false}).limit(5);
+    const{data}=await supabase.from('centers').select('nom,email,plan,license_status,license_expires_at').eq('is_test',false).not('license_type','in','(apprenant,independant)').order('created_at',{ascending:false}).limit(5);
     const tbody=document.getElementById('body-recent');
     if(!data||!data.length){tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px;">Aucun centre</td></tr>';return;}
     tbody.innerHTML=data.map(c=>`<tr>
@@ -3242,7 +3242,9 @@ window.addEventListener('DOMContentLoaded',()=>{
       + '<button onclick="document.getElementById(\'supv-inc-form\').classList.add(\'hidden\')" class="btn btn-gray btn-sm">Annuler</button></div>'
       + '</div></div>';
     try{
-      var res = await supabase.from('centers').select('id,nom').eq('is_test',false).order('nom');
+      // Tous les centres (y compris le centre de test) : sélectionnables pour un incident ciblé.
+      // La sécurité est assurée côté serveur (notify-incident exclut is_test des envois réels).
+      var res = await supabase.from('centers').select('id,nom').order('nom');
       window.__incCenters = res.data || [];
       renderIncCenters(window.__incCenters);
     }catch(e){ window.__incCenters = []; }
