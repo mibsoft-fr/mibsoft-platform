@@ -64,6 +64,11 @@ erDiagram
     %% ───────── Facturation & super-admin ─────────
     stripe_prices ||..o{ centers                : "tarif appliqué"
 
+    %% ───────── Supervision, sécurité & incidents ─────────
+    incidents ||--o{ incident_centers : "cible (scope = targeted)"
+    centers   ||--o{ incident_centers : "concerné"
+    centers   ||--o{ app_logs         : "journalise"
+
     centers {
         uuid id PK
         text email
@@ -82,6 +87,7 @@ erDiagram
         bool module_ssi_autoformation
         uuid auth_user_id
         text stripe_customer_id
+        bool is_test "centre de test (exclu des stats & envois réels)"
     }
     profiles {
         uuid user_id PK
@@ -195,6 +201,62 @@ erDiagram
     super_admins {
         uuid user_id PK
     }
+    incidents {
+        uuid id PK
+        text title
+        text message
+        text severity "minor|major|critical"
+        text status "open|monitoring|resolved"
+        text scope "global|targeted"
+        timestamptz started_at
+        timestamptz resolved_at
+        uuid created_by
+    }
+    incident_centers {
+        uuid incident_id FK
+        uuid center_id FK
+    }
+    monitoring_runs {
+        uuid id PK
+        timestamptz started_at
+        timestamptz finished_at
+        text status "ok|degraded|failed"
+        jsonb checks
+        int alerts_created
+    }
+    monitoring_alerts {
+        uuid id PK
+        timestamptz ts
+        text severity "info|warning|error|critical"
+        text source "health-monitor|security-monitor"
+        text title
+        bool blocking
+        bool resolved
+        bool client_facing "impact client"
+        text reco "recommandation"
+        bool email_sent
+        bool sms_sent
+    }
+    security_scans {
+        uuid id PK
+        timestamptz started_at
+        timestamptz finished_at
+        text status "running|ok|warning|failed"
+        text severity "info|warning|error|critical"
+        text summary
+        jsonb findings
+        jsonb signals "signaux analysés"
+        text model "modèle Claude"
+        int alerts_created
+    }
+    app_logs {
+        uuid id PK
+        timestamptz ts
+        text level "info|warn|error"
+        text source
+        text message
+        uuid center_id FK
+    }
 ```
 
 ---
@@ -250,6 +312,30 @@ flowchart TD
     FO -->|signale une question| RP[("cc_question_reports")]
     RP -->|isolés par center_id| CE
     RP --> ADM
+
+    subgraph Supervision["🛡️ Supervision, sécurité & incidents"]
+      HM{{"edge: health-monitor\n(cron horaire + 5 min)"}}
+      SM{{"edge: security-monitor\n(cron quotidien)"}}
+      IA["🤖 Claude API\n(analyse sécurité)"]
+      NI{{"edge: notify-incident"}}
+      MON[("monitoring_runs\nmonitoring_alerts")]
+      SEC[("security_scans")]
+      INC[("incidents\nincident_centers")]
+      STP["🌐 status.html\n(page publique)"]
+    end
+    LOGS[("app_logs")] --> HM
+    LOGS --> SM
+    HM --> MON
+    HM -->|alerte bloquante| ESC["📧 Mailgun + 📱 SMSFactor\n(astreinte)"]
+    SM --> IA
+    IA --> SEC
+    SM -->|findings graves| MON
+    ADM -->|🔄 Vérifier / 🛡️ Sécurité| Supervision
+    ADM -->|déclare + notifie| INC
+    INC --> NI
+    NI -->|email BCC hors is_test| CE
+    INC --> STP
+    MON --> ADM
 ```
 
 > **Sélection d'environnement** : toutes ces pages chargent `supabase.js`, qui pointe vers le projet
@@ -359,4 +445,46 @@ sequenceDiagram
 > Ce hook est indispensable : sans le `GRANT SELECT` sur `public.profiles` au rôle
 > `supabase_auth_admin` (migration **2035**), le hook échoue (`permission denied for table profiles`)
 > et **toute connexion est refusée** — c'était le dernier blocage de la mise en production.
+
+---
+
+## 7. Diagramme de séquence — Supervision, agent sécurité & notification d'incident
+
+```mermaid
+sequenceDiagram
+    participant CRON as pg_cron
+    participant HM as edge: health-monitor
+    participant SM as edge: security-monitor
+    participant IA as Claude API
+    participant DB as Supabase
+    participant ESC as Mailgun / SMSFactor
+    actor OP as Super-admin (admin.html)
+    participant NI as edge: notify-incident
+    actor CL as Centres clients
+
+    Note over CRON,ESC: Surveillance automatique
+    CRON->>HM: bilan (horaire) + quick (5 min)
+    HM->>DB: monitoring_runs + monitoring_alerts
+    HM->>ESC: si alerte bloquante → email + SMS astreinte
+    CRON->>SM: scan sécurité (quotidien)
+    SM->>DB: collecte signaux (comptes à risque, erreurs, RLS)
+    SM->>IA: analyse (modèle Haiku)
+    IA-->>SM: verdict { severity, findings, reco }
+    SM->>DB: security_scans + alertes (findings graves)
+
+    Note over OP,CL: Gestion d'incident (manuelle)
+    OP->>DB: consulte le panneau Supervision (🛡️)
+    OP->>DB: déclare un incident (global | ciblé)
+    OP->>NI: mode « test » (aperçu à l'admin)
+    OP->>NI: mode « send »
+    NI->>DB: destinataires (centres actifs, hors is_test)
+    NI-->>CL: email d'information (BCC, RGPD)
+    Note over CL: incidents globaux visibles<br/>sur la page de statut publique
+```
+
+> **Portée** : un incident `global` (panne générale) est envoyé à tous les centres actifs et
+> affiché sur `status.html` ; un incident `targeted` (ponctuel) n'est envoyé qu'aux centres liés
+> via `incident_centers`. Les centres `is_test` sont toujours exclus des envois réels.
+> **Escalade** : le SMS (SMSFactor) et l'email (Mailgun → `contact@mibsoft.fr`) ne partent que
+> sur une alerte **bloquante**, avec un cooldown anti-spam.
 
