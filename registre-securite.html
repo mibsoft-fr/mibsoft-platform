@@ -238,6 +238,9 @@ const RUBRIQUES=[
 function openMiniModal(title,bodyHtml,footHtml){ $('d-nom').textContent=title; $('d-body').innerHTML=bodyHtml;
   document.querySelector('#rs-detail .mib-modal > div:last-child').innerHTML=footHtml; $('rs-detail').style.display='flex'; }
 function closeMiniModal(){ $('rs-detail').style.display='none'; }
+async function sha256(str){ const b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+async function sha256File(file){ const b=await crypto.subtle.digest('SHA-256', await file.arrayBuffer()); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+function publicUrl(path){ try{ return supabase.storage.from('documents').getPublicUrl(path).data.publicUrl; }catch(e){ return '#'; } }
 
 async function rsInit(){
   try{
@@ -431,23 +434,39 @@ async function loadVerifs(){
   const list=equips||[]; const latest={};
   if(list.length){
     const ids=list.map(e=>e.id);
-    const { data:ents } = await supabase.from('registre_entrees').select('equipement_id,date_realisation,prochaine_echeance').eq('rubrique',4).in('equipement_id',ids).order('date_realisation',{ascending:false});
+    const { data:ents } = await supabase.from('registre_entrees').select('id,equipement_id,date_realisation,prochaine_echeance').eq('rubrique',4).in('equipement_id',ids).order('date_realisation',{ascending:false});
     (ents||[]).forEach(en=>{ if(en.equipement_id && !latest[en.equipement_id]) latest[en.equipement_id]=en; });
   }
+  const entIds=Object.values(latest).map(e=>e.id);
+  let signed={}, docs={};
+  if(entIds.length){
+    const { data:sg } = await supabase.from('signatures').select('entree_id,signataire_nom,horodatage').in('entree_id',entIds);
+    (sg||[]).forEach(s=>{ if(!signed[s.entree_id]) signed[s.entree_id]=s; });
+    const { data:dc } = await supabase.from('registre_documents').select('entree_id,storage_path,nom_fichier').in('entree_id',entIds);
+    (dc||[]).forEach(d=>{ if(!docs[d.entree_id]) docs[d.entree_id]=d; });
+  }
   if(!list.length){ box.innerHTML='<div class="rub-todo">Aucune vérification enregistrée.<br>Cliquez « + Ajouter une vérification » pour composer le registre.</div>'; return; }
-  box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:.85rem"><thead><tr>'
-    +['Vérification','Périodicité','Dernière','Prochaine','Statut',''].map(h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid #ece3d3;color:#7f1d1d;font-size:.7rem;text-transform:uppercase">${h}</th>`).join('')
+  box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:.84rem"><thead><tr>'
+    +['Vérification','Périod.','Dernière','Prochaine','Statut','Rapport','Visa',''].map(h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid #ece3d3;color:#7f1d1d;font-size:.68rem;text-transform:uppercase">${h}</th>`).join('')
     +'</tr></thead><tbody>'
     +list.map(eq=>{
         const en=latest[eq.id]; const st=verifStatut(en?en.prochaine_echeance:null);
-        const lib=esc(eq.libelle||'—');
+        const lib=esc(eq.libelle||'—'); const libJs=lib.replace(/'/g,"\\'");
+        const doc=en?docs[en.id]:null;
+        const rapport = doc ? `<a href="${publicUrl(doc.storage_path)}" target="_blank" style="color:#2563eb;font-weight:600">PDF</a>` : '—';
+        let visa='—';
+        if(en){ visa = signed[en.id]
+          ? `<span class="mib-badge mib-badge-success" title="Visé le ${fmtDate(signed[en.id].horodatage)}">Visé ✓</span>`
+          : `<button class="rs-iconbtn" onclick="visaModal('${en.id}','${libJs}','${en.date_realisation}')">Viser</button>`; }
         return `<tr style="border-bottom:1px solid #f0e9db">
-          <td style="padding:9px 8px"><strong>${lib}</strong>${eq.localisation?'<br><span class="muted" style="font-size:.75rem">'+esc(eq.localisation)+'</span>':''}${eq.organisme_requis?' <span class="mib-badge mib-badge-info" style="font-size:.6rem">Organisme agréé</span>':''}</td>
-          <td style="padding:9px 8px">${eq.periodicite_mois?eq.periodicite_mois+' mois':'—'}</td>
+          <td style="padding:9px 8px"><strong>${lib}</strong>${eq.localisation?'<br><span class="muted" style="font-size:.75rem">'+esc(eq.localisation)+'</span>':''}${eq.organisme_requis?' <span class="mib-badge mib-badge-info" style="font-size:.58rem">Organisme agréé</span>':''}</td>
+          <td style="padding:9px 8px">${eq.periodicite_mois?eq.periodicite_mois+'m':'—'}</td>
           <td style="padding:9px 8px">${en?fmtDate(en.date_realisation):'—'}</td>
           <td style="padding:9px 8px">${en&&en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—'}</td>
           <td style="padding:9px 8px"><span class="mib-badge ${st.c}">${st.t}</span></td>
-          <td style="padding:9px 8px"><button class="rs-iconbtn" onclick="recordVerifModal('${eq.id}','${lib.replace(/'/g,"\\'")}',${eq.periodicite_mois||0})">Enregistrer</button></td>
+          <td style="padding:9px 8px">${rapport}</td>
+          <td style="padding:9px 8px">${visa}</td>
+          <td style="padding:9px 8px"><button class="rs-iconbtn" onclick="recordVerifModal('${eq.id}','${libJs}',${eq.periodicite_mois||0})">Enregistrer</button></td>
         </tr>`;
       }).join('')
     +'</tbody></table>';
@@ -470,14 +489,59 @@ function recordVerifModal(equipId,libelle,perio){
     `<label class="mib-label">Date de réalisation</label><input class="mib-inp" type="date" id="rv-date" value="${today}">`
     +`<label class="mib-label" style="margin-top:10px">Intervenant</label><input class="mib-inp" id="rv-int" placeholder="Organisme / technicien">`
     +`<label class="mib-label" style="margin-top:10px">Constats / travaux</label><textarea class="mib-textarea" id="rv-cst" rows="2"></textarea>`
-    +`<div class="mib-help" style="margin-top:8px">Prochaine échéance calculée automatiquement (+${perio||0} mois).</div>`,
-    `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" onclick="submitRecordVerif('${equipId}',${perio||0})">Enregistrer</button>`);
+    +`<label class="mib-label" style="margin-top:10px">Rapport de vérification (PDF, optionnel)</label><input class="mib-inp" type="file" id="rv-file" accept="application/pdf">`
+    +`<div class="mib-help" style="margin-top:8px">Prochaine échéance calculée automatiquement (+${perio||0} mois). Le rapport est scellé par une empreinte SHA-256.</div>`,
+    `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="rv-save" onclick="submitRecordVerif('${equipId}',${perio||0})">Enregistrer</button>`);
 }
 async function submitRecordVerif(equipId,perio){
   const d=$('rv-date').value; if(!d) return;
-  const proch=addMonths(d,perio);
-  await supabase.from('registre_entrees').insert({ registre_id:REG_REGISTRE.id, rubrique:4, equipement_id:equipId, date_realisation:d, prochaine_echeance:proch, intervenant:($('rv-int').value||'').trim()||null, constats:($('rv-cst').value||'').trim()||null, statut:'realise' });
-  closeMiniModal(); loadVerifs();
+  const btn=$('rv-save'); if(btn){ btn.disabled=true; btn.textContent='Enregistrement…'; }
+  try{
+    const proch=addMonths(d,perio);
+    const ins=await supabase.from('registre_entrees').insert({ registre_id:REG_REGISTRE.id, rubrique:4, equipement_id:equipId, date_realisation:d, prochaine_echeance:proch, intervenant:($('rv-int').value||'').trim()||null, constats:($('rv-cst').value||'').trim()||null, statut:'realise' }).select('id').single();
+    const entreeId=ins.data&&ins.data.id;
+    const f=$('rv-file')&&$('rv-file').files[0];
+    if(f && entreeId){
+      try{
+        const hash=await sha256File(f);
+        const safe=f.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+        const path='registre/'+REG_ETAB.id+'/'+entreeId+'_'+safe;
+        const up=await supabase.storage.from('documents').upload(path,f,{upsert:true,contentType:f.type||'application/pdf'});
+        if(!up.error){ await supabase.from('registre_documents').insert({ entree_id:entreeId, storage_path:path, nom_fichier:f.name, hash_sha256:hash, taille:f.size }); }
+        else console.warn('upload', up.error);
+      }catch(e){ console.warn('rapport', e); }
+    }
+    closeMiniModal(); loadVerifs();
+  }catch(e){ alert('Erreur : '+(e.message||e)); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } }
+}
+// ===== Visa (socle de preuve : identification + empreinte + journal d'audit chaîné) =====
+function visaModal(entreeId,libelle,dateReal){
+  openMiniModal('Viser — '+libelle,
+    `<div class="mib-alert mib-alert-info">Vous apposez votre visa sur la vérification du <b>${fmtDate(dateReal)}</b>. L'entrée sera <b>scellée</b> (empreinte SHA-256 + journal d'audit inaltérable).</div>`
+    +`<label class="mib-label" style="margin-top:8px">Nom du signataire</label><input class="mib-inp" id="vi-nom" value="${esc(RS_OP||'')}">`
+    +`<label class="mib-label" style="margin-top:10px">Fonction</label><input class="mib-inp" id="vi-fct" placeholder="Ex. Responsable sécurité, SSIAP 3">`
+    +`<label class="mib-label" style="margin-top:10px">Code de validation</label><input class="mib-inp" id="vi-code" type="password" placeholder="Votre code personnel">`,
+    `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="vi-save" onclick="submitVisa('${entreeId}')">Signer</button>`);
+}
+async function submitVisa(entreeId){
+  const nom=($('vi-nom').value||'').trim(), code=($('vi-code').value||'').trim(), fct=($('vi-fct').value||'').trim();
+  if(!nom){ alert('Nom du signataire requis.'); return; }
+  if(!code){ alert('Code de validation requis.'); return; }
+  const btn=$('vi-save'); if(btn){ btn.disabled=true; btn.textContent='Signature…'; }
+  try{
+    const { data:ent } = await supabase.from('registre_entrees').select('*').eq('id',entreeId).single();
+    const payload=JSON.stringify({ id:ent.id, equip:ent.equipement_id, date:ent.date_realisation, proch:ent.prochaine_echeance, constats:ent.constats, nom, fct, code });
+    const hash=await sha256(payload);
+    const { data:lastA } = await supabase.from('registre_audit').select('hash_courant').eq('etablissement_id',REG_ETAB.id).order('id',{ascending:false}).limit(1);
+    const prev=(lastA&&lastA[0]&&lastA[0].hash_courant)||'GENESIS';
+    const stamp=new Date().toISOString();
+    const chained=await sha256(prev+'|'+hash+'|'+stamp);
+    await supabase.from('signatures').insert({ entree_id:entreeId, signataire_nom:nom, role:fct||null, methode:'socle', hash_signe:hash, horodatage:stamp, user_agent:(navigator.userAgent||'').slice(0,200) });
+    await supabase.from('registre_audit').insert({ etablissement_id:REG_ETAB.id, registre_id:REG_REGISTRE.id, action:'visa', entree_id:entreeId, hash_prec:prev, hash_courant:chained });
+    closeMiniModal(); loadVerifs();
+  }catch(e){ alert('Erreur : '+(e.message||e)); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='Signer'; } }
 }
 
 async function rsLogout(){ try{ await supabase.auth.signOut(); }catch(e){} location.href='/index.html'; }
