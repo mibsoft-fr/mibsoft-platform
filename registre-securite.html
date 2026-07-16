@@ -456,6 +456,7 @@ function selectPrint(){ REG_ACTIVE='print'; renderRegTabs(); renderPrintPage(); 
 function renderPrintPage(){
   const page=$('reg-page'); if(!page) return;
   page.classList.remove('turning'); void page.offsetWidth; page.classList.add('turning');
+  page.style.maxHeight='76vh';
   const today=new Date().toISOString().slice(0,10);
   page.innerHTML=`<h2>🖨️ Impression / Export</h2>`
    +`<div class="rub-sub">Imprimer le registre complet ou une période — avec conformité, visas et empreintes.</div>`
@@ -469,6 +470,8 @@ function renderPrintPage(){
 function renderRubrique(n){
   const page=$('reg-page'); if(!page) return;
   page.classList.remove('turning'); void page.offsetWidth; page.classList.add('turning');
+  // Défilement vertical interne pour toutes les rubriques sauf la 1 (fiche courte)
+  page.style.maxHeight = (n===1) ? '' : '76vh';
   const r=RUBRIQUES.find(x=>x.n===n);
   if(n===1){ page.innerHTML=ficheHtml(); return; }
   if(n===4){ page.innerHTML=verifsShellHtml(); loadVerifs(); return; }
@@ -579,8 +582,8 @@ async function loadSuivi(){
       <td style="padding:9px 8px">${eq.periodicite_mois?eq.periodicite_mois+' m':'—'}</td>
       <td style="padding:9px 8px">${en&&en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—'}</td>
       <td style="padding:9px 8px"><span class="rs-delai ${dl.c}">${dl.t}</span></td>
-      <td style="padding:9px 8px;min-width:170px"><textarea class="rs-suivi-inp" id="sa-${eq.id}" rows="2" placeholder="${nc?'Non-conformité constatée…':'Aucune anomalie'}">${esc(s.anomalie||'')}</textarea></td>
-      <td style="padding:9px 8px;min-width:170px"><textarea class="rs-suivi-inp" id="sm-${eq.id}" rows="2" placeholder="Action corrective…">${esc(s.mesure_prise||'')}</textarea></td>
+      <td style="padding:9px 8px;min-width:190px"><div class="rs-field-mic"><textarea class="rs-suivi-inp" id="sa-${eq.id}" rows="2" placeholder="${nc?'Non-conformité constatée…':'Aucune anomalie'}">${esc(s.anomalie||'')}</textarea>${micBtn('sa-'+eq.id)}</div></td>
+      <td style="padding:9px 8px;min-width:190px"><div class="rs-field-mic"><textarea class="rs-suivi-inp" id="sm-${eq.id}" rows="2" placeholder="Action corrective…">${esc(s.mesure_prise||'')}</textarea>${micBtn('sm-'+eq.id)}</div></td>
       <td style="padding:9px 8px;min-width:110px">${rc([eq.id,s.remis_conformite==null?null:s.remis_conformite])}</td>
       <td style="padding:9px 8px"><button class="rs-iconbtn" id="sb-${eq.id}" onclick="saveSuivi('${eq.id}')">Enregistrer</button></td>
     </tr>`;
