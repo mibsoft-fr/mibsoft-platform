@@ -73,6 +73,13 @@
   .reg-meta-bar b{color:#7f1d1d}
   .rub-todo{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:34px;text-align:center;color:var(--text-3)}
   @media(max-width:720px){ .reg-tab{width:104px;font-size:.66rem} .reg-book{min-height:520px} .reg-page{padding:18px} }
+  /* Saisie vocale (réutilisable) */
+  .rs-field-mic{display:flex;gap:8px;align-items:flex-end}
+  .rs-field-mic>*:first-child{flex:1}
+  .mib-mic{border:1px solid var(--neutral-200,#e2e8f0);background:#fff;border-radius:9px;min-width:38px;height:38px;cursor:pointer;font-size:1.05rem;line-height:1;flex:0 0 auto;color:var(--text-2,#334155)}
+  .mib-mic:hover{background:#f1f5f9}
+  .mib-mic.rec{background:#fee2e2;border-color:#fca5a5;animation:micpulse 1s infinite}
+  @keyframes micpulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.45)}50%{box-shadow:0 0 0 7px rgba(220,38,38,0)}}
 </style>
 </head>
 <body>
@@ -183,7 +190,7 @@
     </div>
     <div style="margin-bottom:12px">
       <label class="mib-label">Adresse</label>
-      <input class="mib-inp" id="f-adresse" placeholder="N°, rue, code postal, ville">
+      <div class="rs-field-mic"><input class="mib-inp" id="f-adresse" placeholder="N°, rue, code postal, ville"><button type="button" class="mib-mic" title="Dicter" onclick="startDictation('f-adresse',this)">🎤</button></div>
     </div>
     <div class="rs-form-row">
       <div><label class="mib-label">Effectif public</label><input class="mib-inp" id="f-eff-pub" type="number" min="0"></div>
@@ -241,6 +248,29 @@ function closeMiniModal(){ $('rs-detail').style.display='none'; }
 async function sha256(str){ const b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
 async function sha256File(file){ const b=await crypto.subtle.digest('SHA-256', await file.arrayBuffer()); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
 function publicUrl(path){ try{ return supabase.storage.from('documents').getPublicUrl(path).data.publicUrl; }catch(e){ return '#'; } }
+function confBadge(c){ return c==='non_conforme'
+  ? '<span class="mib-badge mib-badge-danger" style="font-size:.58rem">Non conforme</span>'
+  : '<span class="mib-badge mib-badge-success" style="font-size:.58rem">Conforme</span>'; }
+function voyant(c){
+  const col = c==='non_conforme' ? '#dc2626' : (c==='conforme' ? '#16a34a' : '#cbd5e1');
+  const t   = c==='non_conforme' ? 'Non-conformité présente' : (c==='conforme' ? 'Tout conforme' : 'Pas encore vérifié');
+  return '<span title="'+t+'" style="display:inline-block;width:13px;height:13px;border-radius:50%;background:'+col+';box-shadow:0 0 0 3px '+col+'22;flex:0 0 auto"></span>';
+}
+// ===== Saisie vocale réutilisable (à étendre à toute l'appli) =====
+let _mibRec=null;
+function micBtn(targetId){ return '<button type="button" class="mib-mic" title="Dicter" onclick="startDictation(\''+targetId+'\',this)">🎤</button>'; }
+function startDictation(targetId, btn){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ alert("La saisie vocale n'est pas disponible sur ce navigateur (utilisez Chrome/Edge)."); return; }
+  const el=document.getElementById(targetId); if(!el) return;
+  if(_mibRec){ try{_mibRec.stop();}catch(e){} _mibRec=null; if(btn) btn.classList.remove('rec'); return; }
+  _mibRec=new SR(); _mibRec.lang='fr-FR'; _mibRec.interimResults=false; _mibRec.continuous=false;
+  if(btn) btn.classList.add('rec');
+  _mibRec.onresult=function(ev){ let t=''; for(let i=0;i<ev.results.length;i++) t+=ev.results[i][0].transcript; el.value=(el.value?el.value.trim()+' ':'')+t; el.dispatchEvent(new Event('input')); };
+  _mibRec.onerror=function(){ if(btn) btn.classList.remove('rec'); _mibRec=null; };
+  _mibRec.onend=function(){ if(btn) btn.classList.remove('rec'); _mibRec=null; };
+  try{ _mibRec.start(); }catch(e){}
+}
 
 async function rsInit(){
   try{
@@ -434,7 +464,7 @@ async function loadVerifs(){
   const list=equips||[]; const latest={};
   if(list.length){
     const ids=list.map(e=>e.id);
-    const { data:ents } = await supabase.from('registre_entrees').select('id,equipement_id,date_realisation,prochaine_echeance').eq('rubrique',4).in('equipement_id',ids).order('date_realisation',{ascending:false});
+    const { data:ents } = await supabase.from('registre_entrees').select('id,equipement_id,date_realisation,prochaine_echeance,conformite').eq('rubrique',4).in('equipement_id',ids).order('date_realisation',{ascending:false});
     (ents||[]).forEach(en=>{ if(en.equipement_id && !latest[en.equipement_id]) latest[en.equipement_id]=en; });
   }
   const entIds=Object.values(latest).map(e=>e.id);
@@ -459,7 +489,7 @@ async function loadVerifs(){
           ? `<span class="mib-badge mib-badge-success" title="Visé le ${fmtDate(signed[en.id].horodatage)}">Visé ✓</span>`
           : `<button class="rs-iconbtn" onclick="visaModal('${en.id}','${libJs}','${en.date_realisation}')">Viser</button>`; }
         return `<tr style="border-bottom:1px solid #f0e9db">
-          <td style="padding:9px 8px"><strong>${lib}</strong>${eq.localisation?'<br><span class="muted" style="font-size:.75rem">'+esc(eq.localisation)+'</span>':''}${eq.organisme_requis?' <span class="mib-badge mib-badge-info" style="font-size:.58rem">Organisme agréé</span>':''}</td>
+          <td style="padding:9px 8px"><div style="display:flex;align-items:center;gap:10px">${voyant(en?en.conformite:null)}<div><strong>${lib}</strong>${eq.localisation?'<br><span class="muted" style="font-size:.75rem">'+esc(eq.localisation)+'</span>':''}${eq.organisme_requis?' <span class="mib-badge mib-badge-info" style="font-size:.58rem">Organisme agréé</span>':''}</div></div></td>
           <td style="padding:9px 8px">${eq.periodicite_mois?eq.periodicite_mois+'m':'—'}</td>
           <td style="padding:9px 8px">${en?fmtDate(en.date_realisation):'—'}</td>
           <td style="padding:9px 8px">${en&&en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—'}</td>
@@ -487,8 +517,10 @@ function recordVerifModal(equipId,libelle,perio){
   const today=new Date().toISOString().slice(0,10);
   openMiniModal('Vérification réalisée — '+libelle,
     `<label class="mib-label">Date de réalisation</label><input class="mib-inp" type="date" id="rv-date" value="${today}">`
-    +`<label class="mib-label" style="margin-top:10px">Intervenant</label><input class="mib-inp" id="rv-int" placeholder="Organisme / technicien">`
-    +`<label class="mib-label" style="margin-top:10px">Constats / travaux</label><textarea class="mib-textarea" id="rv-cst" rows="2"></textarea>`
+    +`<label class="mib-label" style="margin-top:10px">Résultat</label>`
+    +`<select class="mib-select" id="rv-conf"><option value="conforme">🟢 Sans non-conformité (conforme)</option><option value="non_conforme">🔴 Avec non-conformité</option></select>`
+    +`<label class="mib-label" style="margin-top:10px">Intervenant</label><div class="rs-field-mic"><input class="mib-inp" id="rv-int" placeholder="Organisme / technicien">`+micBtn('rv-int')+`</div>`
+    +`<label class="mib-label" style="margin-top:10px">Constats / travaux</label><div class="rs-field-mic"><textarea class="mib-textarea" id="rv-cst" rows="2"></textarea>`+micBtn('rv-cst')+`</div>`
     +`<label class="mib-label" style="margin-top:10px">Rapport de vérification (PDF, optionnel)</label><input class="mib-inp" type="file" id="rv-file" accept="application/pdf">`
     +`<div class="mib-help" style="margin-top:8px">Prochaine échéance calculée automatiquement (+${perio||0} mois). Le rapport est scellé par une empreinte SHA-256.</div>`,
     `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="rv-save" onclick="submitRecordVerif('${equipId}',${perio||0})">Enregistrer</button>`);
@@ -498,7 +530,8 @@ async function submitRecordVerif(equipId,perio){
   const btn=$('rv-save'); if(btn){ btn.disabled=true; btn.textContent='Enregistrement…'; }
   try{
     const proch=addMonths(d,perio);
-    const ins=await supabase.from('registre_entrees').insert({ registre_id:REG_REGISTRE.id, rubrique:4, equipement_id:equipId, date_realisation:d, prochaine_echeance:proch, intervenant:($('rv-int').value||'').trim()||null, constats:($('rv-cst').value||'').trim()||null, statut:'realise' }).select('id').single();
+    const conf=($('rv-conf')&&$('rv-conf').value)||'conforme';
+    const ins=await supabase.from('registre_entrees').insert({ registre_id:REG_REGISTRE.id, rubrique:4, equipement_id:equipId, date_realisation:d, prochaine_echeance:proch, intervenant:($('rv-int').value||'').trim()||null, constats:($('rv-cst').value||'').trim()||null, conformite:conf, statut:'realise' }).select('id').single();
     const entreeId=ins.data&&ins.data.id;
     const f=$('rv-file')&&$('rv-file').files[0];
     if(f && entreeId){
