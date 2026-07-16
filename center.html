@@ -2835,6 +2835,7 @@ const MODULE_DEFS = [
   {key:'module_ssi_supervise',icon:'🔴',title:'SSI Supervisé',desc:'Simulation panneau SSI supervisée'},
   {key:'module_ssi_autoformation',icon:'🟡',title:'SSI Auto-formation',desc:'Scénarios SSI guidés en autonomie'},
   {key:'module_patrol',icon:'🚶',title:'SSIAP Patrol',desc:'Gestion des rondes, matériels et consignes'},
+  {key:'module_registre_securite',icon:'📋',title:'Registre de sécurité',desc:'Registre de sécurité incendie ERP dématérialisé (vérifications, visas, export)'},
 ];
 
 window._patrolUrl = '';
@@ -2875,6 +2876,15 @@ window.renderModules = function() {
         + ssiUrlHtml + '</div>'
         + '<div style="font-size:.6rem;color:var(--text3);text-align:center;font-style:italic;">'
         + '💡 À installer en raccourci sur chaque PC stagiaire</div>'
+        + '</div>';
+    }
+    if (on && m.key === 'module_registre_securite') {
+      // Ouverture dans la MÊME session (même domaine) : pas de re-login, pas de lien à copier.
+      extra = '<div style="margin-top:10px;">'
+        + '<button onclick="window.open(\'registre-securite.html\',\'_blank\')" '
+        + 'style="display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;'
+        + 'background:linear-gradient(135deg,#10b981,#059669 45%,#2563eb);color:#fff;border:none;border-radius:9px;'
+        + 'font-size:.78rem;font-weight:700;cursor:pointer;width:100%;">📋 Ouvrir le registre</button>'
         + '</div>';
     }
     return '<div class="mod-card ' + (on ? 'mod-on' : 'mod-off') + '">'
