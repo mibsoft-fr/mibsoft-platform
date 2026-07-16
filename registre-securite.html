@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Registre de sécurité — MIBsoft</title>
 <link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -41,6 +41,34 @@
   .kv span:first-child{color:var(--text-3,#64748b)}
   .kv span:last-child{font-weight:600;text-align:right}
   .spin{text-align:center;color:var(--text-3);padding:60px}
+
+  /* ===== Registre « livre » rouge ===== */
+  .reg-back{background:none;border:0;color:var(--text-3);font-weight:600;cursor:pointer;font-size:.9rem;margin-bottom:16px;display:inline-flex;gap:7px;align-items:center}
+  .reg-back:hover{color:var(--text-1)}
+  .reg-wrap{display:flex;justify-content:center;gap:0;max-width:1040px;margin:0 auto;perspective:2200px}
+  .reg-book{flex:1;max-width:920px;display:flex;background:linear-gradient(160deg,#b91c1c,#7f1d1d 60%,#611414);border-radius:8px 3px 3px 8px;box-shadow:0 24px 60px rgba(0,0,0,.35);overflow:hidden;min-height:600px}
+  .reg-spine{width:16px;background:linear-gradient(90deg,#450a0a,#8b1a1a);flex:0 0 auto;box-shadow:inset -3px 0 6px rgba(0,0,0,.4)}
+  .reg-inner{flex:1;padding:16px 16px 16px 8px;display:flex;flex-direction:column}
+  .reg-page{flex:1;background:#fbf7ef;border-radius:2px;box-shadow:inset 0 0 34px rgba(120,80,20,.08),0 2px 6px rgba(0,0,0,.15);padding:26px 30px;transform-origin:left center;overflow:auto}
+  .reg-page.turning{animation:pageturn .38s ease}
+  @keyframes pageturn{0%{transform:rotateY(-34deg);opacity:.25}60%{opacity:1}100%{transform:rotateY(0)}}
+  .reg-page h2{font-family:var(--font-display,'Plus Jakarta Sans');font-size:1.15rem;margin:0 0 4px;color:#7f1d1d}
+  .reg-page .rub-sub{color:var(--text-3);font-size:.85rem;margin-bottom:18px;border-bottom:1px solid #ece3d3;padding-bottom:12px}
+  /* Onglets latéraux */
+  .reg-tabs{display:flex;flex-direction:column;gap:7px;padding:22px 0;flex:0 0 auto}
+  .reg-tab{position:relative;left:-6px;min-height:56px;width:132px;border:0;border-radius:0 9px 9px 0;padding:6px 10px 6px 14px;text-align:left;
+    font-family:var(--font-body);font-weight:700;font-size:.72rem;line-height:1.15;color:#fff;cursor:pointer;
+    box-shadow:2px 2px 6px rgba(0,0,0,.18);transition:left .15s,box-shadow .15s;display:flex;flex-direction:column;justify-content:center;gap:2px}
+  .reg-tab .n{font-size:.9rem;font-weight:800}
+  .reg-tab:hover{left:0}
+  .reg-tab.active{left:2px;box-shadow:4px 3px 10px rgba(0,0,0,.28);outline:2px solid rgba(255,255,255,.6);outline-offset:-2px}
+  .reg-cover-title{text-align:center;color:#fff;padding:8px 0 2px}
+  .reg-cover-title .rt{font-family:var(--font-display,'Plus Jakarta Sans');font-weight:800;font-size:1.35rem;letter-spacing:.02em;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .reg-cover-title .rs2{font-size:.72rem;opacity:.85;letter-spacing:.15em;text-transform:uppercase}
+  .reg-meta-bar{display:flex;gap:16px;flex-wrap:wrap;background:#fff5f5;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:.82rem}
+  .reg-meta-bar b{color:#7f1d1d}
+  .rub-todo{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:34px;text-align:center;color:var(--text-3)}
+  @media(max-width:720px){ .reg-tab{width:104px;font-size:.66rem} .reg-book{min-height:520px} .reg-page{padding:18px} }
 </style>
 </head>
 <body>
@@ -48,7 +76,7 @@
 <header class="rs-header">
   <div class="rs-bar">
     <div class="rs-logo">MIBsoft<small>Registre de sécurité</small></div>
-    <div class="rs-who"><span id="rs-center">—</span><button class="mib-btn mib-btn-ghost mib-btn-sm" onclick="rsLogout()">Déconnexion</button></div>
+    <div class="rs-who"><span id="rs-center">—</span><button id="rs-logout" class="mib-btn mib-btn-ghost mib-btn-sm" onclick="rsLogout()">Déconnexion</button></div>
   </div>
 </header>
 
@@ -92,6 +120,21 @@
     <div id="rs-list" class="rs-grid"></div>
     <div id="rs-empty" class="rs-empty" style="display:none">
       Aucun établissement pour le moment.<br>Cliquez sur « Nouvel établissement » pour commencer.
+    </div>
+  </div>
+
+  <!-- Vue registre (livre rouge) -->
+  <div id="st-registre" class="rs-state">
+    <button class="reg-back" onclick="rsBackToList()">← Mes établissements</button>
+    <div class="reg-wrap">
+      <div class="reg-book">
+        <div class="reg-spine"></div>
+        <div class="reg-inner">
+          <div class="reg-cover-title"><div class="rt">REGISTRE DE SÉCURITÉ INCENDIE</div><div class="rs2" id="reg-etab-nom">—</div></div>
+          <div class="reg-page" id="reg-page"></div>
+        </div>
+      </div>
+      <div class="reg-tabs" id="reg-tabs"></div>
     </div>
   </div>
 </main>
@@ -163,18 +206,55 @@
 
 <script>
 let RS_CENTER = null;
+let RS_OP = null;       // nom de l'opérateur (mode Patrol) — utilisé pour l'identification au visa
 const $ = id => document.getElementById(id);
-function show(state){ ['st-auth','st-nocenter','st-load','st-app'].forEach(s=>$(s).classList.toggle('on', s===state)); }
+function show(state){ ['st-auth','st-nocenter','st-load','st-app','st-registre'].forEach(s=>$(s).classList.toggle('on', s===state)); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtDate(ts){ try{ return ts? new Date(ts).toLocaleDateString('fr-FR') : '—'; }catch(e){ return '—'; } }
+function addMonths(dateStr, months){ const d=new Date(dateStr); d.setMonth(d.getMonth()+(months||0)); return d.toISOString().slice(0,10); }
+function verifStatut(proch){
+  if(!proch) return {t:'À programmer', c:'mib-badge-neutral'};
+  const today=new Date().toISOString().slice(0,10);
+  const in30=new Date(Date.now()+30*864e5).toISOString().slice(0,10);
+  if(proch<today) return {t:'En retard', c:'mib-badge-danger'};
+  if(proch<=in30) return {t:'Échéance proche', c:'mib-badge-warning'};
+  return {t:'À jour', c:'mib-badge-success'};
+}
+// Vue registre
+let REG_ETAB=null, REG_REGISTRE=null, REG_VTYPES=null, REG_ACTIVE=4;
+const RUBRIQUES=[
+  {n:1,label:'Renseignements généraux',short:'Général',color:'#0ea5e9'},
+  {n:2,label:'Personnel & consignes',short:'Personnel',color:'#6366f1'},
+  {n:3,label:'Formations & exercices',short:'Formations',color:'#8b5cf6'},
+  {n:4,label:'Vérifications & maintenances',short:'Vérifications',color:'#dc2626'},
+  {n:5,label:'Travaux & aménagements',short:'Travaux',color:'#d97706'},
+  {n:6,label:'Commission de sécurité',short:'Commission',color:'#059669'},
+  {n:7,label:'Dysfonctionnements',short:'Dysfonct.',color:'#64748b'}
+];
+function openMiniModal(title,bodyHtml,footHtml){ $('d-nom').textContent=title; $('d-body').innerHTML=bodyHtml;
+  document.querySelector('#rs-detail .mib-modal > div:last-child').innerHTML=footHtml; $('rs-detail').style.display='flex'; }
+function closeMiniModal(){ $('rs-detail').style.display='none'; }
 
 async function rsInit(){
   try{
+    const params = new URLSearchParams(location.search);
+    const centerId = params.get('center');
+    if(centerId){
+      // ===== Mode Patrol : ?center=<id>, sans login (accès fluide) =====
+      const { data:center } = await supabase.from('centers').select('id,nom').eq('id', centerId).maybeSingle();
+      if(!center){ show('st-nocenter'); return; }
+      RS_CENTER = center;
+      RS_OP = (params.get('op')||'').trim() || null;
+      $('rs-center').textContent = center.nom || '—';
+      const lo = $('rs-logout'); if(lo){ lo.textContent='Fermer'; lo.onclick=function(){ try{window.close();}catch(e){} }; }   // mode Patrol : pas de déconnexion
+      show('st-app'); await rsLoad(); return;
+    }
+    // ===== Mode session : depuis l'espace centre connecté =====
     const { data:sess } = await supabase.auth.getSession();
     if(!sess || !sess.session){ show('st-auth'); return; }
     const { data:u } = await supabase.auth.getUser();
-    const uid = u?.user?.id;
     const { data:center } = await supabase.from('centers')
-      .select('id,nom,module_registre_securite').eq('auth_user_id', uid).maybeSingle();
+      .select('id,nom,module_registre_securite').eq('auth_user_id', u?.user?.id).maybeSingle();
     if(!center){ show('st-nocenter'); return; }
     RS_CENTER = center;
     $('rs-center').textContent = center.nom || 'Mon compte';
@@ -184,21 +264,29 @@ async function rsInit(){
 }
 
 async function rsLoad(){
+  // Filtrage EXPLICITE par center_id (la RLS est ouverte façon Patrol)
   const { data:etabs, error } = await supabase.from('etablissements')
     .select('id,nom,type_erp,categorie,adresse,effectif_public,effectif_personnel,created_at')
+    .eq('center_id', RS_CENTER.id)
     .order('created_at',{ascending:false});
   if(error){ console.error(error); return; }
   const list = etabs||[];
   $('k-etab').textContent = list.length;
 
-  // Statuts des registres + échéances (vérifications en retard / proches)
+  // Statuts des registres + échéances (vérifications en retard / proches), limités à nos établissements
   const today = new Date().toISOString().slice(0,10);
   const in30  = new Date(Date.now()+30*864e5).toISOString().slice(0,10);
   let retard=0, proche=0, regByEtab={};
-  const { data:regs } = await supabase.from('registres').select('id,etablissement_id,statut,ouvert_le');
-  (regs||[]).forEach(r=>{ if(r.statut==='ouvert') regByEtab[r.etablissement_id]=r; });
-  const { data:entrees } = await supabase.from('registre_entrees').select('prochaine_echeance,statut');
-  (entrees||[]).forEach(e=>{ if(e.prochaine_echeance){ if(e.prochaine_echeance<today) retard++; else if(e.prochaine_echeance<=in30) proche++; } });
+  const etabIds = list.map(e=>e.id);
+  if(etabIds.length){
+    const { data:regs } = await supabase.from('registres').select('id,etablissement_id,statut,ouvert_le').in('etablissement_id', etabIds);
+    (regs||[]).forEach(r=>{ if(r.statut==='ouvert') regByEtab[r.etablissement_id]=r; });
+    const regIds = (regs||[]).map(r=>r.id);
+    if(regIds.length){
+      const { data:entrees } = await supabase.from('registre_entrees').select('prochaine_echeance,statut').in('registre_id', regIds);
+      (entrees||[]).forEach(e=>{ if(e.prochaine_echeance){ if(e.prochaine_echeance<today) retard++; else if(e.prochaine_echeance<=in30) proche++; } });
+    }
+  }
   $('k-retard').textContent = retard; $('k-proche').textContent = proche;
 
   const box = $('rs-list');
@@ -208,7 +296,7 @@ async function rsLoad(){
     const badge = reg ? '<span class="mib-badge mib-badge-success">Registre ouvert</span>'
                       : '<span class="mib-badge mib-badge-warning">Aucun registre ouvert</span>';
     const meta = [e.type_erp, e.categorie?('Cat. '+e.categorie):null, e.adresse].filter(Boolean).join(' · ');
-    return `<div class="mib-card rs-etab" onclick="rsDetail('${e.id}')">
+    return `<div class="mib-card rs-etab" onclick="openRegistre('${e.id}')">
       <h3>${esc(e.nom)}</h3>
       <div class="rs-meta">${esc(meta||'—')}</div>
       <div class="rs-foot">${badge}
@@ -284,6 +372,108 @@ function rsDetail(id){
   const foot=document.querySelector('#rs-detail .mib-modal > div:last-child');
   foot.innerHTML='<button class="mib-btn mib-btn-ghost" onclick="document.getElementById(\'rs-detail\').style.display=\'none\'">Fermer</button>';
   $('rs-detail').style.display='flex';
+}
+
+// ===== Vue registre « livre » =====
+async function openRegistre(etabId){
+  const e=(window.__RS_ETABS||[]).find(x=>x.id===etabId); if(!e) return;
+  REG_ETAB=e;
+  let { data:reg } = await supabase.from('registres').select('*').eq('etablissement_id',etabId).eq('statut','ouvert').maybeSingle();
+  if(!reg){ const ins=await supabase.from('registres').insert({etablissement_id:etabId,statut:'ouvert'}).select('*').single(); reg=ins.data; }
+  REG_REGISTRE=reg;
+  $('reg-etab-nom').textContent=e.nom;
+  if(!REG_VTYPES){ const {data}=await supabase.from('verification_types').select('*').order('libelle'); REG_VTYPES=data||[]; }
+  REG_ACTIVE=4;
+  show('st-registre'); renderRegTabs(); renderRubrique(4);
+}
+function rsBackToList(){ show('st-app'); rsLoad(); }
+function renderRegTabs(){
+  $('reg-tabs').innerHTML=RUBRIQUES.map(r=>
+    `<button class="reg-tab${r.n===REG_ACTIVE?' active':''}" style="background:${r.color}" onclick="selectRubrique(${r.n})">
+       <span class="n">${r.n}</span><span>${esc(r.short)}</span></button>`).join('');
+}
+function selectRubrique(n){ REG_ACTIVE=n; renderRegTabs(); renderRubrique(n); }
+function renderRubrique(n){
+  const page=$('reg-page'); if(!page) return;
+  page.classList.remove('turning'); void page.offsetWidth; page.classList.add('turning');
+  const r=RUBRIQUES.find(x=>x.n===n);
+  if(n===1){ page.innerHTML=ficheHtml(); return; }
+  if(n===4){ page.innerHTML=verifsShellHtml(); loadVerifs(); return; }
+  page.innerHTML=`<h2>${r.n}. ${esc(r.label)}</h2><div class="rub-sub">Rubrique du registre de sécurité.</div>`
+    +`<div class="rub-todo">📋 Cette rubrique sera disponible prochainement (Phase 1b).</div>`;
+}
+function ficheHtml(){
+  const e=REG_ETAB;
+  return `<h2>1. Renseignements généraux</h2><div class="rub-sub">Fiche d'identité de l'établissement.</div>`
+   +`<div class="kv"><span>Nom</span><span>${esc(e.nom)}</span></div>`
+   +`<div class="kv"><span>Type ERP</span><span>${esc(e.type_erp||'—')}</span></div>`
+   +`<div class="kv"><span>Catégorie</span><span>${esc(e.categorie||'—')}</span></div>`
+   +`<div class="kv"><span>Adresse</span><span>${esc(e.adresse||'—')}</span></div>`
+   +`<div class="kv"><span>Effectif public</span><span>${e.effectif_public==null?'—':e.effectif_public}</span></div>`
+   +`<div class="kv"><span>Effectif personnel</span><span>${e.effectif_personnel==null?'—':e.effectif_personnel}</span></div>`
+   +`<div class="mib-alert mib-alert-info" style="margin-top:14px">Les acteurs (exploitant, organismes, secours) arrivent en Phase 1b.</div>`;
+}
+function verifsShellHtml(){
+  return `<h2>4. Vérifications & maintenances</h2>`
+   +`<div class="rub-sub">Suivi des vérifications techniques réglementaires (arrêté du 25 juin 1980).</div>`
+   +`<div class="reg-meta-bar"><span>Registre <b>ouvert</b> le ${fmtDate(REG_REGISTRE.ouvert_le)}</span></div>`
+   +`<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="mib-btn mib-btn-primary" onclick="addVerifModal()">+ Ajouter une vérification</button></div>`
+   +`<div id="verif-table"></div>`;
+}
+async function loadVerifs(){
+  const box=$('verif-table'); if(!box) return;
+  box.innerHTML='<div class="muted">Chargement…</div>';
+  const { data:equips } = await supabase.from('equipements').select('*').eq('etablissement_id',REG_ETAB.id).order('libelle');
+  const list=equips||[]; const latest={};
+  if(list.length){
+    const ids=list.map(e=>e.id);
+    const { data:ents } = await supabase.from('registre_entrees').select('equipement_id,date_realisation,prochaine_echeance').eq('rubrique',4).in('equipement_id',ids).order('date_realisation',{ascending:false});
+    (ents||[]).forEach(en=>{ if(en.equipement_id && !latest[en.equipement_id]) latest[en.equipement_id]=en; });
+  }
+  if(!list.length){ box.innerHTML='<div class="rub-todo">Aucune vérification enregistrée.<br>Cliquez « + Ajouter une vérification » pour composer le registre.</div>'; return; }
+  box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:.85rem"><thead><tr>'
+    +['Vérification','Périodicité','Dernière','Prochaine','Statut',''].map(h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid #ece3d3;color:#7f1d1d;font-size:.7rem;text-transform:uppercase">${h}</th>`).join('')
+    +'</tr></thead><tbody>'
+    +list.map(eq=>{
+        const en=latest[eq.id]; const st=verifStatut(en?en.prochaine_echeance:null);
+        const lib=esc(eq.libelle||'—');
+        return `<tr style="border-bottom:1px solid #f0e9db">
+          <td style="padding:9px 8px"><strong>${lib}</strong>${eq.localisation?'<br><span class="muted" style="font-size:.75rem">'+esc(eq.localisation)+'</span>':''}${eq.organisme_requis?' <span class="mib-badge mib-badge-info" style="font-size:.6rem">Organisme agréé</span>':''}</td>
+          <td style="padding:9px 8px">${eq.periodicite_mois?eq.periodicite_mois+' mois':'—'}</td>
+          <td style="padding:9px 8px">${en?fmtDate(en.date_realisation):'—'}</td>
+          <td style="padding:9px 8px">${en&&en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—'}</td>
+          <td style="padding:9px 8px"><span class="mib-badge ${st.c}">${st.t}</span></td>
+          <td style="padding:9px 8px"><button class="rs-iconbtn" onclick="recordVerifModal('${eq.id}','${lib.replace(/'/g,"\\'")}',${eq.periodicite_mois||0})">Enregistrer</button></td>
+        </tr>`;
+      }).join('')
+    +'</tbody></table>';
+}
+function addVerifModal(){
+  const opts=(REG_VTYPES||[]).map(v=>`<option value="${v.id}">${esc(v.libelle)} (${v.periodicite_mois_defaut||'?'} mois)</option>`).join('');
+  openMiniModal('Ajouter une vérification',
+    `<label class="mib-label">Type (catalogue — arrêté 25 juin 1980)</label><select class="mib-select" id="av-type">${opts}</select>`
+    +`<label class="mib-label" style="margin-top:10px">Localisation (optionnel)</label><input class="mib-inp" id="av-loc" placeholder="Ex. RDC, local technique…">`,
+    `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" onclick="submitAddVerif()">Ajouter</button>`);
+}
+async function submitAddVerif(){
+  const vid=$('av-type').value; const vt=(REG_VTYPES||[]).find(v=>v.id===vid); if(!vt) return;
+  await supabase.from('equipements').insert({ etablissement_id:REG_ETAB.id, verification_type_id:vt.id, libelle:vt.libelle, localisation:($('av-loc').value||'').trim()||null, periodicite_mois:vt.periodicite_mois_defaut, organisme_requis:vt.organisme_requis });
+  closeMiniModal(); loadVerifs();
+}
+function recordVerifModal(equipId,libelle,perio){
+  const today=new Date().toISOString().slice(0,10);
+  openMiniModal('Vérification réalisée — '+libelle,
+    `<label class="mib-label">Date de réalisation</label><input class="mib-inp" type="date" id="rv-date" value="${today}">`
+    +`<label class="mib-label" style="margin-top:10px">Intervenant</label><input class="mib-inp" id="rv-int" placeholder="Organisme / technicien">`
+    +`<label class="mib-label" style="margin-top:10px">Constats / travaux</label><textarea class="mib-textarea" id="rv-cst" rows="2"></textarea>`
+    +`<div class="mib-help" style="margin-top:8px">Prochaine échéance calculée automatiquement (+${perio||0} mois).</div>`,
+    `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" onclick="submitRecordVerif('${equipId}',${perio||0})">Enregistrer</button>`);
+}
+async function submitRecordVerif(equipId,perio){
+  const d=$('rv-date').value; if(!d) return;
+  const proch=addMonths(d,perio);
+  await supabase.from('registre_entrees').insert({ registre_id:REG_REGISTRE.id, rubrique:4, equipement_id:equipId, date_realisation:d, prochaine_echeance:proch, intervenant:($('rv-int').value||'').trim()||null, constats:($('rv-cst').value||'').trim()||null, statut:'realise' });
+  closeMiniModal(); loadVerifs();
 }
 
 async function rsLogout(){ try{ await supabase.auth.signOut(); }catch(e){} location.href='/index.html'; }
