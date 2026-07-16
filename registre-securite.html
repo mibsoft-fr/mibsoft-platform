@@ -439,7 +439,8 @@ function renderPrintPage(){
   page.innerHTML=`<h2>🖨️ Impression / Export</h2>`
    +`<div class="rub-sub">Imprimer le registre complet ou une période — avec conformité, visas et empreintes.</div>`
    +`<div style="max-width:460px">`
-   +`<label class="mib-label">Étendue</label><select class="mib-select" id="pr-scope" onchange="document.getElementById('pr-dates').style.display=this.value==='periode'?'block':'none'"><option value="tout">Registre complet</option><option value="periode">Par période (dates)</option></select>`
+   +`<label class="mib-label">Rubrique</label><select class="mib-select" id="pr-rub"><option value="all">Toutes les rubriques</option>`+RUBRIQUES.map(r=>`<option value="${r.n}">${r.n} · ${esc(r.label)}</option>`).join('')+`</select>`
+   +`<label class="mib-label" style="margin-top:12px">Étendue</label><select class="mib-select" id="pr-scope" onchange="document.getElementById('pr-dates').style.display=this.value==='periode'?'block':'none'"><option value="tout">Registre complet</option><option value="periode">Par période (dates)</option></select>`
    +`<div id="pr-dates" style="display:none;margin-top:12px"><div class="rs-form-row"><div><label class="mib-label">Du</label><input class="mib-inp" type="date" id="pr-from"></div><div><label class="mib-label">Au</label><input class="mib-inp" type="date" id="pr-to" value="${today}"></div></div></div>`
    +`<button class="mib-btn mib-btn-primary" style="margin-top:18px" onclick="generatePrint()">🖨️ Lancer l'impression</button>`
    +`</div>`;
@@ -594,11 +595,13 @@ async function submitVisa(entreeId){
 // ===== Impression / export (tout ou par période) — onglet Impression =====
 async function generatePrint(){
   const scope=$('pr-scope').value;
+  const rub=($('pr-rub')&&$('pr-rub').value)||'all';
   const from=scope==='periode'?($('pr-from').value||null):null;
   const to=scope==='periode'?($('pr-to').value||null):null;
-  const { data:equips } = await supabase.from('equipements').select('id,libelle,localisation,periodicite_mois').eq('etablissement_id',REG_ETAB.id);
+  const { data:equips } = await supabase.from('equipements').select('id,libelle,localisation').eq('etablissement_id',REG_ETAB.id);
   const eqMap={}; (equips||[]).forEach(x=>eqMap[x.id]=x);
-  let q=supabase.from('registre_entrees').select('*').eq('registre_id',REG_REGISTRE.id).eq('rubrique',4).order('date_realisation',{ascending:true});
+  let q=supabase.from('registre_entrees').select('*').eq('registre_id',REG_REGISTRE.id).order('rubrique',{ascending:true}).order('date_realisation',{ascending:true});
+  if(rub!=='all') q=q.eq('rubrique',parseInt(rub,10));
   if(from) q=q.gte('date_realisation',from);
   if(to)   q=q.lte('date_realisation',to);
   const { data:ents } = await q; const list=ents||[]; const ids=list.map(e=>e.id);
@@ -610,26 +613,30 @@ async function generatePrint(){
     (d.data||[]).forEach(x=>{ if(!dc[x.entree_id]) dc[x.entree_id]=x; });
   }
   const e=REG_ETAB;
+  const rubName=n=>{ const r=RUBRIQUES.find(x=>x.n===n); return r?(r.n+' · '+r.short):('R'+n); };
+  const showRub = rub==='all';
+  const rubTxt = rub==='all' ? 'Toutes les rubriques' : ('Rubrique '+rubName(parseInt(rub,10)));
   const periodeTxt = scope==='periode' ? `Période : ${from?fmtDate(from):'…'} → ${to?fmtDate(to):'…'}` : 'Registre complet';
+  const heads=['Date'].concat(showRub?['Rubrique']:[]).concat(['Objet','Résultat','Intervenant','Constats','Prochaine','Visa','Rapport / Empreinte']);
   const rows=list.map(en=>{
     const eq=eqMap[en.equipement_id]||{}, s=sg[en.id], d=dc[en.id];
+    const objet = en.equipement_id ? (eq.libelle||'—') : (en.description||en.type||'—');
     const conf = en.conformite==='non_conforme' ? '<b style="color:#dc2626">Non conforme</b>' : (en.conformite==='conforme'?'<span style="color:#16a34a">Conforme</span>':'—');
     const emp = d ? ('📎 '+esc(d.nom_fichier)+'<br>'+esc((d.hash_sha256||'').slice(0,16))+'…') : (s?esc((s.hash_signe||'').slice(0,16))+'…':'—');
-    return `<tr><td>${fmtDate(en.date_realisation)}</td><td>${esc(eq.libelle||'—')}${eq.localisation?'<br><small>'+esc(eq.localisation)+'</small>':''}</td><td>${conf}</td><td>${esc(en.intervenant||'—')}</td><td>${esc(en.constats||'')}</td><td>${en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—'}</td><td>${s?esc(s.signataire_nom)+(s.role?' ('+esc(s.role)+')':'')+'<br><small>'+fmtDate(s.horodatage)+'</small>':'—'}</td><td><small style="font-family:monospace">${emp}</small></td></tr>`;
+    return `<tr><td>${fmtDate(en.date_realisation)}</td>${showRub?'<td>'+esc(rubName(en.rubrique))+'</td>':''}<td>${esc(objet)}${eq.localisation?'<br><small>'+esc(eq.localisation)+'</small>':''}</td><td>${conf}</td><td>${esc(en.intervenant||'—')}</td><td>${esc(en.constats||'')}</td><td>${en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—'}</td><td>${s?esc(s.signataire_nom)+(s.role?' ('+esc(s.role)+')':'')+'<br><small>'+fmtDate(s.horodatage)+'</small>':'—'}</td><td><small style="font-family:monospace">${emp}</small></td></tr>`;
   }).join('');
   const html=`<!doctype html><html><head><meta charset="utf-8"><title>Registre de sécurité — ${esc(e.nom)}</title>`
    +`<style>body{font-family:Arial,sans-serif;color:#111;margin:24px;font-size:12px}h1{color:#7f1d1d;font-size:18px;margin:0 0 2px}.sub{color:#555;margin-bottom:12px}`
    +`.hdr{border:1px solid #e5c0c0;background:#fff5f5;border-radius:8px;padding:10px 14px;margin-bottom:14px}.hdr b{color:#7f1d1d}`
    +`table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ddd;padding:6px 7px;text-align:left;vertical-align:top}`
    +`th{background:#f3e9e9;color:#7f1d1d;font-size:10px;text-transform:uppercase}.foot{margin-top:16px;font-size:10px;color:#888;border-top:1px solid #ddd;padding-top:8px}@media print{body{margin:12mm}}</style></head><body>`
-   +`<h1>REGISTRE DE SÉCURITÉ INCENDIE</h1><div class="sub">Vérifications techniques réglementaires — ${periodeTxt}</div>`
+   +`<h1>REGISTRE DE SÉCURITÉ INCENDIE</h1><div class="sub">${rubTxt} — ${periodeTxt}</div>`
    +`<div class="hdr"><b>${esc(e.nom)}</b>${e.type_erp?' · '+esc(e.type_erp):''}${e.categorie?' · Cat. '+esc(e.categorie):''}${e.adresse?'<br>'+esc(e.adresse):''}<br>Registre ouvert le ${fmtDate(REG_REGISTRE.ouvert_le)}${REG_REGISTRE.statut==='cloture'?' · Clôturé le '+fmtDate(REG_REGISTRE.cloture_le):''}</div>`
-   +`<table><thead><tr><th>Date</th><th>Vérification</th><th>Résultat</th><th>Intervenant</th><th>Constats</th><th>Prochaine</th><th>Visa</th><th>Rapport / Empreinte</th></tr></thead><tbody>${rows||'<tr><td colspan="8" style="text-align:center;color:#888">Aucune vérification sur cette étendue.</td></tr>'}</tbody></table>`
+   +`<table><thead><tr>${heads.map(h=>'<th>'+h+'</th>').join('')}</tr></thead><tbody>${rows||('<tr><td colspan="'+heads.length+'" style="text-align:center;color:#888">Aucune entrée sur cette étendue.</td></tr>')}</tbody></table>`
    +`<div class="foot">Document édité le ${new Date().toLocaleString('fr-FR')} par MIBsoft. Les entrées visées sont scellées par empreinte SHA-256 et journalisées. Toute modification postérieure invalide l'empreinte.</div></body></html>`;
   const w=window.open('','_blank'); if(!w){ alert('Autorisez les pop-ups pour imprimer.'); return; }
   w.document.open(); w.document.write(html); w.document.close(); w.focus();
   setTimeout(function(){ try{ w.print(); }catch(e){} }, 400);
-  closeMiniModal();
 }
 
 async function rsLogout(){ try{ await supabase.auth.signOut(); }catch(e){} location.href='/index.html'; }
