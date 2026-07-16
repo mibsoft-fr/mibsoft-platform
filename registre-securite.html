@@ -223,6 +223,19 @@
   </div>
 </div>
 
+<div class="mib-modal-backdrop" id="rs-suivi-ov" style="display:none;padding:20px">
+  <div class="mib-modal" style="max-width:1180px;width:96vw;max-height:92vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px">
+      <div class="mib-card-title" style="margin:0">📊 Tableau de suivi des vérifications</div>
+      <div style="display:flex;gap:8px">
+        <button class="mib-btn mib-btn-primary" onclick="printSuivi()">🖨️ Imprimer</button>
+        <button class="mib-btn mib-btn-ghost" onclick="closeSuiviModal()">Fermer</button>
+      </div>
+    </div>
+    <div id="suivi-body" style="overflow:auto;flex:1"></div>
+  </div>
+</div>
+
 <script>
 let RS_CENTER = null;
 let RS_OP = null;       // nom de l'opérateur (mode Patrol) — utilisé pour l'identification au visa
@@ -478,20 +491,13 @@ function verifsShellHtml(){
    +`<div class="rub-sub">Suivi des vérifications techniques réglementaires (arrêté du 25 juin 1980).</div>`
    +`<div class="reg-meta-bar"><span>Registre <b>ouvert</b> le ${fmtDate(REG_REGISTRE.ouvert_le)}</span></div>`
    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">`
-     +`<div style="display:flex;gap:6px">`
-       +`<button class="mib-btn mib-btn-ghost rs-vtab rs-vtab-on" id="vtab-ech" onclick="switchVerifView('ech')">📋 Échéancier</button>`
-       +`<button class="mib-btn mib-btn-ghost rs-vtab" id="vtab-suivi" onclick="switchVerifView('suivi')">📊 Tableau de suivi</button>`
-     +`</div>`
+     +`<button class="mib-btn mib-btn-ghost rs-vtab" onclick="openSuiviModal()">📊 Tableau de suivi</button>`
      +`<button class="mib-btn mib-btn-primary" onclick="addVerifModal()">+ Ajouter une vérification</button>`
    +`</div>`
    +`<div id="verif-table"></div>`;
 }
-function switchVerifView(mode){
-  const te=$('vtab-ech'), ts=$('vtab-suivi');
-  if(te) te.classList.toggle('rs-vtab-on', mode==='ech');
-  if(ts) ts.classList.toggle('rs-vtab-on', mode==='suivi');
-  if(mode==='suivi') loadSuivi(); else loadVerifs();
-}
+function openSuiviModal(){ $('rs-suivi-ov').style.display='flex'; loadSuivi(); }
+function closeSuiviModal(){ $('rs-suivi-ov').style.display='none'; }
 async function loadVerifs(){
   const box=$('verif-table'); if(!box) return;
   box.innerHTML='<div class="muted">Chargement…</div>';
@@ -551,7 +557,7 @@ function delaiSuivi(proch){
   return {c:'rs-d-ok',t:'À jour · J-'+days,days};
 }
 async function loadSuivi(){
-  const box=$('verif-table'); if(!box) return;
+  const box=$('suivi-body'); if(!box) return;
   box.innerHTML='<div class="muted">Chargement…</div>';
   const { data:equips } = await supabase.from('equipements').select('*').eq('etablissement_id',REG_ETAB.id).order('libelle');
   const list=equips||[];
@@ -579,7 +585,7 @@ async function loadSuivi(){
       <td style="padding:9px 8px"><button class="rs-iconbtn" id="sb-${eq.id}" onclick="saveSuivi('${eq.id}')">Enregistrer</button></td>
     </tr>`;
   }).join('');
-  box.innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px;flex-wrap:wrap"><div class="mib-help" style="flex:1;min-width:240px">Respect des délais réglementaires. Une alerte est prévue à <b>J-60</b> puis <b>J-30</b> avant chaque échéance. Renseignez l’anomalie éventuelle, la mesure prise et la remise en conformité.</div><button class="mib-btn mib-btn-primary" onclick="printSuivi()">🖨️ Imprimer le suivi</button></div>'
+  box.innerHTML='<div class="mib-help" style="margin-bottom:10px">Respect des délais réglementaires. Une alerte est prévue à <b>J-60</b> puis <b>J-30</b> avant chaque échéance. Renseignez l’anomalie éventuelle, la mesure prise et la remise en conformité.</div>'
     +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.84rem;min-width:820px"><thead><tr>'
     +['Vérification','Périod.','Prochaine','Respect délai','Anomalie','Mesure prise','Remis en conformité',''].map(h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid #ece3d3;color:#7f1d1d;font-size:.66rem;text-transform:uppercase">${h}</th>`).join('')
     +'</tr></thead><tbody>'+rows+'</tbody></table></div>';
@@ -813,4 +819,3 @@ if(document.readyState!=='loading') rsInit(); else document.addEventListener('DO
 </script>
 </body>
 </html>
- 
