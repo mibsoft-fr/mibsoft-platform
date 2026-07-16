@@ -1,0 +1,2220 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<script>
+// Patrol = appli EN LIGNE (Supabase) : aucune mise en cache hors-ligne souhaitée. Si un ancien
+// service worker (scope racine) contrôle encore cette page, il pourrait servir une version périmée
+// du HTML après un déploiement. On le désenregistre (sans toucher la PWA /ssi-formation/, hors scope)
+// et on recharge une seule fois pour récupérer le code à jour.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistration().then(function(reg){
+    if (reg && !sessionStorage.getItem('patrol_sw_cleared')) {
+      sessionStorage.setItem('patrol_sw_cleared','1');
+      reg.unregister().then(function(ok){ if (ok) location.reload(); });
+    }
+  }).catch(function(){});
+}
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SSIAP Patrol — Administrateur — MIBsoft</title>
+<meta name="theme-color" content="#064E3B">
+<link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<link rel="stylesheet" href="design-tokens.css">
+<link rel="stylesheet" href="mib-design.css">
+
+<style>
+/* ============================================================
+   SSIAP Patrol Admin — refonte Vigil
+   ============================================================ */
+*{box-sizing:border-box;margin:0;padding:0;}
+
+/* Legacy aliases (au cas où) */
+:root{
+  --bg:var(--bg-page);
+  --text:var(--text-1);
+  --muted:var(--text-3);
+  --border:var(--border-default);
+}
+
+html,body{height:100%;}
+body{
+  font-family:var(--font-body);
+  color:var(--text-1);
+  background:
+    radial-gradient(ellipse 70% 50% at 10% 0%, rgba(16,185,129,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 90% 100%, rgba(37,99,235,0.06) 0%, transparent 60%),
+    var(--bg-page);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02em;color:var(--text-1);}
+
+/* ============ SIDEBAR ============ */
+.sidebar{
+  width:230px;min-height:100vh;
+  background:var(--gradient-sidebar);
+  border-right:1px solid rgba(255,255,255,0.06);
+  position:fixed;top:0;left:0;bottom:0;
+  display:flex;flex-direction:column;z-index:50;
+  box-shadow:2px 0 24px -8px rgba(15,23,42,0.25);
+}
+.sidebar > div:first-child{
+  padding:18px 16px 14px;
+  border-bottom:1px solid rgba(255,255,255,0.08) !important;
+}
+.sidebar > div:first-child > div:first-child > div:first-child{
+  background:var(--gradient-logo) !important;
+  box-shadow:0 4px 12px -2px rgba(16,185,129,0.45);
+}
+.sidebar > div:first-child > div:first-child > div:last-child > div:first-child{
+  color:#fff !important;
+  font-family:var(--font-display);
+}
+.sidebar > div:first-child > div:first-child > div:last-child > div:last-child,
+.sidebar #sb-centre{color:rgba(255,255,255,0.65) !important;}
+.sidebar #sb-user{color:rgba(255,255,255,0.85) !important;}
+
+.nav-link{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 14px;border-radius:10px;cursor:pointer;
+  font-size:.83rem;font-weight:600;
+  color:rgba(255,255,255,0.7);
+  transition:all .15s;margin-bottom:3px;
+  position:relative;
+}
+.nav-link:hover{background:rgba(255,255,255,0.07);color:#fff;}
+.nav-link.active{
+  background:rgba(255,255,255,0.10);
+  color:#fff;
+  box-shadow:inset 3px 0 0 var(--vigil-400), 0 1px 0 rgba(255,255,255,0.05) inset;
+}
+.nav-link.active i{color:var(--vigil-300);}
+
+.sidebar > div:last-child{
+  padding:12px 10px;
+  border-top:1px solid rgba(255,255,255,0.08) !important;
+}
+
+.main{margin-left:230px;min-height:100vh;padding:32px 32px 64px;}
+
+/* ============ CARDS / KPI ============ */
+.card{
+  position:relative;overflow:hidden;
+  background:var(--bg-surface);
+  border-radius:var(--radius-lg);
+  border:1px solid rgba(15,23,42,0.08);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.9) inset,
+    0 4px 12px -2px rgba(15,23,42,0.10),
+    0 2px 4px -1px rgba(15,23,42,0.06);
+  padding:22px;
+}
+.card::before{
+  content:'';position:absolute;
+  top:0;left:0;right:0;height:3px;
+  background:var(--gradient-primary);
+  z-index:1;
+}
+
+.kpi{
+  position:relative;overflow:hidden;
+  background:linear-gradient(180deg, #FFFFFF 0%, var(--vigil-50) 130%);
+  border-radius:var(--radius-lg);
+  padding:18px;
+  border:1px solid rgba(15,23,42,0.08);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.9) inset,
+    0 2px 6px -2px rgba(15,23,42,0.06);
+}
+.kpi::before{
+  content:'';position:absolute;
+  top:0;left:0;right:0;height:3px;
+  background:var(--gradient-primary);
+}
+
+/* ============ BUTTONS ============ */
+.btn{
+  padding:9px 16px;border-radius:var(--radius-md);border:none;
+  font-weight:700;font-size:.8rem;cursor:pointer;
+  transition:transform .15s, box-shadow .15s, background .15s;
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--font-body);
+  line-height:1.2;
+}
+.btn:hover{transform:translateY(-1px);}
+.btn:active{transform:translateY(0);}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(16,185,129,0.30);}
+
+.btn-primary{
+  background:var(--gradient-primary);color:#fff;
+  box-shadow:0 6px 16px -4px rgba(16,185,129,0.45);
+}
+.btn-primary:hover{background:var(--gradient-primary-hover);}
+.btn-green{background:var(--vigil-600);color:#fff;}
+.btn-green:hover{background:var(--vigil-700);}
+.btn-red{background:var(--danger-600);color:#fff;}
+.btn-red:hover{background:var(--danger-700);}
+.btn-orange{background:var(--warning-600);color:#fff;}
+.btn-orange:hover{background:var(--warning-700);}
+.btn-blue{background:var(--marine-600);color:#fff;}
+.btn-blue:hover{background:var(--marine-700);}
+.btn-gray{
+  background:#fff;color:var(--text-2);
+  border:1px solid var(--border-default);
+}
+.btn-gray:hover{background:var(--neutral-50);border-color:var(--border-strong);}
+.btn-sm{padding:6px 11px;font-size:.74rem;border-radius:8px;}
+
+/* Boutons dans la sidebar : adapté fond sombre */
+.sidebar .btn-green{background:var(--vigil-500);}
+.sidebar .btn-green:hover{background:var(--vigil-400);color:#064E3B;}
+.sidebar .btn-gray{
+  background:rgba(255,255,255,0.08);
+  color:rgba(255,255,255,0.85);
+  border:1px solid rgba(255,255,255,0.12);
+}
+.sidebar .btn-gray:hover{background:rgba(255,255,255,0.14);color:#fff;}
+
+/* ============ INPUTS ============ */
+.input{
+  width:100%;padding:10px 13px;
+  border:1.5px solid var(--border-default);
+  border-radius:var(--radius-md);
+  font-size:.85rem;font-family:var(--font-body);
+  color:var(--text-1);
+  background:#fff;
+  outline:none;transition:border-color .15s, box-shadow .15s;
+}
+.input:focus{
+  border-color:var(--vigil-500);
+  box-shadow:0 0 0 3px rgba(16,185,129,0.15);
+}
+.input::placeholder{color:var(--text-4);}
+
+/* ============ BADGES ============ */
+.badge{
+  display:inline-block;padding:3px 9px;
+  border-radius:999px;font-size:.67rem;font-weight:700;
+  letter-spacing:0.02em;
+}
+.b-purple{background:var(--vigil-50);color:var(--vigil-700);border:1px solid var(--vigil-200);}
+.b-blue{background:var(--info-50);color:var(--info-700);border:1px solid var(--marine-200);}
+.b-green{background:var(--success-50);color:var(--success-700);border:1px solid var(--vigil-200);}
+.b-orange{background:var(--warning-50);color:var(--warning-700);border:1px solid var(--warning-200);}
+.b-red{background:var(--danger-50);color:var(--danger-700);border:1px solid var(--danger-200);}
+.b-gray{background:var(--neutral-50);color:var(--text-3);border:1px solid var(--border-default);}
+.b-yellow{background:#fef9c3;color:#854d0e;border:1px solid #fde68a;}
+@keyframes mibBlink { 0%,100%{opacity:1;} 50%{opacity:.15;} }
+.blink{ animation: mibBlink 0.9s steps(1,end) infinite; }
+@keyframes mibPulseCard { 0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.55);} 50%{box-shadow:0 0 0 6px rgba(245,158,11,0);} }
+.evt-live{ border-left:5px solid #f59e0b !important; animation: mibPulseCard 1.5s ease-in-out infinite; }
+
+/* Badge "Admin" dans sidebar sombre */
+.sidebar .badge.b-purple{
+  background:rgba(16,185,129,0.18);
+  color:var(--vigil-200);
+  border-color:rgba(16,185,129,0.30);
+}
+
+/* ============ TABLES ============ */
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{
+  padding:10px 13px;
+  font-size:.66rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;
+  color:var(--text-3);
+  background:var(--neutral-50);
+  text-align:left;
+  border-bottom:1px solid var(--border-subtle);
+}
+.tbl td{
+  padding:12px 13px;
+  font-size:.82rem;color:var(--text-2);
+  border-bottom:1px solid var(--border-subtle);
+  vertical-align:middle;
+}
+.tbl tbody tr{transition:background .12s;}
+.tbl tbody tr:hover td{background:rgba(16,185,129,0.04);}
+.tbl tbody tr:last-child td{border-bottom:none;}
+
+/* ============ MODALS ============ */
+.modal-bg{
+  position:fixed;inset:0;
+  background:rgba(15,23,42,0.55);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  z-index:100;
+  display:flex;align-items:center;justify-content:center;
+  padding:16px;
+}
+.modal-box{
+  position:relative;overflow:hidden;
+  background:#fff;
+  border-radius:var(--radius-xl);
+  padding:26px;width:100%;max-width:480px;max-height:90vh;
+  overflow-y:auto;
+  box-shadow:0 25px 60px -10px rgba(15,23,42,0.30), 0 0 0 1px rgba(15,23,42,0.05);
+  animation:mIn .22s cubic-bezier(.18,.89,.32,1.28);
+}
+.modal-box::before{
+  content:'';position:sticky;display:block;
+  top:0;left:-26px;right:-26px;
+  margin:-26px -26px 18px;height:3px;
+  background:var(--gradient-primary);
+}
+@keyframes mIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:none}}
+
+/* Bottom sheet sur mobile */
+@media(max-width:640px){
+  .modal-bg{align-items:flex-end;padding:0;}
+  .modal-box{
+    border-radius:var(--radius-xl) var(--radius-xl) 0 0;
+    max-width:100%;max-height:92vh;
+    animation:slideUp .25s ease;
+  }
+  @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+}
+
+/* Bouton ✕ de fermeture modal */
+.modal-box button[onclick*="closeModal"]:not(.btn){
+  width:32px;height:32px;border-radius:50%;
+  background:var(--neutral-100);border:none;cursor:pointer;
+  color:var(--text-3);font-size:.95rem;font-weight:700;
+  transition:background .15s, color .15s;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.modal-box button[onclick*="closeModal"]:not(.btn):hover{
+  background:var(--neutral-200);color:var(--text-1);
+}
+
+/* ============ TOAST ============ */
+.toast{
+  position:fixed;bottom:24px;left:50%;
+  transform:translateX(-50%) translateY(80px);
+  background:var(--neutral-800);color:#fff;
+  padding:11px 22px;
+  border-radius:var(--radius-md);
+  font-size:.83rem;font-weight:600;
+  opacity:0;transition:opacity .25s, transform .25s;
+  z-index:999;pointer-events:none;white-space:nowrap;
+  box-shadow:0 12px 28px -6px rgba(15,23,42,0.35);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.ok{background:var(--vigil-600);}
+.toast.err{background:var(--danger-600);}
+
+/* ============ PAGES / ANIM ============ */
+.page{display:none;}
+.page.active{display:block;}
+
+.status-dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+.dot-green{background:var(--vigil-500);box-shadow:0 0 8px var(--vigil-400);animation:pulse 2s infinite;}
+.dot-orange{background:var(--warning-500);animation:pulse 2s infinite;}
+.dot-red{background:var(--danger-500);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+
+.fade-in{animation:fadeIn .22s ease both;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* Mobile header bar */
+#mob-header{
+  background:#fff !important;
+  border-bottom:1px solid var(--border-subtle) !important;
+  box-shadow:0 1px 0 rgba(15,23,42,0.04);
+}
+#mob-header button{
+  background:#fff !important;
+  border:1px solid var(--border-default) !important;
+  color:var(--text-2) !important;
+}
+
+/* ============ RESPONSIVE ============ */
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%);transition:transform .25s;}
+  .sidebar.open{transform:translateX(0);box-shadow:8px 0 32px -8px rgba(15,23,42,0.40);}
+  .main{margin-left:0;padding:74px 14px 40px;}
+}
+</style>
+</head>
+<body>
+<a href="/index.html" aria-label="Accueil MIBsoft" data-mib-logo style="position:fixed;left:12px;bottom:12px;z-index:2147483000;display:block;line-height:0;opacity:.9;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))"><img src="/logo/icon.png" alt="MIBsoft" width="34" height="34" style="display:block"></a>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div style="padding:18px 16px 14px;border-bottom:1px solid #f1f5f9;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i class="fas fa-shield-alt text-white" style="font-size:.9rem;"></i>
+      </div>
+      <div>
+        <div style="font-size:.88rem;font-weight:800;color:#1e293b;">SSIAP Patrol</div>
+        <div style="font-size:.68rem;color:#94a3b8;" id="sb-centre">—</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;display:flex;align-items:center;gap:6px;">
+      <span class="status-dot dot-green"></span>
+      <span style="font-size:.72rem;color:#64748b;" id="sb-user">Chargement...</span>
+    </div>
+    <span class="badge b-purple" style="margin-top:6px;" id="sb-role">Admin</span>
+  </div>
+  <nav style="flex:1;padding:10px 8px;overflow-y:auto;">
+    <div class="nav-link active" id="nav-dashboard" onclick="showPage('dashboard')"><i class="fas fa-tachometer-alt" style="width:16px;text-align:center;"></i> Tableau de bord</div>
+    <div class="nav-link" id="nav-priseposte" onclick="showPage('priseposte')"><i class="fas fa-user-clock" style="width:16px;text-align:center;"></i> Prise de Poste</div>
+    <div class="nav-link" id="nav-rondes" onclick="showPage('rondes')"><i class="fas fa-route" style="width:16px;text-align:center;"></i> Rondes</div>
+    <div class="nav-link" id="nav-mainCourante" onclick="showPage('mainCourante')"><i class="fas fa-clipboard-list" style="width:16px;text-align:center;"></i> Main Courante</div>
+    <div class="nav-link" id="nav-evenements" onclick="showPage('evenements')"><i class="fas fa-exclamation-triangle" style="width:16px;text-align:center;"></i> Evenements</div>
+    <div class="nav-link" id="nav-materiels" onclick="showPage('materiels')"><i class="fas fa-fire-extinguisher" style="width:16px;text-align:center;"></i> Materiels</div>
+    <div class="nav-link" id="nav-consignes" onclick="showPage('consignes')"><i class="fas fa-file-alt" style="width:16px;text-align:center;"></i> Consignes</div>
+    <div class="nav-link" id="nav-registre" onclick="openRegistreSecurite()"><i class="fas fa-clipboard-check" style="width:16px;text-align:center;"></i> Registre de sécurité</div>
+    <div class="nav-link" id="nav-agents" onclick="showPage('agents')"><i class="fas fa-users" style="width:16px;text-align:center;"></i> Agents</div>
+    <div class="nav-link" id="nav-admin" onclick="showPage('admin')"><i class="fas fa-cog" style="width:16px;text-align:center;"></i> Administration</div>
+  </nav>
+  <div style="padding:12px 8px;border-top:1px solid #f1f5f9;">
+    <button onclick="syncData()" class="btn btn-green" style="width:100%;justify-content:center;margin-bottom:8px;"><i class="fas fa-sync-alt"></i> Synchroniser</button>
+    <button onclick="logout()" class="btn btn-gray" style="width:100%;justify-content:center;"><i class="fas fa-sign-out-alt"></i> Deconnexion</button>
+  </div>
+</aside>
+
+<!-- MOBILE HEADER -->
+<header style="display:none;position:fixed;top:0;left:0;right:0;background:#fff;border-bottom:1px solid #f1f5f9;padding:12px 16px;z-index:40;align-items:center;gap:10px;" id="mob-header">
+  <button onclick="toggleSidebar()" style="width:36px;height:36px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#64748b;">
+    <i class="fas fa-bars"></i>
+  </button>
+  <span style="font-weight:800;font-size:.9rem;">SSIAP Patrol</span>
+</header>
+<div id="overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:39;" onclick="toggleSidebar()"></div>
+
+<!-- MAIN -->
+<main class="main" id="main-content">
+
+  <!-- DASHBOARD -->
+  <div id="page-dashboard" class="page active fade-in">
+    <h2 style="font-size:1.15rem;font-weight:800;margin-bottom:20px;">Tableau de bord</h2>
+    <div style="display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap;align-items:stretch;">
+      <div style="flex:1;min-width:480px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;" id="kpi-grid">
+        <div class="kpi"><div style="font-size:1.4rem;margin-bottom:6px;">👥</div><div style="font-size:1.6rem;font-weight:800;color:#6366f1;" id="kpi-poste">—</div><div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Agents en poste</div></div>
+        <div class="kpi"><div style="font-size:1.4rem;margin-bottom:6px;">🚶</div><div style="font-size:1.6rem;font-weight:800;color:#10b981;" id="kpi-rondes">—</div><div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Rondes en cours</div></div>
+        <div class="kpi"><div style="font-size:1.4rem;margin-bottom:6px;">⚠️</div><div style="font-size:1.6rem;font-weight:800;color:#f59e0b;" id="kpi-evts">—</div><div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Evenements actifs</div></div>
+        <div class="kpi"><div style="font-size:1.4rem;margin-bottom:6px;">📋</div><div style="font-size:1.6rem;font-weight:800;color:#8b5cf6;" id="kpi-actions">—</div><div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Actions aujourd'hui</div></div>
+      </div>
+      <div class="kpi" style="min-width:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+        <div style="font-size:.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;">🔗 Accès rondier</div>
+        <div id="qr-rondier" style="display:flex;justify-content:center;"></div>
+        <button onclick="copyLink()" class="btn btn-gray btn-sm" style="justify-content:center;font-size:.72rem;"><i class="fas fa-copy"></i> Copier le lien</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+      <div class="card">
+        <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">🔧 Matériels en anomalie / hors service</div>
+        <div id="dash-materiels"><div style="color:#94a3b8;font-size:.83rem;">Aucun matériel en anomalie</div></div>
+      </div>
+      <div class="card">
+        <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">👥 Personnel en poste</div>
+        <div id="dash-equipe"><div style="color:#94a3b8;font-size:.83rem;">Aucun agent en poste</div></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="card">
+        <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">⏱️ Consignes temporaires</div>
+        <div id="dash-cons-temp"><div style="color:#94a3b8;font-size:.83rem;">Aucune consigne temporaire</div></div>
+      </div>
+      <div class="card">
+        <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">📌 Consignes permanentes</div>
+        <div id="dash-cons-perm"><div style="color:#94a3b8;font-size:.83rem;">Aucune consigne permanente</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRISE DE POSTE -->
+  <div id="page-priseposte" class="page fade-in">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:1.1rem;font-weight:800;">Prise de Poste</h2>
+      <button onclick="showModalPrisePoste()" class="btn btn-primary"><i class="fas fa-plus"></i> Nouveau</button>
+    </div>
+    <div class="card">
+      <div style="overflow-x:auto;"><table class="tbl"><thead><tr><th>Agent</th><th>Qualification</th><th>Poste</th><th>Debut</th><th>Actions</th></tr></thead>
+      <tbody id="body-priseposte"><tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">Aucun agent en poste</td></tr></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- RONDES -->
+  <div id="page-rondes" class="page fade-in">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:1.1rem;font-weight:800;">Rondes</h2>
+      <button onclick="showModalRondeProg()" class="btn btn-primary"><i class="fas fa-plus"></i> Nouvelle ronde programmée</button>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div style="font-weight:800;font-size:.9rem;margin-bottom:10px;">Rondes programmées</div>
+      <div style="font-size:.72rem;color:#94a3b8;margin-bottom:10px;">Modèles de rondes (bâtiment / niveau / thématique) lancés à la demande par le rondier.</div>
+      <div id="tbl-rondes-prog"></div>
+    </div>
+    <div class="card">
+      <div style="font-weight:800;font-size:.9rem;margin-bottom:10px;">Historique des rondes</div>
+      <div id="body-rondes" style="overflow-x:auto;"><table class="tbl"><thead><tr><th>Type</th><th>Agent</th><th>Debut</th><th>Fin</th><th>Points</th><th>Statut</th></tr></thead>
+      <tbody id="tbl-rondes"><tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:24px;">Aucune ronde</td></tr></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- MAIN COURANTE -->
+  <div id="page-mainCourante" class="page fade-in">
+    <h2 style="font-size:1.1rem;font-weight:800;margin-bottom:20px;">Main Courante</h2>
+    <div class="card" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+      <div style="flex:1;min-width:180px;"><label style="font-size:.72rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Recherche</label><input id="mc-search" class="input" placeholder="Description, agent, type…" oninput="renderMainCourante()"></div>
+      <div><label style="font-size:.72rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Type</label><select id="mc-type" class="input" onchange="renderMainCourante()"><option value="">Tous</option></select></div>
+      <div><label style="font-size:.72rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Du</label><input type="date" id="mc-from" class="input" onchange="renderMainCourante()"></div>
+      <div><label style="font-size:.72rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Au</label><input type="date" id="mc-to" class="input" onchange="renderMainCourante()"></div>
+      <button onclick="imprimerMainCourante()" class="btn btn-primary"><i class="fas fa-print"></i> Imprimer</button>
+    </div>
+    <div class="card">
+      <div id="mc-count" style="font-size:.72rem;color:#94a3b8;margin-bottom:8px;"></div>
+      <div style="overflow-x:auto;"><table class="tbl"><thead><tr><th>Date/Heure</th><th>Type</th><th>Description</th><th>Agent</th></tr></thead>
+      <tbody id="tbl-main-courante"><tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:24px;">Aucune entree</td></tr></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- EVENEMENTS -->
+  <div id="page-evenements" class="page fade-in">
+    <h2 style="font-size:1.1rem;font-weight:800;margin-bottom:14px;">Evenements</h2>
+    <div id="evt-page-cats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px;"></div>
+    <div id="body-evenements"><div style="text-align:center;color:#94a3b8;padding:32px;">Aucun evenement</div></div>
+  </div>
+
+  <!-- MATERIELS -->
+  <div id="page-materiels" class="page fade-in">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+      <h2 style="font-size:1.1rem;font-weight:800;">Materiels</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="imprimerQR()" class="btn btn-gray btn-sm" title="Imprimer les QR codes des matériels filtrés"><i class="fas fa-qrcode"></i> Imprimer QR</button>
+        <button onclick="imprimerFiches()" class="btn btn-gray btn-sm" title="Imprimer la fiche des matériels sélectionnés (ou tous les filtrés)"><i class="fas fa-print"></i> Imprimer fiches</button>
+        <button onclick="dedupMateriels()" class="btn btn-gray btn-sm" title="Supprimer les matériels en double (même code QR, ou même nom+type+localisation)"><i class="fas fa-clone"></i> Doublons</button>
+        <button onclick="showModalMateriel()" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Ajouter</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <input type="text" id="mat-search" class="input" placeholder="🔎 Rechercher (nom, numéro, adresse, QR, localisation…)" oninput="renderMateriels()" style="flex:1;min-width:220px;">
+      <select id="mat-filtre-type" class="input" onchange="renderMateriels()" style="max-width:200px;">
+        <option value="">Tous les types</option>
+        <option>Extincteur</option><option>RIA</option><option>BAES</option><option>PI</option><option>BI</option><option>Sprinkler</option><option>Desenfumage</option><option>Detecteur</option><option>Porte CF</option><option>Autre</option>
+      </select>
+    </div>
+    <div class="card">
+      <div style="overflow-x:auto;"><table class="tbl"><thead><tr>
+        <th style="width:32px;"><input type="checkbox" id="mat-check-all" onchange="toggleAllMat(this)" title="Tout sélectionner"></th>
+        <th>Materiel</th><th>N°</th><th>Type</th><th>Localisation</th><th>Dernier contrôle</th><th>Statut</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="tbl-materiels"><tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:24px;">Aucun materiel</td></tr></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- CONSIGNES -->
+  <div id="page-consignes" class="page fade-in">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:1.1rem;font-weight:800;">Consignes</h2>
+      <button onclick="showModalConsigne()" class="btn btn-primary"><i class="fas fa-plus"></i> Nouvelle</button>
+    </div>
+    <div id="body-consignes"><div style="text-align:center;color:#94a3b8;padding:32px;">Aucune consigne</div></div>
+  </div>
+
+  <!-- AGENTS -->
+  <div id="page-agents" class="page fade-in">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:1.1rem;font-weight:800;">Agents</h2>
+      <div style="display:flex;gap:8px;">
+        <button onclick="ajouterFormateurSession()" class="btn btn-orange btn-sm" title="M'ajouter comme agent pour tenir le rôle de chef de poste (utile s'il n'y a pas de SSIAP 2)"><i class="fas fa-user-shield"></i> Ajouter le formateur</button>
+        <button onclick="importerFormateurs()" class="btn btn-green btn-sm"><i class="fas fa-download"></i> Importer formateurs</button>
+        <button onclick="importerStagiaires()" class="btn btn-blue btn-sm" id="btn-import-stag" style="display:none;"><i class="fas fa-users"></i> Importer stagiaires session</button>
+        <button onclick="showModalAgent()" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Nouveau</button>
+      </div>
+    </div>
+    <div class="card">
+      <div style="overflow-x:auto;"><table class="tbl"><thead><tr><th>Agent</th><th>Qualification</th><th>Type</th><th>Statut</th><th>Actions</th></tr></thead>
+      <tbody id="tbl-agents"><tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">Aucun agent</td></tr></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- ADMINISTRATION -->
+  <div id="page-admin" class="page fade-in">
+    <h2 style="font-size:1.1rem;font-weight:800;margin-bottom:20px;">Administration</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="card">
+        <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">📊 Statistiques</div>
+        <div id="admin-stats" style="color:#94a3b8;font-size:.83rem;">Chargement...</div>
+      </div>
+      <div class="card">
+        <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">🗄️ Donnees</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button onclick="syncData()" class="btn btn-green" style="justify-content:center;"><i class="fas fa-sync-alt"></i> Synchroniser avec Supabase</button>
+          <button onclick="exporterDonnees()" class="btn btn-gray" style="justify-content:center;"><i class="fas fa-download"></i> Exporter JSON</button>
+          <button onclick="reinitialiser()" class="btn btn-red" style="justify-content:center;"><i class="fas fa-trash"></i> Reinitialiser donnees operationnelles</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div style="font-size:.88rem;font-weight:800;margin-bottom:6px;">🏢 Etablissement (depuis un plan SSI)</div>
+      <div style="font-size:.78rem;color:#94a3b8;margin-bottom:12px;">Importe automatiquement les niveaux, locaux et le materiel (RIA, extincteurs, BAES, desenfumage…) du plan choisi dans le module SSI.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <select id="etab-plan" class="input" style="max-width:280px;"><option value="">Chargement des plans…</option></select>
+        <button onclick="importerEtablissementDepuisPlan()" class="btn btn-green" style="justify-content:center;"><i class="fas fa-building"></i> Importer la structure</button>
+        <button onclick="voirStructure()" class="btn btn-blue" style="justify-content:center;"><i class="fas fa-sitemap"></i> Structure</button>
+      </div>
+      <div id="etab-resume" style="margin-top:12px;font-size:.82rem;color:#64748b;"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- MODALS -->
+<div id="modal-priseposte" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <h3 style="font-size:1rem;font-weight:800;">Prise de Poste</h3>
+      <button onclick="closeModal('modal-priseposte')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Agent</label><select id="pp-agent" class="input"></select></div>
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Poste</label>
+        <select id="pp-poste" class="input"><option value="Chef de poste">Chef de poste</option><option value="Chef d'equipe">Chef d'equipe</option><option value="Equipier">Equipier</option></select>
+      </div>
+      <div id="pp-msg" style="display:none;"></div>
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button onclick="closeModal('modal-priseposte')" class="btn btn-gray" style="flex:1;justify-content:center;">Annuler</button>
+        <button onclick="savePrisePoste()" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-verif" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <h3 style="font-size:1rem;font-weight:800;" id="verif-title">Vérifications de prise de poste</h3>
+      <button onclick="closeModal('modal-verif')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div id="verif-count" style="font-size:.74rem;color:#94a3b8;margin-bottom:12px;"></div>
+    <div id="verif-body" style="max-height:52vh;overflow-y:auto;"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+      <button onclick="closeModal('modal-verif')" class="btn btn-gray" style="flex:1;justify-content:center;">Fermer</button>
+      <button onclick="saveVerifications('urgence')" class="btn btn-orange" style="flex:1;justify-content:center;" title="Enregistrer l'état actuel — vérifications non terminées (urgence)">⏱️ En cours (urgence)</button>
+      <button onclick="saveVerifications('valider')" id="verif-valider" class="btn btn-green" style="flex:1;justify-content:center;">✔ Valider</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-evenement" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <h3 style="font-size:1rem;font-weight:800;">Nouvel Evenement</h3>
+      <button onclick="closeModal('modal-evenement')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div id="evt-cats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;"></div>
+    <div id="evt-fields"></div>
+  </div>
+</div>
+
+<div id="modal-materiel" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <h3 style="font-size:1rem;font-weight:800;" id="modal-mat-title">Nouveau Materiel</h3>
+      <button onclick="closeModal('modal-materiel')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Nom *</label><input type="text" id="mat-nom" class="input" placeholder="Ex: Extincteur CO2 Hall"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Type</label>
+          <select id="mat-type" class="input" onchange="majAgentRow()"><option>Extincteur</option><option>RIA</option><option>BAES</option><option>PI</option><option>BI</option><option>Sprinkler</option><option>Detecteur</option><option>Porte CF</option><option>Autre</option></select>
+        </div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Statut</label>
+          <select id="mat-statut" class="input"><option>Operationnel</option><option>A verifier</option><option>Hors Service</option></select>
+        </div>
+      </div>
+      <div id="mat-agent-row" style="display:none;"><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Agent extincteur</label>
+        <select id="mat-agent" class="input"><option value="">—</option><option>Eau</option><option>Poudre</option><option>CO2</option><option>Lithium</option></select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Numéro</label><input type="text" id="mat-numero" class="input" placeholder="Ex: EXT-04"></div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Date dernier contrôle</label><input type="date" id="mat-controle" class="input" onchange="majAlerteControle()"></div>
+      </div>
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Localisation</label><input type="text" id="mat-loc" name="mat-loc-x" autocomplete="off" autocorrect="off" spellcheck="false" class="input" list="mat-loc-list" placeholder="Choisir un lieu du plan…"><datalist id="mat-loc-list"></datalist></div>
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Adresse / emplacement précis</label><input type="text" id="mat-adresse" class="input" placeholder="Ex: mur Est, près de la sortie 2"></div>
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Code QR</label><input type="text" id="mat-qr" class="input" placeholder="MAT-EXT-001" onchange="majQRPreview()"></div>
+      <div id="mat-controle-alerte" style="font-size:.78rem;"></div>
+      <div style="display:flex;align-items:center;gap:14px;background:#f8fafc;border-radius:10px;padding:10px;">
+        <div id="mat-qr-preview" style="width:90px;height:90px;flex:none;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:8px;"></div>
+        <div style="font-size:.72rem;color:#64748b;">Ce QR sera imprimé pour le matériel. Le rondier le flashe pendant sa ronde pour valider le point.</div>
+      </div>
+      <input type="hidden" id="mat-id" value="">
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button onclick="closeModal('modal-materiel')" class="btn btn-gray" style="flex:1;justify-content:center;">Annuler</button>
+        <button onclick="saveMateriel()" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-ronde-prog" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <h3 style="font-size:1rem;font-weight:800;">Ronde programmée</h3>
+      <button onclick="closeModal('modal-ronde-prog')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Nom *</label><input type="text" id="rp-nom" class="input" placeholder="Ex: Ronde extincteurs RDC"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Thématique</label>
+          <select id="rp-thematique" class="input" onchange="rpThemeChange()"></select></div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Type de matériel</label>
+          <select id="rp-filtretype" class="input" onchange="rpPreview()"><option value="">Tous types</option><option>Extincteur</option><option>RIA</option><option>BAES</option><option>Detecteur</option><option>Porte CF</option><option>Autre</option></select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Bâtiment</label>
+          <select id="rp-batiment" class="input" onchange="rpBatChange()"><option value="">Tous</option></select></div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Niveau</label>
+          <select id="rp-niveau" class="input" onchange="rpNivChange()"><option value="">Tous</option></select></div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Zone</label>
+          <select id="rp-zone" class="input" onchange="rpPreview()"><option value="">Toutes</option></select></div>
+      </div>
+      <div id="rp-preview" style="font-size:.8rem;background:#f8fafc;border-radius:10px;padding:10px;color:#475569;"></div>
+      <input type="hidden" id="rp-id" value="">
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button onclick="closeModal('modal-ronde-prog')" class="btn btn-gray" style="flex:1;justify-content:center;">Annuler</button>
+        <button onclick="saveRondeProg()" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-structure" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="font-size:1rem;font-weight:800;">🏢 Structure de l'établissement</h3>
+      <button onclick="closeModal('modal-structure')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div id="struct-body" style="max-height:62vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<div id="modal-point-detail" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="font-size:1rem;font-weight:800;" id="pd-title">Point</h3>
+      <button onclick="closeModal('modal-point-detail')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div id="pd-body" style="max-height:60vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<div id="modal-ronde-detail" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <h3 style="font-size:1rem;font-weight:800;" id="rd-title">Ronde</h3>
+      <button onclick="closeModal('modal-ronde-detail')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div id="rd-meta" style="font-size:.78rem;color:#64748b;margin-bottom:12px;"></div>
+    <div id="rd-body" style="max-height:60vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<div id="modal-evt-detail" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="font-size:1rem;font-weight:800;" id="ed-title">Événement</h3>
+      <button onclick="closeModal('modal-evt-detail')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div id="ed-body" style="max-height:64vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<div id="modal-consigne" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <h3 style="font-size:1rem;font-weight:800;" id="modal-cons-title">Nouvelle Consigne</h3>
+      <button onclick="closeModal('modal-consigne')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <input type="hidden" id="cons-id" value="">
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Titre *</label><input type="text" id="cons-titre" class="input" placeholder="Titre de la consigne"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Niveau</label>
+          <select id="cons-niveau" class="input" onchange="consToggleDates()"><option>Permanente</option><option>Particuliere</option><option>Temporaire</option></select>
+        </div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Priorite</label>
+          <select id="cons-prio" class="input"><option>Normale</option><option>Haute</option><option>Urgente</option><option>Basse</option></select>
+        </div>
+      </div>
+      <div id="cons-dates-row" style="display:none;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Début</label><input type="date" id="cons-debut" class="input"></div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Fin</label><input type="date" id="cons-fin" class="input"></div>
+      </div>
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Contenu *</label><textarea id="cons-contenu" class="input" rows="4" placeholder="Detaillez la consigne..."></textarea></div>
+      <div style="font-size:.72rem;color:#94a3b8;">Auteur : <b id="cons-auteur-lbl">—</b> &bull; créée le <span id="cons-date-lbl"></span></div>
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button onclick="supprimerConsigneModal()" id="cons-del-btn" class="btn btn-red" style="display:none;justify-content:center;">🗑️ Supprimer</button>
+        <button onclick="closeModal('modal-consigne')" class="btn btn-gray" style="flex:1;justify-content:center;">Annuler</button>
+        <button onclick="saveConsigne()" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-agent" class="modal-bg hidden">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <h3 style="font-size:1rem;font-weight:800;">Nouvel Agent</h3>
+      <button onclick="closeModal('modal-agent')" style="width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Prenom *</label><input type="text" id="ag-prenom" class="input"></div>
+        <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Nom *</label><input type="text" id="ag-nom" class="input"></div>
+      </div>
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Qualification</label>
+        <select id="ag-qualif" class="input"><option>SSIAP 1</option><option>SSIAP 2</option><option>SSIAP 3</option></select>
+      </div>
+      <div><label style="font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Code PIN (6 chiffres) *</label><input type="password" id="ag-pin" class="input" placeholder="......" maxlength="6" inputmode="numeric"></div>
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button onclick="closeModal('modal-agent')" class="btn btn-gray" style="flex:1;justify-content:center;">Annuler</button>
+        <button onclick="saveAgent()" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+var sb = window.supabase;
+var PATROL_SESSION = null;
+var CENTER = null;
+var PTRDB = { agents:[], materiels:[], prisesPoste:[], rondes:[], evenements:[], mainCourante:[], consignes:[], rondesProgrammees:[] };
+var configEtab = { nom:"Etablissement", batiments:[] };
+var typesRondes = ["Ronde de securite","Ronde Extincteurs","Ronde BAES","Ouverture","Fermeture"];
+var PAGES = ["dashboard","priseposte","rondes","mainCourante","evenements","materiels","consignes","agents","admin"];
+
+// ═══ INIT ═══
+window.addEventListener("DOMContentLoaded", async function() {
+  var params = new URLSearchParams(window.location.search);
+  var autologin = params.get("autologin");
+  var centerId  = params.get("center");
+  var sessionId = params.get("session");
+  var fid       = params.get("fid");
+  var fnom      = params.get("fnom")    || "";
+  var fprenom   = params.get("fprenom") || "";
+
+  // CAS 1 : autologin depuis formateur.html
+  if (autologin === "1" && centerId && fid) {
+    try {
+      var cr = await sb.from("centers").select("id,nom,logo_url,module_patrol").eq("id", centerId).single();
+      CENTER = cr.data;
+      PATROL_SESSION = { centerId:centerId, sessionId:sessionId||null, agentId:fid, nom:decodeURIComponent(fnom), prenom:decodeURIComponent(fprenom), qualification:"SSIAP 3", type:"formateur" };
+      sessionStorage.setItem("patrol_session", JSON.stringify(PATROL_SESSION));
+      await chargerDonnees();
+      initUI();
+      if (sessionId) await importerStagiairesSession(sessionId);
+      return;
+    } catch(e) { console.error("autologin error:", e); }
+  }
+
+  // CAS 2 : session stockee dans sessionStorage
+  PATROL_SESSION = JSON.parse(sessionStorage.getItem("patrol_session") || "null");
+  if (!PATROL_SESSION || !PATROL_SESSION.centerId || (Date.now() - (PATROL_SESSION.ts||0)) > 86400000) {
+    window.location.href = "patrol-login.html" + window.location.search;
+    return;
+  }
+
+  // Verifier qualification
+  if (PATROL_SESSION.qualification === "SSIAP 1") {
+    window.location.href = "patrol-rondier.html";
+    return;
+  }
+
+  try {
+    var cr2 = await sb.from("centers").select("id,nom,logo_url,module_patrol").eq("id", PATROL_SESSION.centerId).single();
+    CENTER = cr2.data;
+    await chargerDonnees();
+    initUI();
+  } catch(e) { console.error(e); }
+});
+
+async function chargerDonnees() {
+  // La table patrol_data a pour clé primaire (center_id) : UNE seule ligne par centre.
+  // (Avant, le code lisait/écrivait par (center_id, session_id), ce qui ne correspondait à aucune
+  //  contrainte unique → les upserts échouaient en silence et rien n'était sauvegardé.)
+  var {data} = await sb.from("patrol_data").select("*").eq("center_id", PATROL_SESSION.centerId).maybeSingle();
+  if (data) {
+    if (data.agents)        PTRDB.agents        = data.agents;
+    if (data.materiels)     PTRDB.materiels     = data.materiels;
+    if (data.prises_poste)  PTRDB.prisesPoste   = data.prises_poste;
+    if (data.rondes)        PTRDB.rondes        = data.rondes;
+    if (data.evenements)    PTRDB.evenements    = data.evenements;
+    if (data.main_courante) PTRDB.mainCourante  = data.main_courante;
+    if (data.consignes)     PTRDB.consignes     = data.consignes;
+    if (data.rondes_programmees) PTRDB.rondesProgrammees = data.rondes_programmees;
+    if (data.config)        configEtab       = data.config;
+    if (data.types_rondes)  typesRondes      = data.types_rondes;
+  }
+}
+
+async function sauvegarder() {
+  var payload = {
+    center_id:     PATROL_SESSION.centerId,
+    session_id:    PATROL_SESSION.sessionId || null,
+    formateur_id:  PATROL_SESSION.agentId || null,
+    agents:        PTRDB.agents,
+    materiels:     PTRDB.materiels,
+    prises_poste:  PTRDB.prisesPoste,
+    rondes:        PTRDB.rondes,
+    evenements:    PTRDB.evenements,
+    main_courante: PTRDB.mainCourante.slice(0,500),
+    consignes:     PTRDB.consignes,
+    rondes_programmees: PTRDB.rondesProgrammees,
+    config:        configEtab,
+    types_rondes:  typesRondes,
+    updated_at:    new Date().toISOString()
+  };
+  var { error } = await sb.from("patrol_data").upsert(payload, {onConflict:"center_id"});
+  if (error) { console.error("patrol_data upsert:", error); toast("⚠️ Sauvegarde échouée : "+(error.message||error.code||"erreur"), "err"); throw error; }
+}
+
+async function syncData() {
+  toast("Synchronisation...");
+  await sauvegarder();
+  await chargerDonnees();
+  renderCurrentPage();
+  toast("Synchronise !", "ok");
+}
+
+function initUI() {
+  document.getElementById("sb-centre").textContent = CENTER ? CENTER.nom : "";
+  document.getElementById("sb-user").textContent = PATROL_SESSION.prenom + " " + PATROL_SESSION.nom;
+  document.getElementById("sb-role").textContent = PATROL_SESSION.qualification || "Admin";
+  if (PATROL_SESSION.sessionId) {
+    document.getElementById("btn-import-stag").style.display = "flex";
+  }
+  // Cacher toutes les pages sauf dashboard
+  PAGES.forEach(function(p) {
+    var el = document.getElementById("page-"+p);
+    if (el) el.style.display = (p==="dashboard") ? "block" : "none";
+  });
+  showPage("dashboard");
+  // QR code acces rondier
+  setTimeout(function() {
+    var base = window.location.href.replace(/patrol-admin\.html.*/, "");
+    var rondierUrl = base + "patrol-login.html?center=" + PATROL_SESSION.centerId + (PATROL_SESSION.sessionId ? "&session="+PATROL_SESSION.sessionId : "");
+    window._rondierUrl = rondierUrl;
+    var qrDiv = document.getElementById("qr-rondier");
+    if (qrDiv && typeof QRCode !== "undefined") {
+      try { new QRCode(qrDiv, {text:rondierUrl, width:112, height:112, colorDark:"#111827", colorLight:"#ffffff"}); }
+      catch(e) {}
+    }
+  }, 500);
+}
+
+// ═══ NAVIGATION ═══
+function showPage(name) {
+  PAGES.forEach(function(p) {
+    var el  = document.getElementById("page-"+p);
+    var nav = document.getElementById("nav-"+p);
+    if (el)  { el.style.display  = (p===name) ? "block" : "none"; el.className = "page" + (p===name?" active":""); }
+    if (nav) nav.className = "nav-link" + (p===name?" active":"");
+  });
+  // Fermer sidebar mobile
+  document.getElementById("sidebar").classList.remove("open");
+  document.getElementById("overlay").style.display = "none";
+  // Rendre la page active
+  if (name==="dashboard")    renderDashboard();
+  if (name==="priseposte")   renderPrisePoste();
+  if (name==="rondes")       renderRondes();
+  if (name==="mainCourante") renderMainCourante();
+  if (name==="evenements")   renderEvenements();
+  if (name==="materiels")    renderMateriels();
+  if (name==="consignes")    renderConsignes();
+  if (name==="agents")       renderAgents();
+  if (name==="admin")        renderAdmin();
+}
+
+function renderCurrentPage() {
+  var active = null;
+  PAGES.forEach(function(p) {
+    var el = document.getElementById("page-"+p);
+    if (el && el.classList.contains("active")) active = p;
+  });
+  if (active === "dashboard")    renderDashboard();
+  if (active === "priseposte")   renderPrisePoste();
+  if (active === "rondes")       renderRondes();
+  if (active === "mainCourante") renderMainCourante();
+  if (active === "evenements")   renderEvenements();
+  if (active === "materiels")    renderMateriels();
+  if (active === "consignes")    renderConsignes();
+  if (active === "agents")       renderAgents();
+  if (active === "admin")        renderAdmin();
+}
+
+// ═══ DASHBOARD ═══
+function getAgentsEnPoste() {
+  return PTRDB.prisesPoste.filter(function(p){ return !p.finPoste; }).map(function(p){
+    var a = PTRDB.agents.find(function(a){ return String(a.id)===String(p.agentId); });
+    return a ? Object.assign({},a,{prisePosteId:p.id,poste:p.poste,heureDebut:p.heureDebut,verif:p.verif||null}) : null;
+  }).filter(Boolean);
+}
+
+function renderDashboard() {
+  var enPoste = getAgentsEnPoste();
+  var rondesEnCours = PTRDB.rondes.filter(function(r){ return !r.heureFin; });
+  var evtsActifs = PTRDB.evenements.filter(function(e){ return e.statut !== "Termine"; });
+  var today = new Date().toDateString();
+  var actions = PTRDB.mainCourante.filter(function(m){ return new Date(m.date).toDateString()===today; });
+
+  document.getElementById("kpi-poste").textContent    = enPoste.length;
+  document.getElementById("kpi-rondes").textContent   = rondesEnCours.length;
+  document.getElementById("kpi-evts").textContent     = evtsActifs.length;
+  document.getElementById("kpi-actions").textContent  = actions.length;
+
+  var equipeHtml = enPoste.length ? enPoste.map(function(a){
+    return "<div style=\"display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f8fafc;\">"
+      +"<div style=\"width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:.78rem;font-weight:700;flex-shrink:0;\">"+a.prenom[0]+a.nom[0]+"</div>"
+      +"<div style=\"flex:1;\"><div style=\"font-size:.83rem;font-weight:700;\">"+a.prenom+" "+a.nom+"</div><div style=\"font-size:.72rem;color:#94a3b8;margin-bottom:3px;\">"+a.qualification+" &bull; "+a.poste+"</div>"+verifBadge(a.verif)+"</div>"
+      +"<button onclick=\"showVerifications('"+a.prisePosteId+"')\" style=\"padding:4px 8px;border-radius:7px;background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;font-size:.68rem;font-weight:700;cursor:pointer;margin-right:6px;\">Vérifs</button>"
+      +"<button onclick=\"finPoste("+a.prisePosteId+")\" style=\"padding:4px 8px;border-radius:7px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;font-size:.68rem;font-weight:700;cursor:pointer;\">Fin</button>"
+      +"</div>";
+  }).join("") : "<div style=\"color:#94a3b8;font-size:.83rem;\">Aucun agent en poste</div>";
+  document.getElementById("dash-equipe").innerHTML = equipeHtml;
+
+  // Matériels en anomalie / hors service
+  var matKO = (PTRDB.materiels||[]).filter(function(m){ return m.statut==="Hors Service" || m.statut==="A verifier"; });
+  var matEl = document.getElementById("dash-materiels");
+  if(matEl){
+    matEl.innerHTML = matKO.length ? matKO.map(function(m){
+      var hs = m.statut==="Hors Service";
+      return "<div style=\"display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f8fafc;cursor:pointer;\" onclick=\"showModalMateriel('"+m.id+"')\">"
+        +"<span class=\"badge "+(hs?"b-red":"b-orange")+"\" style=\"font-size:.64rem;\">"+(hs?"HS":"Anomalie")+"</span>"
+        +"<div style=\"flex:1;\"><div style=\"font-size:.83rem;font-weight:700;\">"+esc(m.nom||"")+(m.numero?" <span style='color:#94a3b8;font-weight:500;'>("+esc(m.numero)+")</span>":"")+"</div>"
+        +"<div style=\"font-size:.72rem;color:#94a3b8;\">"+esc(m.type||"")+(m.localisation?(" &bull; "+esc(m.localisation)):"")+"</div></div></div>";
+    }).join("") : "<div style=\"color:#94a3b8;font-size:.83rem;\">Aucun matériel en anomalie</div>";
+  }
+
+  // Consignes (temporaires / permanentes)
+  var consActives = (PTRDB.consignes||[]).filter(function(c){ return c.active; });
+  var consCard = function(c){
+    var prio = c.priorite==="Urgente"||c.priorite==="Haute"?"b-red":"b-blue";
+    var meta = [];
+    if(c.auteur) meta.push("✍️ "+esc(c.auteur));
+    if(c.niveau!=="Permanente" && (c.dateDebut||c.dateFin)) meta.push("📅 "+esc(c.dateDebut||"?")+" → "+esc(c.dateFin||"?"));
+    return "<div style=\"padding:9px 0;border-bottom:1px solid #f8fafc;\">"
+      +"<div style=\"display:flex;align-items:center;justify-content:space-between;gap:8px;\"><div style=\"font-size:.83rem;font-weight:700;\">"+esc(c.titre)+"</div><span class=\"badge "+prio+"\" style=\"font-size:.62rem;\">"+esc(c.priorite)+"</span></div>"
+      +"<div style=\"font-size:.78rem;color:#64748b;margin-top:3px;\">"+esc((c.contenu||"").substring(0,120))+((c.contenu||"").length>120?"…":"")+"</div>"
+      +(meta.length?"<div style=\"font-size:.68rem;color:#94a3b8;margin-top:4px;\">"+meta.join(" &bull; ")+"</div>":"")
+      +"</div>";
+  };
+  var temp = consActives.filter(function(c){ return c.niveau!=="Permanente"; });
+  var perm = consActives.filter(function(c){ return c.niveau==="Permanente"; });
+  var te=document.getElementById("dash-cons-temp"); if(te) te.innerHTML = temp.length ? temp.map(consCard).join("") : "<div style=\"color:#94a3b8;font-size:.83rem;\">Aucune consigne temporaire</div>";
+  var pe=document.getElementById("dash-cons-perm"); if(pe) pe.innerHTML = perm.length ? perm.map(consCard).join("") : "<div style=\"color:#94a3b8;font-size:.83rem;\">Aucune consigne permanente</div>";
+}
+// Agent/nom du chef de poste en cours — utilisé par défaut pour les messages d'événement.
+function chefDePoste(){ return getAgentsEnPoste().find(function(a){ return a.poste==="Chef de poste"; }) || null; }
+function chefDePosteId(){ var c=chefDePoste(); return c ? c.id : (PATROL_SESSION?PATROL_SESSION.agentId:null); }
+function chefDePosteNom(){ var c=chefDePoste(); return c ? (c.prenom+" "+c.nom) : (PATROL_SESSION?(PATROL_SESSION.prenom+" "+PATROL_SESSION.nom):""); }
+
+// ═══ PRISE DE POSTE ═══
+function showModalPrisePoste() {
+  var enPoste = new Set(getAgentsEnPoste().map(function(a){ return String(a.id); }));
+  var sel = document.getElementById("pp-agent");
+  sel.innerHTML = "<option value=\"\">Selectionner...</option>";
+  PTRDB.agents.filter(function(a){ return a.actif && !enPoste.has(String(a.id)); }).forEach(function(a){
+    var o = document.createElement("option"); o.value=a.id; o.textContent=a.prenom+" "+a.nom+" - "+a.qualification; sel.appendChild(o);
+  });
+  document.getElementById("pp-msg").style.display="none";
+  openModal("modal-priseposte");
+}
+
+async function savePrisePoste() {
+  var agentId = document.getElementById("pp-agent").value;
+  var poste   = document.getElementById("pp-poste").value;
+  if (!agentId) { showModalMsg("pp-msg","Selectionnez un agent.","err"); return; }
+  PTRDB.prisesPoste.push({ id:genId(), agentId:agentId, poste:poste, heureDebut:new Date().toISOString(), finPoste:null });
+  var agent = PTRDB.agents.find(function(a){ return String(a.id)===String(agentId); });
+  addMC("Prise de Poste", poste+" - "+(agent?agent.prenom+" "+agent.nom:""), agentId);
+  await sauvegarder(); closeModal("modal-priseposte"); toast("Prise de poste enregistree","ok");
+  renderDashboard(); renderPrisePoste();
+}
+
+function renderPrisePoste() {
+  var enPoste = getAgentsEnPoste();
+  var tbody = document.getElementById("body-priseposte");
+  if (!tbody) return;
+  if (!enPoste.length) { tbody.innerHTML="<tr><td colspan=\"5\" style=\"text-align:center;color:#94a3b8;padding:24px;\">Aucun agent en poste</td></tr>"; return; }
+  tbody.innerHTML = enPoste.map(function(a){
+    return "<tr><td style=\"font-weight:700;\">"+a.prenom+" "+a.nom+" "+verifBadge(a.verif)+"</td>"
+      +"<td><span class=\"badge b-blue\">"+a.qualification+"</span></td>"
+      +"<td><span class=\"badge b-orange\">"+a.poste+"</span></td>"
+      +"<td style=\"font-size:.78rem;color:#64748b;\">"+fmtDT(a.heureDebut)+"</td>"
+      +"<td style=\"white-space:nowrap;\"><button onclick=\"showVerifications('"+a.prisePosteId+"')\" class=\"btn btn-gray btn-sm\" title=\"Fiche de vérifications de prise de poste\">✓ Vérifications</button> "
+      +"<button onclick=\"finPoste("+a.prisePosteId+")\" class=\"btn btn-red btn-sm\">Fin de poste</button></td></tr>";
+  }).join("");
+}
+// Badge d'état des vérifications de prise de poste.
+function verifBadge(v){
+  if(!v||!v.statut) return "<span class=\"badge b-red\" style=\"font-size:.6rem;\">Vérifs à faire</span>";
+  if(v.statut==="terminee") return "<span class=\"badge b-green\" style=\"font-size:.6rem;\">Vérifs OK</span>";
+  return "<span class=\"badge b-orange\" style=\"font-size:.6rem;\">Vérifs en cours</span>";
+}
+// ── Fiche de vérifications de prise de poste (technique / matériel / administrative) ──
+var VERIF_ITEMS = {
+  "Technique": ["Essai de ligne directe","Essai signalisation","Essai radio"],
+  "Matériel": ["Gilet","Lampe","PTI","Clés et badge","Trousse de secours"],
+  "Administrative": ["Main courante","Registre de sécurité","Registre des clés","Cahier de consignes"]
+};
+var VERIF_PP_ID = null;
+function showVerifications(ppId){
+  var pp = PTRDB.prisesPoste.find(function(p){ return String(p.id)===String(ppId); }); if(!pp) return;
+  VERIF_PP_ID = ppId;
+  var agent = PTRDB.agents.find(function(a){ return String(a.id)===String(pp.agentId); });
+  document.getElementById("verif-title").textContent = "Vérifications — "+(agent?agent.prenom+" "+agent.nom:"");
+  var saved = (pp.verif && pp.verif.checked) || {};
+  var idx=0, html="";
+  Object.keys(VERIF_ITEMS).forEach(function(cat){
+    html += "<div style='margin-bottom:12px;'><div style='font-weight:800;font-size:.8rem;color:#334155;margin-bottom:6px;'>"+esc(cat)+"</div>";
+    VERIF_ITEMS[cat].forEach(function(it){
+      html += "<label style='display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:8px;background:#f8fafc;margin-bottom:5px;cursor:pointer;font-size:.85rem;'>"
+        +"<input type='checkbox' id='verif-chk-"+idx+"' data-item=\""+esc(it)+"\" onchange='verifUpdateState()' "+(saved[it]?"checked":"")+" style='width:18px;height:18px;flex:none;'> "+esc(it)+"</label>";
+      idx++;
+    });
+    html += "</div>";
+  });
+  document.getElementById("verif-body").innerHTML = html;
+  verifUpdateState();
+  openModal("modal-verif");
+}
+function verifBoxes(){ return Array.prototype.slice.call(document.querySelectorAll("#verif-body input[type=checkbox]")); }
+function verifAllChecked(){ var b=verifBoxes(); return b.length>0 && b.every(function(x){ return x.checked; }); }
+function verifUpdateState(){
+  var boxes=verifBoxes(), n=boxes.filter(function(x){return x.checked;}).length, all=(boxes.length>0 && n===boxes.length);
+  var c=document.getElementById("verif-count"); if(c) c.textContent = n+" / "+boxes.length+" vérifié(s)"+(all?" — complet ✔":"");
+  var btn=document.getElementById("verif-valider"); if(btn){ btn.disabled=!all; btn.style.opacity=all?"1":".5"; btn.style.cursor=all?"pointer":"not-allowed"; }
+}
+async function saveVerifications(mode){
+  var pp = PTRDB.prisesPoste.find(function(p){ return String(p.id)===String(VERIF_PP_ID); }); if(!pp) return;
+  if(mode==="valider" && !verifAllChecked()){ toast("Tous les items doivent être cochés pour valider.","err"); return; }
+  var checked={}; verifBoxes().forEach(function(b){ checked[b.getAttribute("data-item")]=b.checked; });
+  pp.verif = { checked:checked, statut:(mode==="valider"?"terminee":"en_cours"), date:new Date().toISOString() };
+  var agent = PTRDB.agents.find(function(a){ return String(a.id)===String(pp.agentId); });
+  var nom = agent?agent.prenom+" "+agent.nom:"";
+  if(mode==="valider") addMC("Vérifications", "Vérifications de prise de poste terminées — "+nom, pp.agentId);
+  else addMC("Vérifications", "Vérifications de prise de poste EN COURS (urgence) — "+nom, pp.agentId);
+  await sauvegarder(); closeModal("modal-verif");
+  toast(mode==="valider"?"Vérifications validées":"Vérifications en cours enregistrées","ok");
+  renderPrisePoste(); renderDashboard();
+}
+
+async function finPoste(id) {
+  var pp = PTRDB.prisesPoste.find(function(p){ return p.id===id; });
+  if (!pp) return;
+  pp.finPoste = new Date().toISOString();
+  var agent = PTRDB.agents.find(function(a){ return String(a.id)===String(pp.agentId); });
+  addMC("Fin de Poste", (agent?agent.prenom+" "+agent.nom:""), pp.agentId);
+  await sauvegarder(); toast("Fin de poste enregistree","ok"); renderDashboard(); renderPrisePoste();
+}
+
+// ═══ RONDES ═══
+// ═══ RONDES PROGRAMMÉES (modèles lancés à la demande) ═══
+var THEME2TYPE = { "Ronde Extincteurs":"Extincteur", "Ronde BAES":"BAES", "Ronde RIA":"RIA" };
+function rpBatiments(){ return ((configEtab&&configEtab.batiments)||[]); }
+function rpNiveaux(bat){ var b=rpBatiments().find(function(x){ return (x.nom||x.id)==bat; }); return b?(b.niveaux||b.secteurs||[]):[]; }
+function rpZones(bat,niv){ var n=rpNiveaux(bat).find(function(x){ return (x.nom||x.key)==niv; }); return n?(n.zones||[]):[]; }
+// Matériels d'un périmètre : filtre par type + fil d'ariane localisation « Bâtiment > Niveau > Zone > Local ».
+function scopeMateriels(prog){
+  return (PTRDB.materiels||[]).filter(function(m){
+    if(prog.filtreType && m.type!==prog.filtreType) return false;
+    if(prog.batiment || prog.niveau || prog.zone){
+      var parts=(m.localisation||"").split(">").map(function(s){ return s.trim(); });
+      if(prog.batiment && parts[0]!==prog.batiment) return false;
+      if(prog.niveau && parts[1]!==prog.niveau) return false;
+      if(prog.zone && parts[2]!==prog.zone) return false;
+    }
+    return true;
+  });
+}
+function showModalRondeProg(id){
+  var th=document.getElementById("rp-thematique");
+  th.innerHTML=(typesRondes||[]).map(function(t){ return "<option>"+esc(t)+"</option>"; }).join("");
+  var bs=document.getElementById("rp-batiment");
+  bs.innerHTML="<option value=\"\">Tous</option>"+rpBatiments().map(function(b){ return "<option>"+esc(b.nom||b.id)+"</option>"; }).join("");
+  document.getElementById("rp-niveau").innerHTML="<option value=\"\">Tous</option>";
+  document.getElementById("rp-zone").innerHTML="<option value=\"\">Toutes</option>";
+  var p=id?(PTRDB.rondesProgrammees||[]).find(function(x){ return String(x.id)===String(id); }):null;
+  document.getElementById("rp-id").value=p?p.id:"";
+  document.getElementById("rp-nom").value=p?p.nom:"";
+  if(p&&p.thematique) th.value=p.thematique;
+  document.getElementById("rp-filtretype").value=p?(p.filtreType||""):"";
+  bs.value=p?(p.batiment||""):"";
+  rpBatChange();
+  if(p&&p.niveau) document.getElementById("rp-niveau").value=p.niveau;
+  rpNivChange();
+  if(p&&p.zone) document.getElementById("rp-zone").value=p.zone;
+  rpPreview();
+  openModal("modal-ronde-prog");
+}
+function rpThemeChange(){ var t=document.getElementById("rp-thematique").value; if(THEME2TYPE[t]!==undefined) document.getElementById("rp-filtretype").value=THEME2TYPE[t]; rpPreview(); }
+function rpBatChange(){
+  var bat=document.getElementById("rp-batiment").value;
+  document.getElementById("rp-niveau").innerHTML="<option value=\"\">Tous</option>"+rpNiveaux(bat).map(function(n){ return "<option>"+esc(n.nom||n.key)+"</option>"; }).join("");
+  document.getElementById("rp-zone").innerHTML="<option value=\"\">Toutes</option>";
+  rpPreview();
+}
+function rpNivChange(){
+  var bat=document.getElementById("rp-batiment").value, niv=document.getElementById("rp-niveau").value;
+  document.getElementById("rp-zone").innerHTML="<option value=\"\">Toutes</option>"+rpZones(bat,niv).map(function(z){ return "<option>"+esc(z.nom||z.id)+"</option>"; }).join("");
+  rpPreview();
+}
+function rpCurrentProg(){
+  return { nom:document.getElementById("rp-nom").value.trim(), thematique:document.getElementById("rp-thematique").value,
+    filtreType:document.getElementById("rp-filtretype").value, batiment:document.getElementById("rp-batiment").value,
+    niveau:document.getElementById("rp-niveau").value, zone:document.getElementById("rp-zone").value };
+}
+function rpPreview(){
+  var n=scopeMateriels(rpCurrentProg()).length;
+  document.getElementById("rp-preview").innerHTML="🧭 "+n+" matériel(s) dans le périmètre → "+n+" point(s) de contrôle générés au lancement.";
+}
+async function saveRondeProg(){
+  var prog=rpCurrentProg();
+  if(!prog.nom){ toast("Nom requis.","err"); return; }
+  var id=document.getElementById("rp-id").value;
+  if(id){ var ex=(PTRDB.rondesProgrammees||[]).find(function(x){ return String(x.id)===String(id); }); if(ex) Object.assign(ex,prog); }
+  else { prog.id=genId(); prog.actif=true; PTRDB.rondesProgrammees.push(prog); }
+  await sauvegarder(); closeModal("modal-ronde-prog"); toast("Ronde programmée enregistrée.","ok"); renderRondesProgrammees();
+}
+async function deleteRondeProg(id){
+  var p=(PTRDB.rondesProgrammees||[]).find(function(x){ return String(x.id)===String(id); });
+  if(!p||!confirm("Supprimer la ronde programmée « "+p.nom+" » ?")) return;
+  PTRDB.rondesProgrammees=PTRDB.rondesProgrammees.filter(function(x){ return String(x.id)!==String(id); });
+  await sauvegarder(); toast("Supprimée.","ok"); renderRondesProgrammees();
+}
+function renderRondesProgrammees(){
+  var el=document.getElementById("tbl-rondes-prog"); if(!el) return;
+  var list=PTRDB.rondesProgrammees||[];
+  if(!list.length){ el.innerHTML="<div style=\"color:#94a3b8;font-size:.82rem;\">Aucune ronde programmée. Cliquez « Nouvelle ronde programmée ».</div>"; return; }
+  el.innerHTML=list.map(function(p){
+    var n=scopeMateriels(p).length;
+    var scope=[p.batiment,p.niveau,p.zone].filter(Boolean).join(" › ")||"Tout l'établissement";
+    return "<div style=\"display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px;\">"
+      +"<div><div style=\"font-weight:700;font-size:.86rem;\">"+esc(p.nom)+"</div>"
+      +"<div style=\"font-size:.72rem;color:#94a3b8;\">"+esc(p.thematique||"")+(p.filtreType?" · "+esc(p.filtreType):"")+" · "+esc(scope)+" · "+n+" point(s)</div></div>"
+      +"<div style=\"display:flex;gap:6px;\"><button onclick=\"showModalRondeProg('"+p.id+"')\" class=\"btn btn-blue btn-sm\" title=\"Modifier\">✏️</button>"
+      +"<button onclick=\"deleteRondeProg('"+p.id+"')\" class=\"btn btn-red btn-sm\" title=\"Supprimer\">🗑️</button></div></div>";
+  }).join("");
+}
+
+function renderRondes() {
+  renderRondesProgrammees();
+  var tbody = document.getElementById("tbl-rondes");
+  if (!tbody) return;
+  var rondes = PTRDB.rondes.slice().sort(function(a,b){ return new Date(b.heureDebut)-new Date(a.heureDebut); });
+  if (!rondes.length) { tbody.innerHTML="<tr><td colspan=\"6\" style=\"text-align:center;color:#94a3b8;padding:24px;\">Aucune ronde</td></tr>"; return; }
+  tbody.innerHTML = rondes.map(function(r){
+    var agent = PTRDB.agents.find(function(a){ return String(a.id)===String(r.agentId); });
+    var pts = (r.pointsControle||[]).filter(function(p){ return p.valide; }).length;
+    var tot = (r.pointsControle||[]).length;
+    var hasHS  = (r.anomalies||[]).some(function(a){ return a.horsService; });
+    var hasAno = (r.anomalies||[]).length > 0;
+    var statut = r.heureFin ? (hasHS?"<span class=\"badge b-red\">HS</span>":hasAno?"<span class=\"badge b-orange\">Anomalie</span>":"<span class=\"badge b-green\">OK</span>") : "<span class=\"badge b-blue\">En cours</span>";
+    return "<tr style=\"cursor:pointer;\" onclick=\"voirRondeDetail('"+r.id+"')\" title=\"Voir le détail des points\">"
+      +"<td style=\"font-weight:600;font-size:.82rem;\">"+esc(r.type)+"</td>"
+      +"<td style=\"font-size:.8rem;\">"+((agent?agent.prenom+" "+agent.nom:"—"))+"</td>"
+      +"<td style=\"font-size:.78rem;color:#64748b;\">"+fmtDT(r.heureDebut)+"</td>"
+      +"<td style=\"font-size:.78rem;color:#64748b;\">"+(r.heureFin?fmtDT(r.heureFin):"—")+"</td>"
+      +"<td style=\"font-size:.8rem;\">"+pts+"/"+tot+"</td>"
+      +"<td>"+statut+"</td>"
+      +"</tr>";
+  }).join("");
+}
+
+function pointStatutBadge(p){
+  if(p.statut==="OK") return "<span class=\"badge b-green\">OK</span>";
+  if(p.statut==="HS") return "<span class=\"badge b-red\">HS</span>";
+  if(p.statut==="Anomalie") return "<span class=\"badge b-orange\">Anomalie</span>";
+  if(p.valide) return "<span class=\"badge b-green\">Validé</span>";
+  return "<span style=\"display:inline-block;padding:2px 8px;border-radius:999px;font-size:.68rem;background:#e2e8f0;color:#475569;\">Non contrôlé</span>";
+}
+// Fiche d'un point de contrôle : matériel associé, résultat, commentaires et photos.
+function voirPointDetail(rondeId, pointId){
+  var r = PTRDB.rondes.find(function(x){ return String(x.id)===String(rondeId); }); if(!r) return;
+  var p = (r.pointsControle||[]).find(function(x){ return String(x.id)===String(pointId); }); if(!p) return;
+  var mat = p.materielId ? (PTRDB.materiels||[]).find(function(m){ return String(m.id)===String(p.materielId); }) : null;
+  var anos = (r.anomalies||[]).filter(function(a){ return String(a.pointId)===String(pointId); });
+  var infos = "<div style=\"font-size:.82rem;color:#475569;line-height:1.8;\">"
+    + "<div><b>Localisation :</b> "+esc(p.localisation||"—")+"</div>"
+    + (mat?("<div><b>Type :</b> "+esc(mat.type)+(mat.agent?" · "+esc(mat.agent):"")+"</div>"
+        + "<div><b>Numéro :</b> "+esc(mat.numero||"—")+"</div>"
+        + "<div><b>Code QR :</b> "+esc(mat.codeQR||p.qrCode||"—")+"</div>"
+        + "<div><b>Statut matériel :</b> "+esc(mat.statut||"—")+"</div>"):"")
+    + "<div><b>Contrôle :</b> "+(p.heureValidation?fmtDT(p.heureValidation):"non contrôlé")+"</div>"
+    + "</div>";
+  var notes = anos.length ? anos.map(function(a){
+      var photos=(a.photos||[]).map(function(u){ return "<img src=\""+esc(u)+"\" style=\"width:100px;height:100px;object-fit:cover;border-radius:8px;margin:6px 6px 0 0;cursor:zoom-in;\" onclick=\"window.open('"+esc(u)+"','_blank')\">"; }).join("");
+      return "<div style=\"margin-top:10px;padding:10px;background:#fef2f2;border-radius:10px;\"><div style=\"font-size:.82rem;\">"+(a.horsService?"<b>[Hors service]</b> ":"")+esc(a.description||"")+"</div>"+(photos?"<div>"+photos+"</div>":"")+"</div>";
+    }).join("") : "<div style=\"margin-top:10px;color:#94a3b8;font-size:.8rem;\">Aucun commentaire ni photo.</div>";
+  document.getElementById("pd-title").innerHTML = esc(p.nom)+" &nbsp; "+pointStatutBadge(p);
+  document.getElementById("pd-body").innerHTML = infos + notes
+    + (mat?("<button onclick=\"closeModal('modal-point-detail');showModalMateriel("+mat.id+")\" class=\"btn btn-blue\" style=\"margin-top:14px;\"><i class='fas fa-pen'></i> Ouvrir la fiche matériel</button>"):"");
+  openModal("modal-point-detail");
+}
+// Détail d'une ronde : tous les points, leur résultat, commentaires et photos d'anomalie.
+function voirRondeDetail(rondeId){
+  var r = PTRDB.rondes.find(function(x){ return String(x.id)===String(rondeId); });
+  if(!r) return;
+  var agent = PTRDB.agents.find(function(a){ return String(a.id)===String(r.agentId); });
+  var anoByPoint = {};
+  (r.anomalies||[]).forEach(function(a){ if(a.pointId){ (anoByPoint[a.pointId]=anoByPoint[a.pointId]||[]).push(a); } });
+  var pts = (r.pointsControle||[]);
+  var rows = pts.map(function(p){
+    var anos = anoByPoint[p.id]||[];
+    return "<div onclick=\"voirPointDetail('"+r.id+"','"+p.id+"')\" title=\"Ouvrir la fiche du point\" style=\"cursor:pointer;padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;\">"
+      +"<div style=\"display:flex;justify-content:space-between;gap:8px;align-items:center;\">"
+      +"<div style=\"font-weight:600;font-size:.85rem;\">"+esc(p.nom)+(anos.length?" 💬":"")+"<div style=\"font-size:.72rem;color:#94a3b8;font-weight:400;\">"+esc(p.localisation||"")+"</div></div>"
+      +"<div style=\"display:flex;align-items:center;gap:8px;white-space:nowrap;\"><div style=\"text-align:right;\">"+pointStatutBadge(p)+"<div style=\"font-size:.68rem;color:#94a3b8;margin-top:2px;\">"+(p.heureValidation?fmtDT(p.heureValidation):"—")+"</div></div><i class=\"fas fa-chevron-right\" style=\"color:#cbd5e1;\"></i></div>"
+      +"</div></div>";
+  }).join("");
+  var horsPts = (r.anomalies||[]).filter(function(a){ return !a.pointId; });
+  var horsHtml = horsPts.length ? "<div style=\"font-weight:700;font-size:.8rem;margin:10px 0 6px;color:#dc2626;\">Anomalies hors point</div>"+horsPts.map(function(a){
+      var photos = (a.photos||[]).map(function(u){ return "<img src=\""+esc(u)+"\" style=\"width:66px;height:66px;object-fit:cover;border-radius:8px;margin:6px 6px 0 0;cursor:zoom-in;\" onclick=\"window.open('"+esc(u)+"','_blank')\">"; }).join("");
+      return "<div style=\"padding:8px;background:#fef2f2;border-radius:8px;margin-bottom:6px;font-size:.8rem;\">"+(a.horsService?"[HS] ":"")+esc(a.localisation?a.localisation+": ":"")+esc(a.description||"")+(photos?"<div>"+photos+"</div>":"")+"</div>";
+    }).join("") : "";
+  var pv = pts.filter(function(p){ return p.valide; }).length;
+  document.getElementById("rd-title").textContent = (r.nom||r.type);
+  document.getElementById("rd-meta").innerHTML = "<b>"+esc(r.type)+"</b> · "+(agent?esc(agent.prenom+" "+agent.nom):"—")+" · "+fmtDT(r.heureDebut)+(r.heureFin?" → "+fmtDT(r.heureFin):" (en cours)")+" · "+pv+"/"+pts.length+" points";
+  document.getElementById("rd-body").innerHTML = (rows||"<div style=\"color:#94a3b8;\">Aucun point.</div>")+horsHtml;
+  openModal("modal-ronde-detail");
+}
+
+// ═══ MAIN COURANTE ═══
+function mcVal(id){ var e=document.getElementById(id); return e?(e.value||""):""; }
+function getFilteredMC(){
+  var q=mcVal("mc-search").trim().toLowerCase();
+  var t=mcVal("mc-type");
+  var from=mcVal("mc-from"), to=mcVal("mc-to");
+  var fromT = from ? new Date(from+"T00:00:00").getTime() : null;
+  var toT   = to   ? new Date(to+"T23:59:59").getTime()   : null;
+  return (PTRDB.mainCourante||[]).filter(function(m){
+    if (t && m.type!==t) return false;
+    var d = new Date(m.date).getTime();
+    if (fromT!==null && d<fromT) return false;
+    if (toT!==null && d>toT) return false;
+    if (q && ![m.type,m.description,m.agent].some(function(x){ return (x||"").toString().toLowerCase().indexOf(q)>=0; })) return false;
+    return true;
+  });
+}
+// Couleur du badge de type dans la main courante.
+function mcTypeBadge(type){
+  var t = (type||"").toLowerCase();
+  if (/feu|incendie|alarme/.test(t)) return "b-red";
+  if (/secours/.test(t)) return "b-green";
+  if (/intervention/.test(t)) return "b-gray";
+  if (/poste|v[ée]rif/.test(t)) return "b-yellow";
+  if (/ronde/.test(t)) return "b-orange";
+  return "b-blue";
+}
+function renderMainCourante() {
+  var tbody = document.getElementById("tbl-main-courante");
+  if (!tbody) return;
+  // Alimente le filtre Type avec les types distincts (en préservant la sélection).
+  var sel = document.getElementById("mc-type");
+  if (sel){
+    var cur = sel.value;
+    var types = Array.from(new Set((PTRDB.mainCourante||[]).map(function(m){ return m.type; }).filter(Boolean))).sort();
+    sel.innerHTML = "<option value=\"\">Tous</option>"+types.map(function(t){ return "<option"+(t===cur?" selected":"")+">"+esc(t)+"</option>"; }).join("");
+  }
+  var list = getFilteredMC();
+  var cnt = document.getElementById("mc-count"); if(cnt) cnt.textContent = list.length+" entrée(s)";
+  if (!list.length) { tbody.innerHTML="<tr><td colspan=\"4\" style=\"text-align:center;color:#94a3b8;padding:24px;\">Aucune entrée</td></tr>"; return; }
+  tbody.innerHTML = list.slice(0,500).map(function(m){
+    return "<tr><td style=\"font-size:.78rem;white-space:nowrap;\">"+fmtDT(m.date)+"</td>"
+      +"<td><span class=\"badge "+mcTypeBadge(m.type)+"\" style=\"font-size:.64rem;\">"+esc(m.type)+"</span></td>"
+      +"<td style=\"font-size:.82rem;\">"+esc(m.description)+"</td>"
+      +"<td style=\"font-size:.78rem;color:#64748b;\">"+esc(m.agent||"")+"</td></tr>";
+  }).join("");
+}
+function imprimerMainCourante(){
+  var list = getFilteredMC().slice().sort(function(a,b){ return new Date(a.date)-new Date(b.date); });
+  var from=mcVal("mc-from"), to=mcVal("mc-to");
+  var periode = (from||to) ? ("Période : "+(from?fmtDate(from):"…")+" → "+(to?fmtDate(to):"…")) : "Toutes dates";
+  var centre = (typeof CENTER!=="undefined" && CENTER && CENTER.nom) ? CENTER.nom : "";
+  var typeColors = { "b-red":"#fee2e2;color:#991b1b", "b-green":"#dcfce7;color:#166534", "b-gray":"#f1f5f9;color:#475569", "b-yellow":"#fef9c3;color:#854d0e", "b-orange":"#ffedd5;color:#9a3412", "b-blue":"#dbeafe;color:#1e40af" };
+  var rows = list.map(function(m){
+    var st = typeColors[mcTypeBadge(m.type)] || typeColors["b-blue"];
+    return "<tr><td style=\"white-space:nowrap;\">"+fmtDT(m.date)+"</td><td><span style=\"display:inline-block;padding:1px 7px;border-radius:6px;font-size:11px;background:"+st+";\">"+esc(m.type)+"</span></td><td>"+esc(m.description)+"</td><td>"+esc(m.agent||"")+"</td></tr>";
+  }).join("") || "<tr><td colspan=\"4\" style=\"text-align:center;color:#888;\">Aucune entrée</td></tr>";
+  var html = "<html><head><meta charset=\"utf-8\"><title>Main courante</title><style>"
+    + "body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:24px;}h1{font-size:18px;margin:0 0 4px;}"
+    + ".sub{color:#555;font-size:12px;margin-bottom:16px;}table{width:100%;border-collapse:collapse;font-size:12px;}"
+    + "th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;vertical-align:top;}th{background:#f1f5f9;}"
+    + "@media print{.noprint{display:none;}}</style></head><body>"
+    + "<h1>Main courante"+(centre?" — "+esc(centre):"")+"</h1>"
+    + "<div class=\"sub\">"+esc(periode)+" · "+list.length+" entrée(s) · Édité le "+fmtDT(new Date().toISOString())+"</div>"
+    + "<table><thead><tr><th>Date/Heure</th><th>Type</th><th>Description</th><th>Agent</th></tr></thead><tbody>"+rows+"</tbody></table>"
+    + "<div class=\"noprint\" style=\"margin-top:20px;\"><button onclick=\"window.print()\">Imprimer</button></div>"
+    + "<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script></body></html>";
+  var w = window.open("","_blank");
+  if(!w){ toast("Autorisez les pop-ups pour imprimer.","err"); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
+// ═══ EVENEMENTS ═══
+// Adresses/locaux issus de la structure importée (plan) : « NIVEAU · [ZONE ·] LOCAL ».
+function structureLocalisations(){
+  var out=[], seen={};
+  ((configEtab&&configEtab.batiments)||[]).forEach(function(b){
+    (b.niveaux||b.secteurs||[]).forEach(function(n){
+      (n.zones||[]).forEach(function(z){
+        (z.locaux||z.zones||[]).forEach(function(l){
+          var niv=(n.nom||n.key||""), zon=(z.nom||""), loc=(l.nom||"");
+          var lbl = (zon && zon!=="Plan") ? (niv+" · "+zon+" · "+loc) : (niv+" · "+loc);
+          if(!seen[lbl]){ seen[lbl]=1; out.push(lbl); }
+        });
+      });
+    });
+  });
+  return out;
+}
+function remplirLocalisations(inputId){
+  var dl=document.getElementById(inputId); if(!dl) return;
+  dl.innerHTML = structureLocalisations().map(function(s){ return "<option value=\""+esc(s)+"\">"; }).join("");
+}
+// ── Fiche structure ÉDITABLE (bâtiment › niveau › zone › locaux) ──
+function structNivs(bi){ var b=configEtab.batiments[bi]; if(b.secteurs && !(b.niveaux||[]).length) b.niveaux=b.secteurs; return b.niveaux||(b.niveaux=[]); }
+function structPath(b,n,z,l){ return b.nom+" > "+(n.nom||n.key||"")+" > "+z.nom+" > "+l.nom; }
+function structUpdateMatPath(oldP,newP){ (PTRDB.materiels||[]).forEach(function(m){ if((m.localisation||"").trim()===oldP) m.localisation=newP; }); }
+async function structSave(){ try{ await sauvegarder(); }catch(e){} voirStructure(); renderMateriels(); }
+function structAddZone(bi,ni){ var n=structNivs(bi)[ni]; var nom=(prompt("Nom de la zone :","")||"").trim(); if(!nom) return; (n.zones||(n.zones=[])).push({id:genId(),nom:nom,locaux:[]}); structSave(); }
+function structRenameZone(bi,ni,zi){ var b=configEtab.batiments[bi],n=structNivs(bi)[ni],z=n.zones[zi]; var nom=(prompt("Renommer la zone :",z.nom)||"").trim(); if(!nom||nom===z.nom) return; (z.locaux||z.zones||[]).forEach(function(l){ structUpdateMatPath(structPath(b,n,z,l), b.nom+" > "+(n.nom||n.key)+" > "+nom+" > "+l.nom); }); z.nom=nom; structSave(); }
+function structDelZone(bi,ni,zi){ var n=structNivs(bi)[ni],z=n.zones[zi]; if(!confirm("Supprimer la zone « "+z.nom+" » et ses locaux ?")) return; n.zones.splice(zi,1); structSave(); }
+function structAddLoc(bi,ni,zi){ var z=structNivs(bi)[ni].zones[zi]; var nom=(prompt("Nom du local :","")||"").trim(); if(!nom) return; (z.locaux||(z.locaux=[])).push({id:genId(),nom:nom,codeQR:""}); structSave(); }
+function structRenameLoc(bi,ni,zi,li){ var b=configEtab.batiments[bi],n=structNivs(bi)[ni],z=n.zones[zi],locs=(z.locaux||z.zones),l=locs[li]; var nom=(prompt("Renommer le local :",l.nom)||"").trim(); if(!nom||nom===l.nom) return; structUpdateMatPath(structPath(b,n,z,l), b.nom+" > "+(n.nom||n.key)+" > "+z.nom+" > "+nom); l.nom=nom; structSave(); }
+function structDelLoc(bi,ni,zi,li){ var z=structNivs(bi)[ni].zones[zi],locs=(z.locaux||z.zones),l=locs[li]; if(!confirm("Supprimer le local « "+l.nom+" » ?")) return; locs.splice(li,1); structSave(); }
+function structMoveLoc(bi,ni,zi,li,toId){ if(!toId) return; var b=configEtab.batiments[bi],n=structNivs(bi)[ni],zFrom=n.zones[zi],locs=(zFrom.locaux||zFrom.zones),l=locs[li]; var zTo=n.zones.filter(function(z){return String(z.id)===String(toId);})[0]; if(!zTo||zTo===zFrom) return; structUpdateMatPath(structPath(b,n,zFrom,l), b.nom+" > "+(n.nom||n.key)+" > "+zTo.nom+" > "+l.nom); locs.splice(li,1); (zTo.locaux||(zTo.locaux=[])).push(l); structSave(); }
+
+function voirStructure(){
+  var body = document.getElementById("struct-body");
+  var c = configEtab;
+  if(!c || !(c.batiments||[]).length){
+    body.innerHTML = "<div style='color:#94a3b8;font-size:.85rem;'>Aucune structure. Cliquez « Importer la structure » pour la récupérer du plan.</div>";
+    openModal("modal-structure"); return;
+  }
+  var matCount = {};
+  (PTRDB.materiels||[]).forEach(function(m){ var k=(m.localisation||"").trim().toLowerCase(); matCount[k]=(matCount[k]||0)+1; });
+  var html="<div style='font-size:.72rem;color:#94a3b8;margin-bottom:10px;'>Renomme, déplace ou supprime les locaux ; les matériels suivent automatiquement. Enregistrement immédiat.</div>";
+  (c.batiments||[]).forEach(function(b,bi){
+    var nivs = b.niveaux||b.secteurs||[];
+    html += "<div style='margin-bottom:14px;'><div style='font-weight:800;font-size:.92rem;'>🏢 "+esc(b.nom||"")+"</div>";
+    nivs.forEach(function(n,ni){
+      var nivNom = n.nom||n.key||"";
+      html += "<div style='margin:8px 0 8px 12px;'><div style='font-weight:700;color:#334155;display:flex;align-items:center;gap:8px;'>▸ "+esc(nivNom)+" <button onclick=\"structAddZone("+bi+","+ni+")\" class='btn btn-gray btn-sm'>+ Zone</button></div>";
+      (n.zones||[]).forEach(function(z,zi){
+        var zoneOpts=(n.zones||[]).filter(function(zz){return zz!==z;}).map(function(zz){return "<option value='"+zz.id+"'>→ "+esc(zz.nom)+"</option>";}).join("");
+        html += "<div style='margin:6px 0 10px 14px;'><div style='display:flex;align-items:center;gap:6px;flex-wrap:wrap;'><span style='color:#16a34a;font-weight:700;font-size:.82rem;'>● "+esc(z.nom||"")+"</span>"
+          +"<button onclick=\"structRenameZone("+bi+","+ni+","+zi+")\" class='btn btn-gray btn-sm' title='Renommer'>✏️</button>"
+          +"<button onclick=\"structDelZone("+bi+","+ni+","+zi+")\" class='btn btn-red btn-sm' title='Supprimer'>🗑️</button>"
+          +"<button onclick=\"structAddLoc("+bi+","+ni+","+zi+")\" class='btn btn-gray btn-sm'>+ Local</button></div>"
+          +"<div style='margin:6px 0 0 14px;display:flex;flex-direction:column;gap:5px;'>";
+        (z.locaux||z.zones||[]).forEach(function(l,li){
+          var path=(b.nom+" > "+nivNom+" > "+(z.nom||"")+" > "+(l.nom||"")).toLowerCase();
+          var cnt=matCount[path]||0;
+          html += "<div style='display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#f8fafc;border-radius:8px;padding:4px 8px;'>"
+            +"<span style='font-size:.8rem;flex:1;min-width:110px;'>📍 "+esc(l.nom||"")+(cnt?" <b style=\"color:#2563eb;\">"+cnt+"</b>":"")+"</span>"
+            +(zoneOpts?("<select onchange=\"structMoveLoc("+bi+","+ni+","+zi+","+li+",this.value)\" class='input' style='max-width:150px;font-size:.72rem;padding:2px 6px;'><option value=''>Déplacer…</option>"+zoneOpts+"</select>"):"")
+            +"<button onclick=\"structRenameLoc("+bi+","+ni+","+zi+","+li+")\" class='btn btn-gray btn-sm'>✏️</button>"
+            +"<button onclick=\"structDelLoc("+bi+","+ni+","+zi+","+li+")\" class='btn btn-red btn-sm'>🗑️</button>"
+            +"</div>";
+        });
+        html += "</div></div>";
+      });
+      html += "</div>";
+    });
+    html += "</div>";
+  });
+  body.innerHTML = html;
+  openModal("modal-structure");
+}
+// Création d'événement guidée : 3 catégories à symbole, puis listes déroulantes + localisation + commentaire.
+var EVT_CONFIG = {
+  feu: { label:"Feu", icon:"🔥", type:"Alarme Incendie", color:"#dc2626", champs:[
+    { id:"detection", label:"Détection", options:["DM","DAI","Voix"] },
+    { id:"loc", type:"loc", label:"Lieu" },
+    { id:"nature", label:"Nature", options:["Poubelle","Palette","Stockage","Hydrocarbure","Décoration","Autre"] },
+    { id:"action", label:"Action", options:["Levée de doute","Extinction extincteur","Extinction RIA","Non maîtrisable","Feu éteint","Mise en sécurité","Évacuation partielle","Évacuation générale","Fin d'intervention"] }
+  ] },
+  secours: { label:"Secours", icon:"🚑", type:"Secours a personne", color:"#2563eb", champs:[
+    { id:"nature", label:"Nature", options:["Malaise","Blessé"] },
+    { id:"loc", type:"loc", label:"Lieu" },
+    { id:"gravite", label:"Gravité", options:["Bénin","Grave"] },
+    { id:"action", label:"Action", options:["Bilan victime","Traité sur place","Prise en charge pompier","Prise en charge SAMU","Fin d'intervention"] }
+  ] },
+  intervention: { label:"Intervention", icon:"🔧", type:"Intervention", color:"#d97706", champs:[
+    { id:"nature", label:"Type", options:["Électrique","Gaz","Eau","Chauffage","Climatisation","Frigo","Autre"] },
+    { id:"loc", type:"loc", label:"Lieu" },
+    { id:"action", label:"Action", options:["Levée de doute","Intervention maintenance","Technicien externe","Mise hors service","Remise en service","Fin d'intervention"] }
+  ] }
+};
+var EVT_CUR = null;
+function showModalEvenement(){ EVT_CUR=null; evtRenderCats();
+  document.getElementById("evt-fields").innerHTML = "<div style='color:#94a3b8;font-size:.85rem;text-align:center;padding:14px;'>Choisissez un type d'événement ci-dessus.</div>";
+  openModal("modal-evenement");
+}
+// Boutons de catégorie posés directement sur la page Événements (gagne un clic).
+function renderEvtPageCats(){
+  var el=document.getElementById("evt-page-cats"); if(!el) return;
+  el.innerHTML = Object.keys(EVT_CONFIG).map(function(k){
+    var c=EVT_CONFIG[k];
+    return "<button onclick=\"evtQuickCreate('"+k+"')\" style=\"padding:16px 6px;border-radius:14px;border:2px solid "+c.color+";background:"+c.color+"12;cursor:pointer;font-weight:800;font-size:.85rem;display:flex;flex-direction:column;align-items:center;gap:8px;color:"+c.color+";\"><span style='font-size:1.9rem;'>"+c.icon+"</span>"+esc(c.label)+"</button>";
+  }).join("");
+}
+// Ouvre le formulaire directement pré-sélectionné sur la catégorie choisie.
+function evtQuickCreate(k){ EVT_CUR=null; openModal("modal-evenement"); evtPick(k); }
+function evtRenderCats(){
+  document.getElementById("evt-cats").innerHTML = Object.keys(EVT_CONFIG).map(function(k){
+    var c=EVT_CONFIG[k], on=(EVT_CUR===k);
+    return "<button onclick=\"evtPick('"+k+"')\" style=\"padding:14px 6px;border-radius:12px;border:2px solid "+(on?c.color:"#e2e8f0")+";background:"+(on?c.color+"14":"#fff")+";cursor:pointer;font-weight:700;font-size:.8rem;display:flex;flex-direction:column;align-items:center;gap:6px;\"><span style='font-size:1.6rem;'>"+c.icon+"</span>"+esc(c.label)+"</button>";
+  }).join("");
+}
+function evtPick(k){
+  EVT_CUR=k; evtRenderCats();
+  var c=EVT_CONFIG[k];
+  var html = c.champs.map(function(f){
+    if(f.type==="loc"){
+      var locs = structureLocalisations();
+      var opts = "<option value=''>— Choisir un lieu du plan —</option>"
+        + locs.map(function(s){ return "<option value=\""+esc(s)+"\">"+esc(s)+"</option>"; }).join("")
+        + "<option value='__autre__'>✏️ Autre (saisir)…</option>";
+      return "<div style='margin-bottom:10px;'><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;'>"+esc(f.label)+"</label>"
+        + "<select id='evt-loc-select' class='input' onchange=\"document.getElementById('evt-loc-free').style.display=(this.value==='__autre__')?'block':'none'\">"+opts+"</select>"
+        + "<input id='evt-loc-free' name='xloc"+genId()+"' autocomplete='off' autocorrect='off' spellcheck='false' class='input' style='display:none;margin-top:8px;' placeholder='Préciser le lieu…'>"
+        + "</div>";
+    }
+    return "<div style='margin-bottom:10px;'><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;'>"+esc(f.label)+"</label><select id='evt-f-"+f.id+"' class='input'>"+f.options.map(function(o){return "<option>"+esc(o)+"</option>";}).join("")+"</select></div>";
+  }).join("");
+  html += "<div style='margin-bottom:10px;'><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:4px;'>Commentaire</label><textarea id='evt-desc' class='input' rows='2' placeholder='Précisions libres (optionnel)…'></textarea></div>";
+  html += "<div style='display:flex;gap:10px;margin-top:4px;'><button onclick=\"closeModal('modal-evenement')\" class='btn btn-gray' style='flex:1;justify-content:center;'>Annuler</button><button onclick='saveEvenement()' class='btn btn-red' style='flex:1;justify-content:center;'>Créer l'événement</button></div>";
+  document.getElementById("evt-fields").innerHTML = html;
+}
+async function saveEvenement(){
+  if(!EVT_CUR){ toast("Choisissez un type d'événement.","err"); return; }
+  var c=EVT_CONFIG[EVT_CUR], parts=[];
+  c.champs.forEach(function(f){ if(f.type==="loc") return; var el=document.getElementById("evt-f-"+f.id); if(el&&el.value) parts.push(el.value); });
+  var sel=document.getElementById("evt-loc-select");
+  var loc = sel ? (sel.value==="__autre__" ? ((document.getElementById("evt-loc-free")||{}).value||"").trim() : sel.value) : "";
+  var com=((document.getElementById("evt-desc")||{}).value||"").trim();
+  var desc = parts.join(" · ") + (com?(" — "+com):"");
+  var chefId = chefDePosteId();
+  var evt = { id:genId(), type:c.type, categorie:EVT_CUR, statut:"En cours", localisation:loc, description:desc, details:parts, commentaire:com, compteRendu:"", date:new Date().toISOString(), agentId:chefId };
+  PTRDB.evenements.unshift(evt);
+  addMC(c.type, "DÉBUT: "+c.icon+" "+(loc?("("+loc+") "):"")+desc, chefId);
+  await sauvegarder(); closeModal("modal-evenement"); toast("Événement créé !","ok"); renderEvenements();
+}
+
+function renderEvenements() {
+  renderEvtPageCats();
+  var el = document.getElementById("body-evenements");
+  if (!el) return;
+  if (!PTRDB.evenements.length) { el.innerHTML="<div style=\"text-align:center;color:#94a3b8;padding:32px;\">Aucun evenement</div>"; return; }
+  el.innerHTML = PTRDB.evenements.map(function(e){
+    var col = e.statut==="Debut"?"b-red":e.statut==="En cours"?"b-orange":"b-green";
+    var live = (e.statut!=="Termine");
+    var ic = evtCfg(e).icon || "";
+    return "<div class=\"card"+(live?" evt-live":"")+"\" style=\"margin-bottom:10px;cursor:pointer;\" onclick=\"voirEvenement('"+e.id+"')\">"
+      +"<div style=\"display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;\">"
+      +"<div><div style=\"font-weight:700;font-size:.88rem;\">"+(ic?ic+" ":"")+esc(e.type)+"</div>"
+      +"<div style=\"font-size:.75rem;color:#64748b;margin-top:2px;\">"+esc(e.localisation||"")+" &bull; "+fmtDT(e.date)+"</div></div>"
+      +"<span class=\"badge "+col+(live?" blink":"")+"\">"+e.statut+"</span></div>"
+      +"<div style=\"margin-top:8px;font-size:.83rem;\">"+esc(e.description)+"</div>"
+      +"<div style=\"margin-top:8px;font-size:.72rem;color:#94a3b8;\">Cliquer pour suivre l'événement →</div>"
+      +"</div>";
+  }).join("");
+}
+// Retrouve la config d'un événement par sa catégorie, sinon par son type (événements anciens sans catégorie).
+function evtCfg(e){
+  if(!e || typeof EVT_CONFIG==="undefined") return {};
+  if(EVT_CONFIG[e.categorie]) return EVT_CONFIG[e.categorie];
+  var found = {};
+  Object.keys(EVT_CONFIG).forEach(function(k){ if(EVT_CONFIG[k].type===e.type) found=EVT_CONFIG[k]; });
+  return found;
+}
+// Liste d'actions par défaut si l'événement ne correspond à aucune catégorie connue.
+var EVT_ACTIONS_DEFAULT = ["Levée de doute","Intervention en cours","Mise en sécurité","Résolu","Transféré","Autre","Fin d'intervention"];
+// ── Fiche de suivi d'un événement (statut Début › En cours › Terminé + compte-rendu) ──
+var EVT_DETAIL_ID = null;
+function voirEvenement(id){
+  var e = PTRDB.evenements.find(function(x){ return String(x.id)===String(id); }); if(!e) return;
+  EVT_DETAIL_ID = id;
+  var c = evtCfg(e);
+  document.getElementById("ed-title").innerHTML = (c.icon?c.icon+" ":"")+esc(e.type);
+  var col = e.statut==="Debut"?"b-red":e.statut==="En cours"?"b-orange":"b-green";
+  var h = "<div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;'><span class='badge "+col+"'>"+esc(e.statut)+"</span><span style='font-size:.78rem;color:#64748b;'>"+fmtDT(e.date)+"</span></div>";
+  if(e.localisation) h += "<div style='font-size:.85rem;margin-bottom:6px;'><b>📍 Lieu :</b> "+esc(e.localisation)+"</div>";
+  if((e.details||[]).length) h += "<div style='font-size:.85rem;margin-bottom:6px;'><b>Détails :</b> "+esc(e.details.join(" · "))+"</div>";
+  if(e.commentaire) h += "<div style='font-size:.85rem;margin-bottom:6px;'><b>Commentaire :</b> "+esc(e.commentaire)+"</div>";
+  h += "<div style='display:flex;gap:8px;flex-wrap:wrap;margin:14px 0;'>";
+  // La clôture se fait via l'action « Fin d'intervention » (plus de bouton dédié).
+  if(e.statut==="Termine") h += "<button onclick=\"evtSetStatut('En cours')\" class='btn btn-gray' style='flex:1;justify-content:center;'>↩ Rouvrir</button>";
+  h += "</div>";
+  var actChamp = (c.champs||[]).filter(function(f){ return f.id==="action"; })[0];
+  var actOptions = actChamp ? actChamp.options.slice() : EVT_ACTIONS_DEFAULT.slice();
+  if(e.action && actOptions.indexOf(e.action)<0) actOptions.unshift(e.action);
+  var opts = "<option value=''>—</option>" + actOptions.map(function(o){ var sel=(e.action===o)?" selected":""; return "<option"+sel+">"+esc(o)+"</option>"; }).join("");
+  h += "<div style='margin-bottom:10px;'><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;'>Action</label><select id='ed-action' class='input'>"+opts+"</select></div>";
+  h += "<div><label style='font-size:.75rem;font-weight:700;color:#64748b;display:block;margin-bottom:5px;'>Compte-rendu / suivi</label><textarea id='ed-cr' rows='4' class='input' placeholder='Chronologie, actions menées, moyens engagés…'>"+esc(e.compteRendu||"")+"</textarea></div>";
+  h += "<div style='display:flex;gap:10px;margin-top:12px;'><button onclick=\"closeModal('modal-evt-detail')\" class='btn btn-gray' style='flex:1;justify-content:center;'>Fermer</button><button onclick='saveEvtCR()' class='btn btn-primary' style='flex:1;justify-content:center;'>Enregistrer</button></div>";
+  document.getElementById("ed-body").innerHTML = h;
+  openModal("modal-evt-detail");
+}
+function evtCollectDetail(e){
+  var cr = document.getElementById("ed-cr"); if(cr) e.compteRendu = cr.value.trim();
+  var ac = document.getElementById("ed-action"); if(ac) e.action = ac.value;
+}
+async function evtSetStatut(st){
+  var e = PTRDB.evenements.find(function(x){ return String(x.id)===String(EVT_DETAIL_ID); }); if(!e) return;
+  evtCollectDetail(e);
+  e.statut = st;
+  var c = (typeof EVT_CONFIG!=="undefined" && EVT_CONFIG[e.categorie]) || {};
+  var lbl = st==="En cours"?"SUIVI":st==="Termine"?"FIN":"MAJ";
+  addMC(e.type, lbl+": "+(c.icon?c.icon+" ":"")+(e.localisation?("("+e.localisation+") "):"")+e.type+(e.action?(" · "+e.action):"")+" → "+st, chefDePosteId());
+  await sauvegarder(); toast("Statut mis à jour","ok"); voirEvenement(EVT_DETAIL_ID); renderEvenements();
+}
+async function saveEvtCR(){
+  var e = PTRDB.evenements.find(function(x){ return String(x.id)===String(EVT_DETAIL_ID); }); if(!e) return;
+  evtCollectDetail(e);
+  var c = evtCfg(e);
+  // L'action « Fin d'intervention » clôture l'événement (remplace le bouton Clôturer).
+  var clot = (e.action==="Fin d'intervention");
+  if(clot) e.statut = "Termine";
+  var bits = [];
+  if(e.action) bits.push(e.action);
+  if(e.compteRendu) bits.push(e.compteRendu);
+  addMC(e.type, (clot?"FIN: ":"SUIVI: ")+(c.icon?c.icon+" ":"")+(e.localisation?("("+e.localisation+") "):"")+e.type+(bits.length?(" — "+bits.join(" · ")):""), chefDePosteId());
+  await sauvegarder(); toast(clot?"Intervention terminée":"Suivi enregistré (main courante)","ok"); voirEvenement(EVT_DETAIL_ID); renderEvenements();
+}
+
+// ═══ MATERIELS ═══
+function showModalMateriel(id) {
+  document.getElementById("mat-id").value = id || "";
+  document.getElementById("modal-mat-title").textContent = id ? "Fiche matériel" : "Nouveau Materiel";
+  var fields = { "mat-nom":"", "mat-numero":"", "mat-loc":"", "mat-adresse":"", "mat-qr":"", "mat-controle":"" };
+  if (id) {
+    var m = PTRDB.materiels.find(function(x){ return String(x.id)===String(id); });
+    if (m) {
+      document.getElementById("mat-nom").value = m.nom||"";
+      document.getElementById("mat-numero").value = m.numero||"";
+      document.getElementById("mat-type").value = m.type||"Extincteur";
+      document.getElementById("mat-agent").value = m.agent||"";
+      document.getElementById("mat-statut").value = m.statut||"Operationnel";
+      document.getElementById("mat-loc").value = m.localisation||"";
+      document.getElementById("mat-adresse").value = m.adresse||"";
+      document.getElementById("mat-qr").value = m.codeQR||"";
+      document.getElementById("mat-controle").value = m.dernierControle||"";
+    }
+  } else {
+    Object.keys(fields).forEach(function(k){ document.getElementById(k).value=fields[k]; });
+    document.getElementById("mat-type").value="Extincteur";
+    document.getElementById("mat-agent").value="";
+    document.getElementById("mat-statut").value="Operationnel";
+  }
+  openModal("modal-materiel");
+  majQRPreview(); majAlerteControle(); majAgentRow(); remplirLocalisations("mat-loc-list");
+}
+// Affiche le champ « Agent extincteur » uniquement pour le type Extincteur.
+function majAgentRow(){
+  var row=document.getElementById("mat-agent-row"); if(!row) return;
+  row.style.display = (document.getElementById("mat-type").value==="Extincteur") ? "" : "none";
+}
+// Rendu du QR dans l'aperçu de la fiche
+function majQRPreview(){
+  var box=document.getElementById("mat-qr-preview"); if(!box) return;
+  box.innerHTML="";
+  var txt=(document.getElementById("mat-qr").value||"").trim();
+  if(!txt){ box.innerHTML="<span style='font-size:.65rem;color:#94a3b8;'>QR auto</span>"; return; }
+  if(typeof QRCode!=="undefined"){ try{ new QRCode(box,{text:txt,width:84,height:84,colorDark:"#111827",colorLight:"#ffffff"}); }catch(e){} }
+}
+function majAlerteControle(){
+  var el=document.getElementById("mat-controle-alerte"); if(!el) return;
+  var ci=controleInfo({ dernierControle:(document.getElementById("mat-controle").value||"") });
+  var col=ci.etat==="retard"?"#dc2626":ci.etat==="bientot"?"#d97706":"#16a34a";
+  var ic =ci.etat==="retard"?"⚠️":ci.etat==="bientot"?"🟠":"✅";
+  el.innerHTML="<span style='color:"+col+";font-weight:700;'>"+ic+" Contrôle annuel : "+esc(ci.label)+"</span>";
+}
+
+// Suppression unitaire d'un matériel (le centre gère ses propres matériels ;
+// la création/suppression côté modèle reste dans l'éditeur d'établissement admin).
+// Supprime les doublons de la liste opérationnelle : même code QR, sinon même nom+type+localisation.
+async function dedupMateriels() {
+  var seen={}, kept=[], removed=0;
+  (PTRDB.materiels||[]).forEach(function(m){
+    var key = (m.codeQR && m.codeQR.trim())
+      ? "qr:"+m.codeQR.trim().toUpperCase()
+      : "k:"+(m.nom||"").trim().toLowerCase()+"|"+(m.type||"")+"|"+(m.localisation||"").trim().toLowerCase();
+    if(seen[key]){ removed++; return; }
+    seen[key]=true; kept.push(m);
+  });
+  if(!removed){ toast("Aucun doublon détecté.","ok"); return; }
+  if(!confirm("Supprimer "+removed+" matériel(s) en double ?")) return;
+  PTRDB.materiels=kept; await sauvegarder(); toast(removed+" doublon(s) supprimé(s).","ok"); renderMateriels();
+}
+
+async function deleteMateriel(id) {
+  var m = PTRDB.materiels.find(function(x){ return String(x.id)===String(id); });
+  if (!m) return;
+  if (!confirm("Supprimer le matériel « "+m.nom+" » ?")) return;
+  PTRDB.materiels = PTRDB.materiels.filter(function(x){ return String(x.id)!==String(id); });
+  await sauvegarder(); toast("Matériel supprimé.","ok"); renderMateriels();
+}
+
+async function saveMateriel() {
+  var nom = document.getElementById("mat-nom").value.trim();
+  if (!nom) { toast("Nom requis.","err"); return; }
+  var existingId = document.getElementById("mat-id").value;
+  var mtype = document.getElementById("mat-type").value;
+  var vals = {
+    nom:nom, numero:document.getElementById("mat-numero").value.trim(),
+    type:mtype, agent:(mtype==="Extincteur" ? document.getElementById("mat-agent").value : ""),
+    statut:document.getElementById("mat-statut").value,
+    localisation:document.getElementById("mat-loc").value.trim(), adresse:document.getElementById("mat-adresse").value.trim(),
+    codeQR:document.getElementById("mat-qr").value.trim(), dernierControle:document.getElementById("mat-controle").value||""
+  };
+  if (existingId) {
+    var m = PTRDB.materiels.find(function(x){ return String(x.id)===String(existingId); });
+    if (m) Object.keys(vals).forEach(function(k){ m[k]=vals[k]; });
+  } else {
+    var newId = genId();
+    vals.id = newId;
+    if (!vals.codeQR) vals.codeQR = "MAT-"+vals.type.substring(0,3).toUpperCase()+"-"+String(newId).slice(-4);
+    PTRDB.materiels.push(vals);
+  }
+  await sauvegarder(); closeModal("modal-materiel"); toast("Materiel enregistre !","ok"); renderMateriels();
+}
+
+// ── Impression QR codes (matériels filtrés) ──
+function qrDataURL(text, size){
+  if (typeof QRCode==="undefined") return "";
+  var tmp=document.createElement("div"); tmp.style.position="absolute"; tmp.style.left="-9999px"; document.body.appendChild(tmp);
+  try{ new QRCode(tmp,{text:(text||"-"),width:(size||140),height:(size||140),colorDark:"#000000",colorLight:"#ffffff"}); }catch(e){}
+  var c=tmp.querySelector("canvas"); var url=c?c.toDataURL("image/png"):(tmp.querySelector("img")||{}).src||"";
+  document.body.removeChild(tmp); return url;
+}
+function imprimerQR(){
+  var list=getFilteredMateriels();
+  if(!list.length){ toast("Aucun matériel à imprimer.","err"); return; }
+  var cells=list.map(function(m){
+    var url=qrDataURL(m.codeQR||m.nom,150);
+    return "<div class='qr'>"+(url?"<img src='"+url+"'>":"")+"<div class='nm'>"+esc(m.nom)+"</div>"
+      +"<div class='cd'>"+esc(m.codeQR||"")+"</div><div class='lo'>"+esc(m.localisation||"")+"</div></div>";
+  }).join("");
+  var css="body{font-family:Arial,Helvetica,sans-serif;margin:12px;}"
+    +".grid{display:flex;flex-wrap:wrap;gap:10px;}"
+    +".qr{width:170px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;text-align:center;page-break-inside:avoid;}"
+    +".qr img{width:150px;height:150px;}.nm{font-weight:700;font-size:13px;margin-top:6px;}"
+    +".cd{font-size:11px;color:#475569;font-family:monospace;}.lo{font-size:10px;color:#64748b;margin-top:2px;}"
+    +"h1{font-size:16px;}@media print{.no-print{display:none;}}";
+  var w=window.open("","_blank");
+  w.document.write("<html><head><title>QR matériels</title><style>"+css+"</style></head><body>"
+    +"<h1>QR codes — "+list.length+" matériel(s)</h1>"
+    +"<button class='no-print' onclick='window.print()'>🖨️ Imprimer</button>"
+    +"<div class='grid'>"+cells+"</div></body></html>");
+  w.document.close();
+}
+// ── Impression fiche(s) : matériels cochés, sinon tous les filtrés ──
+function imprimerFiches(){
+  var checked=Array.prototype.map.call(document.querySelectorAll(".mat-check:checked"),function(c){return c.dataset.id;});
+  var list = checked.length ? PTRDB.materiels.filter(function(m){ return checked.indexOf(String(m.id))>=0; }) : getFilteredMateriels();
+  if(!list.length){ toast("Aucune fiche à imprimer.","err"); return; }
+  var fiches=list.map(function(m){
+    var ci=controleInfo(m), url=qrDataURL(m.codeQR||m.nom,150);
+    function row(k,v){ return "<tr><td class='k'>"+k+"</td><td>"+esc(v||"—")+"</td></tr>"; }
+    return "<div class='fiche'>"
+      +"<div class='ft'><div><h2>"+esc(m.nom)+"</h2><div class='sub'>"+esc(m.type)+"</div></div>"
+      +(url?"<img src='"+url+"'>":"")+"</div>"
+      +"<table>"+row("Numéro",m.numero)+row("Type",m.type)+row("Localisation",m.localisation)
+      +row("Adresse",m.adresse)+row("Code QR",m.codeQR)+row("Statut",m.statut)
+      +row("Dernier contrôle",m.dernierControle||"Jamais")+row("Prochaine échéance",ci.next||"—")
+      +"</table>"
+      +"<div class='al' style='color:"+(ci.etat==="retard"?"#dc2626":ci.etat==="bientot"?"#d97706":"#16a34a")+"'>"
+      +(ci.etat==="retard"?"⚠️ Contrôle annuel en retard":ci.etat==="bientot"?"🟠 Échéance proche":"✅ Contrôle à jour")+"</div>"
+      +"</div>";
+  }).join("");
+  var css="body{font-family:Arial,Helvetica,sans-serif;margin:14px;}"
+    +".fiche{border:1px solid #cbd5e1;border-radius:10px;padding:14px;margin-bottom:14px;page-break-inside:avoid;}"
+    +".ft{display:flex;justify-content:space-between;align-items:flex-start;}"
+    +".ft h2{margin:0;font-size:18px;}.sub{color:#64748b;font-size:13px;}.ft img{width:120px;height:120px;}"
+    +"table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;}"
+    +"td{border-bottom:1px solid #eef2f7;padding:5px 4px;}td.k{color:#64748b;width:170px;font-weight:600;}"
+    +".al{margin-top:10px;font-weight:700;}@media print{.no-print{display:none;}}";
+  var w=window.open("","_blank");
+  w.document.write("<html><head><title>Fiches matériel</title><style>"+css+"</style></head><body>"
+    +"<button class='no-print' onclick='window.print()'>🖨️ Imprimer</button>"+fiches+"</body></html>");
+  w.document.close();
+}
+
+// Contrôle réglementaire : périodicité par défaut 12 mois (annuel). Retard si jamais
+// contrôlé ou si la dernière date + périodicité est dépassée.
+function controleInfo(m){
+  var per = m.periodiciteMois || 12;
+  if (!m.dernierControle) return { etat:"retard", label:"Jamais contrôlé", badge:"b-red", next:null };
+  var d = new Date(m.dernierControle); if (isNaN(d)) return { etat:"retard", label:"Date invalide", badge:"b-red", next:null };
+  var next = new Date(d); next.setMonth(next.getMonth()+per);
+  var jours = Math.round((next - new Date())/86400000);
+  var nextStr = next.toISOString().split("T")[0];
+  if (jours < 0)   return { etat:"retard",  label:"En retard ("+m.dernierControle+")", badge:"b-red",    next:nextStr };
+  if (jours <= 30) return { etat:"bientot", label:m.dernierControle+" · échéance "+nextStr, badge:"b-orange", next:nextStr };
+  return { etat:"ok", label:m.dernierControle+" · ok jusqu'au "+nextStr, badge:"b-green", next:nextStr };
+}
+function getFilteredMateriels(){
+  var qEl=document.getElementById("mat-search"), tEl=document.getElementById("mat-filtre-type");
+  var q=(qEl?qEl.value:"").trim().toLowerCase();
+  var t=(tEl?tEl.value:"");
+  return (PTRDB.materiels||[]).filter(function(m){
+    if (t && m.type!==t) return false;
+    if (!q) return true;
+    return [m.nom,m.type,m.agent,m.numero,m.adresse,m.localisation,m.codeQR,m.statut].some(function(x){ return (x||"").toString().toLowerCase().indexOf(q)>=0; });
+  });
+}
+function toggleAllMat(cb){ Array.prototype.forEach.call(document.querySelectorAll(".mat-check"), function(c){ c.checked=cb.checked; }); }
+
+function renderMateriels() {
+  var tbody = document.getElementById("tbl-materiels");
+  if (!tbody) return;
+  var list = getFilteredMateriels();
+  if (!list.length) { tbody.innerHTML="<tr><td colspan=\"8\" style=\"text-align:center;color:#94a3b8;padding:24px;\">Aucun materiel</td></tr>"; return; }
+  tbody.innerHTML = list.map(function(m){
+    var sc = m.statut==="Operationnel"?"b-green":m.statut==="A verifier"?"b-orange":"b-red";
+    var ci = controleInfo(m);
+    return "<tr>"
+      +"<td><input type=\"checkbox\" class=\"mat-check\" data-id=\""+m.id+"\"></td>"
+      +"<td style=\"font-weight:600;\">"+esc(m.nom)+"</td>"
+      +"<td style=\"font-size:.78rem;color:#64748b;\">"+esc(m.numero||"—")+"</td>"
+      +"<td style=\"font-size:.8rem;color:#64748b;\">"+esc(m.type)+(m.agent?" · "+esc(m.agent):"")+"</td>"
+      +"<td style=\"font-size:.78rem;color:#64748b;\">"+esc(m.localisation||"—")+"</td>"
+      +"<td><span class=\"badge "+ci.badge+"\" style=\"font-size:.68rem;\">"+esc(ci.label)+"</span></td>"
+      +"<td><span class=\"badge "+sc+"\">"+esc(m.statut)+"</span></td>"
+      +"<td><div style=\"display:flex;gap:5px;\">"
+      +"<button onclick=\"showModalMateriel("+m.id+")\" class=\"btn btn-blue btn-sm\" title=\"Modifier la fiche\">✏️</button>"
+      +"<button onclick=\"deleteMateriel("+m.id+")\" class=\"btn btn-red btn-sm\" title=\"Supprimer ce matériel\">🗑️</button>"
+      +"</div></td></tr>";
+  }).join("");
+  var all=document.getElementById("mat-check-all"); if(all) all.checked=false;
+}
+
+// ═══ CONSIGNES ═══
+function consToggleDates(){
+  var perm = document.getElementById("cons-niveau").value==="Permanente";
+  document.getElementById("cons-dates-row").style.display = perm ? "none" : "grid";
+}
+function showModalConsigne(id) {
+  var c = id ? PTRDB.consignes.find(function(x){ return String(x.id)===String(id); }) : null;
+  document.getElementById("cons-id").value = c ? c.id : "";
+  document.getElementById("modal-cons-title").textContent = c ? "Modifier la consigne" : "Nouvelle Consigne";
+  document.getElementById("cons-del-btn").style.display = c ? "" : "none";
+  document.getElementById("cons-titre").value   = c ? (c.titre||"") : "";
+  document.getElementById("cons-contenu").value = c ? (c.contenu||"") : "";
+  document.getElementById("cons-niveau").value  = c ? (c.niveau||"Permanente") : "Permanente";
+  document.getElementById("cons-prio").value    = c ? (c.priorite||"Normale") : "Normale";
+  document.getElementById("cons-debut").value   = c ? (c.dateDebut||"") : "";
+  document.getElementById("cons-fin").value     = c ? (c.dateFin||"") : "";
+  consToggleDates();
+  document.getElementById("cons-auteur-lbl").textContent = (c && c.auteur) ? c.auteur : (chefDePosteNom() || "—");
+  document.getElementById("cons-date-lbl").textContent = fmtDT((c && c.dateCreation) ? c.dateCreation : new Date().toISOString());
+  openModal("modal-consigne");
+}
+
+async function saveConsigne() {
+  var titre   = document.getElementById("cons-titre").value.trim();
+  var contenu = document.getElementById("cons-contenu").value.trim();
+  if (!titre || !contenu) { toast("Titre et contenu requis.","err"); return; }
+  var niveau = document.getElementById("cons-niveau").value;
+  var perm = niveau==="Permanente";
+  var id = document.getElementById("cons-id").value;
+  var dateDebut = perm ? null : (document.getElementById("cons-debut").value || new Date().toISOString().split("T")[0]);
+  var dateFin   = perm ? null : (document.getElementById("cons-fin").value || null);
+  var existing = id ? PTRDB.consignes.find(function(x){ return String(x.id)===String(id); }) : null;
+  if (existing) {
+    existing.titre=titre; existing.contenu=contenu; existing.niveau=niveau;
+    existing.priorite=document.getElementById("cons-prio").value;
+    existing.dateDebut=dateDebut; existing.dateFin=dateFin;
+  } else {
+    PTRDB.consignes.push({
+      id:genId(), titre:titre, niveau:niveau, priorite:document.getElementById("cons-prio").value,
+      contenu:contenu, active:true, auteur: chefDePosteNom(), dateCreation: new Date().toISOString(),
+      dateDebut: dateDebut, dateFin: dateFin
+    });
+  }
+  await sauvegarder(); closeModal("modal-consigne"); toast(existing?"Consigne modifiée":"Consigne creee !","ok"); renderConsignes(); renderDashboard();
+}
+
+async function supprimerConsigneModal(){
+  var id = document.getElementById("cons-id").value;
+  if(!id) return;
+  if(!confirm("Supprimer cette consigne ?")) return;
+  closeModal("modal-consigne");
+  await supprimerConsigne(id);
+}
+
+function renderConsignes() {
+  var el = document.getElementById("body-consignes");
+  if (!el) return;
+  var actives = PTRDB.consignes.filter(function(c){ return c.active; });
+  if (!actives.length) { el.innerHTML="<div style=\"text-align:center;color:#94a3b8;padding:32px;\">Aucune consigne active</div>"; return; }
+  el.innerHTML = actives.map(function(c){
+    var prio = c.priorite==="Urgente"||c.priorite==="Haute"?"b-red":"b-blue";
+    var meta = [];
+    if(c.auteur) meta.push("✍️ "+esc(c.auteur));
+    if(c.dateCreation) meta.push("créée le "+fmtDT(c.dateCreation));
+    if(c.niveau!=="Permanente" && (c.dateDebut||c.dateFin)) meta.push("📅 "+esc(c.dateDebut||"?")+" → "+esc(c.dateFin||"?"));
+    return "<div class=\"card\" style=\"margin-bottom:10px;cursor:pointer;\" onclick=\"showModalConsigne('"+c.id+"')\">"
+      +"<div style=\"display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;\">"
+      +"<div style=\"font-weight:700;font-size:.88rem;\">"+esc(c.titre)+"</div>"
+      +"<div style=\"display:flex;gap:5px;\"><span class=\"badge b-purple\">"+c.niveau+"</span><span class=\"badge "+prio+"\">"+c.priorite+"</span>"
+      +"<button onclick=\"event.stopPropagation();supprimerConsigne('"+c.id+"')\" class=\"btn btn-red btn-sm\" style=\"padding:3px 8px;\"><i class=\"fas fa-trash\"></i></button></div></div>"
+      +"<div style=\"font-size:.82rem;color:#64748b;\">"+esc(c.contenu.substring(0,150))+(c.contenu.length>150?"...":"")+"</div>"
+      +(meta.length?"<div style=\"font-size:.7rem;color:#94a3b8;margin-top:8px;\">"+meta.join(" &bull; ")+"</div>":"")
+      +"<div style=\"font-size:.68rem;color:#cbd5e1;margin-top:6px;\">Cliquer pour modifier →</div>"
+      +"</div>";
+  }).join("");
+}
+
+async function supprimerConsigne(id) {
+  PTRDB.consignes = PTRDB.consignes.filter(function(c){ return String(c.id)!==String(id); });
+  await sauvegarder(); renderConsignes(); renderDashboard(); toast("Consigne supprimee","ok");
+}
+
+// ═══ AGENTS ═══
+function showModalAgent() {
+  ["ag-prenom","ag-nom","ag-pin"].forEach(function(id){ document.getElementById(id).value=""; });
+  openModal("modal-agent");
+}
+
+async function saveAgent() {
+  var prenom = document.getElementById("ag-prenom").value.trim();
+  var nom    = document.getElementById("ag-nom").value.trim();
+  var pin    = document.getElementById("ag-pin").value;
+  if (!prenom||!nom||pin.length!==6) { toast("Remplissez tous les champs (PIN 6 chiffres).","err"); return; }
+  var pinHash = await UTILS.hash(pin);
+  PTRDB.agents.push({ id:genId(), prenom:prenom, nom:nom, qualification:document.getElementById("ag-qualif").value, pinHash:pinHash, pinClair:pin, actif:true, type:"agent_secu", entreprise:CENTER?CENTER.nom:"" });
+  await sauvegarder(); closeModal("modal-agent"); toast("Agent cree !","ok"); renderAgents();
+}
+
+// Ajoute le formateur de la session courante à la liste des agents (candidat chef de poste).
+async function ajouterFormateurSession() {
+  if (!PATROL_SESSION) { toast("Session introuvable.","err"); return; }
+  var fid = PATROL_SESSION.agentId;
+  if (fid && PTRDB.agents.find(function(a){ return String(a.id)===String(fid); })) { toast("Le formateur est déjà dans la liste.","ok"); renderAgents(); return; }
+  PTRDB.agents.push({
+    id: fid || genId(),
+    prenom: PATROL_SESSION.prenom || "Formateur",
+    nom: PATROL_SESSION.nom || "",
+    qualification: PATROL_SESSION.qualification || "SSIAP 3",
+    pinHash: null, pinClair: null, actif: true, type: "formateur",
+    entreprise: CENTER?CENTER.nom:"", email: ""
+  });
+  await sauvegarder(); toast("Formateur ajouté — il peut être mis chef de poste.","ok"); renderAgents();
+}
+
+async function importerFormateurs() {
+  toast("Importation formateurs...");
+  var {data} = await sb.from("formateurs").select("id,nom,prenom,pin_hash,pin_clair,email,telephone").eq("center_id", PATROL_SESSION.centerId).eq("actif", true);
+  var added = 0;
+  for (var f of (data||[])) {
+    if (PTRDB.agents.find(function(a){ return String(a.id)===String(f.id); })) continue;
+    var pinHash = f.pin_hash || (f.pin_clair ? await UTILS.hash(f.pin_clair) : null);
+    PTRDB.agents.push({ id:f.id, nom:f.nom, prenom:f.prenom, qualification:"SSIAP 2", entreprise:CENTER?CENTER.nom:"", email:f.email||"", telephone:f.telephone||"", pinHash:pinHash, pinClair:f.pin_clair||null, actif:true, type:"formateur" });
+    added++;
+  }
+  if (added) { await sauvegarder(); toast(added+" formateur(s) importe(s) !","ok"); renderAgents(); }
+  else toast("Tous les formateurs sont deja presents.","ok");
+}
+
+async function importerStagiaires() {
+  if (!PATROL_SESSION.sessionId) { toast("Aucune session liee.","err"); return; }
+  await importerStagiairesSession(PATROL_SESSION.sessionId);
+  renderAgents();
+}
+
+async function importerStagiairesSession(sessionId) {
+  var {data:parts} = await sb.from("session_participants").select("*, stagiaires(id,nom,prenom,niveau,pin_hash,pin_clair,email,telephone)").eq("session_id", sessionId);
+  var added = 0;
+  for (var p of (parts||[])) {
+    var s = p.stagiaires;
+    if (!s || PTRDB.agents.find(function(a){ return String(a.id)===String(s.id); })) continue;
+    var pinHash = s.pin_hash || (s.pin_clair ? await UTILS.hash(s.pin_clair) : null);
+    var niv = s.niveau||"SSIAP1";
+    var qualif = niv==="SSIAP3"?"SSIAP 3":niv==="SSIAP2"?"SSIAP 2":"SSIAP 1";
+    PTRDB.agents.push({ id:s.id, nom:s.nom, prenom:s.prenom, qualification:qualif, pinHash:pinHash, pinClair:s.pin_clair||null, actif:true, type:"stagiaire", entreprise:CENTER?CENTER.nom:"" });
+    added++;
+  }
+  if (added) { await sauvegarder(); toast(added+" stagiaire(s) importe(s) !","ok"); }
+}
+
+function renderAgents() {
+  var tbody = document.getElementById("tbl-agents");
+  if (!tbody) return;
+  if (!PTRDB.agents.length) { tbody.innerHTML="<tr><td colspan=\"5\" style=\"text-align:center;color:#94a3b8;padding:24px;\">Aucun agent</td></tr>"; return; }
+  tbody.innerHTML = PTRDB.agents.map(function(a){
+    var qcls = a.qualification==="SSIAP 3"?"b-purple":a.qualification==="SSIAP 2"?"b-blue":"b-green";
+    var tcls = a.type==="formateur"?"b-orange":a.type==="stagiaire"?"b-blue":"b-gray";
+    return "<tr><td><div style=\"font-weight:700;font-size:.83rem;\">"+esc(a.prenom)+" "+esc(a.nom)+"</div><div style=\"font-size:.72rem;color:#94a3b8;\">"+esc(a.email||"")+"</div></td>"
+      +"<td><span class=\"badge "+qcls+"\">"+a.qualification+"</span></td>"
+      +"<td><span class=\"badge "+tcls+"\">"+a.type+"</span></td>"
+      +"<td><span class=\"badge "+(a.actif?"b-green":"b-red")+"\">"+(a.actif?"Actif":"Inactif")+"</span></td>"
+      +"<td><button onclick=\"toggleAgent('"+a.id+"',"+a.actif+")\" class=\"btn btn-gray btn-sm\">"+(a.actif?"Desactiver":"Activer")+"</button></td></tr>";
+  }).join("");
+}
+
+async function toggleAgent(id, actif) {
+  var a = PTRDB.agents.find(function(x){ return String(x.id)===String(id); });
+  if (a) { a.actif = !actif; await sauvegarder(); renderAgents(); }
+}
+
+// ═══ ADMINISTRATION ═══
+function renderAdmin() {
+  var el = document.getElementById("admin-stats");
+  if (!el) return;
+  el.innerHTML = "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:10px;\">"
+    +"<div class=\"kpi\"><div style=\"font-size:1.4rem;font-weight:800;color:#6366f1;\">"+PTRDB.agents.length+"</div><div style=\"font-size:.72rem;color:#94a3b8;\">Agents</div></div>"
+    +"<div class=\"kpi\"><div style=\"font-size:1.4rem;font-weight:800;color:#10b981;\">"+PTRDB.materiels.length+"</div><div style=\"font-size:.72rem;color:#94a3b8;\">Materiels</div></div>"
+    +"<div class=\"kpi\"><div style=\"font-size:1.4rem;font-weight:800;color:#8b5cf6;\">"+PTRDB.rondes.length+"</div><div style=\"font-size:.72rem;color:#94a3b8;\">Rondes</div></div>"
+    +"<div class=\"kpi\"><div style=\"font-size:1.4rem;font-weight:800;color:#f59e0b;\">"+PTRDB.mainCourante.length+"</div><div style=\"font-size:.72rem;color:#94a3b8;\">Main courante</div></div>"
+    +"</div>";
+  chargerPlansSSI();
+  renderEtabResume();
+}
+
+function renderEtabResume() {
+  var r = document.getElementById("etab-resume");
+  if (!r) return;
+  var nivs = [];
+  (configEtab.batiments||[]).forEach(function(b){
+    // schema actuel : batiment > niveaux > zones > locaux (fallback ancien : secteurs > zones)
+    (b.niveaux||b.secteurs||[]).forEach(function(n){
+      var nbLoc = (n.zones||[]).reduce(function(s,z){ return s + ((z.locaux||z.zones||[]).length); }, 0);
+      nivs.push(esc(n.nom)+" ("+((n.zones||[]).length)+" zones, "+nbLoc+" locaux)");
+    });
+  });
+  r.innerHTML = nivs.length
+    ? "<b>Structure actuelle :</b> "+esc(configEtab.nom||"")+" — "+nivs.join(" · ")+" · "+PTRDB.materiels.length+" materiel(s)."
+    : "<i>Aucune structure. Choisissez un plan ci-dessus et importez-la.</i>";
+}
+
+async function chargerPlansSSI() {
+  var sel = document.getElementById("etab-plan");
+  if (!sel || !CENTER) return;
+  try {
+    var res = await sb.from("ssi_plan_types").select("key,label,center_id,sort")
+      .or("center_id.eq."+CENTER.id+",center_id.is.null").order("sort",{ascending:true});
+    var plans = res.data || [];
+    var prev = sel.value;
+    sel.innerHTML = "<option value=\"\">Selectionner un plan…</option>"
+      + plans.map(function(p){ return "<option value=\""+esc(p.key)+"\">"+esc(p.label)+"</option>"; }).join("");
+    if (prev) sel.value = prev;
+  } catch(e) { sel.innerHTML = "<option value=\"\">(plans indisponibles)</option>"; }
+}
+
+// Import depuis le plan publié : STRUCTURE reprise du modèle (mail/supermarché/…),
+// MATÉRIELS = uniquement les vrais matériels Patrol (on ignore DAI/DM/désenfumage),
+// rattachés aux locaux du modèle par nom (orphelins → zone « Divers »).
+var PLAN_ELEM2MAT   = { RIA:"RIA", EXT:"Extincteur", BAES:"BAES", PI:"PI", BI:"BI", SPRINKLER:"Sprinkler" };
+var PLAN_KEEP_TYPES = { RIA:1, EXT:1, BAES:1, PI:1, BI:1, SPRINKLER:1 };
+async function fetchPlanMarkers(planKey){
+  var scopes = [CENTER.id, "shared"], out=[];
+  for (var s=0; s<scopes.length; s++){
+    var folder = scopes[s] + "/" + planKey, got=false, lst;
+    try { lst = await sb.storage.from("ssi-plans").list(folder, { limit: 200 }); } catch(e){ continue; }
+    if (lst.error || !lst.data) continue;
+    var files = lst.data.filter(function(f){ return /\.json$/i.test(f.name); });
+    if (!files.length) continue;
+    for (var i=0; i<files.length; i++){
+      var dl; try { dl = await sb.storage.from("ssi-plans").download(folder + "/" + files[i].name); } catch(e){ continue; }
+      if (dl.error || !dl.data) continue;
+      var obj; try { obj = JSON.parse(await dl.data.text()); } catch(_){ continue; }
+      var lvl = files[i].name.replace(/\.json$/i,"").toUpperCase();
+      (obj.markers||[]).forEach(function(m){ out.push({ type:m.type, addr:(m.addr||"").trim(), level:lvl }); });
+      got=true;
+    }
+    if(got) return out;   // priorité au scope centre s'il possède des fichiers
+  }
+  return out;
+}
+async function buildFromPublishedPlan(planKey){
+  var markers = await fetchPlanMarkers(planKey);
+  var mats = markers.filter(function(m){ return PLAN_KEEP_TYPES[m.type]; });
+  if(!mats.length) return null;
+
+  // Structure de base = établissement modèle (lecture seule autorisée même sans droit d'écriture).
+  var config = null;
+  try{
+    var er = await sb.from("patrol_etablissements").select("config,nom,center_id")
+      .eq("plan_key", planKey).or("center_id.eq."+CENTER.id+",center_id.is.null");
+    var rows = (er.data||[]).filter(function(r){ return r.config && (r.config.batiments||[]).length; });
+    rows.sort(function(a,b){ return (a.center_id?0:1)-(b.center_id?0:1); });
+    if(rows.length) config = JSON.parse(JSON.stringify(rows[0].config));
+  }catch(e){ console.warn("[import] modèle", e); }
+
+  var batNom = "Centre commercial";
+  if(!config){ config = { nom:batNom, batiments:[{ id:genId(), nom:batNom, niveaux:[] }] }; }
+  var bat = config.batiments[0]; batNom = bat.nom || batNom;
+  if(bat.secteurs && !(bat.niveaux||[]).length) bat.niveaux = bat.secteurs;
+  var niveaux = bat.niveaux || (bat.niveaux = []);
+  var defN = niveaux[0]; if(!defN){ defN = { key:"niv-"+genId(), nom:"RDC", zones:[] }; niveaux.push(defN); }
+
+  var locIndex = {};
+  niveaux.forEach(function(n){ (n.zones||[]).forEach(function(z){ (z.locaux||z.zones||[]).forEach(function(l){ locIndex[(l.nom||"").toLowerCase()] = {n:n,z:z,l:l}; }); }); });
+  var diversZone = null;
+  function ensureDivers(){ if(!diversZone){ diversZone = { id:genId(), nom:"Divers", locaux:[] }; (defN.zones||(defN.zones=[])).push(diversZone); } return diversZone; }
+
+  var materiels = [];
+  mats.forEach(function(m){
+    var t = PLAN_ELEM2MAT[m.type];
+    var addr = (m.addr||"").trim() || t;
+    var hit = locIndex[addr.toLowerCase()];
+    if(!hit){
+      var z = ensureDivers();
+      var loc = { id:genId(), nom:addr, codeQR:"" }; z.locaux.push(loc);
+      hit = locIndex[addr.toLowerCase()] = { n:defN, z:z, l:loc };
+    }
+    materiels.push({ nom:addr, type:t, localisation: batNom+" > "+(hit.n.nom||hit.n.key||"")+" > "+hit.z.nom+" > "+hit.l.nom, codeQR:"" });
+  });
+  return { config: config, materiels: materiels };
+}
+async function importerEtablissementDepuisPlan() {
+  var planKey = document.getElementById("etab-plan").value;
+  if (!planKey) { toast("Choisissez un plan.","err"); return; }
+  if (configEtab && (configEtab.batiments||[]).length
+      && !confirm("Remplacer la structure ET les matériels actuels par ceux du plan ? (le statut des matériels conservés est préservé)")) return;
+  try {
+    // Priorité au PLAN PUBLIÉ (bucket ssi-plans) : source à jour, écrite dans patrol_data (accessible au centre).
+    toast("Lecture du plan publié…");
+    var etab = await buildFromPublishedPlan(planKey);
+    if (!etab) {
+      // Repli : établissement modèle enregistré (patrol_etablissements).
+      var res = await sb.from("patrol_etablissements").select("nom,config,materiels,center_id")
+        .eq("plan_key", planKey).or("center_id.eq."+CENTER.id+",center_id.is.null");
+      var rows = res.data || [];
+      if (!rows.length) { toast("Aucun plan publié ni établissement pour ce plan.","err"); return; }
+      rows.sort(function(a,b){ return (a.center_id?0:1) - (b.center_id?0:1); });
+      etab = { config: rows[0].config || { nom: rows[0].nom, batiments: [] }, materiels: rows[0].materiels || [] };
+    }
+    configEtab = etab.config || { nom: "", batiments: [] };
+    // On REMPLACE les matériels par ceux de l'établissement (source de vérité), en conservant les
+    // infos saisies côté centre (statut, dernier contrôle, numéro, adresse). Rapprochement par code
+    // QR en priorité, sinon par nom+type+localisation (le QR peut changer si le modèle est régénéré).
+    var prev = {};
+    var keyOf = function(m){ return "k:"+(m.nom||"").trim().toLowerCase()+"|"+(m.type||"")+"|"+(m.localisation||"").trim().toLowerCase(); };
+    PTRDB.materiels.forEach(function(m){
+      if (m.codeQR) prev["qr:"+m.codeQR.trim().toUpperCase()] = m;
+      var k = keyOf(m); if (!prev[k]) prev[k] = m;
+    });
+    // Numérotation auto par type (EXT-01, RIA-01…) quand le matériel n'a pas de numéro.
+    // Les compteurs sont amorcés sur les numéros déjà présents pour éviter les doublons.
+    var numCounters = {};
+    var typePrefix = function(t){ return ({Extincteur:"EXT",RIA:"RIA",BAES:"BAES","Désenfumage":"DESENF",Desenfumage:"DESENF",Detecteur:"DET","Porte CF":"PCF",Autre:"DIV"})[t] || (t ? t.substring(0,3).toUpperCase() : "DIV"); };
+    var seedNum = function(list){ (list||[]).forEach(function(m){
+      var mm = (((m&&m.numero)||"").trim()).match(/^([A-Za-z]+)[-\s]?(\d+)$/); if(!mm) return;
+      var pfx = mm[1].toUpperCase(), n = parseInt(mm[2],10);
+      if(!numCounters[pfx] || n>numCounters[pfx]) numCounters[pfx]=n;
+    }); };
+    seedNum(PTRDB.materiels); seedNum(etab.materiels||[]);
+    var nextNum = function(type){ var pfx=typePrefix(type); numCounters[pfx]=(numCounters[pfx]||0)+1; return pfx+"-"+String(numCounters[pfx]).padStart(2,"0"); };
+    PTRDB.materiels = (etab.materiels||[]).map(function(m){
+      var qr = m.codeQR || ("MAT-"+genId());
+      var p = (m.codeQR && prev["qr:"+m.codeQR.trim().toUpperCase()]) || prev[keyOf(m)] || {};
+      var numero = (p.numero || m.numero || "").trim() || nextNum(m.type);
+      return { id: genId(), nom:m.nom, type:m.type,
+        agent: p.agent || m.agent || "",
+        numero: numero,
+        adresse: p.adresse || m.adresse || "",
+        localisation: m.localisation||"", codeQR: qr,
+        statut: p.statut || m.statut || "Operationnel",
+        dernierControle: p.dernierControle || m.dernierControle || "" };
+    });
+    await sauvegarder();
+    toast("Structure importee : "+(etab.nom||planKey)+" ("+PTRDB.materiels.length+" materiel)","ok");
+    renderAdmin(); renderMateriels();
+  } catch(e) { console.error(e); toast("Erreur lors de l'import.","err"); }
+}
+
+async function reinitialiser() {
+  if (!confirm("Supprimer toutes les rondes, evenements et main courante ?")) return;
+  PTRDB.prisesPoste=[]; PTRDB.rondes=[]; PTRDB.evenements=[]; PTRDB.mainCourante=[];
+  await sauvegarder(); toast("Donnees reinitialises","ok"); renderCurrentPage();
+}
+
+function exporterDonnees() {
+  var data = { version:"3.1", date:new Date().toISOString(), centre:CENTER?CENTER.nom:"", ...PTRDB };
+  var blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  var a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="patrol-"+(CENTER?CENTER.nom.replace(/\s/g,"-"):"")+"-"+new Date().toISOString().split("T")[0]+".json"; a.click();
+}
+
+// ═══ UTILS ═══
+function genId() { return Date.now()+Math.floor(Math.random()*1000); }
+function esc(s) { return (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function fmtDate(d) { return d?new Date(d).toLocaleDateString("fr-FR"):"-"; }
+function fmtTime(d) { return d?new Date(d).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}):"-"; }
+function fmtDT(d)   { return d?fmtDate(d)+" "+fmtTime(d):"-"; }
+
+function addMC(type, description, agentId) {
+  var agent = PTRDB.agents.find(function(a){ return String(a.id)===String(agentId); });
+  PTRDB.mainCourante.unshift({ id:genId(), date:new Date().toISOString(), type:type, description:description, agent:agent?agent.prenom+" "+agent.nom:"Systeme", agentId:agentId });
+}
+
+function toast(msg, cls) {
+  var t = document.getElementById("toast");
+  t.textContent=msg; t.className="toast show"+(cls?" "+cls:"");
+  clearTimeout(t._t); t._t=setTimeout(function(){ t.className="toast"; },2800);
+}
+function openModal(id) { document.getElementById(id)?.classList.remove("hidden"); }
+function closeModal(id) { document.getElementById(id)?.classList.add("hidden"); }
+function showModalMsg(elId, msg, type) { var el=document.getElementById(elId); el.innerHTML="<div style=\"padding:8px;border-radius:8px;font-size:.8rem;background:"+(type==="err"?"#fef2f2":"#f0fdf4")+";color:"+(type==="err"?"#dc2626":"#16a34a")+";\">"+msg+"</div>"; el.style.display="block"; }
+
+function logout() {
+  sessionStorage.removeItem("patrol_session");
+  window.location.href = "patrol-login.html?center=" + PATROL_SESSION.centerId;
+}
+
+// Ouvre le module Registre de sécurité (mode Patrol : ?center= sans login).
+// On transmet le nom de l'agent pour l'identification au moment du visa.
+function openRegistreSecurite() {
+  if (!PATROL_SESSION || !PATROL_SESSION.centerId) return;
+  var op = ((PATROL_SESSION.prenom || "") + " " + (PATROL_SESSION.nom || "")).trim();
+  var url = "registre-securite.html?center=" + encodeURIComponent(PATROL_SESSION.centerId)
+          + (op ? "&op=" + encodeURIComponent(op) : "");
+  window.open(url, "_blank");
+}
+
+function copyLink() {
+  var url = window._rondierUrl || "";
+  navigator.clipboard.writeText(url).then(function(){ toast("Lien copie !","ok"); }).catch(function(){ alert("Lien: "+url); });
+}
+
+function toggleSidebar() {
+  document.getElementById("sidebar").classList.toggle("open");
+  document.getElementById("overlay").style.display = document.getElementById("sidebar").classList.contains("open") ? "block":"none";
+}
+
+// Responsive : afficher header mobile
+function checkMobile() {
+  var hdr = document.getElementById("mob-header");
+  if (window.innerWidth <= 768) hdr.style.display="flex";
+  else hdr.style.display="none";
+}
+window.addEventListener("resize", checkMobile);
+checkMobile();
+</script>
+</body>
+</html>

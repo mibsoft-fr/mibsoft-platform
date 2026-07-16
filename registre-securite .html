@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registre de sécurité — MIBsoft</title>
+<link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design-tokens.css">
+<link rel="stylesheet" href="mib-design.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="supabase.js"></script>
+<style>
+  body{background:var(--bg-page,#F8FAFC);margin:0;font-family:var(--font-body,'Inter',sans-serif);color:var(--text-1,#0F172A)}
+  .rs-header{background:#fff;border-bottom:1px solid var(--neutral-200,#e2e8f0);box-shadow:var(--shadow-sm,0 1px 2px rgba(15,23,42,.06))}
+  .rs-bar{max-width:1180px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:14px}
+  .rs-logo{font-family:var(--font-display,'Plus Jakarta Sans');font-weight:800;font-size:1.1rem;background:linear-gradient(135deg,#10B981,#059669 45%,#2563EB);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .rs-logo small{display:block;font-size:.62rem;font-weight:600;color:var(--text-3,#64748b);-webkit-text-fill-color:var(--text-3,#64748b)}
+  .rs-who{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:.85rem;color:var(--text-2,#334155)}
+  main{max-width:1180px;margin:0 auto;padding:24px 20px 80px}
+  .rs-title{font-family:var(--font-display,'Plus Jakarta Sans');font-weight:800;font-size:1.5rem;letter-spacing:-.02em;margin:0 0 2px}
+  .rs-sub{color:var(--text-3,#64748b);font-size:.9rem;margin-bottom:20px}
+  .rs-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:22px}
+  .rs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+  .rs-etab{cursor:pointer;transition:transform .15s,box-shadow .15s}
+  .rs-etab:hover{transform:translateY(-3px)}
+  .rs-etab h3{font-family:var(--font-display);font-size:1.05rem;margin:0}
+  .rs-meta{color:var(--text-3,#64748b);font-size:.82rem;margin-top:2px}
+  .rs-foot{display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--neutral-200,#e2e8f0);flex-wrap:wrap;align-items:center}
+  .rs-actions{margin-left:auto;display:flex;gap:6px}
+  .rs-iconbtn{border:1px solid var(--neutral-200,#e2e8f0);background:#fff;border-radius:8px;padding:5px 8px;cursor:pointer;color:var(--text-3,#64748b);font-size:.75rem}
+  .rs-iconbtn:hover{color:var(--text-1)}
+  .rs-form-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .rs-form-row>div{flex:1;min-width:140px}
+  .rs-empty{text-align:center;color:var(--text-3,#64748b);padding:50px 20px}
+  .rs-state{display:none} .rs-state.on{display:block}
+  .kv{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:.88rem}
+  .kv span:first-child{color:var(--text-3,#64748b)}
+  .kv span:last-child{font-weight:600;text-align:right}
+  .spin{text-align:center;color:var(--text-3);padding:60px}
+</style>
+</head>
+<body>
+
+<header class="rs-header">
+  <div class="rs-bar">
+    <div class="rs-logo">MIBsoft<small>Registre de sécurité</small></div>
+    <div class="rs-who"><span id="rs-center">—</span><button id="rs-logout" class="mib-btn mib-btn-ghost mib-btn-sm" onclick="rsLogout()">Déconnexion</button></div>
+  </div>
+</header>
+
+<main>
+  <!-- Non connecté -->
+  <div id="st-auth" class="rs-state">
+    <div class="mib-card" style="max-width:440px;margin:60px auto;text-align:center">
+      <div class="mib-card-title">Connexion requise</div>
+      <p class="rs-sub">Connectez-vous à votre espace centre / entreprise pour accéder au registre de sécurité.</p>
+      <a class="mib-btn mib-btn-primary" href="/index.html">Se connecter</a>
+    </div>
+  </div>
+
+  <!-- Pas de centre lié -->
+  <div id="st-nocenter" class="rs-state">
+    <div class="mib-alert mib-alert-warning" style="max-width:600px;margin:40px auto">
+      Ce compte n'est pas rattaché à un centre ou une entreprise. Le module « Registre de sécurité »
+      est réservé aux comptes centre / entreprise disposant du module activé.
+    </div>
+  </div>
+
+  <!-- Chargement -->
+  <div id="st-load" class="rs-state on"><div class="spin">Chargement…</div></div>
+
+  <!-- App -->
+  <div id="st-app" class="rs-state">
+    <div style="display:flex;justify-content:space-between;align-items:end;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="rs-title">Mes établissements</div>
+        <div class="rs-sub">Registres de sécurité incendie — suivi des vérifications réglementaires.</div>
+      </div>
+      <button class="mib-btn mib-btn-primary" onclick="rsOpenForm()">+ Nouvel établissement</button>
+    </div>
+
+    <div class="rs-kpis">
+      <div class="mib-kpi"><div class="mib-kpi-label">Établissements</div><div class="mib-kpi-value" id="k-etab">0</div></div>
+      <div class="mib-kpi"><div class="mib-kpi-label">Vérifications en retard</div><div class="mib-kpi-value" id="k-retard" style="color:var(--danger-600,#DC2626)">0</div></div>
+      <div class="mib-kpi"><div class="mib-kpi-label">Échéances &lt; 30 j</div><div class="mib-kpi-value" id="k-proche" style="color:var(--warning-600,#D97706)">0</div></div>
+    </div>
+
+    <div id="rs-list" class="rs-grid"></div>
+    <div id="rs-empty" class="rs-empty" style="display:none">
+      Aucun établissement pour le moment.<br>Cliquez sur « Nouvel établissement » pour commencer.
+    </div>
+  </div>
+</main>
+
+<!-- Modal création / édition -->
+<div class="mib-modal-backdrop" id="rs-modal" style="display:none">
+  <div class="mib-modal" style="max-width:560px">
+    <div class="mib-card-title" id="rs-modal-title">Nouvel établissement</div>
+    <input type="hidden" id="f-id">
+    <div style="margin:14px 0">
+      <label class="mib-label">Nom de l'établissement *</label>
+      <input class="mib-inp" id="f-nom" placeholder="Ex. Résidence Les Tilleuls">
+    </div>
+    <div class="rs-form-row">
+      <div><label class="mib-label">Type ERP</label>
+        <select class="mib-select" id="f-type">
+          <option value="">—</option>
+          <option>J — Structures d'accueil pour personnes âgées / handicapées</option>
+          <option>L — Salles de spectacle, réunions</option>
+          <option>M — Magasins, centres commerciaux</option>
+          <option>N — Restaurants, débits de boissons</option>
+          <option>O — Hôtels</option>
+          <option>P — Salles de danse et de jeux</option>
+          <option>R — Établissements d'enseignement</option>
+          <option>S — Bibliothèques, archives</option>
+          <option>T — Salles d'expositions</option>
+          <option>U — Établissements de soins</option>
+          <option>V — Établissements de culte</option>
+          <option>W — Administrations, banques, bureaux</option>
+          <option>X — Établissements sportifs couverts</option>
+          <option>Y — Musées</option>
+          <option>PA — Plein air</option>
+          <option>IGH — Immeuble de grande hauteur</option>
+        </select>
+      </div>
+      <div><label class="mib-label">Catégorie</label>
+        <select class="mib-select" id="f-cat">
+          <option value="">—</option>
+          <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label class="mib-label">Adresse</label>
+      <input class="mib-inp" id="f-adresse" placeholder="N°, rue, code postal, ville">
+    </div>
+    <div class="rs-form-row">
+      <div><label class="mib-label">Effectif public</label><input class="mib-inp" id="f-eff-pub" type="number" min="0"></div>
+      <div><label class="mib-label">Effectif personnel</label><input class="mib-inp" id="f-eff-pers" type="number" min="0"></div>
+    </div>
+    <div class="mib-help" id="f-err" style="color:var(--danger-600,#DC2626);display:none"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="mib-btn mib-btn-ghost" onclick="rsCloseForm()">Annuler</button>
+      <button class="mib-btn mib-btn-primary" id="f-save" onclick="rsSubmit()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal détail / confirmation -->
+<div class="mib-modal-backdrop" id="rs-detail" style="display:none">
+  <div class="mib-modal" style="max-width:520px">
+    <div class="mib-card-title" id="d-nom">—</div>
+    <div id="d-body"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="mib-btn mib-btn-ghost" onclick="document.getElementById('rs-detail').style.display='none'">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let RS_CENTER = null;
+let RS_OP = null;       // nom de l'opérateur (mode Patrol) — utilisé pour l'identification au visa
+const $ = id => document.getElementById(id);
+function show(state){ ['st-auth','st-nocenter','st-load','st-app'].forEach(s=>$(s).classList.toggle('on', s===state)); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function rsInit(){
+  try{
+    const params = new URLSearchParams(location.search);
+    const centerId = params.get('center');
+    if(centerId){
+      // ===== Mode Patrol : ?center=<id>, sans login (accès fluide) =====
+      const { data:center } = await supabase.from('centers').select('id,nom').eq('id', centerId).maybeSingle();
+      if(!center){ show('st-nocenter'); return; }
+      RS_CENTER = center;
+      RS_OP = (params.get('op')||'').trim() || null;
+      $('rs-center').textContent = center.nom || '—';
+      const lo = $('rs-logout'); if(lo) lo.style.display='none';   // pas de déconnexion en mode Patrol
+      show('st-app'); await rsLoad(); return;
+    }
+    // ===== Mode session : depuis l'espace centre connecté =====
+    const { data:sess } = await supabase.auth.getSession();
+    if(!sess || !sess.session){ show('st-auth'); return; }
+    const { data:u } = await supabase.auth.getUser();
+    const { data:center } = await supabase.from('centers')
+      .select('id,nom,module_registre_securite').eq('auth_user_id', u?.user?.id).maybeSingle();
+    if(!center){ show('st-nocenter'); return; }
+    RS_CENTER = center;
+    $('rs-center').textContent = center.nom || 'Mon compte';
+    show('st-app');
+    await rsLoad();
+  }catch(e){ console.error(e); show('st-auth'); }
+}
+
+async function rsLoad(){
+  // Filtrage EXPLICITE par center_id (la RLS est ouverte façon Patrol)
+  const { data:etabs, error } = await supabase.from('etablissements')
+    .select('id,nom,type_erp,categorie,adresse,effectif_public,effectif_personnel,created_at')
+    .eq('center_id', RS_CENTER.id)
+    .order('created_at',{ascending:false});
+  if(error){ console.error(error); return; }
+  const list = etabs||[];
+  $('k-etab').textContent = list.length;
+
+  // Statuts des registres + échéances (vérifications en retard / proches), limités à nos établissements
+  const today = new Date().toISOString().slice(0,10);
+  const in30  = new Date(Date.now()+30*864e5).toISOString().slice(0,10);
+  let retard=0, proche=0, regByEtab={};
+  const etabIds = list.map(e=>e.id);
+  if(etabIds.length){
+    const { data:regs } = await supabase.from('registres').select('id,etablissement_id,statut,ouvert_le').in('etablissement_id', etabIds);
+    (regs||[]).forEach(r=>{ if(r.statut==='ouvert') regByEtab[r.etablissement_id]=r; });
+    const regIds = (regs||[]).map(r=>r.id);
+    if(regIds.length){
+      const { data:entrees } = await supabase.from('registre_entrees').select('prochaine_echeance,statut').in('registre_id', regIds);
+      (entrees||[]).forEach(e=>{ if(e.prochaine_echeance){ if(e.prochaine_echeance<today) retard++; else if(e.prochaine_echeance<=in30) proche++; } });
+    }
+  }
+  $('k-retard').textContent = retard; $('k-proche').textContent = proche;
+
+  const box = $('rs-list');
+  $('rs-empty').style.display = list.length ? 'none' : 'block';
+  box.innerHTML = list.map(e=>{
+    const reg = regByEtab[e.id];
+    const badge = reg ? '<span class="mib-badge mib-badge-success">Registre ouvert</span>'
+                      : '<span class="mib-badge mib-badge-warning">Aucun registre ouvert</span>';
+    const meta = [e.type_erp, e.categorie?('Cat. '+e.categorie):null, e.adresse].filter(Boolean).join(' · ');
+    return `<div class="mib-card rs-etab" onclick="rsDetail('${e.id}')">
+      <h3>${esc(e.nom)}</h3>
+      <div class="rs-meta">${esc(meta||'—')}</div>
+      <div class="rs-foot">${badge}
+        <div class="rs-actions">
+          <button class="rs-iconbtn" onclick="event.stopPropagation();rsEdit('${e.id}')">Modifier</button>
+          <button class="rs-iconbtn" onclick="event.stopPropagation();rsDelete('${e.id}','${esc(e.nom).replace(/'/g,"\\'")}')">Supprimer</button>
+        </div>
+      </div></div>`;
+  }).join('');
+  window.__RS_ETABS = list;
+}
+
+function rsOpenForm(){ ['f-id','f-nom','f-adresse','f-eff-pub','f-eff-pers'].forEach(i=>$(i).value=''); $('f-type').value='';$('f-cat').value='';
+  $('rs-modal-title').textContent='Nouvel établissement'; $('f-err').style.display='none'; $('rs-modal').style.display='flex'; }
+function rsCloseForm(){ $('rs-modal').style.display='none'; }
+function rsEdit(id){
+  const e=(window.__RS_ETABS||[]).find(x=>x.id===id); if(!e) return;
+  $('f-id').value=e.id; $('f-nom').value=e.nom||''; $('f-type').value=e.type_erp||''; $('f-cat').value=e.categorie||'';
+  $('f-adresse').value=e.adresse||''; $('f-eff-pub').value=e.effectif_public??''; $('f-eff-pers').value=e.effectif_personnel??'';
+  $('rs-modal-title').textContent='Modifier l\'établissement'; $('f-err').style.display='none'; $('rs-modal').style.display='flex';
+}
+
+async function rsSubmit(){
+  const nom=$('f-nom').value.trim();
+  if(!nom){ $('f-err').textContent='Le nom est requis.'; $('f-err').style.display='block'; return; }
+  const payload={ nom,
+    type_erp:$('f-type').value||null, categorie:$('f-cat').value||null, adresse:$('f-adresse').value.trim()||null,
+    effectif_public:$('f-eff-pub').value?parseInt($('f-eff-pub').value):null,
+    effectif_personnel:$('f-eff-pers').value?parseInt($('f-eff-pers').value):null };
+  $('f-save').disabled=true;
+  try{
+    const id=$('f-id').value;
+    if(id){
+      const { error }=await supabase.from('etablissements').update(payload).eq('id',id);
+      if(error) throw error;
+    } else {
+      payload.center_id=RS_CENTER.id;
+      const { data:ins, error }=await supabase.from('etablissements').insert(payload).select('id').single();
+      if(error) throw error;
+      // ouverture automatique du premier registre
+      const { data:u }=await supabase.auth.getUser();
+      await supabase.from('registres').insert({ etablissement_id:ins.id, statut:'ouvert', ouvert_par:u?.user?.id||null });
+    }
+    rsCloseForm(); await rsLoad();
+  }catch(e){ $('f-err').textContent='Erreur : '+(e.message||e); $('f-err').style.display='block'; }
+  finally{ $('f-save').disabled=false; }
+}
+
+function rsDelete(id,nom){
+  $('d-nom').textContent='Supprimer « '+nom+' » ?';
+  $('d-body').innerHTML='<div class="mib-alert mib-alert-danger">Cette action supprime l\'établissement et son registre. Opération irréversible.</div>';
+  const foot=document.querySelector('#rs-detail .mib-modal > div:last-child');
+  foot.innerHTML='<button class="mib-btn mib-btn-ghost" onclick="document.getElementById(\'rs-detail\').style.display=\'none\'">Annuler</button>'
+    +'<button class="mib-btn mib-btn-danger" id="d-confirm">Supprimer</button>';
+  $('rs-detail').style.display='flex';
+  $('d-confirm').onclick=async()=>{
+    try{ const { error }=await supabase.from('etablissements').delete().eq('id',id); if(error) throw error;
+      $('rs-detail').style.display='none'; await rsLoad(); }
+    catch(e){ alert('Erreur : '+(e.message||e)); }
+  };
+}
+
+function rsDetail(id){
+  const e=(window.__RS_ETABS||[]).find(x=>x.id===id); if(!e) return;
+  $('d-nom').textContent=e.nom;
+  $('d-body').innerHTML=
+     '<div class="kv"><span>Type ERP</span><span>'+esc(e.type_erp||'—')+'</span></div>'
+    +'<div class="kv"><span>Catégorie</span><span>'+esc(e.categorie||'—')+'</span></div>'
+    +'<div class="kv"><span>Adresse</span><span>'+esc(e.adresse||'—')+'</span></div>'
+    +'<div class="kv"><span>Effectif public</span><span>'+(e.effectif_public??'—')+'</span></div>'
+    +'<div class="kv"><span>Effectif personnel</span><span>'+(e.effectif_personnel??'—')+'</span></div>'
+    +'<div class="mib-alert mib-alert-info" style="margin-top:14px">📋 L\'échéancier des vérifications, les visas et l\'export PDF arrivent dans la prochaine étape du module.</div>';
+  const foot=document.querySelector('#rs-detail .mib-modal > div:last-child');
+  foot.innerHTML='<button class="mib-btn mib-btn-ghost" onclick="document.getElementById(\'rs-detail\').style.display=\'none\'">Fermer</button>';
+  $('rs-detail').style.display='flex';
+}
+
+async function rsLogout(){ try{ await supabase.auth.signOut(); }catch(e){} location.href='/index.html'; }
+
+// Démarrage (supabase.js s'initialise en synchrone ; on attend le DOM)
+if(document.readyState!=='loading') rsInit(); else document.addEventListener('DOMContentLoaded', rsInit);
+</script>
+</body>
+</html>
