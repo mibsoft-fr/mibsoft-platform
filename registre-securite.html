@@ -71,6 +71,14 @@
   .reg-cover-title .rs2{font-size:.72rem;opacity:.85;letter-spacing:.15em;text-transform:uppercase}
   .reg-meta-bar{display:flex;gap:16px;flex-wrap:wrap;background:#fff5f5;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:.82rem}
   .reg-meta-bar b{color:#7f1d1d}
+  .rs-vtab{font-size:.8rem}
+  .rs-vtab-on{background:#7f1d1d!important;color:#fff!important;border-color:#7f1d1d!important}
+  .rs-delai{display:inline-block;padding:3px 9px;border-radius:20px;font-size:.68rem;font-weight:700;white-space:nowrap}
+  .rs-d-ok{background:#dcfce7;color:#166534}
+  .rs-d-60{background:#fef9c3;color:#854d0e}
+  .rs-d-30{background:#ffedd5;color:#9a3412}
+  .rs-d-late{background:#fee2e2;color:#991b1b}
+  .rs-suivi-inp{width:100%;border:1px solid #e6d9c2;border-radius:7px;padding:6px 8px;font-family:inherit;font-size:.8rem;background:#fffdf9;resize:vertical}
   .rub-todo{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:34px;text-align:center;color:var(--text-3)}
   @media(max-width:720px){ .reg-tab{width:104px;font-size:.66rem} .reg-book{min-height:520px} .reg-page{padding:18px} }
   /* Saisie vocale (réutilisable) */
@@ -469,8 +477,20 @@ function verifsShellHtml(){
   return `<h2>4. Vérifications & maintenances</h2>`
    +`<div class="rub-sub">Suivi des vérifications techniques réglementaires (arrêté du 25 juin 1980).</div>`
    +`<div class="reg-meta-bar"><span>Registre <b>ouvert</b> le ${fmtDate(REG_REGISTRE.ouvert_le)}</span></div>`
-   +`<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="mib-btn mib-btn-primary" onclick="addVerifModal()">+ Ajouter une vérification</button></div>`
+   +`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">`
+     +`<div style="display:flex;gap:6px">`
+       +`<button class="mib-btn mib-btn-ghost rs-vtab rs-vtab-on" id="vtab-ech" onclick="switchVerifView('ech')">📋 Échéancier</button>`
+       +`<button class="mib-btn mib-btn-ghost rs-vtab" id="vtab-suivi" onclick="switchVerifView('suivi')">📊 Tableau de suivi</button>`
+     +`</div>`
+     +`<button class="mib-btn mib-btn-primary" onclick="addVerifModal()">+ Ajouter une vérification</button>`
+   +`</div>`
    +`<div id="verif-table"></div>`;
+}
+function switchVerifView(mode){
+  const te=$('vtab-ech'), ts=$('vtab-suivi');
+  if(te) te.classList.toggle('rs-vtab-on', mode==='ech');
+  if(ts) ts.classList.toggle('rs-vtab-on', mode==='suivi');
+  if(mode==='suivi') loadSuivi(); else loadVerifs();
 }
 async function loadVerifs(){
   const box=$('verif-table'); if(!box) return;
@@ -496,6 +516,7 @@ async function loadVerifs(){
     +'</tr></thead><tbody>'
     +list.map(eq=>{
         const en=latest[eq.id]; const st=verifStatut(en?en.prochaine_echeance:null);
+        const sealed=!!(en && signed[en.id]);
         const lib=esc(eq.libelle||'—'); const libJs=lib.replace(/'/g,"\\'");
         const doc=en?docs[en.id]:null;
         const rapport = doc ? `<a href="${publicUrl(doc.storage_path)}" target="_blank" style="color:#2563eb;font-weight:600">PDF</a>` : '—';
@@ -512,12 +533,105 @@ async function loadVerifs(){
           <td style="padding:9px 8px">${rapport}</td>
           <td style="padding:9px 8px">${visa}</td>
           <td style="padding:9px 8px;white-space:nowrap">
-            <button class="rs-iconbtn" title="Saisir une vérification" onclick="recordVerifModal('${eq.id}','${libJs}',${eq.periodicite_mois||0})">✏️</button>
+            ${sealed?'<span title="Vérification visée et scellée — non modifiable" style="opacity:.5">🔒</span>':`<button class="rs-iconbtn" title="${en?'Modifier la fiche':'Saisir une vérification'}" onclick="recordVerifModal('${eq.id}','${libJs}',${eq.periodicite_mois||0}${en?`,'${en.id}'`:''})">✏️</button>`}
             ${en?`<button class="rs-iconbtn" title="Consulter la fiche" onclick="viewVerifModal('${en.id}','${libJs}')">🔍</button>`:''}
           </td>
         </tr>`;
       }).join('')
     +'</tbody></table>';
+}
+function delaiSuivi(proch){
+  if(!proch) return {c:'',t:'—',days:null};
+  const today=new Date(); today.setHours(0,0,0,0);
+  const d=new Date(proch+'T00:00:00');
+  const days=Math.round((d-today)/86400000);
+  if(days<0) return {c:'rs-d-late',t:'En retard · '+Math.abs(days)+' j',days};
+  if(days<=30) return {c:'rs-d-30',t:'J-'+days+' · échéance proche',days};
+  if(days<=60) return {c:'rs-d-60',t:'J-'+days+' · à préparer',days};
+  return {c:'rs-d-ok',t:'À jour · J-'+days,days};
+}
+async function loadSuivi(){
+  const box=$('verif-table'); if(!box) return;
+  box.innerHTML='<div class="muted">Chargement…</div>';
+  const { data:equips } = await supabase.from('equipements').select('*').eq('etablissement_id',REG_ETAB.id).order('libelle');
+  const list=equips||[];
+  if(!list.length){ box.innerHTML='<div class="rub-todo">Aucune vérification à suivre.<br>Ajoutez des vérifications depuis l’échéancier.</div>'; return; }
+  const ids=list.map(e=>e.id);
+  const latest={};
+  const { data:ents } = await supabase.from('registre_entrees').select('equipement_id,prochaine_echeance,date_realisation,conformite').eq('rubrique',4).in('equipement_id',ids).order('date_realisation',{ascending:false});
+  (ents||[]).forEach(en=>{ if(en.equipement_id && !latest[en.equipement_id]) latest[en.equipement_id]=en; });
+  const sMap={};
+  const { data:sv } = await supabase.from('registre_suivi').select('*').in('equipement_id',ids);
+  (sv||[]).forEach(s=>{ sMap[s.equipement_id]=s; });
+  const rc=(v)=>`<select class="rs-suivi-inp" id="sc-${''+v[0]}"><option value=""${v[1]==null?' selected':''}>—</option><option value="oui"${v[1]===true?' selected':''}>✅ Oui</option><option value="non"${v[1]===false?' selected':''}>❌ Non</option></select>`;
+  const rows=list.map(eq=>{
+    const en=latest[eq.id]; const dl=delaiSuivi(en?en.prochaine_echeance:null);
+    const s=sMap[eq.id]||{};
+    const nc = en && en.conformite==='non_conforme';
+    return `<tr style="border-bottom:1px solid #f0e9db">
+      <td style="padding:9px 8px"><div style="display:flex;align-items:center;gap:9px">${voyant(en?en.conformite:null)}<div><strong>${esc(eq.libelle||'—')}</strong>${eq.localisation?'<br><span class="muted" style="font-size:.74rem">'+esc(eq.localisation)+'</span>':''}</div></div></td>
+      <td style="padding:9px 8px">${eq.periodicite_mois?eq.periodicite_mois+' m':'—'}</td>
+      <td style="padding:9px 8px">${en&&en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—'}</td>
+      <td style="padding:9px 8px"><span class="rs-delai ${dl.c}">${dl.t}</span></td>
+      <td style="padding:9px 8px;min-width:170px"><textarea class="rs-suivi-inp" id="sa-${eq.id}" rows="2" placeholder="${nc?'Non-conformité constatée…':'Aucune anomalie'}">${esc(s.anomalie||'')}</textarea></td>
+      <td style="padding:9px 8px;min-width:170px"><textarea class="rs-suivi-inp" id="sm-${eq.id}" rows="2" placeholder="Action corrective…">${esc(s.mesure_prise||'')}</textarea></td>
+      <td style="padding:9px 8px;min-width:110px">${rc([eq.id,s.remis_conformite==null?null:s.remis_conformite])}</td>
+      <td style="padding:9px 8px"><button class="rs-iconbtn" id="sb-${eq.id}" onclick="saveSuivi('${eq.id}')">Enregistrer</button></td>
+    </tr>`;
+  }).join('');
+  box.innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px;flex-wrap:wrap"><div class="mib-help" style="flex:1;min-width:240px">Respect des délais réglementaires. Une alerte est prévue à <b>J-60</b> puis <b>J-30</b> avant chaque échéance. Renseignez l’anomalie éventuelle, la mesure prise et la remise en conformité.</div><button class="mib-btn mib-btn-primary" onclick="printSuivi()">🖨️ Imprimer le suivi</button></div>'
+    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.84rem;min-width:820px"><thead><tr>'
+    +['Vérification','Périod.','Prochaine','Respect délai','Anomalie','Mesure prise','Remis en conformité',''].map(h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid #ece3d3;color:#7f1d1d;font-size:.66rem;text-transform:uppercase">${h}</th>`).join('')
+    +'</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+async function saveSuivi(equipId){
+  const btn=document.getElementById('sb-'+equipId);
+  const a=document.getElementById('sa-'+equipId), m=document.getElementById('sm-'+equipId), c=document.getElementById('sc-'+equipId);
+  if(!a||!m||!c) return;
+  const rcv=c.value; const remis = rcv===''?null:(rcv==='oui');
+  if(btn){ btn.disabled=true; btn.textContent='…'; }
+  const { error } = await supabase.from('registre_suivi').upsert({ equipement_id:equipId, anomalie:(a.value||'').trim()||null, mesure_prise:(m.value||'').trim()||null, remis_conformite:remis, updated_at:new Date().toISOString() }, { onConflict:'equipement_id' });
+  if(btn){ btn.disabled=false; btn.textContent=error?'Erreur ✗':'Enregistré ✓'; if(!error) setTimeout(function(){ if(btn) btn.textContent='Enregistrer'; },1600); }
+  if(error) console.warn('suivi', error);
+}
+async function printSuivi(){
+  const e=REG_ETAB||{};
+  const { data:equips } = await supabase.from('equipements').select('*').eq('etablissement_id',e.id).order('libelle');
+  const list=equips||[]; const ids=list.map(x=>x.id);
+  const latest={}, sMap={};
+  if(ids.length){
+    const { data:ents } = await supabase.from('registre_entrees').select('equipement_id,prochaine_echeance,date_realisation,conformite').eq('rubrique',4).in('equipement_id',ids).order('date_realisation',{ascending:false});
+    (ents||[]).forEach(en=>{ if(en.equipement_id && !latest[en.equipement_id]) latest[en.equipement_id]=en; });
+    const { data:sv } = await supabase.from('registre_suivi').select('*').in('equipement_id',ids);
+    (sv||[]).forEach(s=>{ sMap[s.equipement_id]=s; });
+  }
+  const heads=['Vérification','Périod.','Dernière','Prochaine','Respect du délai','Anomalie','Mesure prise','Remis en conformité'];
+  const rows=list.map(eq=>{
+    const en=latest[eq.id]; const dl=delaiSuivi(en?en.prochaine_echeance:null); const s=sMap[eq.id]||{};
+    const remis = s.remis_conformite==null ? '—' : (s.remis_conformite?'Oui':'Non');
+    const colcls = dl.c==='rs-d-late'?'color:#991b1b;font-weight:700':(dl.c==='rs-d-30'?'color:#9a3412;font-weight:700':(dl.c==='rs-d-60'?'color:#854d0e;font-weight:700':'color:#166534'));
+    return `<tr><td><b>${esc(eq.libelle||'—')}</b>${eq.localisation?'<br><small>'+esc(eq.localisation)+'</small>':''}</td>`
+      +`<td>${eq.periodicite_mois?eq.periodicite_mois+' m':'—'}</td>`
+      +`<td>${en&&en.date_realisation?fmtDate(en.date_realisation):'—'}</td>`
+      +`<td>${en&&en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—'}</td>`
+      +`<td style="${colcls}">${esc(dl.t)}</td>`
+      +`<td>${esc(s.anomalie||'—')}</td>`
+      +`<td>${esc(s.mesure_prise||'—')}</td>`
+      +`<td style="text-align:center">${remis}</td></tr>`;
+  }).join('');
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Tableau de suivi des vérifications — ${esc(e.nom||'')}</title>`
+   +`<style>body{font-family:Arial,sans-serif;color:#111;margin:24px;font-size:12px}h1{color:#7f1d1d;font-size:18px;margin:0 0 2px}.sub{color:#555;margin-bottom:12px}`
+   +`.hdr{border:1px solid #e5c0c0;background:#fff5f5;border-radius:8px;padding:10px 14px;margin-bottom:14px}.hdr b{color:#7f1d1d}`
+   +`.leg{font-size:10px;color:#666;margin:8px 0 12px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ddd;padding:6px 7px;text-align:left;vertical-align:top}`
+   +`th{background:#f3e9e9;color:#7f1d1d;font-size:10px;text-transform:uppercase}.foot{margin-top:16px;font-size:10px;color:#888;border-top:1px solid #ddd;padding-top:8px}@media print{body{margin:12mm}}</style></head><body>`
+   +`<h1>TABLEAU DE SUIVI DES VÉRIFICATIONS</h1><div class="sub">État des vérifications réglementaires et de leur traitement — arrêté du 25 juin 1980</div>`
+   +`<div class="hdr"><b>${esc(e.nom||'')}</b>${e.type_erp?' · '+esc(e.type_erp):''}${e.categorie?' · Cat. '+esc(e.categorie):''}${e.adresse?'<br>'+esc(e.adresse):''}<br>Registre ouvert le ${fmtDate(REG_REGISTRE.ouvert_le)}</div>`
+   +`<div class="leg">Respect du délai : <b>À jour</b> · <b>J-60</b> (à préparer) · <b>J-30</b> (échéance proche) · <b>En retard</b>. Alertes automatiques prévues à J-60 et J-30.</div>`
+   +`<table><thead><tr>${heads.map(h=>'<th>'+h+'</th>').join('')}</tr></thead><tbody>${rows||('<tr><td colspan="'+heads.length+'" style="text-align:center;color:#888">Aucune vérification.</td></tr>')}</tbody></table>`
+   +`<div class="foot">Document édité le ${new Date().toLocaleString('fr-FR')} par MIBsoft — présentable à la commission de sécurité.</div></body></html>`;
+  const w=window.open('','_blank'); if(!w){ alert('Autorisez les pop-ups pour imprimer.'); return; }
+  w.document.open(); w.document.write(html); w.document.close(); w.focus();
+  setTimeout(function(){ try{ w.print(); }catch(e){} }, 400);
 }
 function addVerifModal(){
   const opts=(REG_VTYPES||[]).map(v=>`<option value="${v.id}">${esc(v.libelle)} (${v.periodicite_mois_defaut||'?'} mois)</option>`).join('');
@@ -531,18 +645,27 @@ async function submitAddVerif(){
   await supabase.from('equipements').insert({ etablissement_id:REG_ETAB.id, verification_type_id:vt.id, libelle:vt.libelle, localisation:($('av-loc').value||'').trim()||null, periodicite_mois:vt.periodicite_mois_defaut, organisme_requis:vt.organisme_requis });
   closeMiniModal(); loadVerifs();
 }
-function recordVerifModal(equipId,libelle,perio){
+async function recordVerifModal(equipId,libelle,perio,entreeId){
+  let en=null;
+  if(entreeId){ const r=await supabase.from('registre_entrees').select('*').eq('id',entreeId).single(); en=r.data||null; }
   const today=new Date().toISOString().slice(0,10);
-  openMiniModal('Vérification réalisée — '+libelle,
-    `<label class="mib-label">Date de réalisation</label><input class="mib-inp" type="date" id="rv-date" value="${today}">`
+  const dateVal=(en&&en.date_realisation)||today;
+  const nc=en&&en.conformite==='non_conforme';
+  const intVal=en?esc(en.intervenant||''):'';
+  const socVal=en?esc(en.societe||''):'';
+  const cstVal=en?esc(en.constats||''):'';
+  let docHint='';
+  if(en){ const dc=await supabase.from('registre_documents').select('nom_fichier').eq('entree_id',en.id).limit(1); const doc=dc.data&&dc.data[0]; if(doc) docHint=`<div class="mib-help" style="margin-top:4px">Rapport actuel : 📎 ${esc(doc.nom_fichier)} — choisir un fichier le remplace.</div>`; }
+  openMiniModal((en?'Modifier la vérification — ':'Vérification réalisée — ')+libelle,
+    `<label class="mib-label">Date de réalisation</label><input class="mib-inp" type="date" id="rv-date" value="${dateVal}">`
     +`<label class="mib-label" style="margin-top:10px">Résultat</label>`
-    +`<select class="mib-select" id="rv-conf"><option value="conforme">🟢 Sans non-conformité (conforme)</option><option value="non_conforme">🔴 Avec non-conformité</option></select>`
-    +`<label class="mib-label" style="margin-top:10px">Nom de l'intervenant</label><div class="rs-field-mic"><input class="mib-inp" id="rv-int" placeholder="Technicien / vérificateur">`+micBtn('rv-int')+`</div>`
-    +`<label class="mib-label" style="margin-top:10px">Société</label><div class="rs-field-mic"><input class="mib-inp" id="rv-soc" placeholder="Organisme de vérification">`+micBtn('rv-soc')+`</div>`
-    +`<label class="mib-label" style="margin-top:10px">Constats / travaux</label><div class="rs-field-mic"><textarea class="mib-textarea" id="rv-cst" rows="2"></textarea>`+micBtn('rv-cst')+`</div>`
-    +`<label class="mib-label" style="margin-top:10px">Rapport de vérification (PDF, optionnel)</label><input class="mib-inp" type="file" id="rv-file" accept="application/pdf">`
-    +`<div class="mib-help" style="margin-top:8px">Prochaine échéance calculée automatiquement (+${perio||0} mois). Le rapport est scellé par une empreinte SHA-256.</div>`,
-    `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="rv-save" onclick="submitRecordVerif('${equipId}',${perio||0})">Enregistrer</button>`);
+    +`<select class="mib-select" id="rv-conf"><option value="conforme"${nc?'':' selected'}>🟢 Sans non-conformité (conforme)</option><option value="non_conforme"${nc?' selected':''}>🔴 Avec non-conformité</option></select>`
+    +`<label class="mib-label" style="margin-top:10px">Nom de l'intervenant</label><div class="rs-field-mic"><input class="mib-inp" id="rv-int" placeholder="Technicien / vérificateur" value="${intVal}">`+micBtn('rv-int')+`</div>`
+    +`<label class="mib-label" style="margin-top:10px">Société</label><div class="rs-field-mic"><input class="mib-inp" id="rv-soc" placeholder="Organisme de vérification" value="${socVal}">`+micBtn('rv-soc')+`</div>`
+    +`<label class="mib-label" style="margin-top:10px">Constats / travaux</label><div class="rs-field-mic"><textarea class="mib-textarea" id="rv-cst" rows="2">${cstVal}</textarea>`+micBtn('rv-cst')+`</div>`
+    +`<label class="mib-label" style="margin-top:10px">Rapport de vérification (PDF, optionnel)</label><input class="mib-inp" type="file" id="rv-file" accept="application/pdf">`+docHint
+    +`<div class="mib-help" style="margin-top:8px">Prochaine échéance calculée automatiquement (+${perio||0} mois). Le rapport est scellé par une empreinte SHA-256.${en?' Modifiable tant que la vérification n’est pas visée.':''}</div>`,
+    `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="rv-save" onclick="submitRecordVerif('${equipId}',${perio||0}${en?`,'${en.id}'`:''})">Enregistrer</button>`);
 }
 async function viewVerifModal(entreeId,libelle){
   openMiniModal('Fiche de vérification — '+libelle,'<div class="mib-help">Chargement…</div>','<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Fermer</button>');
@@ -573,14 +696,22 @@ async function viewVerifModal(entreeId,libelle){
     + row('Visa', visa);
   const c=document.getElementById('d-body'); if(c) c.innerHTML=body;
 }
-async function submitRecordVerif(equipId,perio){
+async function submitRecordVerif(equipId,perio,entreeId){
   const d=$('rv-date').value; if(!d) return;
   const btn=$('rv-save'); if(btn){ btn.disabled=true; btn.textContent='Enregistrement…'; }
   try{
     const proch=addMonths(d,perio);
     const conf=($('rv-conf')&&$('rv-conf').value)||'conforme';
-    const ins=await supabase.from('registre_entrees').insert({ registre_id:REG_REGISTRE.id, rubrique:4, equipement_id:equipId, date_realisation:d, prochaine_echeance:proch, intervenant:($('rv-int').value||'').trim()||null, societe:($('rv-soc')&&$('rv-soc').value||'').trim()||null, constats:($('rv-cst').value||'').trim()||null, conformite:conf, statut:'realise' }).select('id').single();
-    const entreeId=ins.data&&ins.data.id;
+    const payload={ date_realisation:d, prochaine_echeance:proch, intervenant:($('rv-int').value||'').trim()||null, societe:($('rv-soc')&&$('rv-soc').value||'').trim()||null, constats:($('rv-cst').value||'').trim()||null, conformite:conf, statut:'realise' };
+    if(entreeId){
+      // Édition d'une vérif non encore visée : refus si un visa est déjà posé (sécurité)
+      const sc=await supabase.from('signatures').select('id').eq('entree_id',entreeId).limit(1);
+      if(sc.data&&sc.data.length){ alert('Cette vérification est visée : elle ne peut plus être modifiée.'); if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } return; }
+      await supabase.from('registre_entrees').update(payload).eq('id',entreeId);
+    } else {
+      const ins=await supabase.from('registre_entrees').insert(Object.assign({ registre_id:REG_REGISTRE.id, rubrique:4, equipement_id:equipId }, payload)).select('id').single();
+      entreeId=ins.data&&ins.data.id;
+    }
     const f=$('rv-file')&&$('rv-file').files[0];
     if(f && entreeId){
       try{
@@ -588,7 +719,10 @@ async function submitRecordVerif(equipId,perio){
         const safe=f.name.replace(/[^a-zA-Z0-9._-]/g,'_');
         const path='registre/'+REG_ETAB.id+'/'+entreeId+'_'+safe;
         const up=await supabase.storage.from('documents').upload(path,f,{upsert:true,contentType:f.type||'application/pdf'});
-        if(!up.error){ await supabase.from('registre_documents').insert({ entree_id:entreeId, storage_path:path, nom_fichier:f.name, hash_sha256:hash, taille:f.size }); }
+        if(!up.error){
+          await supabase.from('registre_documents').delete().eq('entree_id',entreeId);
+          await supabase.from('registre_documents').insert({ entree_id:entreeId, storage_path:path, nom_fichier:f.name, hash_sha256:hash, taille:f.size });
+        }
         else console.warn('upload', up.error);
       }catch(e){ console.warn('rapport', e); }
     }
@@ -679,3 +813,4 @@ if(document.readyState!=='loading') rsInit(); else document.addEventListener('DO
 </script>
 </body>
 </html>
+ 
