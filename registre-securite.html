@@ -511,7 +511,10 @@ async function loadVerifs(){
           <td style="padding:9px 8px"><span class="mib-badge ${st.c}">${st.t}</span></td>
           <td style="padding:9px 8px">${rapport}</td>
           <td style="padding:9px 8px">${visa}</td>
-          <td style="padding:9px 8px"><button class="rs-iconbtn" onclick="recordVerifModal('${eq.id}','${libJs}',${eq.periodicite_mois||0})">Enregistrer</button></td>
+          <td style="padding:9px 8px;white-space:nowrap">
+            <button class="rs-iconbtn" title="Saisir une vérification" onclick="recordVerifModal('${eq.id}','${libJs}',${eq.periodicite_mois||0})">✏️</button>
+            ${en?`<button class="rs-iconbtn" title="Consulter la fiche" onclick="viewVerifModal('${en.id}','${libJs}')">🔍</button>`:''}
+          </td>
         </tr>`;
       }).join('')
     +'</tbody></table>';
@@ -534,11 +537,41 @@ function recordVerifModal(equipId,libelle,perio){
     `<label class="mib-label">Date de réalisation</label><input class="mib-inp" type="date" id="rv-date" value="${today}">`
     +`<label class="mib-label" style="margin-top:10px">Résultat</label>`
     +`<select class="mib-select" id="rv-conf"><option value="conforme">🟢 Sans non-conformité (conforme)</option><option value="non_conforme">🔴 Avec non-conformité</option></select>`
-    +`<label class="mib-label" style="margin-top:10px">Intervenant</label><div class="rs-field-mic"><input class="mib-inp" id="rv-int" placeholder="Organisme / technicien">`+micBtn('rv-int')+`</div>`
+    +`<label class="mib-label" style="margin-top:10px">Nom de l'intervenant</label><div class="rs-field-mic"><input class="mib-inp" id="rv-int" placeholder="Technicien / vérificateur">`+micBtn('rv-int')+`</div>`
+    +`<label class="mib-label" style="margin-top:10px">Société</label><div class="rs-field-mic"><input class="mib-inp" id="rv-soc" placeholder="Organisme de vérification">`+micBtn('rv-soc')+`</div>`
     +`<label class="mib-label" style="margin-top:10px">Constats / travaux</label><div class="rs-field-mic"><textarea class="mib-textarea" id="rv-cst" rows="2"></textarea>`+micBtn('rv-cst')+`</div>`
     +`<label class="mib-label" style="margin-top:10px">Rapport de vérification (PDF, optionnel)</label><input class="mib-inp" type="file" id="rv-file" accept="application/pdf">`
     +`<div class="mib-help" style="margin-top:8px">Prochaine échéance calculée automatiquement (+${perio||0} mois). Le rapport est scellé par une empreinte SHA-256.</div>`,
     `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="rv-save" onclick="submitRecordVerif('${equipId}',${perio||0})">Enregistrer</button>`);
+}
+async function viewVerifModal(entreeId,libelle){
+  openMiniModal('Fiche de vérification — '+libelle,'<div class="mib-help">Chargement…</div>','<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Fermer</button>');
+  const { data:en } = await supabase.from('registre_entrees').select('*').eq('id',entreeId).single();
+  if(!en){ return; }
+  const { data:dc } = await supabase.from('registre_documents').select('nom_fichier,storage_path,hash_sha256').eq('entree_id',entreeId).limit(1);
+  const doc=dc&&dc[0];
+  const { data:sg } = await supabase.from('signatures').select('signataire_nom,role,horodatage,hash_signe').eq('entree_id',entreeId).order('horodatage',{ascending:false}).limit(1);
+  const sig=sg&&sg[0];
+  const row=(l,v)=>`<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #f0e9db"><div style="min-width:130px;color:#8a7a5a;font-size:.78rem">${l}</div><div style="flex:1">${v}</div></div>`;
+  const conf = en.conformite==='non_conforme'
+    ? '<span style="color:#dc2626;font-weight:600">🔴 Avec non-conformité</span>'
+    : (en.conformite==='conforme'?'<span style="color:#16a34a;font-weight:600">🟢 Sans non-conformité</span>':'—');
+  const rapport = doc
+    ? `<a href="${publicUrl(doc.storage_path)}" target="_blank" style="color:#2563eb;font-weight:600">📎 ${esc(doc.nom_fichier)}</a><br><small style="font-family:monospace;color:#8a7a5a">SHA-256 ${esc((doc.hash_sha256||'').slice(0,24))}…</small>`
+    : '<span class="muted">Aucun rapport joint</span>';
+  const visa = sig
+    ? `<span class="mib-badge mib-badge-success">Visé ✓</span> ${esc(sig.signataire_nom)}${sig.role?' ('+esc(sig.role)+')':''}<br><small style="color:#8a7a5a">le ${fmtDate(sig.horodatage)} · empreinte ${esc((sig.hash_signe||'').slice(0,16))}…</small>`
+    : '<span class="muted">Non visée</span>';
+  const body =
+      row('Date de réalisation', fmtDate(en.date_realisation))
+    + row('Résultat', conf)
+    + row('Nom de l\'intervenant', esc(en.intervenant||'—'))
+    + row('Société', esc(en.societe||'—'))
+    + row('Constats / travaux', en.constats?esc(en.constats).replace(/\n/g,'<br>'):'—')
+    + row('Prochaine échéance', en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—')
+    + row('Rapport', rapport)
+    + row('Visa', visa);
+  const c=document.getElementById('d-body'); if(c) c.innerHTML=body;
 }
 async function submitRecordVerif(equipId,perio){
   const d=$('rv-date').value; if(!d) return;
@@ -546,7 +579,7 @@ async function submitRecordVerif(equipId,perio){
   try{
     const proch=addMonths(d,perio);
     const conf=($('rv-conf')&&$('rv-conf').value)||'conforme';
-    const ins=await supabase.from('registre_entrees').insert({ registre_id:REG_REGISTRE.id, rubrique:4, equipement_id:equipId, date_realisation:d, prochaine_echeance:proch, intervenant:($('rv-int').value||'').trim()||null, constats:($('rv-cst').value||'').trim()||null, conformite:conf, statut:'realise' }).select('id').single();
+    const ins=await supabase.from('registre_entrees').insert({ registre_id:REG_REGISTRE.id, rubrique:4, equipement_id:equipId, date_realisation:d, prochaine_echeance:proch, intervenant:($('rv-int').value||'').trim()||null, societe:($('rv-soc')&&$('rv-soc').value||'').trim()||null, constats:($('rv-cst').value||'').trim()||null, conformite:conf, statut:'realise' }).select('id').single();
     const entreeId=ins.data&&ins.data.id;
     const f=$('rv-file')&&$('rv-file').files[0];
     if(f && entreeId){
@@ -579,7 +612,7 @@ async function submitVisa(entreeId){
   const btn=$('vi-save'); if(btn){ btn.disabled=true; btn.textContent='Signature…'; }
   try{
     const { data:ent } = await supabase.from('registre_entrees').select('*').eq('id',entreeId).single();
-    const payload=JSON.stringify({ id:ent.id, equip:ent.equipement_id, date:ent.date_realisation, proch:ent.prochaine_echeance, constats:ent.constats, nom, fct, code });
+    const payload=JSON.stringify({ id:ent.id, equip:ent.equipement_id, date:ent.date_realisation, proch:ent.prochaine_echeance, intervenant:ent.intervenant, societe:ent.societe, constats:ent.constats, nom, fct, code });
     const hash=await sha256(payload);
     const { data:lastA } = await supabase.from('registre_audit').select('hash_courant').eq('etablissement_id',REG_ETAB.id).order('id',{ascending:false}).limit(1);
     const prev=(lastA&&lastA[0]&&lastA[0].hash_courant)||'GENESIS';
@@ -617,13 +650,13 @@ async function generatePrint(){
   const showRub = rub==='all';
   const rubTxt = rub==='all' ? 'Toutes les rubriques' : ('Rubrique '+rubName(parseInt(rub,10)));
   const periodeTxt = scope==='periode' ? `Période : ${from?fmtDate(from):'…'} → ${to?fmtDate(to):'…'}` : 'Registre complet';
-  const heads=['Date'].concat(showRub?['Rubrique']:[]).concat(['Objet','Résultat','Intervenant','Constats','Prochaine','Visa','Rapport / Empreinte']);
+  const heads=['Date'].concat(showRub?['Rubrique']:[]).concat(['Objet','Résultat','Intervenant / Société','Constats','Prochaine','Visa','Rapport / Empreinte']);
   const rows=list.map(en=>{
     const eq=eqMap[en.equipement_id]||{}, s=sg[en.id], d=dc[en.id];
     const objet = en.equipement_id ? (eq.libelle||'—') : (en.description||en.type||'—');
     const conf = en.conformite==='non_conforme' ? '<b style="color:#dc2626">Non conforme</b>' : (en.conformite==='conforme'?'<span style="color:#16a34a">Conforme</span>':'—');
     const emp = d ? ('📎 '+esc(d.nom_fichier)+'<br>'+esc((d.hash_sha256||'').slice(0,16))+'…') : (s?esc((s.hash_signe||'').slice(0,16))+'…':'—');
-    return `<tr><td>${fmtDate(en.date_realisation)}</td>${showRub?'<td>'+esc(rubName(en.rubrique))+'</td>':''}<td>${esc(objet)}${eq.localisation?'<br><small>'+esc(eq.localisation)+'</small>':''}</td><td>${conf}</td><td>${esc(en.intervenant||'—')}</td><td>${esc(en.constats||'')}</td><td>${en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—'}</td><td>${s?esc(s.signataire_nom)+(s.role?' ('+esc(s.role)+')':'')+'<br><small>'+fmtDate(s.horodatage)+'</small>':'—'}</td><td><small style="font-family:monospace">${emp}</small></td></tr>`;
+    return `<tr><td>${fmtDate(en.date_realisation)}</td>${showRub?'<td>'+esc(rubName(en.rubrique))+'</td>':''}<td>${esc(objet)}${eq.localisation?'<br><small>'+esc(eq.localisation)+'</small>':''}</td><td>${conf}</td><td>${esc(en.intervenant||'—')}${en.societe?'<br><small>'+esc(en.societe)+'</small>':''}</td><td>${esc(en.constats||'')}</td><td>${en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—'}</td><td>${s?esc(s.signataire_nom)+(s.role?' ('+esc(s.role)+')':'')+'<br><small>'+fmtDate(s.horodatage)+'</small>':'—'}</td><td><small style="font-family:monospace">${emp}</small></td></tr>`;
   }).join('');
   const html=`<!doctype html><html><head><meta charset="utf-8"><title>Registre de sécurité — ${esc(e.nom)}</title>`
    +`<style>body{font-family:Arial,sans-serif;color:#111;margin:24px;font-size:12px}h1{color:#7f1d1d;font-size:18px;margin:0 0 2px}.sub{color:#555;margin-bottom:12px}`
