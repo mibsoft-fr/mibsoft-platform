@@ -224,7 +224,7 @@
 </div>
 
 <div class="mib-modal-backdrop" id="rs-suivi-ov" style="display:none;padding:20px">
-  <div class="mib-modal" style="max-width:1180px;width:96vw;max-height:92vh;display:flex;flex-direction:column">
+  <div class="mib-modal" style="max-width:1360px;width:97vw;max-height:92vh;display:flex;flex-direction:column">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px">
       <div class="mib-card-title" style="margin:0">📊 Tableau de suivi des vérifications</div>
       <div style="display:flex;gap:8px">
@@ -475,8 +475,9 @@ function renderRubrique(n){
   const r=RUBRIQUES.find(x=>x.n===n);
   if(n===1){ page.innerHTML=ficheHtml(); return; }
   if(n===4){ page.innerHTML=verifsShellHtml(); loadVerifs(); return; }
+  if(RUB_CFG[n]){ page.innerHTML=rubShellHtml(n); loadRubEntries(n); return; }
   page.innerHTML=`<h2>${r.n}. ${esc(r.label)}</h2><div class="rub-sub">Rubrique du registre de sécurité.</div>`
-    +`<div class="rub-todo">📋 Cette rubrique sera disponible prochainement (Phase 1b).</div>`;
+    +`<div class="rub-todo">📋 Cette rubrique sera disponible prochainement.</div>`;
 }
 function ficheHtml(){
   const e=REG_ETAB;
@@ -548,6 +549,105 @@ function verifsShellHtml(){
 }
 function openSuiviModal(){ $('rs-suivi-ov').style.display='flex'; loadSuivi(); }
 function closeSuiviModal(){ $('rs-suivi-ov').style.display='none'; }
+// ===== Rubriques journal (2,3,5,6,7) — module générique =====
+const RUB_CFG={
+  2:{sub:'personnel du service de sécurité et consignes',obj:'Fonction / consigne',objph:'Ex. Agent SSIAP 1, consigne d’évacuation…',detph:'Nom, qualification, contenu de la consigne…',who:'Personne concernée'},
+  3:{sub:'formations du personnel et exercices',obj:'Type',objph:'Ex. Exercice d’évacuation, formation EPI…',detph:'Participants, durée, observations…',who:'Formateur / encadrant'},
+  5:{sub:'travaux, aménagements et permis de feu',obj:'Nature des travaux',objph:'Ex. Réfection cloison CF, permis de feu…',detph:'Entreprise, localisation, détails…',who:'Entreprise / intervenant'},
+  6:{sub:'visites de la commission de sécurité et prescriptions',obj:'Objet',objph:'Ex. Visite périodique, avis favorable…',detph:'Prescriptions, avis, suites à donner…',who:'Autorité / rapporteur'},
+  7:{sub:'dysfonctionnements et mesures compensatoires',obj:'Nature',objph:'Ex. Panne SSI, dérangement détecteur…',detph:'Mesures compensatoires, résolution…',who:'Constaté / traité par'}
+};
+function rubShellHtml(n){
+  const cfg=RUB_CFG[n]; const r=RUBRIQUES.find(x=>x.n===n);
+  const clot=REG_REGISTRE.statut==='cloture';
+  return `<h2>${n}. ${esc(r.label)}</h2><div class="rub-sub">Journal chronologique — ${esc(cfg.sub)}.</div>`
+   +`<div class="reg-meta-bar"><span>Registre <b>${clot?'clôturé':'ouvert'}</b> le ${fmtDate(REG_REGISTRE.ouvert_le)}</span></div>`
+   +(clot?'':`<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="mib-btn mib-btn-primary" onclick="addRubEntryModal(${n})">+ Ajouter</button></div>`)
+   +`<div id="rub-list"></div>`;
+}
+async function loadRubEntries(n){
+  const box=$('rub-list'); if(!box) return;
+  box.innerHTML='<div class="muted">Chargement…</div>';
+  const cfg=RUB_CFG[n];
+  const { data:ents } = await supabase.from('registre_entrees').select('*').eq('registre_id',REG_REGISTRE.id).eq('rubrique',n).order('date_realisation',{ascending:false}).order('created_at',{ascending:false});
+  const list=ents||[];
+  if(!list.length){ box.innerHTML='<div class="rub-todo">Aucune entrée.<br>Cliquez « + Ajouter » pour composer cette rubrique.</div>'; return; }
+  const entIds=list.map(e=>e.id);
+  let docs={};
+  const { data:dc } = await supabase.from('registre_documents').select('entree_id,storage_path,nom_fichier').in('entree_id',entIds);
+  (dc||[]).forEach(d=>{ if(!docs[d.entree_id]) docs[d.entree_id]=d; });
+  box.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.84rem"><thead><tr>'
+   +['Date',cfg.obj,'Détails',cfg.who,'Pièce',''].map(h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid #ece3d3;color:#7f1d1d;font-size:.66rem;text-transform:uppercase">${h}</th>`).join('')
+   +'</tr></thead><tbody>'
+   +list.map(en=>{
+     const doc=docs[en.id];
+     const piece = doc?`<a href="${publicUrl(doc.storage_path)}" target="_blank" style="color:#2563eb;font-weight:600">PDF</a>`:(en.signature_path?'✍️':'—');
+     const det=(en.description||'');
+     return `<tr style="border-bottom:1px solid #f0e9db">
+       <td style="padding:9px 8px;white-space:nowrap">${en.date_realisation?fmtDate(en.date_realisation):'—'}</td>
+       <td style="padding:9px 8px"><strong>${esc(en.type||'—')}</strong></td>
+       <td style="padding:9px 8px">${esc(det.slice(0,90))}${det.length>90?'…':''}</td>
+       <td style="padding:9px 8px">${esc(en.intervenant||'—')}</td>
+       <td style="padding:9px 8px">${piece}</td>
+       <td style="padding:9px 8px"><button class="rs-iconbtn" title="Consulter" onclick="viewRubEntry('${en.id}',${n})">🔍</button></td>
+     </tr>`;
+   }).join('')
+   +'</tbody></table></div>';
+}
+function addRubEntryModal(n){
+  const cfg=RUB_CFG[n]; const today=new Date().toISOString().slice(0,10);
+  openMiniModal('Ajouter — '+RUBRIQUES.find(x=>x.n===n).label,
+    `<label class="mib-label">Date</label><input class="mib-inp" type="date" id="re-date" value="${today}">`
+    +`<label class="mib-label" style="margin-top:10px">${cfg.obj}</label><input class="mib-inp" id="re-obj" placeholder="${cfg.objph}">`
+    +`<label class="mib-label" style="margin-top:10px">${cfg.who}</label><div class="rs-field-mic"><input class="mib-inp" id="re-who" placeholder="Nom / organisme">`+micBtn('re-who')+`</div>`
+    +`<label class="mib-label" style="margin-top:10px">Détails</label><div class="rs-field-mic"><textarea class="mib-textarea" id="re-det" rows="3" placeholder="${cfg.detph}"></textarea>`+micBtn('re-det')+`</div>`
+    +`<label class="mib-label" style="margin-top:10px">Pièce jointe (PDF, optionnel)</label><input class="mib-inp" type="file" id="re-file" accept="application/pdf">`
+    +`<label class="mib-label" style="margin-top:10px">Signature (optionnel)</label>`
+    +`<div style="border:1px solid #e6d9c2;border-radius:8px;background:#fffdf9"><canvas id="re-sig" width="560" height="140" style="width:100%;height:140px;touch-action:none;display:block;border-radius:8px"></canvas></div>`
+    +`<div style="display:flex;justify-content:flex-end;margin-top:4px"><button type="button" class="mib-btn mib-btn-ghost" style="padding:4px 12px;font-size:.78rem" onclick="clearSignaturePad('re-sig')">Effacer</button></div>`,
+    `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="re-save" onclick="submitRubEntry(${n})">Enregistrer</button>`);
+  initSignaturePad('re-sig');
+}
+async function submitRubEntry(n){
+  const d=$('re-date').value; const obj=($('re-obj').value||'').trim();
+  if(!d){ alert('La date est requise.'); return; }
+  if(!obj){ alert('Renseignez « '+RUB_CFG[n].obj+' ».'); return; }
+  const btn=$('re-save'); if(btn){ btn.disabled=true; btn.textContent='Enregistrement…'; }
+  try{
+    const ins=await supabase.from('registre_entrees').insert({ registre_id:REG_REGISTRE.id, rubrique:n, type:obj, description:($('re-det').value||'').trim()||null, intervenant:($('re-who').value||'').trim()||null, date_realisation:d, statut:'saisi' }).select('id').single();
+    let entreeId=ins.data&&ins.data.id;
+    const f=$('re-file')&&$('re-file').files[0];
+    if(f && entreeId){ try{
+      const hash=await sha256File(f); const safe=f.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      const path='registre/'+REG_ETAB.id+'/'+entreeId+'_'+safe;
+      const up=await supabase.storage.from('documents').upload(path,f,{upsert:true,contentType:f.type||'application/pdf'});
+      if(!up.error) await supabase.from('registre_documents').insert({ entree_id:entreeId, storage_path:path, nom_fichier:f.name, hash_sha256:hash, taille:f.size });
+    }catch(e){ console.warn('piece',e); } }
+    const sc=$('re-sig');
+    if(sc && _sigPads['re-sig'] && _sigPads['re-sig'].dirty && entreeId){ try{
+      const blob=await new Promise(res=>sc.toBlob(res,'image/png'));
+      if(blob){ const sigHash=await sha256File(blob); const sigPath='registre/'+REG_ETAB.id+'/'+entreeId+'_signature.png';
+        const up2=await supabase.storage.from('documents').upload(sigPath,blob,{upsert:true,contentType:'image/png'});
+        if(!up2.error) await supabase.from('registre_entrees').update({ signature_path:sigPath, signature_hash:sigHash }).eq('id',entreeId);
+      }
+    }catch(e){ console.warn('signature',e); } }
+    closeMiniModal(); loadRubEntries(n);
+  }catch(e){ alert('Erreur : '+(e.message||e)); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } }
+}
+async function viewRubEntry(entreeId,n){
+  const cfg=RUB_CFG[n];
+  openMiniModal('Entrée — '+RUBRIQUES.find(x=>x.n===n).label,'<div class="mib-help">Chargement…</div>','<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Fermer</button>');
+  const { data:en } = await supabase.from('registre_entrees').select('*').eq('id',entreeId).single();
+  if(!en) return;
+  const { data:dc } = await supabase.from('registre_documents').select('nom_fichier,storage_path,hash_sha256').eq('entree_id',entreeId).limit(1);
+  const doc=dc&&dc[0];
+  const row=(l,v)=>`<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #f0e9db"><div style="min-width:130px;color:#8a7a5a;font-size:.78rem">${l}</div><div style="flex:1">${v}</div></div>`;
+  const piece=doc?`<a href="${publicUrl(doc.storage_path)}" target="_blank" style="color:#2563eb;font-weight:600">📎 ${esc(doc.nom_fichier)}</a><br><small style="font-family:monospace;color:#8a7a5a">SHA-256 ${esc((doc.hash_sha256||'').slice(0,24))}…</small>`:'<span class="muted">Aucune</span>';
+  const sig=en.signature_path?`<img src="${publicUrl(en.signature_path)}" style="max-height:70px;border:1px solid #eee;border-radius:6px;background:#fff"><br><small style="font-family:monospace;color:#8a7a5a">SHA-256 ${esc((en.signature_hash||'').slice(0,24))}…</small>`:'<span class="muted">Non signée</span>';
+  const body=row('Date',en.date_realisation?fmtDate(en.date_realisation):'—')+row(cfg.obj,esc(en.type||'—'))+row(cfg.who,esc(en.intervenant||'—'))+row('Détails',en.description?esc(en.description).replace(/\n/g,'<br>'):'—')+row('Pièce jointe',piece)+row('Signature',sig);
+  const c=document.getElementById('d-body'); if(c) c.innerHTML=body;
+}
 async function loadVerifs(){
   const box=$('verif-table'); if(!box) return;
   box.innerHTML='<div class="muted">Chargement…</div>';
@@ -616,9 +716,9 @@ async function loadSuivi(){
   const latest={};
   const { data:ents } = await supabase.from('registre_entrees').select('equipement_id,prochaine_echeance,date_realisation,conformite').eq('rubrique',4).in('equipement_id',ids).order('date_realisation',{ascending:false});
   (ents||[]).forEach(en=>{ if(en.equipement_id && !latest[en.equipement_id]) latest[en.equipement_id]=en; });
-  const sMap={};
-  const { data:sv } = await supabase.from('registre_suivi').select('*').in('equipement_id',ids);
-  (sv||[]).forEach(s=>{ sMap[s.equipement_id]=s; });
+  const sMap={}, sCount={};
+  const { data:sv } = await supabase.from('registre_suivi').select('*').in('equipement_id',ids).order('updated_at',{ascending:false});
+  (sv||[]).forEach(s=>{ if(!sMap[s.equipement_id]) sMap[s.equipement_id]=s; sCount[s.equipement_id]=(sCount[s.equipement_id]||0)+1; });
   const rc=(v)=>`<select class="rs-suivi-inp" id="sc-${''+v[0]}"><option value=""${v[1]==null?' selected':''}>—</option><option value="oui"${v[1]===true?' selected':''}>✅ Oui</option><option value="non"${v[1]===false?' selected':''}>❌ Non</option></select>`;
   const rows=list.map(eq=>{
     const en=latest[eq.id]; const dl=delaiSuivi(en?en.prochaine_echeance:null);
@@ -629,14 +729,14 @@ async function loadSuivi(){
       <td style="padding:9px 8px">${eq.periodicite_mois?eq.periodicite_mois+' m':'—'}</td>
       <td style="padding:9px 8px">${en&&en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—'}</td>
       <td style="padding:9px 8px"><span class="rs-delai ${dl.c}">${dl.t}</span></td>
-      <td style="padding:9px 8px;min-width:190px"><div class="rs-field-mic"><textarea class="rs-suivi-inp" id="sa-${eq.id}" rows="2" placeholder="${nc?'Non-conformité constatée…':'Aucune anomalie'}">${esc(s.anomalie||'')}</textarea>${micBtn('sa-'+eq.id)}</div></td>
-      <td style="padding:9px 8px;min-width:190px"><div class="rs-field-mic"><textarea class="rs-suivi-inp" id="sm-${eq.id}" rows="2" placeholder="Action corrective…">${esc(s.mesure_prise||'')}</textarea>${micBtn('sm-'+eq.id)}</div></td>
-      <td style="padding:9px 8px;min-width:190px"><div class="rs-field-mic"><textarea class="rs-suivi-inp" id="sf-${eq.id}" rows="2" placeholder="Relance, échéance de reprise…">${esc(s.suivi||'')}</textarea>${micBtn('sf-'+eq.id)}</div></td>
+      <td style="padding:9px 8px;min-width:165px"><div class="rs-field-mic"><textarea class="rs-suivi-inp" id="sa-${eq.id}" rows="2" placeholder="${nc?'Non-conformité constatée…':'Aucune anomalie'}">${esc(s.anomalie||'')}</textarea>${micBtn('sa-'+eq.id)}</div></td>
+      <td style="padding:9px 8px;min-width:165px"><div class="rs-field-mic"><textarea class="rs-suivi-inp" id="sm-${eq.id}" rows="2" placeholder="Action corrective…">${esc(s.mesure_prise||'')}</textarea>${micBtn('sm-'+eq.id)}</div></td>
+      <td style="padding:9px 8px;min-width:165px"><div class="rs-field-mic"><textarea class="rs-suivi-inp" id="sf-${eq.id}" rows="2" placeholder="Relance, échéance de reprise…">${esc(s.suivi||'')}</textarea>${micBtn('sf-'+eq.id)}</div></td>
       <td style="padding:9px 8px;min-width:110px">${rc([eq.id,s.remis_conformite==null?null:s.remis_conformite])}</td>
-      <td style="padding:9px 8px"><button class="rs-iconbtn" id="sb-${eq.id}" onclick="saveSuivi('${eq.id}')">Enregistrer</button></td>
+      <td style="padding:9px 8px;white-space:nowrap"><button class="rs-iconbtn" id="sb-${eq.id}" onclick="saveSuivi('${eq.id}')">Enregistrer</button>${sCount[eq.id]?` <button class="rs-iconbtn" title="Historique (${sCount[eq.id]})" onclick="suiviHistoryModal('${eq.id}','${(eq.libelle||'').replace(/'/g,"\\'")}')">🕘</button>`:''}${s.updated_at?'<div class="muted" style="font-size:.68rem;margin-top:3px">MàJ '+fmtDate(s.updated_at)+'</div>':''}</td>
     </tr>`;
   }).join('');
-  box.innerHTML='<div class="mib-help" style="margin-bottom:10px">Respect des délais réglementaires. Une alerte est prévue à <b>J-60</b> puis <b>J-30</b> avant chaque échéance. Renseignez l’anomalie éventuelle, la mesure prise et la remise en conformité.</div>'
+  box.innerHTML='<div class="mib-help" style="margin-bottom:10px">Respect des délais réglementaires. Une alerte est prévue à <b>J-60</b> puis <b>J-30</b> avant chaque échéance. Renseignez l’anomalie, la mesure prise et la remise en conformité. Chaque enregistrement est <b>conservé</b> (historique 🕘) — l’écran affiche la dernière mise à jour.</div>'
     +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.84rem;min-width:1000px"><thead><tr>'
     +['Vérification','Périod.','Prochaine','Respect délai','Anomalie','Mesure prise','Suivi','Remis en conformité',''].map(h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid #ece3d3;color:#7f1d1d;font-size:.66rem;text-transform:uppercase">${h}</th>`).join('')
     +'</tr></thead><tbody>'+rows+'</tbody></table></div>';
@@ -647,9 +747,29 @@ async function saveSuivi(equipId){
   if(!a||!m||!c) return;
   const rcv=c.value; const remis = rcv===''?null:(rcv==='oui');
   if(btn){ btn.disabled=true; btn.textContent='…'; }
-  const { error } = await supabase.from('registre_suivi').upsert({ equipement_id:equipId, anomalie:(a.value||'').trim()||null, mesure_prise:(m.value||'').trim()||null, suivi:(f&&f.value||'').trim()||null, remis_conformite:remis, updated_at:new Date().toISOString() }, { onConflict:'equipement_id' });
+  // Historisation : on AJOUTE une nouvelle ligne (jamais d'écrasement) ; l'affichage montre la dernière.
+  const { error } = await supabase.from('registre_suivi').insert({ equipement_id:equipId, anomalie:(a.value||'').trim()||null, mesure_prise:(m.value||'').trim()||null, suivi:(f&&f.value||'').trim()||null, remis_conformite:remis, updated_at:new Date().toISOString() });
   if(btn){ btn.disabled=false; btn.textContent=error?'Erreur ✗':'Enregistré ✓'; if(!error) setTimeout(function(){ if(btn) btn.textContent='Enregistrer'; },1600); }
   if(error) console.warn('suivi', error);
+  else setTimeout(loadSuivi, 950);
+}
+async function suiviHistoryModal(equipId,libelle){
+  openMiniModal('Historique du suivi — '+libelle,'<div class="mib-help">Chargement…</div>','<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Fermer</button>');
+  const { data:rows } = await supabase.from('registre_suivi').select('*').eq('equipement_id',equipId).order('updated_at',{ascending:false});
+  const list=rows||[];
+  const rc=v=> v==null?'—':(v?'<span style="color:#166534;font-weight:600">Oui</span>':'<span style="color:#991b1b;font-weight:600">Non</span>');
+  let body;
+  if(!list.length){ body='<div class="muted">Aucun enregistrement.</div>'; }
+  else{
+    body='<div class="mib-help" style="margin-bottom:10px">Chaque enregistrement est conservé (le plus récent en haut). L’écran de suivi affiche le dernier.</div>'
+    +list.map((s,i)=>`<div style="border:1px solid ${i===0?'#16a34a':'#ece3d3'};border-radius:10px;padding:10px 12px;margin-bottom:8px;background:${i===0?'#f0fdf4':'#fffdf9'}">`
+      +`<div style="display:flex;justify-content:space-between;font-size:.72rem;color:#8a7a5a"><span>${i===0?'<b style=\"color:#166534\">Actuel</b> · ':''}${s.updated_at?fmtDate(s.updated_at):'—'}</span><span>Remis en conformité : ${rc(s.remis_conformite)}</span></div>`
+      +`<div style="margin-top:6px;font-size:.82rem"><b>Anomalie :</b> ${esc(s.anomalie||'—')}</div>`
+      +`<div style="font-size:.82rem"><b>Mesure prise :</b> ${esc(s.mesure_prise||'—')}</div>`
+      +`<div style="font-size:.82rem"><b>Suivi :</b> ${esc(s.suivi||'—')}</div>`
+      +`</div>`).join('');
+  }
+  const c=document.getElementById('d-body'); if(c) c.innerHTML=body;
 }
 async function printSuivi(){
   const e=REG_ETAB||{};
@@ -659,8 +779,8 @@ async function printSuivi(){
   if(ids.length){
     const { data:ents } = await supabase.from('registre_entrees').select('equipement_id,prochaine_echeance,date_realisation,conformite').eq('rubrique',4).in('equipement_id',ids).order('date_realisation',{ascending:false});
     (ents||[]).forEach(en=>{ if(en.equipement_id && !latest[en.equipement_id]) latest[en.equipement_id]=en; });
-    const { data:sv } = await supabase.from('registre_suivi').select('*').in('equipement_id',ids);
-    (sv||[]).forEach(s=>{ sMap[s.equipement_id]=s; });
+    const { data:sv } = await supabase.from('registre_suivi').select('*').in('equipement_id',ids).order('updated_at',{ascending:false});
+    (sv||[]).forEach(s=>{ if(!sMap[s.equipement_id]) sMap[s.equipement_id]=s; });
   }
   const heads=['Vérification','Périod.','Dernière','Prochaine','Respect du délai','Anomalie','Mesure prise','Suivi','Remis en conformité'];
   const rows=list.map(eq=>{
@@ -881,10 +1001,11 @@ async function generatePrint(){
   const heads=['Date'].concat(showRub?['Rubrique']:[]).concat(['Objet','Résultat','Intervenant / Société','Constats','Prochaine','Visa','Rapport / Empreinte']);
   const rows=list.map(en=>{
     const eq=eqMap[en.equipement_id]||{}, s=sg[en.id], d=dc[en.id];
-    const objet = en.equipement_id ? (eq.libelle||'—') : (en.description||en.type||'—');
+    const objet = en.equipement_id ? (eq.libelle||'—') : (en.type||en.description||'—');
+    const detail = en.constats || (en.equipement_id?'':(en.description||'')) || '';
     const conf = en.conformite==='non_conforme' ? '<b style="color:#dc2626">Non conforme</b>' : (en.conformite==='conforme'?'<span style="color:#16a34a">Conforme</span>':'—');
     const emp = d ? ('📎 '+esc(d.nom_fichier)+'<br>'+esc((d.hash_sha256||'').slice(0,16))+'…') : (s?esc((s.hash_signe||'').slice(0,16))+'…':'—');
-    return `<tr><td>${fmtDate(en.date_realisation)}</td>${showRub?'<td>'+esc(rubName(en.rubrique))+'</td>':''}<td>${esc(objet)}${eq.localisation?'<br><small>'+esc(eq.localisation)+'</small>':''}</td><td>${conf}</td><td>${esc(en.intervenant||'—')}${en.societe?'<br><small>'+esc(en.societe)+'</small>':''}</td><td>${esc(en.constats||'')}</td><td>${en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—'}</td><td>${s?esc(s.signataire_nom)+(s.role?' ('+esc(s.role)+')':'')+'<br><small>'+fmtDate(s.horodatage)+'</small>':'—'}</td><td><small style="font-family:monospace">${emp}</small></td></tr>`;
+    return `<tr><td>${fmtDate(en.date_realisation)}</td>${showRub?'<td>'+esc(rubName(en.rubrique))+'</td>':''}<td>${esc(objet)}${eq.localisation?'<br><small>'+esc(eq.localisation)+'</small>':''}</td><td>${conf}</td><td>${esc(en.intervenant||'—')}${en.societe?'<br><small>'+esc(en.societe)+'</small>':''}</td><td>${esc(detail)}</td><td>${en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—'}</td><td>${s?esc(s.signataire_nom)+(s.role?' ('+esc(s.role)+')':'')+'<br><small>'+fmtDate(s.horodatage)+'</small>':'—'}</td><td><small style="font-family:monospace">${emp}</small></td></tr>`;
   }).join('');
   const html=`<!doctype html><html><head><meta charset="utf-8"><title>Registre de sécurité — ${esc(e.nom)}</title>`
    +`<style>body{font-family:Arial,sans-serif;color:#111;margin:24px;font-size:12px}h1{color:#7f1d1d;font-size:18px;margin:0 0 2px}.sub{color:#555;margin-bottom:12px}`
