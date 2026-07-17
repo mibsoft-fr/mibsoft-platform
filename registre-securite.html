@@ -604,7 +604,7 @@ function rubShellHtml(n){
 async function loadRubEntries(n){
   const box=$('rub-list'); if(!box) return;
   box.innerHTML='<div class="muted">Chargement…</div>';
-  const cfg=RUB_CFG[n];
+  const cfg=RUB_CFG[n]; const clot=REG_REGISTRE.statut==='cloture';
   const { data:ents } = await supabase.from('registre_entrees').select('*').eq('registre_id',REG_REGISTRE.id).eq('rubrique',n).order('date_realisation',{ascending:false}).order('created_at',{ascending:false});
   const list=ents||[];
   if(!list.length){ box.innerHTML='<div class="rub-todo">Aucune entrée.<br>Cliquez « + Ajouter » pour composer cette rubrique.</div>'; return; }
@@ -625,7 +625,7 @@ async function loadRubEntries(n){
        <td style="padding:9px 8px">${esc(det.slice(0,90))}${det.length>90?'…':''}</td>
        <td style="padding:9px 8px">${esc(en.intervenant||'—')}${en.societe?'<br><span class="muted" style="font-size:.74rem">'+esc(en.societe)+'</span>':''}</td>
        <td style="padding:9px 8px">${piece}</td>
-       <td style="padding:9px 8px"><button class="rs-iconbtn" title="Consulter" onclick="viewRubEntry('${en.id}',${n})">🔍</button></td>
+       <td style="padding:9px 8px;white-space:nowrap">${clot?'':`<button class="rs-iconbtn" title="Faire signer sur téléphone" onclick="openPhoneSign('${en.id}','${(en.type||'').replace(/'/g,"\\'")}')">📱</button> `}<button class="rs-iconbtn" title="Consulter" onclick="viewRubEntry('${en.id}',${n})">🔍</button></td>
      </tr>`;
    }).join('')
    +'</tbody></table></div>';
@@ -639,11 +639,8 @@ function addRubEntryModal(n){
     +`<label class="mib-label" style="margin-top:10px">Organisme / société</label><div class="rs-field-mic"><input class="mib-inp" id="re-org" placeholder="Organisme, entreprise…">`+micBtn('re-org')+`</div>`
     +`<label class="mib-label" style="margin-top:10px">Détails</label><div class="rs-field-mic"><textarea class="mib-textarea" id="re-det" rows="3" placeholder="${cfg.detph}"></textarea>`+micBtn('re-det')+`</div>`
     +`<label class="mib-label" style="margin-top:10px">Pièce jointe (PDF, optionnel)</label><input class="mib-inp" type="file" id="re-file" accept="application/pdf">`
-    +`<label class="mib-label" style="margin-top:10px">Signature (optionnel)</label>`
-    +`<div style="border:1px solid #e6d9c2;border-radius:8px;background:#fffdf9"><canvas id="re-sig" width="560" height="140" style="width:100%;height:140px;touch-action:none;display:block;border-radius:8px"></canvas></div>`
-    +`<div style="display:flex;justify-content:flex-end;margin-top:4px"><button type="button" class="mib-btn mib-btn-ghost" style="padding:4px 12px;font-size:.78rem" onclick="clearSignaturePad('re-sig')">Effacer</button></div>`,
+    +`<div class="mib-alert mib-alert-info" style="margin-top:10px">📱 <b>Signature sur téléphone.</b> Après enregistrement, cliquez <b>📱</b> sur la ligne : le signataire scanne le QR et signe sur son téléphone.</div>`,
     `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="re-save" onclick="submitRubEntry(${n})">Enregistrer</button>`);
-  initSignaturePad('re-sig');
 }
 async function submitRubEntry(n){
   const d=$('re-date').value; const obj=($('re-obj').value||'').trim();
@@ -660,14 +657,6 @@ async function submitRubEntry(n){
       const up=await supabase.storage.from('documents').upload(path,f,{upsert:true,contentType:f.type||'application/pdf'});
       if(!up.error) await supabase.from('registre_documents').insert({ entree_id:entreeId, storage_path:path, nom_fichier:f.name, hash_sha256:hash, taille:f.size });
     }catch(e){ console.warn('piece',e); } }
-    const sc=$('re-sig');
-    if(sc && _sigPads['re-sig'] && _sigPads['re-sig'].dirty && entreeId){ try{
-      const blob=await new Promise(res=>sc.toBlob(res,'image/png'));
-      if(blob){ const sigHash=await sha256File(blob); const sigPath='registre/'+REG_ETAB.id+'/'+entreeId+'_signature.png';
-        const up2=await supabase.storage.from('documents').upload(sigPath,blob,{upsert:true,contentType:'image/png'});
-        if(!up2.error) await supabase.from('registre_entrees').update({ signature_path:sigPath, signature_hash:sigHash }).eq('id',entreeId);
-      }
-    }catch(e){ console.warn('signature',e); } }
     closeMiniModal(); loadRubEntries(n);
   }catch(e){ alert('Erreur : '+(e.message||e)); }
   finally{ if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } }
@@ -706,7 +695,7 @@ async function loadRub2(view){
   const { data:ents } = await supabase.from('registre_entrees').select('*').eq('registre_id',REG_REGISTRE.id).eq('rubrique',2).eq('sous_type',view).order('created_at',{ascending:false});
   const list=ents||[];
   if(!list.length){ box.innerHTML='<div class="rub-todo">'+(view==='personnel'?'Aucune personne enregistrée.<br>Cliquez « + Ajouter une personne ».':'Aucune consigne enregistrée.<br>Cliquez « + Ajouter une consigne ».')+'</div>'; return; }
-  const entIds=list.map(e=>e.id); let docs={};
+  const entIds=list.map(e=>e.id); let docs={}; const clot=REG_REGISTRE.statut==='cloture';
   const { data:dc } = await supabase.from('registre_documents').select('entree_id,storage_path,nom_fichier').in('entree_id',entIds);
   (dc||[]).forEach(d=>{ if(!docs[d.entree_id]) docs[d.entree_id]=d; });
   const heads = view==='personnel' ? ['Nom','Fonction / qualification','Organisme','Observations',''] : ['Type de consigne','Contenu','Document',''];
@@ -727,7 +716,7 @@ async function loadRub2(view){
       <td style="padding:9px 8px"><strong>${esc(en.type||'—')}</strong></td>
       <td style="padding:9px 8px">${esc(det.slice(0,110))}${det.length>110?'…':''}</td>
       <td style="padding:9px 8px">${piece}</td>
-      <td style="padding:9px 8px"><button class="rs-iconbtn" title="Consulter" onclick="viewRub2Entry('${en.id}')">🔍</button></td>
+      <td style="padding:9px 8px;white-space:nowrap">${clot?'':`<button class="rs-iconbtn" title="Faire signer sur téléphone" onclick="openPhoneSign('${en.id}','${(en.type||'').replace(/'/g,"\\'")}')">📱</button> `}<button class="rs-iconbtn" title="Consulter" onclick="viewRub2Entry('${en.id}')">🔍</button></td>
     </tr>`;
   }).join('');
   box.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.84rem"><thead><tr>'
@@ -785,10 +774,11 @@ async function viewRub2Entry(entreeId){
   const doc=dc&&dc[0];
   const row=(l,v)=>`<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #f0e9db"><div style="min-width:130px;color:#8a7a5a;font-size:.78rem">${l}</div><div style="flex:1">${v}</div></div>`;
   const piece=doc?`<a href="${publicUrl(doc.storage_path)}" target="_blank" style="color:#2563eb;font-weight:600">📎 ${esc(doc.nom_fichier)}</a>`:'<span class="muted">Aucun</span>';
+  const sig=en.signature_path?`<img src="${publicUrl(en.signature_path)}" style="max-height:64px;border:1px solid #eee;border-radius:6px;background:#fff">${en.intervenant?'<br><small>'+esc(en.intervenant)+'</small>':''}<br><small style="font-family:monospace;color:#8a7a5a">SHA-256 ${esc((en.signature_hash||'').slice(0,20))}…</small>`:'<span class="muted">Non signée</span>';
   const nom=$('d-nom'); if(nom) nom.textContent = (en.sous_type==='consigne'?'Consigne — ':'Personne — ')+(en.sous_type==='consigne'?(en.type||''):(en.intervenant||''));
   let body;
   if(en.sous_type==='consigne'){
-    body=row('Type',esc(en.type||'—'))+row('Contenu',en.description?esc(en.description).replace(/\n/g,'<br>'):'—')+row('Document',piece);
+    body=row('Type',esc(en.type||'—'))+row('Contenu',en.description?esc(en.description).replace(/\n/g,'<br>'):'—')+row('Document',piece)+row('Signature',sig);
   }else{
     body=row('Nom',esc(en.intervenant||'—'))+row('Fonction / qualification',esc(en.type||'—'))+row('Organisme',esc(en.societe||'—'))+row('Observations',en.description?esc(en.description).replace(/\n/g,'<br>'):'—');
   }
@@ -991,17 +981,14 @@ async function recordVerifModal(equipId,libelle,perio,entreeId){
     `<label class="mib-label">Date de réalisation</label><input class="mib-inp" type="date" id="rv-date" value="${dateVal}">`
     +`<label class="mib-label" style="margin-top:10px">Résultat</label>`
     +`<select class="mib-select" id="rv-conf"><option value="conforme"${nc?'':' selected'}>🟢 Sans non-conformité (conforme)</option><option value="non_conforme"${nc?' selected':''}>🔴 Avec non-conformité</option></select>`
-    +`<label class="mib-label" style="margin-top:10px">Nom de l'intervenant</label><div class="rs-field-mic"><input class="mib-inp" id="rv-int" placeholder="Technicien / vérificateur" value="${intVal}">`+micBtn('rv-int')+`</div>`
+    +`<label class="mib-label" style="margin-top:10px">Nom de l'intervenant</label><input class="mib-inp" id="rv-int" value="${intVal}" readonly placeholder="Renseigné par l'intervenant sur son téléphone" style="background:#f8f5ef">`
     +`<label class="mib-label" style="margin-top:10px">Société</label><div class="rs-field-mic"><input class="mib-inp" id="rv-soc" placeholder="Organisme de vérification" value="${socVal}">`+micBtn('rv-soc')+`</div>`
     +`<label class="mib-label" style="margin-top:10px">Constats / travaux</label><div class="rs-field-mic"><textarea class="mib-textarea" id="rv-cst" rows="2">${cstVal}</textarea>`+micBtn('rv-cst')+`</div>`
     +`<label class="mib-label" style="margin-top:10px">Rapport de vérification (PDF, optionnel)</label><input class="mib-inp" type="file" id="rv-file" accept="application/pdf">`+docHint
     +`<label class="mib-label" style="margin-top:10px">Signature de l'intervenant</label>`+sigHint
-    +`<div style="border:1px solid #e6d9c2;border-radius:8px;background:#fffdf9"><canvas id="rv-sig" width="560" height="150" style="width:100%;height:150px;touch-action:none;display:block;border-radius:8px"></canvas></div>`
-    +`<div style="display:flex;justify-content:flex-end;margin-top:4px"><button type="button" class="mib-btn mib-btn-ghost" style="padding:4px 12px;font-size:.78rem" onclick="clearSignaturePad('rv-sig')">Effacer</button></div>`
-    +`<div class="mib-help" style="margin-top:4px">📱 Pas d'écran tactile ? Enregistrez, puis cliquez <b>📱</b> sur la ligne : l'intervenant signe sur son téléphone (QR code).</div>`
+    +`<div class="mib-alert mib-alert-info" style="margin-top:2px">📱 <b>Signature sur téléphone.</b> Enregistrez la fiche, puis cliquez <b>📱</b> sur la ligne : l'intervenant scanne le QR, saisit son <b>nom (à la voix possible)</b> et signe sur son téléphone. Le nom et la signature reviennent ici automatiquement.</div>`
     +`<div class="mib-help" style="margin-top:8px">Prochaine échéance calculée automatiquement (+${perio||0} mois). Rapport et signature sont scellés par une empreinte SHA-256.${en?' Modifiable tant que la vérification n’est pas visée.':''}</div>`,
     `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="rv-save" onclick="submitRecordVerif('${equipId}',${perio||0}${en?`,'${en.id}'`:''})">Enregistrer</button>`);
-  initSignaturePad('rv-sig');
 }
 let _sigPads={};
 function initSignaturePad(id){
@@ -1024,11 +1011,12 @@ async function openPhoneSign(entreeId,libelle){
   const ins=await supabase.from('signature_requests').insert({ token, entree_id:entreeId, etablissement_id:REG_ETAB.id, libelle:libelle, status:'pending' }).select('id').single();
   if(ins.error){ alert('Erreur : '+ins.error.message); return; }
   const url=location.origin+location.pathname+'?sign='+token;
-  openMiniModal('Signature sur téléphone',
-    `<div class="mib-help" style="margin-bottom:10px">Faites <b>scanner ce QR code</b> par l'intervenant avec son téléphone. Il signe au doigt, la signature revient ici automatiquement.</div>`
+  openMiniModal('Remplir & signer sur téléphone',
+    `<div class="mib-help" style="margin-bottom:10px">L'intervenant <b>scanne ce QR code</b> et remplit sa fiche (nom, société, compte rendu, avis de conformité) puis <b>signe au doigt</b> sur son téléphone. Tout revient ici automatiquement.</div>`
     +`<div id="qr-box" style="display:flex;justify-content:center;padding:8px;background:#fff;border-radius:10px;border:1px solid #e6d9c2"></div>`
-    +`<div id="qr-wait" style="text-align:center;margin-top:12px;color:#8a7a5a;font-size:.85rem">⏳ En attente de la signature…</div>`
-    +`<div class="mib-help" style="margin-top:10px;word-break:break-all">Ou ouvrez ce lien : <a href="${url}" target="_blank">${url}</a></div>`,
+    +`<div id="qr-wait" style="text-align:center;margin-top:12px;color:#8a7a5a;font-size:.85rem">⏳ En attente de la fiche…</div>`
+    +`<div class="mib-help" style="margin-top:10px">Intervenant déjà parti ? <b>Envoyez-lui le lien</b> pour qu'il remplisse à distance :</div>`
+    +`<div style="display:flex;gap:6px;margin-top:6px"><input class="mib-inp" id="qr-link" readonly value="${url}" style="font-size:.78rem"><button class="mib-btn mib-btn-ghost" style="white-space:nowrap" onclick="var i=document.getElementById('qr-link');i.select();try{navigator.clipboard.writeText(i.value);}catch(e){document.execCommand('copy');}this.textContent='Copié ✓'">Copier</button></div>`,
     `<button class="mib-btn mib-btn-ghost" onclick="closePhoneSign()">Fermer</button>`);
   ensureQR(function(err){ const box=document.getElementById('qr-box'); if(!box) return; if(err||!window.QRCode){ box.innerHTML='<img alt="QR" style="width:220px;height:220px" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(url)+'">'; } else { box.innerHTML=''; new window.QRCode(box,{text:url,width:220,height:220}); } });
   if(_signPoll) clearInterval(_signPoll);
@@ -1036,32 +1024,50 @@ async function openPhoneSign(entreeId,libelle){
     const { data } = await supabase.from('signature_requests').select('status').eq('token',token).maybeSingle();
     if(data && data.status==='signed'){
       clearInterval(_signPoll); _signPoll=null;
-      const w=document.getElementById('qr-wait'); if(w) w.innerHTML='<b style="color:#166534">✅ Signature reçue !</b>';
-      setTimeout(function(){ closeMiniModal(); if(REG_ACTIVE===4) loadVerifs(); },1200);
+      const w=document.getElementById('qr-wait'); if(w) w.innerHTML='<b style="color:#166534">✅ Fiche reçue !</b>';
+      setTimeout(function(){ closeMiniModal(); reloadCurrentRub(); },1200);
     }
   }, 2500);
 }
-function closePhoneSign(){ if(_signPoll){ clearInterval(_signPoll); _signPoll=null; } closeMiniModal(); if(REG_ACTIVE===4) loadVerifs(); }
+function reloadCurrentRub(){ if(REG_ACTIVE===4) loadVerifs(); else if(REG_ACTIVE===2) loadRub2(RUB2_VIEW); else if(RUB_CFG[REG_ACTIVE]) loadRubEntries(REG_ACTIVE); }
+function closePhoneSign(){ if(_signPoll){ clearInterval(_signPoll); _signPoll=null; } closeMiniModal(); reloadCurrentRub(); }
 async function renderSignPage(token){
   const card=$('sign-card'); if(!card) return;
   card.innerHTML='<div class="mib-card" style="padding:22px"><div class="muted">Chargement…</div></div>';
   const { data:req } = await supabase.from('signature_requests').select('*').eq('token',token).maybeSingle();
   if(!req){ card.innerHTML='<div class="mib-card" style="padding:22px"><h2 style="color:#7f1d1d">Lien invalide</h2><div class="mib-help">Cette demande de signature est introuvable.</div></div>'; return; }
-  if(req.status==='signed'){ card.innerHTML='<div class="mib-card" style="padding:22px;text-align:center"><div style="font-size:2rem">✅</div><h2 style="color:#166534">Déjà signé</h2><div class="mib-help">Cette signature a déjà été enregistrée. Vous pouvez fermer cette page.</div></div>'; return; }
+  if(req.status==='signed'){ card.innerHTML='<div class="mib-card" style="padding:22px;text-align:center"><div style="font-size:2rem">✅</div><h2 style="color:#166534">Fiche déjà remplie</h2><div class="mib-help">Cette fiche a déjà été renseignée et signée. Vous pouvez fermer cette page.</div></div>'; return; }
+  let en=null; if(req.entree_id){ const r=await supabase.from('registre_entrees').select('*').eq('id',req.entree_id).maybeSingle(); en=r.data||null; }
+  const isVerif = !en || en.rubrique===4;
+  const nc = en && en.conformite==='non_conforme';
+  let fields;
+  if(isVerif){
+    fields='<label class="mib-label">Nom de l\'intervenant</label><div class="rs-field-mic"><input class="mib-inp" id="ph-nom" placeholder="Nom et prénom" value="'+esc((en&&en.intervenant)||req.signataire||'')+'">'+micBtn('ph-nom')+'</div>'
+    +'<label class="mib-label" style="margin-top:10px">Société</label><div class="rs-field-mic"><input class="mib-inp" id="ph-soc" placeholder="Organisme / entreprise" value="'+esc((en&&en.societe)||'')+'">'+micBtn('ph-soc')+'</div>'
+    +'<label class="mib-label" style="margin-top:10px">Avis sur la conformité</label>'
+    +'<select class="mib-select" id="ph-conf"><option value="conforme"'+(nc?'':' selected')+'>🟢 Conforme (sans non-conformité)</option><option value="non_conforme"'+(nc?' selected':'')+'>🔴 Non conforme (avec non-conformité)</option></select>'
+    +'<label class="mib-label" style="margin-top:10px">Compte rendu / constats</label><div class="rs-field-mic"><textarea class="mib-textarea" id="ph-cst" rows="3" placeholder="Observations, travaux, réserves…">'+esc((en&&en.constats)||'')+'</textarea>'+micBtn('ph-cst')+'</div>';
+  } else {
+    fields='<label class="mib-label">Nom du signataire</label><div class="rs-field-mic"><input class="mib-inp" id="ph-nom" placeholder="Nom et prénom" value="'+esc((en&&en.intervenant)||req.signataire||'')+'">'+micBtn('ph-nom')+'</div>'
+    +'<label class="mib-label" style="margin-top:10px">Organisme / société</label><div class="rs-field-mic"><input class="mib-inp" id="ph-soc" placeholder="Organisme / entreprise" value="'+esc((en&&en.societe)||'')+'">'+micBtn('ph-soc')+'</div>';
+  }
   card.innerHTML='<div class="mib-card" style="padding:20px">'
-    +'<div style="font-family:var(--font-display,\'Plus Jakarta Sans\');color:#7f1d1d;font-weight:800;font-size:1.1rem">Registre de sécurité — Signature</div>'
-    +'<div class="mib-help" style="margin:6px 0 14px">Objet : <b>'+esc(req.libelle||'Vérification')+'</b></div>'
-    +'<label class="mib-label">Votre nom</label><input class="mib-inp" id="ph-nom" placeholder="Nom et prénom" value="'+esc(req.signataire||'')+'">'
-    +'<label class="mib-label" style="margin-top:12px">Signez ci-dessous</label>'
-    +'<div style="border:1px solid #cbd5e1;border-radius:10px;background:#fff"><canvas id="ph-sig" width="500" height="220" style="width:100%;height:220px;touch-action:none;display:block;border-radius:10px"></canvas></div>'
+    +'<div style="font-family:var(--font-display,\'Plus Jakarta Sans\');color:#7f1d1d;font-weight:800;font-size:1.1rem">Registre de sécurité</div>'
+    +'<div class="mib-help" style="margin:6px 0 14px">Objet : <b>'+esc(req.libelle||'—')+'</b>. Merci de renseigner et signer.</div>'
+    +fields
+    +'<div class="mib-help" style="margin-top:4px">🎤 Les champs peuvent être dictés à la voix.</div>'
+    +'<label class="mib-label" style="margin-top:12px">Signature</label>'
+    +'<div style="border:1px solid #cbd5e1;border-radius:10px;background:#fff"><canvas id="ph-sig" width="500" height="200" style="width:100%;height:200px;touch-action:none;display:block;border-radius:10px"></canvas></div>'
     +'<div style="display:flex;justify-content:space-between;gap:8px;margin-top:12px">'
     +'<button class="mib-btn mib-btn-ghost" onclick="clearSignaturePad(\'ph-sig\')">Effacer</button>'
-    +'<button class="mib-btn mib-btn-primary" id="ph-save" onclick="submitPhoneSign(\''+token+'\')">Valider ma signature</button>'
+    +'<button class="mib-btn mib-btn-primary" id="ph-save" onclick="submitPhoneSign(\''+token+'\')">Valider et signer</button>'
     +'</div></div>';
   initSignaturePad('ph-sig');
 }
 async function submitPhoneSign(token){
   const c=$('ph-sig'); const btn=$('ph-save');
+  const nom=($('ph-nom')&&$('ph-nom').value||'').trim();
+  if(!nom){ alert('Merci d\'indiquer votre nom.'); return; }
   if(!c || !_sigPads['ph-sig'] || !_sigPads['ph-sig'].dirty){ alert('Merci de signer dans le cadre.'); return; }
   if(btn){ btn.disabled=true; btn.textContent='Envoi…'; }
   try{
@@ -1072,10 +1078,15 @@ async function submitPhoneSign(token){
     const sigPath='registre/'+(req.etablissement_id||'x')+'/'+(req.entree_id||token)+'_signature.png';
     const up=await supabase.storage.from('documents').upload(sigPath,blob,{upsert:true,contentType:'image/png'});
     if(up.error){ alert('Erreur d\'envoi : '+up.error.message); if(btn){btn.disabled=false;btn.textContent='Valider ma signature';} return; }
-    const nom=($('ph-nom').value||'').trim()||null;
-    if(req.entree_id){ await supabase.from('registre_entrees').update({ signature_path:sigPath, signature_hash:sigHash }).eq('id',req.entree_id); }
+    if(req.entree_id){
+      const upd={ intervenant:nom, signature_path:sigPath, signature_hash:sigHash };
+      if($('ph-soc')) upd.societe=($('ph-soc').value||'').trim()||null;
+      if($('ph-cst')) upd.constats=($('ph-cst').value||'').trim()||null;
+      if($('ph-conf')) upd.conformite=$('ph-conf').value||'conforme';
+      await supabase.from('registre_entrees').update(upd).eq('id',req.entree_id);
+    }
     await supabase.from('signature_requests').update({ status:'signed', signataire:nom, signature_path:sigPath, signature_hash:sigHash, signed_at:new Date().toISOString() }).eq('token',token);
-    $('sign-card').innerHTML='<div class="mib-card" style="padding:24px;text-align:center"><div style="font-size:2.4rem">✅</div><h2 style="color:#166534">Signature enregistrée</h2><div class="mib-help">Merci. Vous pouvez fermer cette page — elle est déjà revenue sur le registre.</div></div>';
+    $('sign-card').innerHTML='<div class="mib-card" style="padding:24px;text-align:center"><div style="font-size:2.4rem">✅</div><h2 style="color:#166534">Fiche enregistrée</h2><div class="mib-help">Merci. Votre intervention et votre signature sont revenues sur le registre. Vous pouvez fermer cette page.</div></div>';
   }catch(e){ alert('Erreur : '+(e.message||e)); if(btn){btn.disabled=false;btn.textContent='Valider ma signature';} }
 }
 async function viewVerifModal(entreeId,libelle){
@@ -1140,19 +1151,6 @@ async function submitRecordVerif(equipId,perio,entreeId){
         }
         else console.warn('upload', up.error);
       }catch(e){ console.warn('rapport', e); }
-    }
-    const sc2=$('rv-sig');
-    if(sc2 && _sigPads['rv-sig'] && _sigPads['rv-sig'].dirty && entreeId){
-      try{
-        const blob=await new Promise(res=>sc2.toBlob(res,'image/png'));
-        if(blob){
-          const sigHash=await sha256File(blob);
-          const sigPath='registre/'+REG_ETAB.id+'/'+entreeId+'_signature.png';
-          const up2=await supabase.storage.from('documents').upload(sigPath,blob,{upsert:true,contentType:'image/png'});
-          if(!up2.error){ await supabase.from('registre_entrees').update({ signature_path:sigPath, signature_hash:sigHash }).eq('id',entreeId); }
-          else console.warn('signature', up2.error);
-        }
-      }catch(e){ console.warn('signature', e); }
     }
     closeMiniModal(); loadVerifs();
   }catch(e){ alert('Erreur : '+(e.message||e)); }
