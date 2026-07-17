@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Registre de sécurité — MIBsoft</title> 
+<title>Registre de sécurité — MIBsoft</title>
 <link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -487,7 +487,54 @@ function ficheHtml(){
    +`<div class="kv"><span>Adresse</span><span>${esc(e.adresse||'—')}</span></div>`
    +`<div class="kv"><span>Effectif public</span><span>${e.effectif_public==null?'—':e.effectif_public}</span></div>`
    +`<div class="kv"><span>Effectif personnel</span><span>${e.effectif_personnel==null?'—':e.effectif_personnel}</span></div>`
-   +`<div class="mib-alert mib-alert-info" style="margin-top:14px">Les acteurs (exploitant, organismes, secours) arrivent en Phase 1b.</div>`;
+   +`<div class="mib-alert mib-alert-info" style="margin-top:14px">Les acteurs (exploitant, organismes, secours) arrivent en Phase 1b.</div>`
+   +registreLifecycleHtml();
+}
+function registreLifecycleHtml(){
+  const r=REG_REGISTRE||{};
+  const empreinte = r.hash_scelle ? `<br><small style="font-family:monospace;color:#8a7a5a">Empreinte de scellement : ${esc((r.hash_scelle||'').slice(0,24))}…</small>` : '';
+  return `<div style="margin-top:18px;border:1px solid #ece3d3;border-radius:12px;padding:14px 16px;background:#fffdf9">`
+    +`<div style="font-family:var(--font-display,'Plus Jakarta Sans');color:#7f1d1d;font-weight:700;margin-bottom:6px">Cycle de vie du registre</div>`
+    +`<div class="kv"><span>Statut</span><span>${r.statut==='cloture'?'<b style="color:#7f1d1d">Clôturé</b>':'<b style="color:#166534">Ouvert</b>'}</span></div>`
+    +`<div class="kv"><span>Ouvert le</span><span>${r.ouvert_le?fmtDate(r.ouvert_le):'—'}</span></div>`
+    +(r.statut==='cloture'
+        ? `<div class="kv"><span>Clôturé le</span><span>${r.cloture_le?fmtDate(r.cloture_le):'—'}${r.cloture_nom?' par '+esc(r.cloture_nom)+(r.cloture_fonction?' ('+esc(r.cloture_fonction)+')':''):''}${empreinte}</span></div>`
+        : `<div style="margin-top:12px"><button class="mib-btn mib-btn-primary" style="background:#7f1d1d" onclick="closeRegistreModal()">🔒 Clôturer le registre</button><div class="mib-help" style="margin-top:6px">La clôture <b>scelle définitivement</b> le registre (empreinte SHA-256 + journal d'audit) et <b>ouvre automatiquement le registre suivant</b>.</div></div>`)
+    +`</div>`;
+}
+function closeRegistreModal(){
+  openMiniModal('Clôturer le registre',
+    `<div class="mib-alert mib-alert-info">Vous allez <b>clôturer et sceller</b> le registre ouvert le <b>${fmtDate(REG_REGISTRE.ouvert_le)}</b>. Cette action est <b>irréversible</b> : le registre devient une archive inaltérable (empreinte SHA-256 + journal d'audit) et un <b>nouveau registre</b> est ouvert immédiatement.</div>`
+    +`<label class="mib-label" style="margin-top:8px">Nom du clôturant (exploitant)</label><input class="mib-inp" id="cl-nom" autocomplete="off" value="${RS_OP?esc(RS_OP):''}">`
+    +`<label class="mib-label" style="margin-top:10px">Fonction</label><input class="mib-inp" id="cl-fct" autocomplete="off" value="Exploitant">`
+    +`<label class="mib-label" style="margin-top:10px">Code de confirmation</label><input class="mib-inp" type="password" id="cl-code" autocomplete="new-password" placeholder="Code personnel">`,
+    `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="cl-save" style="background:#7f1d1d" onclick="submitCloture()">Clôturer et sceller</button>`);
+}
+async function submitCloture(){
+  const nom=($('cl-nom').value||'').trim(); const fct=($('cl-fct').value||'').trim(); const code=($('cl-code').value||'').trim();
+  if(!nom){ alert('Le nom du clôturant est requis.'); return; }
+  if(!code){ alert('Le code de confirmation est requis.'); return; }
+  const btn=$('cl-save'); if(btn){ btn.disabled=true; btn.textContent='Scellement…'; }
+  try{
+    // Empreinte du contenu : toutes les entrées du registre, ordonnées
+    const { data:ents } = await supabase.from('registre_entrees')
+      .select('id,rubrique,equipement_id,date_realisation,prochaine_echeance,conformite,intervenant,societe,constats,signature_hash')
+      .eq('registre_id',REG_REGISTRE.id).order('id',{ascending:true});
+    const contentHash=await sha256(JSON.stringify(ents||[]));
+    const { data:lastA } = await supabase.from('registre_audit').select('hash_courant').eq('etablissement_id',REG_ETAB.id).order('id',{ascending:false}).limit(1);
+    const prev=(lastA&&lastA[0]&&lastA[0].hash_courant)||'GENESIS';
+    const stamp=new Date().toISOString();
+    const sealed=await sha256(prev+'|'+contentHash+'|'+nom+'|'+fct+'|'+code+'|'+stamp);
+    // Sceller le registre courant
+    await supabase.from('registres').update({ statut:'cloture', cloture_le:stamp, cloture_nom:nom, cloture_fonction:fct||null, hash_scelle:sealed }).eq('id',REG_REGISTRE.id);
+    await supabase.from('registre_audit').insert({ etablissement_id:REG_ETAB.id, registre_id:REG_REGISTRE.id, action:'cloture', hash_prec:prev, hash_courant:sealed });
+    // Ouvrir automatiquement le registre suivant
+    const ins=await supabase.from('registres').insert({ etablissement_id:REG_ETAB.id, statut:'ouvert' }).select('*').single();
+    closeMiniModal();
+    alert('Registre clôturé et scellé.\nEmpreinte : '+sealed.slice(0,32)+'…\nUn nouveau registre est ouvert.');
+    if(ins.data){ REG_REGISTRE=ins.data; renderRubrique(REG_ACTIVE); }
+  }catch(e){ alert('Erreur : '+(e.message||e)); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='Clôturer et sceller'; } }
 }
 function verifsShellHtml(){
   return `<h2>4. Vérifications & maintenances</h2>`
@@ -584,22 +631,23 @@ async function loadSuivi(){
       <td style="padding:9px 8px"><span class="rs-delai ${dl.c}">${dl.t}</span></td>
       <td style="padding:9px 8px;min-width:190px"><div class="rs-field-mic"><textarea class="rs-suivi-inp" id="sa-${eq.id}" rows="2" placeholder="${nc?'Non-conformité constatée…':'Aucune anomalie'}">${esc(s.anomalie||'')}</textarea>${micBtn('sa-'+eq.id)}</div></td>
       <td style="padding:9px 8px;min-width:190px"><div class="rs-field-mic"><textarea class="rs-suivi-inp" id="sm-${eq.id}" rows="2" placeholder="Action corrective…">${esc(s.mesure_prise||'')}</textarea>${micBtn('sm-'+eq.id)}</div></td>
+      <td style="padding:9px 8px;min-width:190px"><div class="rs-field-mic"><textarea class="rs-suivi-inp" id="sf-${eq.id}" rows="2" placeholder="Relance, échéance de reprise…">${esc(s.suivi||'')}</textarea>${micBtn('sf-'+eq.id)}</div></td>
       <td style="padding:9px 8px;min-width:110px">${rc([eq.id,s.remis_conformite==null?null:s.remis_conformite])}</td>
       <td style="padding:9px 8px"><button class="rs-iconbtn" id="sb-${eq.id}" onclick="saveSuivi('${eq.id}')">Enregistrer</button></td>
     </tr>`;
   }).join('');
   box.innerHTML='<div class="mib-help" style="margin-bottom:10px">Respect des délais réglementaires. Une alerte est prévue à <b>J-60</b> puis <b>J-30</b> avant chaque échéance. Renseignez l’anomalie éventuelle, la mesure prise et la remise en conformité.</div>'
-    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.84rem;min-width:820px"><thead><tr>'
-    +['Vérification','Périod.','Prochaine','Respect délai','Anomalie','Mesure prise','Remis en conformité',''].map(h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid #ece3d3;color:#7f1d1d;font-size:.66rem;text-transform:uppercase">${h}</th>`).join('')
+    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.84rem;min-width:1000px"><thead><tr>'
+    +['Vérification','Périod.','Prochaine','Respect délai','Anomalie','Mesure prise','Suivi','Remis en conformité',''].map(h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid #ece3d3;color:#7f1d1d;font-size:.66rem;text-transform:uppercase">${h}</th>`).join('')
     +'</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 async function saveSuivi(equipId){
   const btn=document.getElementById('sb-'+equipId);
-  const a=document.getElementById('sa-'+equipId), m=document.getElementById('sm-'+equipId), c=document.getElementById('sc-'+equipId);
+  const a=document.getElementById('sa-'+equipId), m=document.getElementById('sm-'+equipId), f=document.getElementById('sf-'+equipId), c=document.getElementById('sc-'+equipId);
   if(!a||!m||!c) return;
   const rcv=c.value; const remis = rcv===''?null:(rcv==='oui');
   if(btn){ btn.disabled=true; btn.textContent='…'; }
-  const { error } = await supabase.from('registre_suivi').upsert({ equipement_id:equipId, anomalie:(a.value||'').trim()||null, mesure_prise:(m.value||'').trim()||null, remis_conformite:remis, updated_at:new Date().toISOString() }, { onConflict:'equipement_id' });
+  const { error } = await supabase.from('registre_suivi').upsert({ equipement_id:equipId, anomalie:(a.value||'').trim()||null, mesure_prise:(m.value||'').trim()||null, suivi:(f&&f.value||'').trim()||null, remis_conformite:remis, updated_at:new Date().toISOString() }, { onConflict:'equipement_id' });
   if(btn){ btn.disabled=false; btn.textContent=error?'Erreur ✗':'Enregistré ✓'; if(!error) setTimeout(function(){ if(btn) btn.textContent='Enregistrer'; },1600); }
   if(error) console.warn('suivi', error);
 }
@@ -614,7 +662,7 @@ async function printSuivi(){
     const { data:sv } = await supabase.from('registre_suivi').select('*').in('equipement_id',ids);
     (sv||[]).forEach(s=>{ sMap[s.equipement_id]=s; });
   }
-  const heads=['Vérification','Périod.','Dernière','Prochaine','Respect du délai','Anomalie','Mesure prise','Remis en conformité'];
+  const heads=['Vérification','Périod.','Dernière','Prochaine','Respect du délai','Anomalie','Mesure prise','Suivi','Remis en conformité'];
   const rows=list.map(eq=>{
     const en=latest[eq.id]; const dl=delaiSuivi(en?en.prochaine_echeance:null); const s=sMap[eq.id]||{};
     const remis = s.remis_conformite==null ? '—' : (s.remis_conformite?'Oui':'Non');
@@ -626,6 +674,7 @@ async function printSuivi(){
       +`<td style="${colcls}">${esc(dl.t)}</td>`
       +`<td>${esc(s.anomalie||'—')}</td>`
       +`<td>${esc(s.mesure_prise||'—')}</td>`
+      +`<td>${esc(s.suivi||'—')}</td>`
       +`<td style="text-align:center">${remis}</td></tr>`;
   }).join('');
   const html=`<!doctype html><html><head><meta charset="utf-8"><title>Tableau de suivi des vérifications — ${esc(e.nom||'')}</title>`
@@ -665,6 +714,8 @@ async function recordVerifModal(equipId,libelle,perio,entreeId){
   const cstVal=en?esc(en.constats||''):'';
   let docHint='';
   if(en){ const dc=await supabase.from('registre_documents').select('nom_fichier').eq('entree_id',en.id).limit(1); const doc=dc.data&&dc.data[0]; if(doc) docHint=`<div class="mib-help" style="margin-top:4px">Rapport actuel : 📎 ${esc(doc.nom_fichier)} — choisir un fichier le remplace.</div>`; }
+  let sigHint='';
+  if(en && en.signature_path){ sigHint=`<div style="margin:4px 0"><img src="${publicUrl(en.signature_path)}" alt="signature" style="max-height:64px;border:1px solid #eee;border-radius:6px;background:#fff"><div class="mib-help">Signature enregistrée — signez à nouveau pour la remplacer.</div></div>`; }
   openMiniModal((en?'Modifier la vérification — ':'Vérification réalisée — ')+libelle,
     `<label class="mib-label">Date de réalisation</label><input class="mib-inp" type="date" id="rv-date" value="${dateVal}">`
     +`<label class="mib-label" style="margin-top:10px">Résultat</label>`
@@ -673,9 +724,26 @@ async function recordVerifModal(equipId,libelle,perio,entreeId){
     +`<label class="mib-label" style="margin-top:10px">Société</label><div class="rs-field-mic"><input class="mib-inp" id="rv-soc" placeholder="Organisme de vérification" value="${socVal}">`+micBtn('rv-soc')+`</div>`
     +`<label class="mib-label" style="margin-top:10px">Constats / travaux</label><div class="rs-field-mic"><textarea class="mib-textarea" id="rv-cst" rows="2">${cstVal}</textarea>`+micBtn('rv-cst')+`</div>`
     +`<label class="mib-label" style="margin-top:10px">Rapport de vérification (PDF, optionnel)</label><input class="mib-inp" type="file" id="rv-file" accept="application/pdf">`+docHint
-    +`<div class="mib-help" style="margin-top:8px">Prochaine échéance calculée automatiquement (+${perio||0} mois). Le rapport est scellé par une empreinte SHA-256.${en?' Modifiable tant que la vérification n’est pas visée.':''}</div>`,
+    +`<label class="mib-label" style="margin-top:10px">Signature de l'intervenant</label>`+sigHint
+    +`<div style="border:1px solid #e6d9c2;border-radius:8px;background:#fffdf9"><canvas id="rv-sig" width="560" height="150" style="width:100%;height:150px;touch-action:none;display:block;border-radius:8px"></canvas></div>`
+    +`<div style="display:flex;justify-content:flex-end;margin-top:4px"><button type="button" class="mib-btn mib-btn-ghost" style="padding:4px 12px;font-size:.78rem" onclick="clearSignaturePad('rv-sig')">Effacer</button></div>`
+    +`<div class="mib-help" style="margin-top:8px">Prochaine échéance calculée automatiquement (+${perio||0} mois). Rapport et signature sont scellés par une empreinte SHA-256.${en?' Modifiable tant que la vérification n’est pas visée.':''}</div>`,
     `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="rv-save" onclick="submitRecordVerif('${equipId}',${perio||0}${en?`,'${en.id}'`:''})">Enregistrer</button>`);
+  initSignaturePad('rv-sig');
 }
+let _sigPads={};
+function initSignaturePad(id){
+  const c=document.getElementById(id); if(!c) return;
+  const ctx=c.getContext('2d'); ctx.lineWidth=2.2; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#0f172a';
+  _sigPads[id]={dirty:false};
+  let drawing=false, last=null;
+  const pos=e=>{ const r=c.getBoundingClientRect(); const t=(e.touches&&e.touches[0])||e; return {x:(t.clientX-r.left)*(c.width/r.width), y:(t.clientY-r.top)*(c.height/r.height)}; };
+  const down=e=>{ e.preventDefault(); drawing=true; last=pos(e); };
+  const move=e=>{ if(!drawing) return; e.preventDefault(); const p=pos(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last=p; _sigPads[id].dirty=true; };
+  const up=()=>{ drawing=false; };
+  c.addEventListener('pointerdown',down); c.addEventListener('pointermove',move); window.addEventListener('pointerup',up);
+}
+function clearSignaturePad(id){ const c=document.getElementById(id); if(c){ c.getContext('2d').clearRect(0,0,c.width,c.height); if(_sigPads[id]) _sigPads[id].dirty=false; } }
 async function viewVerifModal(entreeId,libelle){
   openMiniModal('Fiche de vérification — '+libelle,'<div class="mib-help">Chargement…</div>','<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Fermer</button>');
   const { data:en } = await supabase.from('registre_entrees').select('*').eq('id',entreeId).single();
@@ -694,6 +762,9 @@ async function viewVerifModal(entreeId,libelle){
   const visa = sig
     ? `<span class="mib-badge mib-badge-success">Visé ✓</span> ${esc(sig.signataire_nom)}${sig.role?' ('+esc(sig.role)+')':''}<br><small style="color:#8a7a5a">le ${fmtDate(sig.horodatage)} · empreinte ${esc((sig.hash_signe||'').slice(0,16))}…</small>`
     : '<span class="muted">Non visée</span>';
+  const sigInt = en.signature_path
+    ? `<img src="${publicUrl(en.signature_path)}" alt="signature" style="max-height:70px;border:1px solid #eee;border-radius:6px;background:#fff"><br><small style="font-family:monospace;color:#8a7a5a">SHA-256 ${esc((en.signature_hash||'').slice(0,24))}…</small>`
+    : '<span class="muted">Non signée</span>';
   const body =
       row('Date de réalisation', fmtDate(en.date_realisation))
     + row('Résultat', conf)
@@ -702,6 +773,7 @@ async function viewVerifModal(entreeId,libelle){
     + row('Constats / travaux', en.constats?esc(en.constats).replace(/\n/g,'<br>'):'—')
     + row('Prochaine échéance', en.prochaine_echeance?fmtDate(en.prochaine_echeance):'—')
     + row('Rapport', rapport)
+    + row('Signature intervenant', sigInt)
     + row('Visa', visa);
   const c=document.getElementById('d-body'); if(c) c.innerHTML=body;
 }
@@ -735,6 +807,19 @@ async function submitRecordVerif(equipId,perio,entreeId){
         else console.warn('upload', up.error);
       }catch(e){ console.warn('rapport', e); }
     }
+    const sc2=$('rv-sig');
+    if(sc2 && _sigPads['rv-sig'] && _sigPads['rv-sig'].dirty && entreeId){
+      try{
+        const blob=await new Promise(res=>sc2.toBlob(res,'image/png'));
+        if(blob){
+          const sigHash=await sha256File(blob);
+          const sigPath='registre/'+REG_ETAB.id+'/'+entreeId+'_signature.png';
+          const up2=await supabase.storage.from('documents').upload(sigPath,blob,{upsert:true,contentType:'image/png'});
+          if(!up2.error){ await supabase.from('registre_entrees').update({ signature_path:sigPath, signature_hash:sigHash }).eq('id',entreeId); }
+          else console.warn('signature', up2.error);
+        }
+      }catch(e){ console.warn('signature', e); }
+    }
     closeMiniModal(); loadVerifs();
   }catch(e){ alert('Erreur : '+(e.message||e)); }
   finally{ if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } }
@@ -755,7 +840,7 @@ async function submitVisa(entreeId){
   const btn=$('vi-save'); if(btn){ btn.disabled=true; btn.textContent='Signature…'; }
   try{
     const { data:ent } = await supabase.from('registre_entrees').select('*').eq('id',entreeId).single();
-    const payload=JSON.stringify({ id:ent.id, equip:ent.equipement_id, date:ent.date_realisation, proch:ent.prochaine_echeance, intervenant:ent.intervenant, societe:ent.societe, constats:ent.constats, nom, fct, code });
+    const payload=JSON.stringify({ id:ent.id, equip:ent.equipement_id, date:ent.date_realisation, proch:ent.prochaine_echeance, intervenant:ent.intervenant, societe:ent.societe, constats:ent.constats, sig:ent.signature_hash||null, nom, fct, code });
     const hash=await sha256(payload);
     const { data:lastA } = await supabase.from('registre_audit').select('hash_courant').eq('etablissement_id',REG_ETAB.id).order('id',{ascending:false}).limit(1);
     const prev=(lastA&&lastA[0]&&lastA[0].hash_courant)||'GENESIS';
