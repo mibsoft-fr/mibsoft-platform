@@ -630,14 +630,12 @@ function closeRegistreModal(){
   openMiniModal('Clôturer le registre',
     `<div class="mib-alert mib-alert-info">Vous allez <b>clôturer et sceller</b> le registre ouvert le <b>${fmtDate(REG_REGISTRE.ouvert_le)}</b>. Cette action est <b>irréversible</b> : le registre devient une archive inaltérable (empreinte SHA-256 + journal d'audit) et un <b>nouveau registre</b> est ouvert immédiatement.</div>`
     +`<label class="mib-label" style="margin-top:8px">Nom du clôturant (exploitant)</label><input class="mib-inp" id="cl-nom" autocomplete="off" value="${RS_OP?esc(RS_OP):''}">`
-    +`<label class="mib-label" style="margin-top:10px">Fonction</label><input class="mib-inp" id="cl-fct" autocomplete="off" value="Exploitant">`
-    +`<label class="mib-label" style="margin-top:10px">Code de confirmation</label><input class="mib-inp" type="password" id="cl-code" autocomplete="new-password" placeholder="Code personnel">`,
+    +`<label class="mib-label" style="margin-top:10px">Fonction</label><input class="mib-inp" id="cl-fct" autocomplete="off" value="Exploitant">`,
     `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="cl-save" style="background:#7f1d1d" onclick="submitCloture()">Clôturer et sceller</button>`);
 }
 async function submitCloture(){
-  const nom=($('cl-nom').value||'').trim(); const fct=($('cl-fct').value||'').trim(); const code=($('cl-code').value||'').trim();
+  const nom=($('cl-nom').value||'').trim(); const fct=($('cl-fct').value||'').trim();
   if(!nom){ alert('Le nom du clôturant est requis.'); return; }
-  if(!code){ alert('Le code de confirmation est requis.'); return; }
   const btn=$('cl-save'); if(btn){ btn.disabled=true; btn.textContent='Scellement…'; }
   try{
     // Empreinte du contenu : toutes les entrées du registre, ordonnées
@@ -648,7 +646,7 @@ async function submitCloture(){
     const { data:lastA } = await supabase.from('registre_audit').select('hash_courant').eq('etablissement_id',REG_ETAB.id).order('id',{ascending:false}).limit(1);
     const prev=(lastA&&lastA[0]&&lastA[0].hash_courant)||'GENESIS';
     const stamp=new Date().toISOString();
-    const sealed=await sha256(prev+'|'+contentHash+'|'+nom+'|'+fct+'|'+code+'|'+stamp);
+    const sealed=await sha256(prev+'|'+contentHash+'|'+nom+'|'+fct+'|'+(RS_OP||'')+'|'+stamp);
     // Sceller le registre courant
     await supabase.from('registres').update({ statut:'cloture', cloture_le:stamp, cloture_nom:nom, cloture_fonction:fct||null, hash_scelle:sealed }).eq('id',REG_REGISTRE.id);
     await supabase.from('registre_audit').insert({ etablissement_id:REG_ETAB.id, registre_id:REG_REGISTRE.id, action:'cloture', hash_prec:prev, hash_courant:sealed });
@@ -873,14 +871,12 @@ function visaSectionModal(view){
   openMiniModal('Viser — '+(view==='personnel'?'Personnel':'Consignes'),
     `<div class="mib-alert mib-alert-info">Vous apposez votre visa sur ${view==='personnel'?'la composition du personnel':'les consignes'}. Il est scellé (empreinte + journal d'audit). Toute <b>modification ultérieure</b> demandera un <b>nouveau visa</b>.</div>`
     +`<label class="mib-label" style="margin-top:8px">Nom</label><input class="mib-inp" id="vs-nom" autocomplete="off" value="${RS_OP?esc(RS_OP):''}">`
-    +`<label class="mib-label" style="margin-top:10px">Fonction</label><input class="mib-inp" id="vs-fct" autocomplete="off" value="Chef de service sécurité">`
-    +`<label class="mib-label" style="margin-top:10px">Code de confirmation</label><input class="mib-inp" type="password" id="vs-code" autocomplete="new-password" placeholder="Code personnel">`,
+    +`<label class="mib-label" style="margin-top:10px">Fonction</label><input class="mib-inp" id="vs-fct" autocomplete="off" value="Chef de service sécurité">`,
     `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="vs-save" onclick="submitSectionVisa('${view}')">Viser</button>`);
 }
 async function submitSectionVisa(view){
-  const nom=($('vs-nom').value||'').trim(); const fct=($('vs-fct').value||'').trim(); const code=($('vs-code').value||'').trim();
+  const nom=($('vs-nom').value||'').trim(); const fct=($('vs-fct').value||'').trim();
   if(!nom){ alert('Le nom est requis.'); return; }
-  if(!code){ alert('Le code de confirmation est requis.'); return; }
   const btn=$('vs-save'); if(btn){ btn.disabled=true; btn.textContent='Visa…'; }
   try{
     const { data:list } = await supabase.from('registre_entrees').select('id,intervenant,type,societe,description').eq('registre_id',REG_REGISTRE.id).eq('rubrique',2).eq('sous_type',view);
@@ -888,7 +884,7 @@ async function submitSectionVisa(view){
     const { data:lastA } = await supabase.from('registre_audit').select('hash_courant').eq('etablissement_id',REG_ETAB.id).order('id',{ascending:false}).limit(1);
     const prev=(lastA&&lastA[0]&&lastA[0].hash_courant)||'GENESIS';
     const stamp=new Date().toISOString();
-    const chained=await sha256(prev+'|'+contentHash+'|'+nom+'|'+fct+'|'+code+'|'+stamp);
+    const chained=await sha256(prev+'|'+contentHash+'|'+nom+'|'+fct+'|'+(RS_OP||'')+'|'+stamp);
     await supabase.from('registre_visas').insert({ registre_id:REG_REGISTRE.id, cible:'section:'+view, content_hash:contentHash, signataire_nom:nom, role:fct||null, hash_prec:prev, hash_courant:chained, horodatage:stamp });
     await supabase.from('registre_audit').insert({ etablissement_id:REG_ETAB.id, registre_id:REG_REGISTRE.id, action:'visa_section', hash_prec:prev, hash_courant:chained });
     closeMiniModal(); loadRub2(view);
@@ -1342,18 +1338,16 @@ function visaModal(entreeId,libelle,dateReal){
   openMiniModal('Viser — '+libelle,
     `<div class="mib-alert mib-alert-info">Vous apposez votre visa sur la vérification du <b>${fmtDate(dateReal)}</b>. L'entrée sera <b>scellée</b> (empreinte SHA-256 + journal d'audit inaltérable).</div>`
     +`<label class="mib-label" style="margin-top:8px">Nom du signataire</label><input class="mib-inp" id="vi-nom" autocomplete="off" value="${esc(RS_OP||'')}">`
-    +`<label class="mib-label" style="margin-top:10px">Fonction</label><input class="mib-inp" id="vi-fct" autocomplete="off" value="SSIAP 3">`
-    +`<label class="mib-label" style="margin-top:10px">Code de validation</label><input class="mib-inp" id="vi-code" type="password" autocomplete="new-password" placeholder="Votre code personnel">`,
+    +`<label class="mib-label" style="margin-top:10px">Fonction</label><input class="mib-inp" id="vi-fct" autocomplete="off" value="SSIAP 3">`,
     `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="vi-save" onclick="submitVisa('${entreeId}')">Signer</button>`);
 }
 async function submitVisa(entreeId){
-  const nom=($('vi-nom').value||'').trim(), code=($('vi-code').value||'').trim(), fct=($('vi-fct').value||'').trim();
+  const nom=($('vi-nom').value||'').trim(), fct=($('vi-fct').value||'').trim();
   if(!nom){ alert('Nom du signataire requis.'); return; }
-  if(!code){ alert('Code de validation requis.'); return; }
   const btn=$('vi-save'); if(btn){ btn.disabled=true; btn.textContent='Signature…'; }
   try{
     const { data:ent } = await supabase.from('registre_entrees').select('*').eq('id',entreeId).single();
-    const payload=JSON.stringify({ id:ent.id, rub:ent.rubrique, equip:ent.equipement_id, date:ent.date_realisation, proch:ent.prochaine_echeance, type:ent.type, description:ent.description, intervenant:ent.intervenant, societe:ent.societe, constats:ent.constats, meta:ent.meta||null, sig:ent.signature_hash||null, nom, fct, code });
+    const payload=JSON.stringify({ id:ent.id, rub:ent.rubrique, equip:ent.equipement_id, date:ent.date_realisation, proch:ent.prochaine_echeance, type:ent.type, description:ent.description, intervenant:ent.intervenant, societe:ent.societe, constats:ent.constats, meta:ent.meta||null, sig:ent.signature_hash||null, nom, fct, op:RS_OP||null });
     const hash=await sha256(payload);
     const { data:lastA } = await supabase.from('registre_audit').select('hash_courant').eq('etablissement_id',REG_ETAB.id).order('id',{ascending:false}).limit(1);
     const prev=(lastA&&lastA[0]&&lastA[0].hash_courant)||'GENESIS';
