@@ -156,6 +156,9 @@
       <div class="reg-tabs" id="reg-tabs"></div>
     </div>
   </div>
+  <div id="st-sign" class="rs-state">
+    <div style="max-width:540px;margin:0 auto;padding:20px 16px"><div id="sign-card"></div></div>
+  </div>
 </main>
 
 <!-- Modal création / édition -->
@@ -213,7 +216,7 @@
 </div>
 
 <!-- Modal détail / confirmation -->
-<div class="mib-modal-backdrop" id="rs-detail" style="display:none">
+<div class="mib-modal-backdrop" id="rs-detail" style="display:none;z-index:2000">
   <div class="mib-modal" style="max-width:520px">
     <div class="mib-card-title" id="d-nom">—</div>
     <div id="d-body"></div>
@@ -223,7 +226,7 @@
   </div>
 </div>
 
-<div class="mib-modal-backdrop" id="rs-suivi-ov" style="display:none;padding:20px">
+<div class="mib-modal-backdrop" id="rs-suivi-ov" style="display:none;padding:20px;z-index:1000">
   <div class="mib-modal" style="max-width:1360px;width:97vw;max-height:92vh;display:flex;flex-direction:column">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px">
       <div class="mib-card-title" style="margin:0">📊 Tableau de suivi des vérifications</div>
@@ -240,7 +243,7 @@
 let RS_CENTER = null;
 let RS_OP = null;       // nom de l'opérateur (mode Patrol) — utilisé pour l'identification au visa
 const $ = id => document.getElementById(id);
-function show(state){ ['st-auth','st-nocenter','st-load','st-app','st-registre'].forEach(s=>$(s).classList.toggle('on', s===state)); }
+function show(state){ ['st-auth','st-nocenter','st-load','st-app','st-registre','st-sign'].forEach(s=>$(s).classList.toggle('on', s===state)); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function fmtDate(ts){ try{ return ts? new Date(ts).toLocaleDateString('fr-FR') : '—'; }catch(e){ return '—'; } }
 function addMonths(dateStr, months){ const d=new Date(dateStr); d.setMonth(d.getMonth()+(months||0)); return d.toISOString().slice(0,10); }
@@ -254,6 +257,7 @@ function verifStatut(proch){
 }
 // Vue registre
 let REG_ETAB=null, REG_REGISTRE=null, REG_VTYPES=null, REG_ACTIVE=4;
+let RUB2_VIEW='personnel';
 const RUBRIQUES=[
   {n:1,label:'Renseignements généraux',short:'Général',color:'#0ea5e9'},
   {n:2,label:'Personnel & consignes',short:'Personnel',color:'#6366f1'},
@@ -296,6 +300,8 @@ function startDictation(targetId, btn){
 async function rsInit(){
   try{
     const params = new URLSearchParams(location.search);
+    const signTok = params.get('sign');
+    if(signTok){ show('st-sign'); renderSignPage(signTok); return; }   // page mobile de signature (handoff QR)
     const centerId = params.get('center');
     if(centerId){
       // ===== Mode Patrol : ?center=<id>, sans login (accès fluide) =====
@@ -473,8 +479,9 @@ function renderRubrique(n){
   // Défilement vertical interne pour toutes les rubriques sauf la 1 (fiche courte)
   page.style.maxHeight = (n===1) ? '' : '76vh';
   const r=RUBRIQUES.find(x=>x.n===n);
-  if(n===1){ page.innerHTML=ficheHtml(); return; }
+  if(n===1){ page.innerHTML=ficheHtml(); loadArchives(); return; }
   if(n===4){ page.innerHTML=verifsShellHtml(); loadVerifs(); return; }
+  if(n===2){ page.innerHTML=rub2ShellHtml(); loadRub2(RUB2_VIEW); return; }
   if(RUB_CFG[n]){ page.innerHTML=rubShellHtml(n); loadRubEntries(n); return; }
   page.innerHTML=`<h2>${r.n}. ${esc(r.label)}</h2><div class="rub-sub">Rubrique du registre de sécurité.</div>`
     +`<div class="rub-todo">📋 Cette rubrique sera disponible prochainement.</div>`;
@@ -493,15 +500,44 @@ function ficheHtml(){
 }
 function registreLifecycleHtml(){
   const r=REG_REGISTRE||{};
+  const arch=r.statut==='cloture';
   const empreinte = r.hash_scelle ? `<br><small style="font-family:monospace;color:#8a7a5a">Empreinte de scellement : ${esc((r.hash_scelle||'').slice(0,24))}…</small>` : '';
-  return `<div style="margin-top:18px;border:1px solid #ece3d3;border-radius:12px;padding:14px 16px;background:#fffdf9">`
+  const banner = arch ? `<div class="mib-alert" style="margin-top:14px;background:#fef3c7;border:1px solid #fcd34d;color:#7c5e10">📁 <b>Registre archivé</b> — consultation en lecture seule. <a href="javascript:void(0)" onclick="backToActiveRegistre()" style="color:#7f1d1d;font-weight:700">← Revenir au registre actif</a></div>` : '';
+  return banner
+    +`<div style="margin-top:18px;border:1px solid #ece3d3;border-radius:12px;padding:14px 16px;background:#fffdf9">`
     +`<div style="font-family:var(--font-display,'Plus Jakarta Sans');color:#7f1d1d;font-weight:700;margin-bottom:6px">Cycle de vie du registre</div>`
-    +`<div class="kv"><span>Statut</span><span>${r.statut==='cloture'?'<b style="color:#7f1d1d">Clôturé</b>':'<b style="color:#166534">Ouvert</b>'}</span></div>`
+    +`<div class="kv"><span>Statut</span><span>${arch?'<b style="color:#7f1d1d">Clôturé</b>':'<b style="color:#166534">Ouvert</b>'}</span></div>`
     +`<div class="kv"><span>Ouvert le</span><span>${r.ouvert_le?fmtDate(r.ouvert_le):'—'}</span></div>`
-    +(r.statut==='cloture'
+    +(arch
         ? `<div class="kv"><span>Clôturé le</span><span>${r.cloture_le?fmtDate(r.cloture_le):'—'}${r.cloture_nom?' par '+esc(r.cloture_nom)+(r.cloture_fonction?' ('+esc(r.cloture_fonction)+')':''):''}${empreinte}</span></div>`
         : `<div style="margin-top:12px"><button class="mib-btn mib-btn-primary" style="background:#7f1d1d" onclick="closeRegistreModal()">🔒 Clôturer le registre</button><div class="mib-help" style="margin-top:6px">La clôture <b>scelle définitivement</b> le registre (empreinte SHA-256 + journal d'audit) et <b>ouvre automatiquement le registre suivant</b>.</div></div>`)
+    +`</div>`
+    +`<div id="reg-archives" style="margin-top:16px"></div>`;
+}
+async function loadArchives(){
+  const box=$('reg-archives'); if(!box) return;
+  const { data:regs } = await supabase.from('registres').select('*').eq('etablissement_id',REG_ETAB.id).eq('statut','cloture').order('cloture_le',{ascending:false});
+  const list=regs||[];
+  if(!list.length){ box.innerHTML=''; return; }
+  box.innerHTML=`<div style="border:1px solid #ece3d3;border-radius:12px;padding:14px 16px;background:#fbf7ef">`
+    +`<div style="font-family:var(--font-display,'Plus Jakarta Sans');color:#7f1d1d;font-weight:700;margin-bottom:8px">📁 Registres archivés (${list.length})</div>`
+    +list.map(rg=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0e9db">`
+      +`<div style="font-size:.85rem"><b>${fmtDate(rg.ouvert_le)}</b> → ${rg.cloture_le?fmtDate(rg.cloture_le):'—'}${rg.cloture_nom?'<br><span class="muted" style="font-size:.74rem">Clôturé par '+esc(rg.cloture_nom)+'</span>':''}</div>`
+      +`<button class="mib-btn mib-btn-ghost" style="padding:5px 12px;font-size:.8rem" onclick="openArchivedRegistre('${rg.id}')">Consulter</button>`
+      +`</div>`).join('')
     +`</div>`;
+}
+async function openArchivedRegistre(regId){
+  const { data:rg } = await supabase.from('registres').select('*').eq('id',regId).single();
+  if(!rg) return;
+  REG_REGISTRE=rg; REG_ACTIVE=1; RUB2_VIEW='personnel';
+  renderRegTabs(); renderRubrique(1);
+}
+async function backToActiveRegistre(){
+  let { data:reg } = await supabase.from('registres').select('*').eq('etablissement_id',REG_ETAB.id).eq('statut','ouvert').maybeSingle();
+  if(!reg){ const ins=await supabase.from('registres').insert({etablissement_id:REG_ETAB.id,statut:'ouvert'}).select('*').single(); reg=ins.data; }
+  REG_REGISTRE=reg; REG_ACTIVE=1;
+  renderRegTabs(); renderRubrique(1);
 }
 function closeRegistreModal(){
   openMiniModal('Clôturer le registre',
@@ -538,12 +574,13 @@ async function submitCloture(){
   finally{ if(btn){ btn.disabled=false; btn.textContent='Clôturer et sceller'; } }
 }
 function verifsShellHtml(){
+  const clot=REG_REGISTRE.statut==='cloture';
   return `<h2>4. Vérifications & maintenances</h2>`
    +`<div class="rub-sub">Suivi des vérifications techniques réglementaires (arrêté du 25 juin 1980).</div>`
-   +`<div class="reg-meta-bar"><span>Registre <b>ouvert</b> le ${fmtDate(REG_REGISTRE.ouvert_le)}</span></div>`
+   +`<div class="reg-meta-bar"><span>Registre <b>${clot?'clôturé':'ouvert'}</b> le ${fmtDate(REG_REGISTRE.ouvert_le)}</span></div>`
    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">`
      +`<button class="mib-btn mib-btn-ghost rs-vtab" onclick="openSuiviModal()">📊 Tableau de suivi</button>`
-     +`<button class="mib-btn mib-btn-primary" onclick="addVerifModal()">+ Ajouter une vérification</button>`
+     +(clot?'':`<button class="mib-btn mib-btn-primary" onclick="addVerifModal()">+ Ajouter une vérification</button>`)
    +`</div>`
    +`<div id="verif-table"></div>`;
 }
@@ -551,7 +588,6 @@ function openSuiviModal(){ $('rs-suivi-ov').style.display='flex'; loadSuivi(); }
 function closeSuiviModal(){ $('rs-suivi-ov').style.display='none'; }
 // ===== Rubriques journal (2,3,5,6,7) — module générique =====
 const RUB_CFG={
-  2:{sub:'personnel du service de sécurité et consignes',obj:'Fonction / consigne',objph:'Ex. Agent SSIAP 1, consigne d’évacuation…',detph:'Nom, qualification, contenu de la consigne…',who:'Personne concernée'},
   3:{sub:'formations du personnel et exercices',obj:'Type',objph:'Ex. Exercice d’évacuation, formation EPI…',detph:'Participants, durée, observations…',who:'Formateur / encadrant'},
   5:{sub:'travaux, aménagements et permis de feu',obj:'Nature des travaux',objph:'Ex. Réfection cloison CF, permis de feu…',detph:'Entreprise, localisation, détails…',who:'Entreprise / intervenant'},
   6:{sub:'visites de la commission de sécurité et prescriptions',obj:'Objet',objph:'Ex. Visite périodique, avis favorable…',detph:'Prescriptions, avis, suites à donner…',who:'Autorité / rapporteur'},
@@ -577,7 +613,7 @@ async function loadRubEntries(n){
   const { data:dc } = await supabase.from('registre_documents').select('entree_id,storage_path,nom_fichier').in('entree_id',entIds);
   (dc||[]).forEach(d=>{ if(!docs[d.entree_id]) docs[d.entree_id]=d; });
   box.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.84rem"><thead><tr>'
-   +['Date',cfg.obj,'Détails',cfg.who,'Pièce',''].map(h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid #ece3d3;color:#7f1d1d;font-size:.66rem;text-transform:uppercase">${h}</th>`).join('')
+   +['Date',cfg.obj,'Détails','Nom / organisme','Pièce',''].map(h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid #ece3d3;color:#7f1d1d;font-size:.66rem;text-transform:uppercase">${h}</th>`).join('')
    +'</tr></thead><tbody>'
    +list.map(en=>{
      const doc=docs[en.id];
@@ -587,7 +623,7 @@ async function loadRubEntries(n){
        <td style="padding:9px 8px;white-space:nowrap">${en.date_realisation?fmtDate(en.date_realisation):'—'}</td>
        <td style="padding:9px 8px"><strong>${esc(en.type||'—')}</strong></td>
        <td style="padding:9px 8px">${esc(det.slice(0,90))}${det.length>90?'…':''}</td>
-       <td style="padding:9px 8px">${esc(en.intervenant||'—')}</td>
+       <td style="padding:9px 8px">${esc(en.intervenant||'—')}${en.societe?'<br><span class="muted" style="font-size:.74rem">'+esc(en.societe)+'</span>':''}</td>
        <td style="padding:9px 8px">${piece}</td>
        <td style="padding:9px 8px"><button class="rs-iconbtn" title="Consulter" onclick="viewRubEntry('${en.id}',${n})">🔍</button></td>
      </tr>`;
@@ -599,7 +635,8 @@ function addRubEntryModal(n){
   openMiniModal('Ajouter — '+RUBRIQUES.find(x=>x.n===n).label,
     `<label class="mib-label">Date</label><input class="mib-inp" type="date" id="re-date" value="${today}">`
     +`<label class="mib-label" style="margin-top:10px">${cfg.obj}</label><input class="mib-inp" id="re-obj" placeholder="${cfg.objph}">`
-    +`<label class="mib-label" style="margin-top:10px">${cfg.who}</label><div class="rs-field-mic"><input class="mib-inp" id="re-who" placeholder="Nom / organisme">`+micBtn('re-who')+`</div>`
+    +`<label class="mib-label" style="margin-top:10px">Nom${cfg.who?' ('+cfg.who+')':''}</label><div class="rs-field-mic"><input class="mib-inp" id="re-nom" placeholder="Nom de la personne">`+micBtn('re-nom')+`</div>`
+    +`<label class="mib-label" style="margin-top:10px">Organisme / société</label><div class="rs-field-mic"><input class="mib-inp" id="re-org" placeholder="Organisme, entreprise…">`+micBtn('re-org')+`</div>`
     +`<label class="mib-label" style="margin-top:10px">Détails</label><div class="rs-field-mic"><textarea class="mib-textarea" id="re-det" rows="3" placeholder="${cfg.detph}"></textarea>`+micBtn('re-det')+`</div>`
     +`<label class="mib-label" style="margin-top:10px">Pièce jointe (PDF, optionnel)</label><input class="mib-inp" type="file" id="re-file" accept="application/pdf">`
     +`<label class="mib-label" style="margin-top:10px">Signature (optionnel)</label>`
@@ -614,7 +651,7 @@ async function submitRubEntry(n){
   if(!obj){ alert('Renseignez « '+RUB_CFG[n].obj+' ».'); return; }
   const btn=$('re-save'); if(btn){ btn.disabled=true; btn.textContent='Enregistrement…'; }
   try{
-    const ins=await supabase.from('registre_entrees').insert({ registre_id:REG_REGISTRE.id, rubrique:n, type:obj, description:($('re-det').value||'').trim()||null, intervenant:($('re-who').value||'').trim()||null, date_realisation:d, statut:'saisi' }).select('id').single();
+    const ins=await supabase.from('registre_entrees').insert({ registre_id:REG_REGISTRE.id, rubrique:n, type:obj, description:($('re-det').value||'').trim()||null, intervenant:($('re-nom').value||'').trim()||null, societe:($('re-org').value||'').trim()||null, date_realisation:d, statut:'saisi' }).select('id').single();
     let entreeId=ins.data&&ins.data.id;
     const f=$('re-file')&&$('re-file').files[0];
     if(f && entreeId){ try{
@@ -645,17 +682,130 @@ async function viewRubEntry(entreeId,n){
   const row=(l,v)=>`<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #f0e9db"><div style="min-width:130px;color:#8a7a5a;font-size:.78rem">${l}</div><div style="flex:1">${v}</div></div>`;
   const piece=doc?`<a href="${publicUrl(doc.storage_path)}" target="_blank" style="color:#2563eb;font-weight:600">📎 ${esc(doc.nom_fichier)}</a><br><small style="font-family:monospace;color:#8a7a5a">SHA-256 ${esc((doc.hash_sha256||'').slice(0,24))}…</small>`:'<span class="muted">Aucune</span>';
   const sig=en.signature_path?`<img src="${publicUrl(en.signature_path)}" style="max-height:70px;border:1px solid #eee;border-radius:6px;background:#fff"><br><small style="font-family:monospace;color:#8a7a5a">SHA-256 ${esc((en.signature_hash||'').slice(0,24))}…</small>`:'<span class="muted">Non signée</span>';
-  const body=row('Date',en.date_realisation?fmtDate(en.date_realisation):'—')+row(cfg.obj,esc(en.type||'—'))+row(cfg.who,esc(en.intervenant||'—'))+row('Détails',en.description?esc(en.description).replace(/\n/g,'<br>'):'—')+row('Pièce jointe',piece)+row('Signature',sig);
+  const body=row('Date',en.date_realisation?fmtDate(en.date_realisation):'—')+row(cfg.obj,esc(en.type||'—'))+row('Nom',esc(en.intervenant||'—'))+row('Organisme / société',esc(en.societe||'—'))+row('Détails',en.description?esc(en.description).replace(/\n/g,'<br>'):'—')+row('Pièce jointe',piece)+row('Signature',sig);
+  const c=document.getElementById('d-body'); if(c) c.innerHTML=body;
+}
+// ===== Rubrique 2 : Personnel (multi) + Consignes =====
+function rub2ShellHtml(){
+  const clot=REG_REGISTRE.statut==='cloture'; const v=RUB2_VIEW;
+  return `<h2>2. Personnel &amp; consignes</h2><div class="rub-sub">Service de sécurité incendie et consignes de sécurité.</div>`
+   +`<div class="reg-meta-bar"><span>Registre <b>${clot?'clôturé':'ouvert'}</b> le ${fmtDate(REG_REGISTRE.ouvert_le)}</span></div>`
+   +`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">`
+     +`<div style="display:flex;gap:6px">`
+       +`<button class="mib-btn mib-btn-ghost rs-vtab${v==='personnel'?' rs-vtab-on':''}" onclick="switchRub2('personnel')">👥 Personnel</button>`
+       +`<button class="mib-btn mib-btn-ghost rs-vtab${v==='consigne'?' rs-vtab-on':''}" onclick="switchRub2('consigne')">📋 Consignes</button>`
+     +`</div>`
+     +(clot?'':`<button class="mib-btn mib-btn-primary" onclick="${v==='personnel'?'addPersonnelModal()':'addConsigneModal()'}">${v==='personnel'?'+ Ajouter une personne':'+ Ajouter une consigne'}</button>`)
+   +`</div>`
+   +`<div id="rub-list"></div>`;
+}
+function switchRub2(v){ RUB2_VIEW=v; const page=$('reg-page'); if(page){ page.innerHTML=rub2ShellHtml(); loadRub2(v); } }
+async function loadRub2(view){
+  const box=$('rub-list'); if(!box) return;
+  box.innerHTML='<div class="muted">Chargement…</div>';
+  const { data:ents } = await supabase.from('registre_entrees').select('*').eq('registre_id',REG_REGISTRE.id).eq('rubrique',2).eq('sous_type',view).order('created_at',{ascending:false});
+  const list=ents||[];
+  if(!list.length){ box.innerHTML='<div class="rub-todo">'+(view==='personnel'?'Aucune personne enregistrée.<br>Cliquez « + Ajouter une personne ».':'Aucune consigne enregistrée.<br>Cliquez « + Ajouter une consigne ».')+'</div>'; return; }
+  const entIds=list.map(e=>e.id); let docs={};
+  const { data:dc } = await supabase.from('registre_documents').select('entree_id,storage_path,nom_fichier').in('entree_id',entIds);
+  (dc||[]).forEach(d=>{ if(!docs[d.entree_id]) docs[d.entree_id]=d; });
+  const heads = view==='personnel' ? ['Nom','Fonction / qualification','Organisme','Observations',''] : ['Type de consigne','Contenu','Document',''];
+  const rows=list.map(en=>{
+    const doc=docs[en.id];
+    const piece=doc?`<a href="${publicUrl(doc.storage_path)}" target="_blank" style="color:#2563eb;font-weight:600">PDF</a>`:(en.signature_path?'✍️':'—');
+    const det=(en.description||'');
+    if(view==='personnel'){
+      return `<tr style="border-bottom:1px solid #f0e9db">
+        <td style="padding:9px 8px"><strong>${esc(en.intervenant||'—')}</strong></td>
+        <td style="padding:9px 8px">${esc(en.type||'—')}</td>
+        <td style="padding:9px 8px">${esc(en.societe||'—')}</td>
+        <td style="padding:9px 8px">${esc(det.slice(0,70))}${det.length>70?'…':''}</td>
+        <td style="padding:9px 8px"><button class="rs-iconbtn" title="Consulter" onclick="viewRub2Entry('${en.id}')">🔍</button></td>
+      </tr>`;
+    }
+    return `<tr style="border-bottom:1px solid #f0e9db">
+      <td style="padding:9px 8px"><strong>${esc(en.type||'—')}</strong></td>
+      <td style="padding:9px 8px">${esc(det.slice(0,110))}${det.length>110?'…':''}</td>
+      <td style="padding:9px 8px">${piece}</td>
+      <td style="padding:9px 8px"><button class="rs-iconbtn" title="Consulter" onclick="viewRub2Entry('${en.id}')">🔍</button></td>
+    </tr>`;
+  }).join('');
+  box.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.84rem"><thead><tr>'
+   +heads.map(h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid #ece3d3;color:#7f1d1d;font-size:.66rem;text-transform:uppercase">${h}</th>`).join('')
+   +'</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+function addPersonnelModal(){
+  openMiniModal('Ajouter une personne — Service de sécurité',
+    `<label class="mib-label">Nom et prénom</label><div class="rs-field-mic"><input class="mib-inp" id="pe-nom" placeholder="Ex. DUPONT Jean">`+micBtn('pe-nom')+`</div>`
+    +`<label class="mib-label" style="margin-top:10px">Fonction / qualification</label><input class="mib-inp" id="pe-fct" placeholder="Ex. SSIAP 2, chef d'équipe…">`
+    +`<label class="mib-label" style="margin-top:10px">Organisme / employeur</label><div class="rs-field-mic"><input class="mib-inp" id="pe-org" placeholder="Société de sécurité, interne…">`+micBtn('pe-org')+`</div>`
+    +`<label class="mib-label" style="margin-top:10px">Observations (diplôme, recyclage, aptitude…)</label><div class="rs-field-mic"><textarea class="mib-textarea" id="pe-det" rows="2"></textarea>`+micBtn('pe-det')+`</div>`,
+    `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="pe-save" onclick="submitPersonnel()">Enregistrer</button>`);
+}
+async function submitPersonnel(){
+  const nom=($('pe-nom').value||'').trim(); if(!nom){ alert('Le nom est requis.'); return; }
+  const btn=$('pe-save'); if(btn){ btn.disabled=true; btn.textContent='…'; }
+  try{
+    await supabase.from('registre_entrees').insert({ registre_id:REG_REGISTRE.id, rubrique:2, sous_type:'personnel', intervenant:nom, type:($('pe-fct').value||'').trim()||null, societe:($('pe-org').value||'').trim()||null, description:($('pe-det').value||'').trim()||null, date_realisation:new Date().toISOString().slice(0,10), statut:'saisi' });
+    closeMiniModal(); loadRub2('personnel');
+  }catch(e){ alert('Erreur : '+(e.message||e)); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } }
+}
+function addConsigneModal(){
+  openMiniModal('Ajouter une consigne',
+    `<label class="mib-label">Type de consigne</label><select class="mib-select" id="co-type"><option>Consigne incendie</option><option>Consigne de prise en charge des personnes en situation de handicap</option><option>Autre consigne</option></select>`
+    +`<label class="mib-label" style="margin-top:10px">Intitulé (si « Autre consigne »)</label><input class="mib-inp" id="co-titre" placeholder="Optionnel">`
+    +`<label class="mib-label" style="margin-top:10px">Contenu de la consigne</label><div class="rs-field-mic"><textarea class="mib-textarea" id="co-det" rows="4" placeholder="Texte de la consigne…"></textarea>`+micBtn('co-det')+`</div>`
+    +`<label class="mib-label" style="margin-top:10px">Document (PDF, optionnel)</label><input class="mib-inp" type="file" id="co-file" accept="application/pdf">`,
+    `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="co-save" onclick="submitConsigne()">Enregistrer</button>`);
+}
+async function submitConsigne(){
+  const typ=$('co-type').value; const titre=($('co-titre').value||'').trim();
+  const label=(typ==='Autre consigne'&&titre)?titre:typ;
+  const btn=$('co-save'); if(btn){ btn.disabled=true; btn.textContent='…'; }
+  try{
+    const ins=await supabase.from('registre_entrees').insert({ registre_id:REG_REGISTRE.id, rubrique:2, sous_type:'consigne', type:label, description:($('co-det').value||'').trim()||null, date_realisation:new Date().toISOString().slice(0,10), statut:'saisi' }).select('id').single();
+    const entreeId=ins.data&&ins.data.id;
+    const f=$('co-file')&&$('co-file').files[0];
+    if(f&&entreeId){ try{
+      const hash=await sha256File(f); const safe=f.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      const path='registre/'+REG_ETAB.id+'/'+entreeId+'_'+safe;
+      const up=await supabase.storage.from('documents').upload(path,f,{upsert:true,contentType:f.type||'application/pdf'});
+      if(!up.error) await supabase.from('registre_documents').insert({ entree_id:entreeId, storage_path:path, nom_fichier:f.name, hash_sha256:hash, taille:f.size });
+    }catch(e){ console.warn('doc',e); } }
+    closeMiniModal(); loadRub2('consigne');
+  }catch(e){ alert('Erreur : '+(e.message||e)); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } }
+}
+async function viewRub2Entry(entreeId){
+  openMiniModal('Fiche','<div class="mib-help">Chargement…</div>','<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Fermer</button>');
+  const { data:en } = await supabase.from('registre_entrees').select('*').eq('id',entreeId).single();
+  if(!en) return;
+  const { data:dc } = await supabase.from('registre_documents').select('nom_fichier,storage_path,hash_sha256').eq('entree_id',entreeId).limit(1);
+  const doc=dc&&dc[0];
+  const row=(l,v)=>`<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #f0e9db"><div style="min-width:130px;color:#8a7a5a;font-size:.78rem">${l}</div><div style="flex:1">${v}</div></div>`;
+  const piece=doc?`<a href="${publicUrl(doc.storage_path)}" target="_blank" style="color:#2563eb;font-weight:600">📎 ${esc(doc.nom_fichier)}</a>`:'<span class="muted">Aucun</span>';
+  const nom=$('d-nom'); if(nom) nom.textContent = (en.sous_type==='consigne'?'Consigne — ':'Personne — ')+(en.sous_type==='consigne'?(en.type||''):(en.intervenant||''));
+  let body;
+  if(en.sous_type==='consigne'){
+    body=row('Type',esc(en.type||'—'))+row('Contenu',en.description?esc(en.description).replace(/\n/g,'<br>'):'—')+row('Document',piece);
+  }else{
+    body=row('Nom',esc(en.intervenant||'—'))+row('Fonction / qualification',esc(en.type||'—'))+row('Organisme',esc(en.societe||'—'))+row('Observations',en.description?esc(en.description).replace(/\n/g,'<br>'):'—');
+  }
   const c=document.getElementById('d-body'); if(c) c.innerHTML=body;
 }
 async function loadVerifs(){
   const box=$('verif-table'); if(!box) return;
   box.innerHTML='<div class="muted">Chargement…</div>';
   const { data:equips } = await supabase.from('equipements').select('*').eq('etablissement_id',REG_ETAB.id).order('libelle');
+  const clot=REG_REGISTRE.statut==='cloture';
   const list=equips||[]; const latest={};
   if(list.length){
     const ids=list.map(e=>e.id);
-    const { data:ents } = await supabase.from('registre_entrees').select('id,equipement_id,date_realisation,prochaine_echeance,conformite').eq('rubrique',4).in('equipement_id',ids).order('date_realisation',{ascending:false});
+    // Registre archivé : on montre les entrées DE CE registre. Registre actif : la dernière vérif (continuité).
+    let q=supabase.from('registre_entrees').select('id,equipement_id,date_realisation,prochaine_echeance,conformite').eq('rubrique',4).in('equipement_id',ids).order('date_realisation',{ascending:false});
+    if(clot) q=q.eq('registre_id',REG_REGISTRE.id);
+    const { data:ents } = await q;
     (ents||[]).forEach(en=>{ if(en.equipement_id && !latest[en.equipement_id]) latest[en.equipement_id]=en; });
   }
   const entIds=Object.values(latest).map(e=>e.id);
@@ -666,7 +816,7 @@ async function loadVerifs(){
     const { data:dc } = await supabase.from('registre_documents').select('entree_id,storage_path,nom_fichier').in('entree_id',entIds);
     (dc||[]).forEach(d=>{ if(!docs[d.entree_id]) docs[d.entree_id]=d; });
   }
-  if(!list.length){ box.innerHTML='<div class="rub-todo">Aucune vérification enregistrée.<br>Cliquez « + Ajouter une vérification » pour composer le registre.</div>'; return; }
+  if(!list.length){ box.innerHTML='<div class="rub-todo">Aucune vérification'+(clot?' dans ce registre archivé.':' enregistrée.<br>Cliquez « + Ajouter une vérification » pour composer le registre.')+'</div>'; return; }
   box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:.84rem"><thead><tr>'
     +['Vérification','Périod.','Dernière','Prochaine','Statut','Rapport','Visa',''].map(h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid #ece3d3;color:#7f1d1d;font-size:.68rem;text-transform:uppercase">${h}</th>`).join('')
     +'</tr></thead><tbody>'
@@ -679,7 +829,7 @@ async function loadVerifs(){
         let visa='—';
         if(en){ visa = signed[en.id]
           ? `<span class="mib-badge mib-badge-success" title="Visé le ${fmtDate(signed[en.id].horodatage)}">Visé ✓</span>`
-          : `<button class="rs-iconbtn" onclick="visaModal('${en.id}','${libJs}','${en.date_realisation}')">Viser</button>`; }
+          : (clot?'<span class="muted">—</span>':`<button class="rs-iconbtn" onclick="visaModal('${en.id}','${libJs}','${en.date_realisation}')">Viser</button>`); }
         return `<tr style="border-bottom:1px solid #f0e9db">
           <td style="padding:9px 8px"><div style="display:flex;align-items:center;gap:10px">${voyant(en?en.conformite:null)}<div><strong>${lib}</strong>${eq.localisation?'<br><span class="muted" style="font-size:.75rem">'+esc(eq.localisation)+'</span>':''}${eq.organisme_requis?' <span class="mib-badge mib-badge-info" style="font-size:.58rem">Organisme agréé</span>':''}</div></div></td>
           <td style="padding:9px 8px">${eq.periodicite_mois?eq.periodicite_mois+'m':'—'}</td>
@@ -689,7 +839,8 @@ async function loadVerifs(){
           <td style="padding:9px 8px">${rapport}</td>
           <td style="padding:9px 8px">${visa}</td>
           <td style="padding:9px 8px;white-space:nowrap">
-            ${sealed?'<span title="Vérification visée et scellée — non modifiable" style="opacity:.5">🔒</span>':`<button class="rs-iconbtn" title="${en?'Modifier la fiche':'Saisir une vérification'}" onclick="recordVerifModal('${eq.id}','${libJs}',${eq.periodicite_mois||0}${en?`,'${en.id}'`:''})">✏️</button>`}
+            ${clot?'':(sealed?'<span title="Vérification visée et scellée — non modifiable" style="opacity:.5">🔒</span>':`<button class="rs-iconbtn" title="${en?'Modifier la fiche':'Saisir une vérification'}" onclick="recordVerifModal('${eq.id}','${libJs}',${eq.periodicite_mois||0}${en?`,'${en.id}'`:''})">✏️</button>`)}
+            ${(en && !sealed && !clot)?`<button class="rs-iconbtn" title="Faire signer sur téléphone" onclick="openPhoneSign('${en.id}','${libJs}')">📱</button>`:''}
             ${en?`<button class="rs-iconbtn" title="Consulter la fiche" onclick="viewVerifModal('${en.id}','${libJs}')">🔍</button>`:''}
           </td>
         </tr>`;
@@ -847,6 +998,7 @@ async function recordVerifModal(equipId,libelle,perio,entreeId){
     +`<label class="mib-label" style="margin-top:10px">Signature de l'intervenant</label>`+sigHint
     +`<div style="border:1px solid #e6d9c2;border-radius:8px;background:#fffdf9"><canvas id="rv-sig" width="560" height="150" style="width:100%;height:150px;touch-action:none;display:block;border-radius:8px"></canvas></div>`
     +`<div style="display:flex;justify-content:flex-end;margin-top:4px"><button type="button" class="mib-btn mib-btn-ghost" style="padding:4px 12px;font-size:.78rem" onclick="clearSignaturePad('rv-sig')">Effacer</button></div>`
+    +`<div class="mib-help" style="margin-top:4px">📱 Pas d'écran tactile ? Enregistrez, puis cliquez <b>📱</b> sur la ligne : l'intervenant signe sur son téléphone (QR code).</div>`
     +`<div class="mib-help" style="margin-top:8px">Prochaine échéance calculée automatiquement (+${perio||0} mois). Rapport et signature sont scellés par une empreinte SHA-256.${en?' Modifiable tant que la vérification n’est pas visée.':''}</div>`,
     `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="rv-save" onclick="submitRecordVerif('${equipId}',${perio||0}${en?`,'${en.id}'`:''})">Enregistrer</button>`);
   initSignaturePad('rv-sig');
@@ -864,6 +1016,68 @@ function initSignaturePad(id){
   c.addEventListener('pointerdown',down); c.addEventListener('pointermove',move); window.addEventListener('pointerup',up);
 }
 function clearSignaturePad(id){ const c=document.getElementById(id); if(c){ c.getContext('2d').clearRect(0,0,c.width,c.height); if(_sigPads[id]) _sigPads[id].dirty=false; } }
+// ===== Signature déportée sur téléphone (handoff QR) =====
+function ensureQR(cb){ if(window.QRCode){ cb(); return; } const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; s.onload=function(){cb();}; s.onerror=function(){cb(new Error('qr'));}; document.head.appendChild(s); }
+let _signPoll=null;
+async function openPhoneSign(entreeId,libelle){
+  const token=(crypto.randomUUID?crypto.randomUUID():(''+Math.random()).slice(2)).replace(/-/g,'');
+  const ins=await supabase.from('signature_requests').insert({ token, entree_id:entreeId, etablissement_id:REG_ETAB.id, libelle:libelle, status:'pending' }).select('id').single();
+  if(ins.error){ alert('Erreur : '+ins.error.message); return; }
+  const url=location.origin+location.pathname+'?sign='+token;
+  openMiniModal('Signature sur téléphone',
+    `<div class="mib-help" style="margin-bottom:10px">Faites <b>scanner ce QR code</b> par l'intervenant avec son téléphone. Il signe au doigt, la signature revient ici automatiquement.</div>`
+    +`<div id="qr-box" style="display:flex;justify-content:center;padding:8px;background:#fff;border-radius:10px;border:1px solid #e6d9c2"></div>`
+    +`<div id="qr-wait" style="text-align:center;margin-top:12px;color:#8a7a5a;font-size:.85rem">⏳ En attente de la signature…</div>`
+    +`<div class="mib-help" style="margin-top:10px;word-break:break-all">Ou ouvrez ce lien : <a href="${url}" target="_blank">${url}</a></div>`,
+    `<button class="mib-btn mib-btn-ghost" onclick="closePhoneSign()">Fermer</button>`);
+  ensureQR(function(err){ const box=document.getElementById('qr-box'); if(!box) return; if(err||!window.QRCode){ box.innerHTML='<img alt="QR" style="width:220px;height:220px" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(url)+'">'; } else { box.innerHTML=''; new window.QRCode(box,{text:url,width:220,height:220}); } });
+  if(_signPoll) clearInterval(_signPoll);
+  _signPoll=setInterval(async function(){
+    const { data } = await supabase.from('signature_requests').select('status').eq('token',token).maybeSingle();
+    if(data && data.status==='signed'){
+      clearInterval(_signPoll); _signPoll=null;
+      const w=document.getElementById('qr-wait'); if(w) w.innerHTML='<b style="color:#166534">✅ Signature reçue !</b>';
+      setTimeout(function(){ closeMiniModal(); if(REG_ACTIVE===4) loadVerifs(); },1200);
+    }
+  }, 2500);
+}
+function closePhoneSign(){ if(_signPoll){ clearInterval(_signPoll); _signPoll=null; } closeMiniModal(); if(REG_ACTIVE===4) loadVerifs(); }
+async function renderSignPage(token){
+  const card=$('sign-card'); if(!card) return;
+  card.innerHTML='<div class="mib-card" style="padding:22px"><div class="muted">Chargement…</div></div>';
+  const { data:req } = await supabase.from('signature_requests').select('*').eq('token',token).maybeSingle();
+  if(!req){ card.innerHTML='<div class="mib-card" style="padding:22px"><h2 style="color:#7f1d1d">Lien invalide</h2><div class="mib-help">Cette demande de signature est introuvable.</div></div>'; return; }
+  if(req.status==='signed'){ card.innerHTML='<div class="mib-card" style="padding:22px;text-align:center"><div style="font-size:2rem">✅</div><h2 style="color:#166534">Déjà signé</h2><div class="mib-help">Cette signature a déjà été enregistrée. Vous pouvez fermer cette page.</div></div>'; return; }
+  card.innerHTML='<div class="mib-card" style="padding:20px">'
+    +'<div style="font-family:var(--font-display,\'Plus Jakarta Sans\');color:#7f1d1d;font-weight:800;font-size:1.1rem">Registre de sécurité — Signature</div>'
+    +'<div class="mib-help" style="margin:6px 0 14px">Objet : <b>'+esc(req.libelle||'Vérification')+'</b></div>'
+    +'<label class="mib-label">Votre nom</label><input class="mib-inp" id="ph-nom" placeholder="Nom et prénom" value="'+esc(req.signataire||'')+'">'
+    +'<label class="mib-label" style="margin-top:12px">Signez ci-dessous</label>'
+    +'<div style="border:1px solid #cbd5e1;border-radius:10px;background:#fff"><canvas id="ph-sig" width="500" height="220" style="width:100%;height:220px;touch-action:none;display:block;border-radius:10px"></canvas></div>'
+    +'<div style="display:flex;justify-content:space-between;gap:8px;margin-top:12px">'
+    +'<button class="mib-btn mib-btn-ghost" onclick="clearSignaturePad(\'ph-sig\')">Effacer</button>'
+    +'<button class="mib-btn mib-btn-primary" id="ph-save" onclick="submitPhoneSign(\''+token+'\')">Valider ma signature</button>'
+    +'</div></div>';
+  initSignaturePad('ph-sig');
+}
+async function submitPhoneSign(token){
+  const c=$('ph-sig'); const btn=$('ph-save');
+  if(!c || !_sigPads['ph-sig'] || !_sigPads['ph-sig'].dirty){ alert('Merci de signer dans le cadre.'); return; }
+  if(btn){ btn.disabled=true; btn.textContent='Envoi…'; }
+  try{
+    const { data:req } = await supabase.from('signature_requests').select('*').eq('token',token).maybeSingle();
+    if(!req){ alert('Demande introuvable.'); return; }
+    const blob=await new Promise(res=>c.toBlob(res,'image/png'));
+    const sigHash=await sha256File(blob);
+    const sigPath='registre/'+(req.etablissement_id||'x')+'/'+(req.entree_id||token)+'_signature.png';
+    const up=await supabase.storage.from('documents').upload(sigPath,blob,{upsert:true,contentType:'image/png'});
+    if(up.error){ alert('Erreur d\'envoi : '+up.error.message); if(btn){btn.disabled=false;btn.textContent='Valider ma signature';} return; }
+    const nom=($('ph-nom').value||'').trim()||null;
+    if(req.entree_id){ await supabase.from('registre_entrees').update({ signature_path:sigPath, signature_hash:sigHash }).eq('id',req.entree_id); }
+    await supabase.from('signature_requests').update({ status:'signed', signataire:nom, signature_path:sigPath, signature_hash:sigHash, signed_at:new Date().toISOString() }).eq('token',token);
+    $('sign-card').innerHTML='<div class="mib-card" style="padding:24px;text-align:center"><div style="font-size:2.4rem">✅</div><h2 style="color:#166534">Signature enregistrée</h2><div class="mib-help">Merci. Vous pouvez fermer cette page — elle est déjà revenue sur le registre.</div></div>';
+  }catch(e){ alert('Erreur : '+(e.message||e)); if(btn){btn.disabled=false;btn.textContent='Valider ma signature';} }
+}
 async function viewVerifModal(entreeId,libelle){
   openMiniModal('Fiche de vérification — '+libelle,'<div class="mib-help">Chargement…</div>','<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Fermer</button>');
   const { data:en } = await supabase.from('registre_entrees').select('*').eq('id',entreeId).single();
