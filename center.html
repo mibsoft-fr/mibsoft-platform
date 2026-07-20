@@ -2836,6 +2836,8 @@ const MODULE_DEFS = [
   {key:'module_ssi_autoformation',icon:'🟡',title:'SSI Auto-formation',desc:'Scénarios SSI guidés en autonomie'},
   {key:'module_patrol',icon:'🚶',title:'SSIAP Patrol',desc:'Gestion des rondes, matériels et consignes'},
   {key:'module_registre_securite',icon:'📋',title:'Registre de sécurité',desc:'Registre de sécurité incendie ERP dématérialisé (vérifications, visas, export)'},
+  {key:'module_permis_feu',icon:'🔥',title:'Permis de feu',desc:'Autorisation de travaux par point chaud (soudage, meulage…) : prévention, surveillance et signatures.',impliedBy:'module_registre_securite'},
+  {key:'module_plan_prevention',icon:'🛡️',title:'Plan de prévention',desc:'Interventions d\'entreprises extérieures : inspection commune, analyse des risques d\'interférence et signatures.',impliedBy:'module_registre_securite'},
 ];
 
 window._patrolUrl = '';
@@ -2845,7 +2847,8 @@ window.renderModules = function() {
   const grid = document.getElementById('grid-modules');
   const base = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
   grid.innerHTML = MODULE_DEFS.map(function(m) {
-    const on = CENTER && CENTER[m.key];
+    const impliedOn = m.impliedBy && CENTER && CENTER[m.impliedBy];
+    const on = (CENTER && CENTER[m.key]) || impliedOn;
     let extra = '';
     if (on && m.key === 'module_patrol' && CENTER.id) {
       window._patrolUrl = base + 'patrol-login-formateur.html?center=' + CENTER.id;
@@ -2884,7 +2887,7 @@ window.renderModules = function() {
       + '<div class="mod-icon">' + m.icon + '</div>'
       + '<div class="mod-title">' + m.title + '</div>'
       + '<div class="mod-desc">' + m.desc + '</div>'
-      + '<div class="mod-status">' + (on ? '✅ Activé' : '⭕ Non inclus dans votre plan') + '</div>'
+      + '<div class="mod-status">' + (on ? (impliedOn ? '✅ Activé (inclus avec le Registre de sécurité)' : '✅ Activé') : '⭕ Non inclus dans votre plan') + '</div>'
       + extra + '</div>';
   }).join('');
 };
