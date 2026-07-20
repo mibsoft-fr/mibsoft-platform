@@ -244,8 +244,8 @@ let RS_CENTER = null;
 let RS_OP = null;       // nom de l'opérateur (mode Patrol) — utilisé pour l'identification au visa
 let RS_NIVEAU = null;   // niveau de l'opérateur (mode Patrol) : 'SSIAP 1/2/3'
 let RS_ROLE = null;     // rôle transmis par Patrol : 'admin' pour un formateur
-// Administrateur : formateur (role=admin), SSIAP 3, ou espace centre connecté (aucun niveau Patrol)
-function isAdminLevel(){ return RS_ROLE === 'admin' || RS_NIVEAU === 'SSIAP 3' || !RS_NIVEAU; }
+// Administrateur : formateur, SSIAP 3, ou espace centre connecté (aucun niveau Patrol)
+function isAdminLevel(){ return RS_ROLE === 'formateur' || RS_ROLE === 'admin' || RS_NIVEAU === 'SSIAP 3' || !RS_NIVEAU; }
 const $ = id => document.getElementById(id);
 function show(state){ ['st-auth','st-nocenter','st-load','st-app','st-registre','st-sign'].forEach(s=>$(s).classList.toggle('on', s===state)); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
