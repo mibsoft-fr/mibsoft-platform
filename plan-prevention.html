@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan de prévention — MIBsoft</title>
+<link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design-tokens.css">
+<link rel="stylesheet" href="mib-design.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="supabase.js"></script>
+<style>
+  body{background:var(--bg-page,#F8FAFC);margin:0;font-family:var(--font-body,'Inter',sans-serif);color:var(--text-1,#0F172A)}
+  .pp-header{background:#fff;border-bottom:1px solid var(--neutral-200,#e2e8f0);box-shadow:var(--shadow-sm,0 1px 2px rgba(15,23,42,.06))}
+  .pp-bar{max-width:1080px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:14px}
+  .pp-logo{font-family:var(--font-display,'Plus Jakarta Sans');font-weight:800;font-size:1.1rem;background:linear-gradient(135deg,#0ea5e9,#4f46e5 55%,#4338ca);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .pp-logo small{display:block;font-size:.62rem;font-weight:600;color:var(--text-3,#64748b);-webkit-text-fill-color:var(--text-3,#64748b)}
+  .pp-who{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:.85rem;color:var(--text-2,#334155)}
+  main{max-width:1080px;margin:0 auto;padding:24px 20px 90px}
+  .pp-title{font-family:var(--font-display,'Plus Jakarta Sans');font-weight:800;font-size:1.5rem;letter-spacing:-.02em;margin:0 0 2px}
+  .pp-sub{color:var(--text-3,#64748b);font-size:.9rem;margin-bottom:20px}
+  .pp-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:22px}
+  .pp-kpi{background:#fff;border:1px solid var(--neutral-200,#e2e8f0);border-radius:14px;padding:16px 18px}
+  .pp-kpi .n{font-family:var(--font-display);font-weight:800;font-size:1.7rem;line-height:1}
+  .pp-kpi .l{color:var(--text-3,#64748b);font-size:.78rem;margin-top:6px}
+  .pp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+  .pp-card{cursor:pointer;transition:transform .15s,box-shadow .15s;background:#fff;border:1px solid var(--neutral-200,#e2e8f0);border-radius:14px;padding:16px 18px;border-left:4px solid #4f46e5}
+  .pp-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md,0 8px 24px rgba(15,23,42,.10))}
+  .pp-card h3{font-family:var(--font-display);font-size:1.02rem;margin:0}
+  .pp-card .m{color:var(--text-3,#64748b);font-size:.82rem;margin-top:3px}
+  .pp-card .f{display:flex;gap:8px;margin-top:12px;padding-top:11px;border-top:1px solid var(--neutral-200,#e2e8f0);flex-wrap:wrap;align-items:center;font-size:.78rem;color:var(--text-3)}
+  .pp-empty{text-align:center;color:var(--text-3,#64748b);padding:50px 20px}
+  .pp-state{display:none} .pp-state.on{display:block}
+  .pp-back{background:none;border:0;color:var(--text-3);font-weight:600;cursor:pointer;font-size:.9rem;margin-bottom:14px;display:inline-flex;gap:7px;align-items:center}
+  .pp-back:hover{color:var(--text-1)}
+  .pp-doc{background:#fff;border:1px solid var(--neutral-200,#e2e8f0);border-radius:16px;overflow:hidden}
+  .pp-doc-head{background:linear-gradient(135deg,#eff6ff,#eef2ff);border-bottom:1px solid #dbe4fe;padding:20px 24px;display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap}
+  .pp-doc-head .ic{font-size:1.8rem}
+  .pp-doc-head h2{font-family:var(--font-display);font-size:1.25rem;margin:0;color:#3730a3}
+  .pp-doc-head .ref{color:#4338ca;font-size:.85rem;font-weight:600}
+  .pp-sec{padding:18px 24px;border-bottom:1px solid #f1f5f9}
+  .pp-sec:last-child{border-bottom:0}
+  .pp-sec h3{font-family:var(--font-display);font-size:.98rem;margin:0 0 12px;color:#3730a3;display:flex;align-items:center;gap:8px}
+  .pp-kv{display:flex;gap:12px;padding:7px 0;border-bottom:1px solid #f5f6fa;font-size:.88rem}
+  .pp-kv .k{min-width:190px;color:var(--text-3,#64748b)}
+  .pp-kv .v{flex:1;font-weight:600}
+  .pp-chips{display:flex;flex-wrap:wrap;gap:7px}
+  .pp-chip{background:#eef2ff;border:1px solid #c7d2fe;color:#4338ca;border-radius:999px;padding:4px 12px;font-size:.8rem;font-weight:600}
+  .pp-check{display:flex;align-items:flex-start;gap:9px;padding:6px 0;font-size:.86rem}
+  .pp-check .b{color:#16a34a;flex:0 0 auto}
+  .pp-risk{border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:.85rem}
+  .pp-risk .r{font-weight:700;color:#3730a3}
+  .pp-signrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #f1f5f9;flex-wrap:wrap}
+  .pp-signrow .role{min-width:190px;font-weight:700;font-size:.88rem}
+  .pp-signrow .sig{flex:1;min-width:160px}
+  .pp-signrow img{max-height:56px;border:1px solid #eee;border-radius:6px;background:#fff}
+  .pp-actionbar{position:sticky;bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-top:1px solid var(--neutral-200,#e2e8f0);padding:12px 24px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .pp-mono{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#7c83a3}
+  .pp-ov{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:1000;align-items:flex-start;justify-content:center;padding:24px 14px;overflow:auto}
+  .pp-ov.on{display:flex}
+  .pp-modal{background:#fff;border-radius:16px;max-width:660px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.3);margin:auto}
+  .pp-modal-h{padding:16px 20px;border-bottom:1px solid var(--neutral-200,#e2e8f0);font-family:var(--font-display);font-weight:700}
+  .pp-modal-b{padding:18px 20px;max-height:66vh;overflow:auto}
+  .pp-modal-f{padding:14px 20px;border-top:1px solid var(--neutral-200,#e2e8f0);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+  .pp-row{display:flex;gap:12px;flex-wrap:wrap}
+  .pp-row>div{flex:1;min-width:150px}
+  .pp-chkline{display:flex;align-items:flex-start;gap:9px;padding:5px 0;font-size:.85rem;cursor:pointer}
+  .spin{text-align:center;color:var(--text-3);padding:60px}
+  .mib-mic{border:1px solid var(--neutral-200,#e2e8f0);background:#fff;border-radius:8px;padding:0 10px;cursor:pointer}
+  .mib-mic.rec{background:#fee2e2;border-color:#fca5a5}
+  .pp-field-mic{display:flex;gap:6px;align-items:stretch}
+  .pp-field-mic .mib-inp,.pp-field-mic .mib-textarea{flex:1}
+  @media print{ .no-print{display:none!important} body{background:#fff} main{padding:0} .pp-doc{border:0;border-radius:0} .pp-sec{break-inside:avoid} }
+</style>
+</head>
+<body>
+
+<div id="st-app" class="pp-state">
+  <header class="pp-header no-print">
+    <div class="pp-bar">
+      <div class="pp-logo">🛡️ Plan de prévention<small id="pp-center">—</small></div>
+      <div class="pp-who"><span id="pp-op-badge"></span><button class="mib-btn mib-btn-ghost" id="pp-logout">Fermer</button></div>
+    </div>
+  </header>
+  <main>
+    <div id="pp-list-view">
+      <h1 class="pp-title">Plan de prévention</h1>
+      <div class="pp-sub">Interventions d'entreprises extérieures — inspection commune, analyse des risques d'interférence et mesures de prévention.</div>
+      <div class="pp-kpis">
+        <div class="pp-kpi"><div class="n" id="k-total">0</div><div class="l">Plans enregistrés</div></div>
+        <div class="pp-kpi"><div class="n" id="k-cours">0</div><div class="l">En cours de validité</div></div>
+        <div class="pp-kpi"><div class="n" id="k-brouillon">0</div><div class="l">Brouillons</div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div style="font-weight:700;font-family:var(--font-display)">Registre des plans de prévention</div>
+        <button class="mib-btn mib-btn-primary" id="pp-new-btn" onclick="ppNew()" style="display:none">+ Nouveau plan de prévention</button>
+      </div>
+      <div class="pp-grid" id="pp-list"></div>
+      <div class="pp-empty" id="pp-empty" style="display:none">Aucun plan de prévention enregistré pour le moment.</div>
+    </div>
+    <div id="pp-detail-view" style="display:none">
+      <button class="pp-back no-print" onclick="ppBackList()">← Retour aux plans</button>
+      <div id="pp-detail"></div>
+    </div>
+  </main>
+</div>
+
+<div id="st-sign" class="pp-state">
+  <div style="max-width:540px;margin:0 auto;padding:20px 16px"><div id="sign-card"></div></div>
+</div>
+
+<div id="st-nocenter" class="pp-state"><div class="spin">Centre introuvable. Vérifiez le lien d'accès.</div></div>
+<div id="st-load" class="pp-state on"><div class="spin">Chargement…</div></div>
+
+<div class="pp-ov" id="pp-ov">
+  <div class="pp-modal">
+    <div class="pp-modal-h" id="pp-mtitle">—</div>
+    <div class="pp-modal-b" id="pp-mbody"></div>
+    <div class="pp-modal-f" id="pp-mfoot"></div>
+  </div>
+</div>
+
+<script>
+/* ============================ Helpers ============================ */
+function $(id){ return document.getElementById(id); }
+function show(state){ ['st-app','st-sign','st-nocenter','st-load'].forEach(s=>{ var el=$(s); if(el) el.classList.toggle('on', s===state); }); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function attr(s){ return esc(s).replace(/"/g,'&quot;'); }
+function fmtDate(ts){ try{ return ts? new Date(ts).toLocaleDateString('fr-FR') : '—'; }catch(e){ return '—'; } }
+function fmtDateTime(ts){ try{ return ts? new Date(ts).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'; }catch(e){ return '—'; } }
+async function sha256(str){ const b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+async function sha256File(file){ const b=await crypto.subtle.digest('SHA-256', await file.arrayBuffer()); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+function publicUrl(path){ try{ return supabase.storage.from('documents').getPublicUrl(path).data.publicUrl; }catch(e){ return '#'; } }
+function openModal(title,body,foot){ $('pp-mtitle').textContent=title; $('pp-mbody').innerHTML=body; $('pp-mfoot').innerHTML=foot||''; $('pp-ov').classList.add('on'); }
+function closeModal(){ $('pp-ov').classList.remove('on'); }
+$('pp-ov').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
+
+let _mibRec=null;
+function micBtn(id){ return '<button type="button" class="mib-mic" title="Dicter" onclick="startDictation(\''+id+'\',this)">🎤</button>'; }
+function startDictation(id,btn){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){ alert('Dictée non supportée par ce navigateur.'); return; }
+  const el=$(id); if(!el) return;
+  if(_mibRec){ try{_mibRec.stop();}catch(e){} _mibRec=null; if(btn) btn.classList.remove('rec'); return; }
+  _mibRec=new SR(); _mibRec.lang='fr-FR'; _mibRec.interimResults=false; _mibRec.continuous=false; if(btn) btn.classList.add('rec');
+  _mibRec.onresult=function(ev){ let t=''; for(let i=0;i<ev.results.length;i++) t+=ev.results[i][0].transcript; el.value=(el.value?el.value.trim()+' ':'')+t; };
+  _mibRec.onerror=function(){ if(btn) btn.classList.remove('rec'); _mibRec=null; };
+  _mibRec.onend=function(){ if(btn) btn.classList.remove('rec'); _mibRec=null; };
+  try{ _mibRec.start(); }catch(e){}
+}
+
+/* ============================ Référentiel ============================ */
+const PP_DANGEREUX=[
+  "Travaux exposant à l'amiante",
+  "Travaux exposant aux rayonnements ionisants",
+  "Travaux exposant à des agents chimiques CMR",
+  "Travaux en milieu confiné (cuves, égouts…)",
+  "Travaux exposant à un risque de noyade / d'ensevelissement",
+  "Montage / démontage d'échafaudages",
+  "Travaux de démolition",
+  "Travaux en hauteur (> 3 m) — risque de chute",
+  "Travaux au voisinage de pièces nues sous tension",
+  "Travaux par point chaud (soudage, meulage…)",
+  "Travaux présentant un risque d'incendie ou d'explosion",
+  "Maintenance sur installations haute pression / température"
+];
+const PP_MESURES=[
+  "Balisage et délimitation de la zone d'intervention",
+  "Consignes de circulation et de stationnement communiquées",
+  "Consignation / coupure des énergies concernées",
+  "Port des EPI adaptés vérifié",
+  "Habilitations et autorisations vérifiées",
+  "Moyens de secours et d'alerte identifiés et accessibles",
+  "Permis feu établi si travaux par point chaud",
+  "Coordination des horaires pour limiter la co-activité",
+  "Information des salariés des deux entreprises",
+  "Points de rassemblement et issues de secours connus",
+  "Gestion et évacuation des déchets prévue"
+];
+const PP_ROLES=[
+  {k:'utilisatrice',label:"Entreprise utilisatrice",hint:"Établissement d'accueil / donneur d'ordre"},
+  {k:'exterieure',label:"Entreprise(s) extérieure(s)",hint:"Entreprise(s) intervenante(s)"}
+];
+function roleLabel(k){ const r=PP_ROLES.find(x=>x.k===k); return r?r.label:k; }
+const STAT={ brouillon:{l:'Brouillon',c:'#64748b',bg:'#f1f5f9'}, valide:{l:'Validé',c:'#166534',bg:'#dcfce7'}, cloture:{l:'Clôturé',c:'#3730a3',bg:'#e0e7ff'}, annule:{l:'Annulé',c:'#991b1b',bg:'#fee2e2'} };
+function statBadge(s){ const d=STAT[s]||STAT.brouillon; return '<span style="background:'+d.bg+';color:'+d.c+';border-radius:999px;padding:3px 11px;font-size:.75rem;font-weight:700">'+d.l+'</span>'; }
+
+/* ============================ État ============================ */
+let PP_CENTER=null, PP_OP=null, PP_NIVEAU=null, PP_ROLE=null;
+let PP_ETABS=[], PP_LIST=[], PP_CUR=null, PP_SIGS=[], PP_REU=[], PP_PJ=[];
+function isAdminLevel(){ return PP_ROLE==='formateur'||PP_ROLE==='admin'||PP_NIVEAU==='SSIAP 3'||!PP_NIVEAU; }
+
+/* ============================ Boot ============================ */
+async function ppInit(){
+  try{
+    const params=new URLSearchParams(location.search);
+    const signTok=params.get('sign');
+    if(signTok){ show('st-sign'); renderSignPage(signTok); return; }
+    const centerId=params.get('center');
+    if(!centerId){ show('st-nocenter'); return; }
+    const { data:center }=await supabase.from('centers').select('id,nom').eq('id',centerId).maybeSingle();
+    if(!center){ show('st-nocenter'); return; }
+    PP_CENTER=center;
+    PP_OP=(params.get('op')||'').trim()||null;
+    PP_NIVEAU=(params.get('niveau')||'').trim()||null;
+    PP_ROLE=(params.get('role')||'').trim()||null;
+    $('pp-center').textContent=center.nom||'—';
+    if(PP_OP){ $('pp-op-badge').textContent=PP_OP+(isAdminLevel()?'':' · lecture seule'); }
+    $('pp-logout').onclick=function(){ try{window.close();}catch(e){} };
+    show('st-app'); await ppLoad();
+  }catch(e){ console.error(e); show('st-nocenter'); }
+}
+
+async function ppLoad(){
+  const nb=$('pp-new-btn'); if(nb) nb.style.display=isAdminLevel()?'':'none';
+  const { data:etabs }=await supabase.from('etablissements').select('id,nom').eq('center_id',PP_CENTER.id).order('nom');
+  PP_ETABS=etabs||[];
+  const { data:list }=await supabase.from('plan_prevention').select('*').eq('center_id',PP_CENTER.id).order('created_at',{ascending:false});
+  PP_LIST=list||[];
+  const now=Date.now();
+  let cours=0, brouillon=0;
+  PP_LIST.forEach(p=>{
+    if(p.statut==='brouillon') brouillon++;
+    if(p.statut==='valide'){ const fin=p.date_fin?new Date(p.date_fin).getTime():null; if(!fin || fin>=now) cours++; }
+  });
+  $('k-total').textContent=PP_LIST.length;
+  $('k-cours').textContent=cours;
+  $('k-brouillon').textContent=brouillon;
+  const box=$('pp-list');
+  $('pp-empty').style.display=PP_LIST.length?'none':'block';
+  box.innerHTML=PP_LIST.map(p=>{
+    const etab=PP_ETABS.find(e=>e.id===p.etablissement_id);
+    const ents=(p.entreprises||[]).map(e=>e.raison_sociale).filter(Boolean);
+    const entTxt=ents.slice(0,2).join(', ')+(ents.length>2?'…':'');
+    return '<div class="pp-card" onclick="ppOpen(\''+p.id+'\')">'
+      +'<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><h3>'+esc(p.numero||'Plan de prévention')+'</h3>'+statBadge(p.statut)+'</div>'
+      +'<div class="m">'+esc(p.operation||p.lieu_intervention||(etab?etab.nom:'—'))+'</div>'
+      +(entTxt?'<div class="m" style="margin-top:4px">🏢 '+esc(entTxt)+'</div>':'')
+      +'<div class="f"><span>📅 '+(p.date_debut?fmtDate(p.date_debut):'—')+'</span>'+(etab?'<span>· '+esc(etab.nom)+'</span>':'')+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function ppBackList(){ $('pp-detail-view').style.display='none'; $('pp-list-view').style.display='block'; PP_CUR=null; ppLoad(); }
+
+/* ============================ Création / édition ============================ */
+function chkGroup(name,items,selected){
+  selected=selected||[];
+  return items.map((t,i)=>'<label class="pp-chkline"><input type="checkbox" name="'+name+'" value="'+attr(t)+'"'+(selected.indexOf(t)>=0?' checked':'')+'> <span>'+esc(t)+'</span></label>').join('');
+}
+function collectChk(name){ return [].slice.call(document.querySelectorAll('input[name="'+name+'"]:checked')).map(c=>c.value); }
+
+function ppNew(){ ppForm(null); }
+function ppForm(p){
+  if(!isAdminLevel()){ alert('Création / modification réservée à l’administrateur / SSIAP 3.'); return; }
+  p=p||{};
+  const dang=p.travaux_dangereux||[]; const mes=p.mesures||[];
+  const etabOpts='<option value="">— Aucun / hors établissement —</option>'+PP_ETABS.map(e=>'<option value="'+e.id+'"'+(p.etablissement_id===e.id?' selected':'')+'>'+esc(e.nom)+'</option>').join('');
+  const numSuggest=p.numero||('PP-'+new Date().getFullYear()+'-'+String(PP_LIST.length+1).padStart(3,'0'));
+  const dtv=v=>{ if(!v) return ''; try{ const d=new Date(v); const q=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+q(d.getMonth()+1)+'-'+q(d.getDate())+'T'+q(d.getHours())+':'+q(d.getMinutes()); }catch(e){ return ''; } };
+  const dvd=v=>{ if(!v) return ''; try{ const d=new Date(v); const q=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+q(d.getMonth()+1)+'-'+q(d.getDate()); }catch(e){ return ''; } };
+  const euNomDefault=p.eu_nom||((PP_ETABS.find(e=>e.id===p.etablissement_id)||{}).nom)||'';
+  const body=
+     '<input type="hidden" id="pp-f-id" value="'+(p.id||'')+'">'
+    +'<div class="pp-row"><div><label class="mib-label">N° de plan</label><input class="mib-inp" id="pp-f-numero" value="'+attr(numSuggest)+'"></div>'
+    +'<div><label class="mib-label">Établissement</label><select class="mib-select" id="pp-f-etab">'+etabOpts+'</select></div></div>'
+    +'<label class="mib-label" style="margin-top:10px">Nature de l\'opération</label><input class="mib-inp" id="pp-f-op" placeholder="Ex. maintenance CVC, nettoyage industriel…" value="'+attr(p.operation||'')+'">'
+    +'<label class="mib-label" style="margin-top:10px">Lieu d\'intervention</label><input class="mib-inp" id="pp-f-lieu" placeholder="Ex. toiture, local technique…" value="'+attr(p.lieu_intervention||'')+'">'
+    +'<div class="pp-row" style="margin-top:10px"><div><label class="mib-label">Début</label><input class="mib-inp" type="date" id="pp-f-debut" value="'+dvd(p.date_debut)+'"></div>'
+    +'<div><label class="mib-label">Fin</label><input class="mib-inp" type="date" id="pp-f-fin" value="'+dvd(p.date_fin)+'"></div>'
+    +'<div><label class="mib-label">Effectif total</label><input class="mib-inp" type="number" id="pp-f-eff" value="'+(p.effectif!=null?p.effectif:'')+'"></div></div>'
+    +'<hr style="border:0;border-top:1px solid #eee;margin:16px 0">'
+    +'<div class="pp-row"><div><label class="mib-label">Entreprise utilisatrice</label><input class="mib-inp" id="pp-f-eu" placeholder="Établissement d\'accueil" value="'+attr(euNomDefault)+'"></div>'
+    +'<div><label class="mib-label">Représentant (EU)</label><input class="mib-inp" id="pp-f-eu-rep" placeholder="Nom du représentant" value="'+attr(p.eu_representant||'')+'"></div></div>'
+    +'<label class="mib-label" style="margin-top:12px">Entreprise(s) extérieure(s)</label>'
+    +'<div id="pp-ent-list" style="margin-top:4px"></div>'
+    +'<button type="button" class="mib-btn mib-btn-ghost" style="margin-top:2px;padding:5px 12px;font-size:.82rem" onclick="ppEntAddRow()">+ Ajouter une entreprise extérieure</button>'
+    +'<hr style="border:0;border-top:1px solid #eee;margin:16px 0">'
+    +'<div class="pp-row"><div><label class="mib-label">Inspection commune préalable — date</label><input class="mib-inp" type="date" id="pp-f-insp" value="'+dvd(p.inspection_date)+'"></div>'
+    +'<div><label class="mib-label">Participants</label><input class="mib-inp" id="pp-f-insp-part" placeholder="Noms / fonctions" value="'+attr(p.inspection_participants||'')+'"></div></div>'
+    +'<hr style="border:0;border-top:1px solid #eee;margin:16px 0">'
+    +'<label class="mib-label">Travaux dangereux concernés <span class="muted" style="font-weight:400">(rend le plan écrit obligatoire)</span></label><div style="margin-top:4px">'+chkGroup('pp-dang',PP_DANGEREUX,dang)+'</div>'
+    +'<hr style="border:0;border-top:1px solid #eee;margin:16px 0">'
+    +'<label class="mib-label">Analyse des risques d\'interférence</label>'
+    +'<div id="pp-risk-list" style="margin-top:4px"></div>'
+    +'<button type="button" class="mib-btn mib-btn-ghost" style="margin-top:2px;padding:5px 12px;font-size:.82rem" onclick="ppRiskAddRow()">+ Ajouter un risque</button>'
+    +'<hr style="border:0;border-top:1px solid #eee;margin:16px 0">'
+    +'<label class="mib-label">Mesures de prévention générales</label><div style="margin-top:4px">'+chkGroup('pp-mes',PP_MESURES,mes)+'</div>'
+    +'<label class="mib-label" style="margin-top:12px">Consignes particulières</label><div class="pp-field-mic"><textarea class="mib-textarea" id="pp-f-cons" rows="2" placeholder="Consignes de sécurité, moyens de secours…">'+esc(p.consignes||'')+'</textarea>'+micBtn('pp-f-cons')+'</div>';
+  openModal(p.id?'Modifier le plan de prévention':'Nouveau plan de prévention', body,
+    '<button class="mib-btn mib-btn-ghost" onclick="closeModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="pp-save" onclick="ppSubmit()">Enregistrer</button>');
+  ppEntInit(p); ppRiskInit(p);
+}
+
+/* --- Entreprises extérieures (lignes dynamiques) --- */
+let _entSeq=0;
+function ppEntRowHtml(id,d){ d=d||{};
+  return '<div class="pp-row" id="'+id+'" style="align-items:flex-end;margin-bottom:8px;gap:8px">'
+    +'<div style="flex:1.3"><input class="mib-inp" placeholder="Raison sociale" data-f="raison_sociale" value="'+attr(d.raison_sociale||'')+'"></div>'
+    +'<div><input class="mib-inp" placeholder="Représentant" data-f="representant" value="'+attr(d.representant||'')+'"></div>'
+    +'<div><input class="mib-inp" placeholder="Activité" data-f="activite" value="'+attr(d.activite||'')+'"></div>'
+    +'<div style="flex:1.2"><input class="mib-inp" type="email" placeholder="E-mail" data-f="email" value="'+attr(d.email||'')+'"></div>'
+    +'<button type="button" class="mib-btn mib-btn-ghost" style="padding:8px 11px" title="Retirer" onclick="ppEntDel(\''+id+'\')">✕</button></div>';
+}
+function ppEntAddRow(d){ const box=$('pp-ent-list'); if(!box) return; box.insertAdjacentHTML('beforeend', ppEntRowHtml('ent-'+(_entSeq++), d)); }
+function ppEntDel(id){ const el=$(id); if(el) el.remove(); const box=$('pp-ent-list'); if(box && !box.children.length) ppEntAddRow(); }
+function ppEntInit(p){ _entSeq=0; const box=$('pp-ent-list'); if(!box) return; box.innerHTML='';
+  let list=(p&&p.entreprises&&p.entreprises.length)?p.entreprises:[{}]; list.forEach(d=>ppEntAddRow(d)); }
+function ppEntCollect(){ const box=$('pp-ent-list'); if(!box) return [];
+  return [].slice.call(box.children).map(function(row){ const o={}; [].slice.call(row.querySelectorAll('input')).forEach(function(i){ o[i.getAttribute('data-f')]=(i.value||'').trim(); }); return o; })
+    .filter(function(o){ return o.raison_sociale||o.representant||o.activite||o.email; }); }
+
+/* --- Analyse des risques (lignes dynamiques) --- */
+let _riskSeq=0;
+function ppRiskRowHtml(id,d){ d=d||{};
+  return '<div id="'+id+'" style="border:1px solid #e5e7eb;border-radius:10px;padding:10px;margin-bottom:8px">'
+    +'<div class="pp-row" style="gap:8px"><div style="flex:1.2"><input class="mib-inp" placeholder="Risque d\'interférence" data-f="risque" value="'+attr(d.risque||'')+'"></div>'
+    +'<div><select class="mib-select" data-f="responsable"><option value="">Responsable…</option>'
+      +['EU (utilisatrice)','EE (extérieure)','Commun'].map(o=>'<option'+(d.responsable===o?' selected':'')+'>'+o+'</option>').join('')
+      +'</select></div>'
+    +'<button type="button" class="mib-btn mib-btn-ghost" style="padding:8px 11px" title="Retirer" onclick="ppRiskDel(\''+id+'\')">✕</button></div>'
+    +'<input class="mib-inp" style="margin-top:6px" placeholder="Mesure de prévention" data-f="mesure" value="'+attr(d.mesure||'')+'"></div>';
+}
+function ppRiskAddRow(d){ const box=$('pp-risk-list'); if(!box) return; box.insertAdjacentHTML('beforeend', ppRiskRowHtml('risk-'+(_riskSeq++), d)); }
+function ppRiskDel(id){ const el=$(id); if(el) el.remove(); }
+function ppRiskInit(p){ _riskSeq=0; const box=$('pp-risk-list'); if(!box) return; box.innerHTML='';
+  let list=(p&&p.risques&&p.risques.length)?p.risques:[{}]; list.forEach(d=>ppRiskAddRow(d)); }
+function ppRiskCollect(){ const box=$('pp-risk-list'); if(!box) return [];
+  return [].slice.call(box.children).map(function(row){ const o={}; [].slice.call(row.querySelectorAll('input,select')).forEach(function(i){ o[i.getAttribute('data-f')]=(i.value||'').trim(); }); return o; })
+    .filter(function(o){ return o.risque||o.mesure; }); }
+
+async function ppSubmit(){
+  if(!isAdminLevel()){ alert('Réservé à l’administrateur / SSIAP 3.'); return; }
+  const id=$('pp-f-id').value||null;
+  const toIso=v=>{ if(!v) return null; try{ return new Date(v).toISOString(); }catch(e){ return null; } };
+  const payload={
+    numero:($('pp-f-numero').value||'').trim()||null,
+    etablissement_id:$('pp-f-etab').value||null,
+    operation:($('pp-f-op').value||'').trim()||null,
+    lieu_intervention:($('pp-f-lieu').value||'').trim()||null,
+    date_debut:toIso($('pp-f-debut').value),
+    date_fin:toIso($('pp-f-fin').value),
+    effectif:$('pp-f-eff').value?parseInt($('pp-f-eff').value):null,
+    eu_nom:($('pp-f-eu').value||'').trim()||null,
+    eu_representant:($('pp-f-eu-rep').value||'').trim()||null,
+    inspection_date:toIso($('pp-f-insp').value),
+    inspection_participants:($('pp-f-insp-part').value||'').trim()||null,
+    entreprises:ppEntCollect(),
+    travaux_dangereux:collectChk('pp-dang'),
+    risques:ppRiskCollect(),
+    mesures:collectChk('pp-mes'),
+    consignes:($('pp-f-cons').value||'').trim()||null
+  };
+  const btn=$('pp-save'); if(btn){ btn.disabled=true; btn.textContent='Enregistrement…'; }
+  try{
+    let newId=id;
+    if(id){ const { error }=await supabase.from('plan_prevention').update(payload).eq('id',id); if(error) throw error; }
+    else{
+      payload.center_id=PP_CENTER.id; payload.statut='brouillon';
+      payload.op=PP_OP; payload.niveau=PP_NIVEAU; payload.role=PP_ROLE;
+      const { data:ins, error }=await supabase.from('plan_prevention').insert(payload).select('id').single(); if(error) throw error;
+      newId=ins.id;
+    }
+    closeModal(); await ppOpen(newId);
+  }catch(e){ alert('Erreur : '+(e.message||e)); if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } }
+}
+
+/* ============================ Détail (document) ============================ */
+async function ppOpen(id){
+  $('pp-list-view').style.display='none'; $('pp-detail-view').style.display='block'; $('pp-detail').innerHTML='<div class="spin">Chargement…</div>';
+  const { data:p }=await supabase.from('plan_prevention').select('*').eq('id',id).maybeSingle();
+  if(!p){ $('pp-detail').innerHTML='<div class="pp-empty">Plan introuvable.</div>'; return; }
+  PP_CUR=p;
+  const { data:sigs }=await supabase.from('plan_prevention_signatures').select('*').eq('plan_id',id).order('horodatage'); PP_SIGS=sigs||[];
+  const { data:reu }=await supabase.from('plan_prevention_reunions').select('*').eq('plan_id',id).order('horodatage'); PP_REU=reu||[];
+  const { data:pj }=await supabase.from('pieces_jointes').select('*').eq('cible_type','plan_prevention').eq('cible_id',id).order('created_at'); PP_PJ=pj||[];
+  renderDetail();
+}
+
+/* ---- Pièces jointes (photos, vidéos, documents) ---- */
+function pjSectionHtml(list, open){
+  const items=(list||[]).map(function(d){
+    const url=publicUrl(d.storage_path); const mime=d.mime||'';
+    let thumb;
+    if(mime.indexOf('image/')===0) thumb='<img src="'+url+'" alt="" style="width:100%;height:110px;object-fit:cover;display:block">';
+    else if(mime.indexOf('video/')===0) thumb='<video src="'+url+'" style="width:100%;height:110px;object-fit:cover;display:block;background:#000" muted></video>';
+    else thumb='<div style="height:110px;display:flex;align-items:center;justify-content:center;font-size:2rem;background:#eef2ff">📄</div>';
+    const del=open?'<button class="mib-btn mib-btn-ghost no-print" style="position:absolute;top:4px;right:4px;padding:2px 7px;font-size:.75rem;background:rgba(255,255,255,.9)" onclick="ppDelPJ(event,\''+d.id+'\')">✕</button>':'';
+    return '<div style="position:relative;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">'+del
+      +'<a href="'+url+'" target="_blank" style="text-decoration:none;color:inherit">'+thumb
+      +'<div style="padding:6px 8px;font-size:.72rem;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(d.nom_fichier||'fichier')+'</div></a></div>';
+  }).join('');
+  const grid=items?'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:10px">'+items+'</div>':'<div class="muted" style="font-size:.85rem;margin-bottom:8px">Aucune pièce jointe.</div>';
+  const add=open?'<input type="file" id="pp-pj-input" class="no-print" multiple accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx" style="display:none" onchange="ppUploadPJ(this)"><button class="mib-btn mib-btn-ghost no-print" style="padding:6px 14px;font-size:.82rem" onclick="document.getElementById(\'pp-pj-input\').click()">📎 Ajouter des fichiers</button><span id="pp-pj-prog" class="muted" style="font-size:.8rem;margin-left:8px"></span>':'';
+  return grid+add;
+}
+async function ppUploadPJ(input){
+  const files=[].slice.call(input.files||[]); if(!files.length) return;
+  const prog=$('pp-pj-prog'); const pid=PP_CUR.id;
+  for(let i=0;i<files.length;i++){
+    const f=files[i];
+    if(prog) prog.textContent='Envoi '+(i+1)+'/'+files.length+'…';
+    try{
+      const safe=(f.name||'fichier').replace(/[^a-zA-Z0-9._-]/g,'_');
+      const path='plan/'+pid+'/pj/'+Date.now()+'_'+i+'_'+safe;
+      const up=await supabase.storage.from('documents').upload(path,f,{contentType:f.type||'application/octet-stream'});
+      if(up.error){ alert('Erreur d\'envoi ('+f.name+') : '+up.error.message); continue; }
+      await supabase.from('pieces_jointes').insert({ cible_type:'plan_prevention', cible_id:pid, nom_fichier:f.name, storage_path:path, mime:f.type||null, taille:f.size||null, uploaded_by:PP_OP||null });
+    }catch(e){ alert('Erreur : '+(e.message||e)); }
+  }
+  if(prog) prog.textContent=''; input.value=''; await ppOpen(pid);
+}
+async function ppDelPJ(ev,id){
+  ev.preventDefault(); ev.stopPropagation();
+  if(!confirm('Supprimer cette pièce jointe ?')) return;
+  const d=PP_PJ.find(x=>x.id===id);
+  if(d && d.storage_path){ try{ await supabase.storage.from('documents').remove([d.storage_path]); }catch(e){} }
+  await supabase.from('pieces_jointes').delete().eq('id',id);
+  await ppOpen(PP_CUR.id);
+}
+
+function checklist(items,sel){ sel=sel||[]; if(!items.length) return '<div class="muted" style="font-size:.85rem">—</div>';
+  return items.map(t=>'<div class="pp-check"><span class="b">'+(sel.indexOf(t)>=0?'✅':'⬜')+'</span><span>'+esc(t)+'</span></div>').join(''); }
+
+function renderDetail(){
+  const p=PP_CUR;
+  const etab=PP_ETABS.find(e=>e.id===p.etablissement_id);
+  const editable=isAdminLevel() && p.statut!=='cloture' && p.statut!=='annule';
+  const open=(p.statut!=='cloture' && p.statut!=='annule');
+  const kv=(k,v)=>'<div class="pp-kv"><div class="k">'+k+'</div><div class="v">'+(v||'—')+'</div></div>';
+  const sigView=s=>'<div class="pp-mono" style="margin:2px 0"><img src="'+publicUrl(s.signature_path)+'" alt="signature" style="max-height:44px;vertical-align:middle;border:1px solid #eee;border-radius:6px;background:#fff"> '+esc((s.nom||''))+(s.fonction?' · '+esc(s.fonction):'')+' — le '+fmtDateTime(s.horodatage)+'</div>';
+
+  const signHtml=PP_ROLES.map(r=>{
+    if(r.k==='exterieure'){
+      const list=PP_SIGS.filter(s=>s.role==='exterieure');
+      const done=list.length ? '<div class="sig">'+list.map(sigView).join('')+'</div>' : '<div class="sig muted" style="font-size:.85rem">Aucune signature — <span style="color:#94a3b8">'+esc(r.hint)+'</span></div>';
+      const btn=open ? '<button class="mib-btn mib-btn-ghost no-print" style="padding:5px 12px;font-size:.8rem" onclick="ppSignRole(\'exterieure\')">✍️ '+(list.length?'Ajouter une signature':'Faire signer')+'</button>' : '';
+      return '<div class="pp-signrow"><div class="role">Entreprise(s) extérieure(s)</div>'+done+btn+'</div>';
+    }
+    const s=PP_SIGS.filter(x=>x.role===r.k).slice(-1)[0];
+    const done=s
+      ? '<div class="sig"><img src="'+publicUrl(s.signature_path)+'" alt="signature"><div class="pp-mono">'+esc((s.nom||''))+(s.fonction?' · '+esc(s.fonction):'')+' — le '+fmtDateTime(s.horodatage)+'</div></div>'
+      : '<div class="sig muted" style="font-size:.85rem">Non signé — <span style="color:#94a3b8">'+esc(r.hint)+'</span></div>';
+    const btn=(!s && open) ? '<button class="mib-btn mib-btn-ghost no-print" style="padding:5px 12px;font-size:.8rem" onclick="ppSignRole(\''+r.k+'\')">✍️ Faire signer</button>' : '';
+    return '<div class="pp-signrow"><div class="role">'+esc(r.label)+'</div>'+done+btn+'</div>';
+  }).join('');
+
+  const reuHtml=PP_REU.length
+    ? PP_REU.map(r=>'<div class="pp-kv"><div class="k">'+fmtDateTime(r.horodatage)+'</div><div class="v" style="font-weight:500">'+esc(r.objet||'Réunion de suivi')+(r.participants?'<br><span class="muted" style="font-weight:400">'+esc(r.participants)+'</span>':'')+(r.observations?'<br><span style="color:#64748b;font-weight:400">'+esc(r.observations)+'</span>':'')+'</div></div>').join('')
+    : '<div class="muted" style="font-size:.85rem">Aucune réunion de suivi enregistrée.</div>';
+
+  const risksHtml=(p.risques&&p.risques.length)
+    ? p.risques.map(r=>'<div class="pp-risk"><div class="r">⚠️ '+esc(r.risque||'—')+(r.responsable?' <span class="pp-chip" style="font-size:.72rem">'+esc(r.responsable)+'</span>':'')+'</div>'+(r.mesure?'<div style="margin-top:4px">→ '+esc(r.mesure)+'</div>':'')+'</div>').join('')
+    : '<div class="muted" style="font-size:.85rem">Aucun risque d\'interférence renseigné.</div>';
+
+  const entHtml=(p.entreprises&&p.entreprises.length)
+    ? p.entreprises.map((e,i)=>kv('Entreprise ext. '+(i+1), esc(e.raison_sociale||'—')+(e.representant?' <span class="muted" style="font-weight:400">— '+esc(e.representant)+'</span>':'')+(e.activite?' <span class="muted" style="font-weight:400">('+esc(e.activite)+')</span>':'')+(e.email?' <span class="muted" style="font-weight:400">· '+esc(e.email)+'</span>':''))).join('')
+    : kv('Entreprise extérieure','—');
+
+  const empreinte=p.hash_courant?'<div class="pp-mono" style="margin-top:6px">Empreinte de scellement : '+esc(p.hash_courant.slice(0,28))+'…</div>':'';
+
+  $('pp-detail').innerHTML=
+    '<div class="pp-doc">'
+    +'<div class="pp-doc-head"><div class="ic">🛡️</div><div style="flex:1"><h2>Plan de prévention</h2><div class="ref">'+esc(p.numero||'—')+'</div></div><div>'+statBadge(p.statut)+'</div></div>'
+
+    +'<div class="pp-sec"><h3>📍 Identification de l\'opération</h3>'
+      +kv('Établissement', etab?esc(etab.nom):'<span class="muted">Hors établissement</span>')
+      +kv('Nature de l\'opération', esc(p.operation||''))
+      +kv('Lieu d\'intervention', esc(p.lieu_intervention||''))
+      +kv('Période', (p.date_debut?fmtDate(p.date_debut):'—')+' → '+(p.date_fin?fmtDate(p.date_fin):'—'))
+      +kv('Effectif total', p.effectif!=null?String(p.effectif):'—')
+    +'</div>'
+
+    +'<div class="pp-sec"><h3>🏢 Entreprises</h3>'
+      +kv('Entreprise utilisatrice', esc(p.eu_nom||'')+(p.eu_representant?' <span class="muted" style="font-weight:400">— '+esc(p.eu_representant)+'</span>':''))
+      +entHtml
+    +'</div>'
+
+    +'<div class="pp-sec"><h3>🔍 Inspection commune préalable</h3>'
+      +kv('Date', fmtDate(p.inspection_date))
+      +kv('Participants', esc(p.inspection_participants||''))
+    +'</div>'
+
+    +'<div class="pp-sec"><h3>☢️ Travaux dangereux concernés</h3>'
+      +((p.travaux_dangereux&&p.travaux_dangereux.length)?'<div class="pp-chips">'+p.travaux_dangereux.map(t=>'<span class="pp-chip">'+esc(t)+'</span>').join('')+'</div>':'<div class="muted" style="font-size:.85rem">Aucun travail dangereux listé.</div>')
+    +'</div>'
+
+    +'<div class="pp-sec"><h3>⚠️ Analyse des risques d\'interférence</h3>'+risksHtml+'</div>'
+
+    +'<div class="pp-sec"><h3>🛡️ Mesures de prévention</h3>'+checklist(PP_MESURES,p.mesures)
+      +(p.consignes?'<div style="margin-top:10px;font-size:.88rem"><b>Consignes :</b> '+esc(p.consignes)+'</div>':'')
+    +'</div>'
+
+    +'<div class="pp-sec"><h3>✍️ Signatures</h3>'+signHtml+'</div>'
+
+    +'<div class="pp-sec"><h3>🔄 Réunions de suivi / réexamen</h3>'+reuHtml
+      +((p.statut==='valide')?'<button class="mib-btn mib-btn-ghost no-print" style="margin-top:10px;padding:6px 14px;font-size:.82rem" onclick="ppReunion()">+ Enregistrer une réunion</button>':'')
+    +'</div>'
+
+    +'<div class="pp-sec"><h3>📎 Pièces jointes <span class="muted" style="font-weight:400;font-size:.82rem">(photos, vidéos, documents)</span></h3>'+pjSectionHtml(PP_PJ, open)+'</div>'
+
+    +'<div class="pp-sec" style="background:#fafafa"><h3>🔒 Traçabilité</h3>'
+      +'<div style="font-size:.84rem;color:#64748b">Créé le '+fmtDateTime(p.created_at)+(p.op?' par '+esc(p.op):'')+'.'
+      +(p.valide_le?' Validé le '+fmtDateTime(p.valide_le)+'.':'')
+      +(p.cloture_le?' Clôturé le '+fmtDateTime(p.cloture_le)+'.':'')
+      +'</div>'+empreinte
+    +'</div>'
+
+    +'</div>'
+
+    +'<div class="pp-actionbar no-print">'
+      +(editable?'<button class="mib-btn mib-btn-ghost" onclick="ppForm(PP_CUR)">✏️ Modifier</button>':'')
+      +(editable&&p.statut==='brouillon'?'<button class="mib-btn mib-btn-primary" onclick="ppValidate()">✅ Valider le plan</button>':'')
+      +(editable&&p.statut==='valide'?'<button class="mib-btn mib-btn-primary" onclick="ppCloture()">📁 Clôturer</button>':'')
+      +(p.statut!=='annule'?'<button class="mib-btn mib-btn-ghost" onclick="ppShare()">📧 Envoyer par e-mail</button>':'')
+      +'<button class="mib-btn mib-btn-ghost" onclick="window.print()">🖨️ Imprimer</button>'
+      +(editable&&p.statut!=='annule'?'<button class="mib-btn mib-btn-ghost" style="margin-left:auto;color:#b91c1c" onclick="ppAnnuler()">Annuler ce plan</button>':'')
+    +'</div>';
+}
+
+/* ============================ Cycle de vie ============================ */
+async function ppSeal(action){
+  const p=PP_CUR; const prev=p.hash_courant||'GENESIS'; const stamp=new Date().toISOString();
+  const payload=JSON.stringify({ id:p.id, numero:p.numero, operation:p.operation, eu:p.eu_nom, action:action });
+  const h=await sha256(prev+'|'+payload+'|'+stamp);
+  return { prev, h, stamp };
+}
+async function ppValidate(){
+  if(!isAdminLevel()) return;
+  if(!PP_SIGS.some(s=>s.role==='utilisatrice')){ if(!confirm('Aucune signature de l\'entreprise utilisatrice n\'est encore enregistrée. Valider quand même ?')) return; }
+  const seal=await ppSeal('validation');
+  const { error }=await supabase.from('plan_prevention').update({ statut:'valide', valide_le:seal.stamp, hash_prec:seal.prev, hash_courant:seal.h }).eq('id',PP_CUR.id);
+  if(error){ alert('Erreur : '+error.message); return; } await ppOpen(PP_CUR.id);
+}
+async function ppCloture(){
+  if(!isAdminLevel()) return;
+  if(!confirm('Clôturer ce plan de prévention ?')) return;
+  const seal=await ppSeal('cloture');
+  const { error }=await supabase.from('plan_prevention').update({ statut:'cloture', cloture_le:seal.stamp, hash_prec:seal.prev, hash_courant:seal.h }).eq('id',PP_CUR.id);
+  if(error){ alert('Erreur : '+error.message); return; } await ppOpen(PP_CUR.id);
+}
+async function ppAnnuler(){
+  if(!isAdminLevel()) return;
+  if(!confirm('Annuler ce plan de prévention ?')) return;
+  const { error }=await supabase.from('plan_prevention').update({ statut:'annule' }).eq('id',PP_CUR.id);
+  if(error){ alert('Erreur : '+error.message); return; } await ppOpen(PP_CUR.id);
+}
+
+/* ============================ Réunions de suivi ============================ */
+function ppReunion(){
+  openModal('Réunion de suivi',
+     '<label class="mib-label">Objet</label><input class="mib-inp" id="re-obj" placeholder="Ex. réexamen des mesures, point d\'avancement…">'
+    +'<label class="mib-label" style="margin-top:10px">Participants</label><input class="mib-inp" id="re-part" value="'+attr(PP_OP||'')+'">'
+    +'<label class="mib-label" style="margin-top:10px">Observations</label><div class="pp-field-mic"><textarea class="mib-textarea" id="re-obs" rows="2"></textarea>'+micBtn('re-obs')+'</div>',
+    '<button class="mib-btn mib-btn-ghost" onclick="closeModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="re-save" onclick="ppReunionSave()">Enregistrer</button>');
+}
+async function ppReunionSave(){
+  const btn=$('re-save'); if(btn){ btn.disabled=true; btn.textContent='…'; }
+  const { error }=await supabase.from('plan_prevention_reunions').insert({ plan_id:PP_CUR.id, objet:($('re-obj').value||'').trim()||null, participants:($('re-part').value||'').trim()||null, observations:($('re-obs').value||'').trim()||null });
+  if(error){ alert('Erreur : '+error.message); if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } return; }
+  closeModal(); await ppOpen(PP_CUR.id);
+}
+
+/* ============================ Partage / e-mail ============================ */
+function ppShare(){
+  const p=PP_CUR;
+  const mails=((p.entreprises||[]).map(i=>i.email).filter(Boolean));
+  const closed=(p.statut==='cloture');
+  openModal('Envoyer le plan par e-mail',
+     '<div class="mib-help" style="margin-bottom:10px">Envoyez ce plan de prévention aux <b>entreprises extérieures</b>. Votre logiciel de messagerie s\'ouvre avec un message pré-rempli.</div>'
+    +'<label class="mib-label">Destinataires (séparés par une virgule)</label><input class="mib-inp" type="text" id="sh-to" placeholder="contact@entreprise.fr, …" value="'+attr(mails.join(', '))+'">'
+    +(closed?'':'<label class="pp-chkline" style="margin-top:12px"><input type="checkbox" id="sh-link" checked> Inclure un <b>lien de signature</b> pour l\'entreprise extérieure</label>')
+    +'<div class="mib-help" style="margin-top:10px;font-size:.78rem">💡 Envoi automatisé avec PDF joint et suivi : prévu avec le service e-mail.</div>',
+    '<button class="mib-btn mib-btn-ghost" onclick="closeModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="sh-go" onclick="ppShareGo()">📧 Ouvrir l\'e-mail</button>');
+}
+async function ppShareGo(){
+  const to=($('sh-to').value||'').trim().replace(/\s+/g,'');
+  if(!to){ alert('Indiquez au moins une adresse e-mail.'); return; }
+  const withLink=$('sh-link') ? $('sh-link').checked : false;
+  const btn=$('sh-go'); if(btn){ btn.disabled=true; btn.textContent='…'; }
+  const p=PP_CUR;
+  try{
+    let signUrl='';
+    if(withLink){
+      const token=(crypto.randomUUID?crypto.randomUUID():(''+Math.random()).slice(2)).replace(/-/g,'');
+      const ins=await supabase.from('signature_requests').insert({ token, plan_id:p.id, plan_role:'exterieure', etablissement_id:p.etablissement_id, libelle:'Plan de prévention '+(p.numero||'')+' — '+roleLabel('exterieure'), status:'pending' }).select('id').single();
+      if(!ins.error) signUrl=location.origin+location.pathname+'?sign='+token;
+    }
+    const subject='Plan de prévention '+(p.numero||'')+' — '+(PP_CENTER.nom||'');
+    let body='Bonjour,\r\n\r\nVeuillez trouver les informations du plan de prévention pour l\'intervention suivante :\r\n';
+    body+='\r\n• N° : '+(p.numero||'—');
+    if(p.operation) body+='\r\n• Opération : '+p.operation;
+    if(p.lieu_intervention) body+='\r\n• Lieu : '+p.lieu_intervention;
+    if(p.date_debut) body+='\r\n• Période : '+fmtDate(p.date_debut)+(p.date_fin?' → '+fmtDate(p.date_fin):'');
+    if(p.eu_nom) body+='\r\n• Entreprise utilisatrice : '+p.eu_nom;
+    if(signUrl) body+='\r\n\r\nMerci de prendre connaissance du plan et de signer via ce lien :\r\n'+signUrl;
+    body+='\r\n\r\nCordialement,\r\n'+((PP_OP||'')+(PP_OP&&PP_CENTER.nom?' — ':'')+(PP_CENTER.nom||''));
+    const href='mailto:'+to+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+    closeModal(); window.location.href=href;
+  }catch(e){ alert('Erreur : '+(e.message||e)); if(btn){ btn.disabled=false; btn.textContent='📧 Ouvrir l\'e-mail'; } }
+}
+
+/* ============================ Signature déportée (QR) ============================ */
+function ensureQR(cb){ if(window.QRCode){ cb(); return; } const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; s.onload=function(){cb();}; s.onerror=function(){cb(new Error('qr'));}; document.head.appendChild(s); }
+let _signPoll=null;
+async function ppSignRole(role){
+  if(PP_CUR && (PP_CUR.statut==='cloture'||PP_CUR.statut==='annule')) return;
+  const token=(crypto.randomUUID?crypto.randomUUID():(''+Math.random()).slice(2)).replace(/-/g,'');
+  const def = role==='utilisatrice'?(PP_CUR.eu_representant||PP_CUR.eu_nom||''):'';
+  const ins=await supabase.from('signature_requests').insert({ token, plan_id:PP_CUR.id, plan_role:role, etablissement_id:PP_CUR.etablissement_id, libelle:'Plan de prévention '+(PP_CUR.numero||'')+' — '+roleLabel(role), signataire:def, status:'pending' }).select('id').single();
+  if(ins.error){ alert('Erreur : '+ins.error.message); return; }
+  const url=location.origin+location.pathname+'?sign='+token;
+  openModal('Faire signer — '+roleLabel(role),
+     '<div class="mib-help" style="margin-bottom:10px">Le signataire <b>scanne ce QR code</b>, vérifie le plan et <b>signe au doigt</b> sur son téléphone. La signature revient ici automatiquement.</div>'
+    +'<div id="qr-box" style="display:flex;justify-content:center;padding:8px;background:#fff;border-radius:10px;border:1px solid #dbe4fe"></div>'
+    +'<div id="qr-wait" style="text-align:center;margin-top:12px;color:#64748b;font-size:.85rem">⏳ En attente de la signature…</div>'
+    +'<div class="mib-help" style="margin-top:10px">Ou <b>signer sur cet appareil</b> / envoyer le lien :</div>'
+    +'<div style="display:flex;gap:6px;margin-top:6px"><input class="mib-inp" id="qr-link" readonly value="'+attr(url)+'" style="font-size:.78rem"><button class="mib-btn mib-btn-ghost" style="white-space:nowrap" onclick="window.open(document.getElementById(\'qr-link\').value,\'_blank\')">Ouvrir</button><button class="mib-btn mib-btn-ghost" style="white-space:nowrap" onclick="var i=document.getElementById(\'qr-link\');i.select();try{navigator.clipboard.writeText(i.value);}catch(e){document.execCommand(\'copy\');}this.textContent=\'Copié ✓\'">Copier</button></div>',
+    '<button class="mib-btn mib-btn-ghost" onclick="closePhoneSign()">Fermer</button>');
+  ensureQR(function(err){ const box=$('qr-box'); if(!box) return; if(err||!window.QRCode){ box.innerHTML='<img alt="QR" style="width:220px;height:220px" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(url)+'">'; } else { box.innerHTML=''; new window.QRCode(box,{text:url,width:220,height:220}); } });
+  if(_signPoll) clearInterval(_signPoll);
+  _signPoll=setInterval(async function(){
+    const { data }=await supabase.from('signature_requests').select('status').eq('token',token).maybeSingle();
+    if(data && data.status==='signed'){ clearInterval(_signPoll); _signPoll=null; const w=$('qr-wait'); if(w) w.innerHTML='<b style="color:#166534">✅ Signature reçue !</b>'; setTimeout(function(){ closeModal(); ppOpen(PP_CUR.id); },1200); }
+  },2500);
+}
+function closePhoneSign(){ if(_signPoll){ clearInterval(_signPoll); _signPoll=null; } closeModal(); if(PP_CUR) ppOpen(PP_CUR.id); }
+
+let _sigPads={};
+function initSignaturePad(id){
+  const c=document.getElementById(id); if(!c) return;
+  const ctx=c.getContext('2d'); ctx.lineWidth=2.2; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#0f172a';
+  _sigPads[id]={dirty:false};
+  let drawing=false,last=null;
+  const pos=e=>{ const r=c.getBoundingClientRect(); const t=(e.touches&&e.touches[0])||e; return {x:(t.clientX-r.left)*(c.width/r.width),y:(t.clientY-r.top)*(c.height/r.height)}; };
+  const down=e=>{ e.preventDefault(); drawing=true; last=pos(e); };
+  const move=e=>{ if(!drawing) return; e.preventDefault(); const p=pos(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last=p; _sigPads[id].dirty=true; };
+  const up=()=>{ drawing=false; };
+  c.addEventListener('pointerdown',down); c.addEventListener('pointermove',move); window.addEventListener('pointerup',up);
+}
+function clearSignaturePad(id){ const c=document.getElementById(id); if(c){ c.getContext('2d').clearRect(0,0,c.width,c.height); if(_sigPads[id]) _sigPads[id].dirty=false; } }
+
+async function renderSignPage(token){
+  const card=$('sign-card'); if(!card) return;
+  card.innerHTML='<div class="mib-card" style="padding:22px"><div class="muted">Chargement…</div></div>';
+  const { data:req }=await supabase.from('signature_requests').select('*').eq('token',token).maybeSingle();
+  if(!req){ card.innerHTML='<div class="mib-card" style="padding:22px"><h2 style="color:#3730a3">Lien invalide</h2><div class="mib-help">Cette demande de signature est introuvable.</div></div>'; return; }
+  if(req.status==='signed'){ card.innerHTML='<div class="mib-card" style="padding:22px;text-align:center"><div style="font-size:2rem">✅</div><h2 style="color:#166534">Déjà signé</h2><div class="mib-help">Cette signature a déjà été enregistrée. Vous pouvez fermer cette page.</div></div>'; return; }
+  let plan=null; if(req.plan_id){ const r=await supabase.from('plan_prevention').select('numero,operation,lieu_intervention,date_debut,eu_nom').eq('id',req.plan_id).maybeSingle(); plan=r.data||null; }
+  const recap=plan?('<div style="background:#eff6ff;border:1px solid #dbe4fe;border-radius:10px;padding:12px 14px;margin:10px 0;font-size:.84rem">'
+    +'<div><b>'+esc(plan.numero||'Plan de prévention')+'</b></div>'
+    +(plan.operation?'<div>🔧 '+esc(plan.operation)+'</div>':'')
+    +(plan.lieu_intervention?'<div>📍 '+esc(plan.lieu_intervention)+'</div>':'')
+    +(plan.date_debut?'<div>📅 '+fmtDate(plan.date_debut)+'</div>':'')
+    +(plan.eu_nom?'<div>🏢 EU : '+esc(plan.eu_nom)+'</div>':'')
+    +'</div>'):'';
+  card.innerHTML='<div class="mib-card" style="padding:20px">'
+    +'<div style="font-family:var(--font-display,\'Plus Jakarta Sans\');color:#3730a3;font-weight:800;font-size:1.1rem">🛡️ Plan de prévention</div>'
+    +'<div class="mib-help" style="margin:6px 0 4px">Signature — <b>'+esc(roleLabel(req.plan_role))+'</b></div>'
+    +recap
+    +'<label class="mib-label">Nom et prénom</label><div class="pp-field-mic"><input class="mib-inp" id="ph-nom" placeholder="Votre nom" value="'+attr(req.signataire||'')+'">'+micBtn('ph-nom')+'</div>'
+    +'<label class="mib-label" style="margin-top:10px">Fonction / société (optionnel)</label><input class="mib-inp" id="ph-fct" placeholder="Ex. responsable, entreprise…">'
+    +'<label class="mib-label" style="margin-top:12px">Signature</label>'
+    +'<div style="border:1px solid #cbd5e1;border-radius:10px;background:#fff"><canvas id="ph-sig" width="500" height="200" style="width:100%;height:200px;touch-action:none;display:block;border-radius:10px"></canvas></div>'
+    +'<div style="display:flex;justify-content:space-between;gap:8px;margin-top:12px">'
+    +'<button class="mib-btn mib-btn-ghost" onclick="clearSignaturePad(\'ph-sig\')">Effacer</button>'
+    +'<button class="mib-btn mib-btn-primary" id="ph-save" onclick="submitPhoneSign(\''+token+'\')">Valider et signer</button>'
+    +'</div></div>';
+  initSignaturePad('ph-sig');
+}
+async function submitPhoneSign(token){
+  const c=$('ph-sig'); const btn=$('ph-save');
+  const nom=($('ph-nom')&&$('ph-nom').value||'').trim();
+  if(!nom){ alert('Merci d\'indiquer votre nom.'); return; }
+  if(!c || !_sigPads['ph-sig'] || !_sigPads['ph-sig'].dirty){ alert('Merci de signer dans le cadre.'); return; }
+  if(btn){ btn.disabled=true; btn.textContent='Envoi…'; }
+  try{
+    const { data:req }=await supabase.from('signature_requests').select('*').eq('token',token).maybeSingle();
+    if(!req){ alert('Demande introuvable.'); return; }
+    const blob=await new Promise(res=>c.toBlob(res,'image/png'));
+    const sigHash=await sha256File(blob);
+    const sigPath='plan/'+(req.plan_id||'x')+'/sign_'+token+'.png';
+    const up=await supabase.storage.from('documents').upload(sigPath,blob,{contentType:'image/png'});
+    if(up.error){ alert('Erreur d\'envoi : '+up.error.message); if(btn){ btn.disabled=false; btn.textContent='Valider et signer'; } return; }
+    const fct=($('ph-fct')&&$('ph-fct').value||'').trim()||null;
+    const stamp=new Date().toISOString();
+    const { data:last }=await supabase.from('plan_prevention_signatures').select('hash_courant').eq('plan_id',req.plan_id).order('horodatage',{ascending:false}).limit(1);
+    const prev=(last&&last[0]&&last[0].hash_courant)||'GENESIS';
+    const chained=await sha256(prev+'|'+req.plan_role+'|'+nom+'|'+sigHash+'|'+stamp);
+    const insSig=await supabase.from('plan_prevention_signatures').insert({ plan_id:req.plan_id, role:req.plan_role, nom:nom, fonction:fct, signature_path:sigPath, signature_hash:sigHash, hash_prec:prev, hash_courant:chained, horodatage:stamp });
+    if(insSig.error){ alert('Erreur : '+insSig.error.message); if(btn){ btn.disabled=false; btn.textContent='Valider et signer'; } return; }
+    await supabase.from('signature_requests').update({ status:'signed', signataire:nom, signature_path:sigPath, signature_hash:sigHash, signed_at:stamp }).eq('token',token);
+    $('sign-card').innerHTML='<div class="mib-card" style="padding:24px;text-align:center"><div style="font-size:2.4rem">✅</div><h2 style="color:#166534">Signature enregistrée</h2><div class="mib-help">Merci. Votre signature est revenue sur le plan de prévention. Vous pouvez fermer cette page.</div></div>';
+  }catch(e){ alert('Erreur : '+(e.message||e)); if(btn){ btn.disabled=false; btn.textContent='Valider et signer'; } }
+}
+
+/* ============================ Go ============================ */
+ppInit();
+</script>
+</body>
+</html>
