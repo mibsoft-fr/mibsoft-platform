@@ -383,7 +383,6 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
     <div class="nav-link" id="nav-admin" onclick="showPage('admin')"><i class="fas fa-cog" style="width:16px;text-align:center;"></i> Administration</div>
   </nav>
   <div style="padding:12px 8px;border-top:1px solid #f1f5f9;">
-    <button onclick="syncData()" class="btn btn-green" style="width:100%;justify-content:center;margin-bottom:8px;"><i class="fas fa-sync-alt"></i> Synchroniser</button>
     <button onclick="logout()" class="btn btn-gray" style="width:100%;justify-content:center;"><i class="fas fa-sign-out-alt"></i> Deconnexion</button>
   </div>
 </aside>
@@ -548,22 +547,8 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
   <!-- ADMINISTRATION -->
   <div id="page-admin" class="page fade-in">
     <h2 style="font-size:1.1rem;font-weight:800;margin-bottom:20px;">Administration</h2>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-      <div class="card">
-        <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">📊 Statistiques</div>
-        <div id="admin-stats" style="color:#94a3b8;font-size:.83rem;">Chargement...</div>
-      </div>
-      <div class="card">
-        <div style="font-size:.88rem;font-weight:800;margin-bottom:14px;">🗄️ Donnees</div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <button onclick="syncData()" class="btn btn-green" style="justify-content:center;"><i class="fas fa-sync-alt"></i> Synchroniser avec Supabase</button>
-          <button onclick="exporterDonnees()" class="btn btn-gray" style="justify-content:center;"><i class="fas fa-download"></i> Exporter JSON</button>
-          <button onclick="reinitialiser()" class="btn btn-red" style="justify-content:center;"><i class="fas fa-trash"></i> Reinitialiser donnees operationnelles</button>
-        </div>
-      </div>
-    </div>
 
-    <div class="card" style="margin-top:16px;">
+    <div class="card">
       <div style="font-size:.88rem;font-weight:800;margin-bottom:6px;">🏢 Etablissement (depuis un plan SSI)</div>
       <div style="font-size:.78rem;color:#94a3b8;margin-bottom:12px;">Importe automatiquement les niveaux, locaux et le materiel (RIA, extincteurs, BAES, desenfumage…) du plan choisi dans le module SSI.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -2192,8 +2177,10 @@ function logout() {
 function openRegistreSecurite() {
   if (!PATROL_SESSION || !PATROL_SESSION.centerId) return;
   var op = ((PATROL_SESSION.prenom || "") + " " + (PATROL_SESSION.nom || "")).trim();
+  var niveau = PATROL_SESSION.qualification || "";
   var url = "registre-securite.html?center=" + encodeURIComponent(PATROL_SESSION.centerId)
-          + (op ? "&op=" + encodeURIComponent(op) : "");
+          + (op ? "&op=" + encodeURIComponent(op) : "")
+          + (niveau ? "&niveau=" + encodeURIComponent(niveau) : "");
   window.open(url, "_blank");
 }
 
