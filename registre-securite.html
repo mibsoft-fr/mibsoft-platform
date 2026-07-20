@@ -127,7 +127,7 @@
         <div class="rs-title">Mes établissements</div>
         <div class="rs-sub">Registres de sécurité incendie — suivi des vérifications réglementaires.</div>
       </div>
-      <button class="mib-btn mib-btn-primary" onclick="rsOpenForm()">+ Nouvel établissement</button>
+      <button class="mib-btn mib-btn-primary" id="rs-new-etab" onclick="rsOpenForm()" style="display:none">+ Nouvel établissement</button>
     </div>
 
     <div class="rs-kpis">
@@ -242,6 +242,9 @@
 <script>
 let RS_CENTER = null;
 let RS_OP = null;       // nom de l'opérateur (mode Patrol) — utilisé pour l'identification au visa
+let RS_NIVEAU = null;   // niveau de l'opérateur (mode Patrol) : 'SSIAP 1/2/3'
+// Niveau administrateur : SSIAP 3 (ou espace centre connecté = pas de niveau Patrol transmis)
+function isAdminLevel(){ return !RS_NIVEAU || RS_NIVEAU === 'SSIAP 3'; }
 const $ = id => document.getElementById(id);
 function show(state){ ['st-auth','st-nocenter','st-load','st-app','st-registre','st-sign'].forEach(s=>$(s).classList.toggle('on', s===state)); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -311,6 +314,7 @@ async function rsInit(){
       if(!center){ show('st-nocenter'); return; }
       RS_CENTER = center;
       RS_OP = (params.get('op')||'').trim() || null;
+      RS_NIVEAU = (params.get('niveau')||'').trim() || null;
       $('rs-center').textContent = center.nom || '—';
       const lo = $('rs-logout'); if(lo){ lo.textContent='Fermer'; lo.onclick=function(){ try{window.close();}catch(e){} }; }   // mode Patrol : pas de déconnexion
       show('st-app'); await rsLoad(); return;
@@ -330,6 +334,7 @@ async function rsInit(){
 }
 
 async function rsLoad(){
+  const nb=$('rs-new-etab'); if(nb) nb.style.display=isAdminLevel()?'':'none';   // création réservée admin / SSIAP 3
   // Filtrage EXPLICITE par center_id (la RLS est ouverte façon Patrol)
   const { data:etabs, error } = await supabase.from('etablissements')
     .select('id,nom,type_erp,categorie,adresse,effectif_public,effectif_personnel,created_at')
@@ -375,7 +380,7 @@ async function rsLoad(){
   window.__RS_ETABS = list;
 }
 
-function rsOpenForm(){ ['f-id','f-nom','f-adresse','f-eff-pub','f-eff-pers'].forEach(i=>$(i).value=''); $('f-type').value='';$('f-cat').value='';
+function rsOpenForm(){ if(!isAdminLevel()){ alert('Création réservée à l’administrateur / SSIAP 3.'); return; } ['f-id','f-nom','f-adresse','f-eff-pub','f-eff-pers'].forEach(i=>$(i).value=''); $('f-type').value='';$('f-cat').value='';
   $('rs-modal-title').textContent='Nouvel établissement'; $('f-err').style.display='none'; $('rs-modal').style.display='flex'; }
 function rsCloseForm(){ $('rs-modal').style.display='none'; }
 function rsEdit(id){
@@ -386,6 +391,7 @@ function rsEdit(id){
 }
 
 async function rsSubmit(){
+  if(!isAdminLevel()){ alert('Création / modification réservée à l’administrateur / SSIAP 3.'); return; }
   const nom=$('f-nom').value.trim();
   if(!nom){ $('f-err').textContent='Le nom est requis.'; $('f-err').style.display='block'; return; }
   const payload={ nom,
@@ -490,6 +496,7 @@ async function doUnlock(mode){
 // ===== Gestion des personnes autorisées (Rubrique 1) =====
 async function loadAutoris(){
   const box=$('reg-autoris'); if(!box) return;
+  if(!isAdminLevel()){ box.innerHTML='<div class="mib-help" style="border:1px solid #ece3d3;border-radius:12px;padding:12px 14px;background:#fbf7ef">🔑 La gestion des autorisations de saisie est réservée à l’<b>administrateur / SSIAP 3</b>.</div>'; return; }
   const { data:pers } = await supabase.from('registre_autorisations').select('*').eq('etablissement_id',REG_ETAB.id).order('nom');
   const list=pers||[]; const pinReq=!!REG_ETAB.saisie_pin_requise;
   box.innerHTML=`<div style="border:1px solid #ece3d3;border-radius:12px;padding:14px 16px;background:#fbf7ef">`
@@ -575,7 +582,7 @@ function registreLifecycleHtml(){
     +`<div class="kv"><span>Ouvert le</span><span>${r.ouvert_le?fmtDate(r.ouvert_le):'—'}</span></div>`
     +(arch
         ? `<div class="kv"><span>Clôturé le</span><span>${r.cloture_le?fmtDate(r.cloture_le):'—'}${r.cloture_nom?' par '+esc(r.cloture_nom)+(r.cloture_fonction?' ('+esc(r.cloture_fonction)+')':''):''}${empreinte}</span></div>`
-        : (canEdit()?`<div style="margin-top:12px"><button class="mib-btn mib-btn-primary" style="background:#7f1d1d" onclick="closeRegistreModal()">🔒 Clôturer le registre</button><div class="mib-help" style="margin-top:6px">La clôture <b>scelle définitivement</b> le registre (empreinte SHA-256 + journal d'audit) et <b>ouvre automatiquement le registre suivant</b>.</div></div>`:`<div class="mib-help" style="margin-top:10px">Passez en <b>mode saisie</b> pour clôturer le registre.</div>`))
+        : ((canEdit()&&isAdminLevel())?`<div style="margin-top:12px"><button class="mib-btn mib-btn-primary" style="background:#7f1d1d" onclick="closeRegistreModal()">🔒 Clôturer le registre</button><div class="mib-help" style="margin-top:6px">La clôture <b>scelle définitivement</b> le registre (empreinte SHA-256 + journal d'audit) et <b>ouvre automatiquement le registre suivant</b>.</div></div>`:`<div class="mib-help" style="margin-top:10px">${isAdminLevel()?'Passez en <b>mode saisie</b> pour clôturer le registre.':'Clôture réservée à l’<b>administrateur / SSIAP 3</b>.'}</div>`))
     +`<div style="margin-top:12px;border-top:1px solid #f0e9db;padding-top:12px"><button class="mib-btn mib-btn-ghost" onclick="auditJournalModal()">📜 Journal d'audit (chaîne des décisions)</button></div>`
     +`</div>`
     +`<div id="reg-archives" style="margin-top:16px"></div>`;
@@ -644,6 +651,7 @@ async function backToActiveRegistre(){
   renderRegTabs(); renderRubrique(1);
 }
 function closeRegistreModal(){
+  if(!isAdminLevel()){ alert('Clôture réservée à l’administrateur / SSIAP 3.'); return; }
   openMiniModal('Clôturer le registre',
     `<div class="mib-alert mib-alert-info">Vous allez <b>clôturer et sceller</b> le registre ouvert le <b>${fmtDate(REG_REGISTRE.ouvert_le)}</b>. Cette action est <b>irréversible</b> : le registre devient une archive inaltérable (empreinte SHA-256 + journal d'audit) et un <b>nouveau registre</b> est ouvert immédiatement.</div>`
     +`<label class="mib-label" style="margin-top:8px">Nom du clôturant (exploitant)</label><input class="mib-inp" id="cl-nom" autocomplete="off" value="${RS_OP?esc(RS_OP):''}">`
