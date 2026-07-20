@@ -2180,8 +2180,10 @@ function logout() {
 function openRegistreSecurite() {
   if (!PATROL_SESSION || !PATROL_SESSION.centerId) return;
   var op = ((PATROL_SESSION.prenom || "") + " " + (PATROL_SESSION.nom || "")).trim();
-  var niveau = PATROL_SESSION.qualification || "";
-  var role = (PATROL_SESSION.type === "formateur") ? "admin" : "";
+  var estFormateur = (PATROL_SESSION.type === "formateur");
+  // Un formateur = administrateur (role=admin) ; on n'envoie pas de grade SSIAP fictif.
+  var niveau = estFormateur ? "" : (PATROL_SESSION.qualification || "");
+  var role = estFormateur ? "formateur" : "";
   var url = "registre-securite.html?center=" + encodeURIComponent(PATROL_SESSION.centerId)
           + (op ? "&op=" + encodeURIComponent(op) : "")
           + (niveau ? "&niveau=" + encodeURIComponent(niveau) : "")
