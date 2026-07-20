@@ -499,17 +499,22 @@ async function doUnlock(mode){
 async function loadAutoris(){
   const box=$('reg-autoris'); if(!box) return;
   if(!isAdminLevel()){ box.innerHTML='<div class="mib-help" style="border:1px solid #ece3d3;border-radius:12px;padding:12px 14px;background:#fbf7ef">🔑 La gestion des autorisations de saisie est réservée à l’<b>administrateur / SSIAP 3</b>.</div>'; return; }
+  const editable = canEdit();   // gestion réservée au mode saisie (page 1)
   const { data:pers } = await supabase.from('registre_autorisations').select('*').eq('etablissement_id',REG_ETAB.id).order('nom');
   const list=pers||[]; const pinReq=!!REG_ETAB.saisie_pin_requise;
   box.innerHTML=`<div style="border:1px solid #ece3d3;border-radius:12px;padding:14px 16px;background:#fbf7ef">`
-    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div style="font-family:var(--font-display,'Plus Jakarta Sans');color:#7f1d1d;font-weight:700">🔑 Autorisations de saisie</div><button class="mib-btn mib-btn-ghost" style="padding:5px 12px;font-size:.8rem" onclick="addAutorisModal()">+ Ajouter une personne</button></div>`
-    +`<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.84rem;cursor:pointer"><input type="checkbox" id="pin-req" ${pinReq?'checked':''} onchange="togglePinRequis(this.checked)"> Exiger un <b>code PIN</b> pour passer en mode saisie</label>`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div style="font-family:var(--font-display,'Plus Jakarta Sans');color:#7f1d1d;font-weight:700">🔑 Autorisations de saisie</div>`
+    +(editable?`<button class="mib-btn mib-btn-ghost" style="padding:5px 12px;font-size:.8rem" onclick="addAutorisModal()">+ Ajouter une personne</button>`:``)
+    +`</div>`
+    +(editable?``:`<div class="mib-help" style="margin-top:8px">🔒 <b>Lecture seule.</b> Passez en <b>mode saisie</b> pour gérer les autorisations.</div>`)
+    +`<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.84rem;${editable?'cursor:pointer':'opacity:.6'}"><input type="checkbox" id="pin-req" ${pinReq?'checked':''} ${editable?'onchange="togglePinRequis(this.checked)"':'disabled'}> Exiger un <b>code PIN</b> pour passer en mode saisie</label>`
     +(list.length
-        ? `<div style="margin-top:10px">`+list.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f0e9db"><div style="font-size:.85rem"><b>${esc(p.nom)}</b>${p.fonction?' <span class="muted">· '+esc(p.fonction):''}</span>${p.pin?' 🔒':''}${p.actif?'':' <span class="muted">(inactif)</span>'}</div><button class="rs-iconbtn" title="Retirer" onclick="delAutoris('${p.id}')">🗑️</button></div>`).join('')+`</div>`
+        ? `<div style="margin-top:10px">`+list.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f0e9db"><div style="font-size:.85rem"><b>${esc(p.nom)}</b>${p.fonction?' <span class="muted">· '+esc(p.fonction):''}</span>${p.pin?' 🔒':''}${p.actif?'':' <span class="muted">(inactif)</span>'}</div>${editable?`<button class="rs-iconbtn" title="Retirer" onclick="delAutoris('${p.id}')">🗑️</button>`:''}</div>`).join('')+`</div>`
         : `<div class="mib-help" style="margin-top:8px">Aucune personne autorisée. Sans autorisation, le mode saisie reste déblocable avec un nom simple.</div>`)
     +`</div>`;
 }
 function addAutorisModal(){
+  if(!canEdit()){ alert('Passez en mode saisie pour gérer les autorisations.'); return; }
   openMiniModal('Ajouter une personne autorisée',
     `<label class="mib-label">Nom et prénom</label><input class="mib-inp" id="au-nom" placeholder="Ex. DUPONT Jean">`
     +`<label class="mib-label" style="margin-top:10px">Fonction (optionnel)</label><input class="mib-inp" id="au-fct" placeholder="Ex. SSIAP 3, exploitant…">`
@@ -517,13 +522,14 @@ function addAutorisModal(){
     `<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Annuler</button><button class="mib-btn mib-btn-primary" onclick="submitAutoris()">Ajouter</button>`);
 }
 async function submitAutoris(){
+  if(!canEdit()){ alert('Passez en mode saisie pour gérer les autorisations.'); return; }
   const nom=($('au-nom').value||'').trim(); if(!nom){ alert('Le nom est requis.'); return; }
   await supabase.from('registre_autorisations').insert({ etablissement_id:REG_ETAB.id, nom, fonction:($('au-fct').value||'').trim()||null, pin:($('au-pin').value||'').trim()||null, actif:true });
   closeMiniModal(); loadAutoris();
 }
 function genPin(id){ const a=new Uint32Array(1); crypto.getRandomValues(a); const code=('00000'+(a[0]%1000000)).slice(-6); const el=document.getElementById(id); if(el){ el.type='text'; el.value=code; } }
-async function delAutoris(id){ await supabase.from('registre_autorisations').delete().eq('id',id); loadAutoris(); }
-async function togglePinRequis(v){ await supabase.from('etablissements').update({ saisie_pin_requise:!!v }).eq('id',REG_ETAB.id); REG_ETAB.saisie_pin_requise=!!v; }
+async function delAutoris(id){ if(!canEdit()){ alert('Passez en mode saisie pour gérer les autorisations.'); return; } await supabase.from('registre_autorisations').delete().eq('id',id); loadAutoris(); }
+async function togglePinRequis(v){ if(!canEdit()){ loadAutoris(); return; } await supabase.from('etablissements').update({ saisie_pin_requise:!!v }).eq('id',REG_ETAB.id); REG_ETAB.saisie_pin_requise=!!v; }
 function renderRegTabs(){
   $('reg-tabs').innerHTML=RUBRIQUES.map(r=>
     `<button class="reg-tab${r.n===REG_ACTIVE?' active':''}" style="background:${r.color}" onclick="selectRubrique(${r.n})">
