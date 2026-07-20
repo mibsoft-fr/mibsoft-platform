@@ -379,6 +379,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-0.02
     <div class="nav-link" id="nav-materiels" onclick="showPage('materiels')"><i class="fas fa-fire-extinguisher" style="width:16px;text-align:center;"></i> Materiels</div>
     <div class="nav-link" id="nav-consignes" onclick="showPage('consignes')"><i class="fas fa-file-alt" style="width:16px;text-align:center;"></i> Consignes</div>
     <div class="nav-link" id="nav-registre" onclick="openRegistreSecurite()"><i class="fas fa-clipboard-check" style="width:16px;text-align:center;"></i> Registre de sécurité</div>
+    <div class="nav-link" id="nav-permisfeu" onclick="openPermisFeu()"><i class="fas fa-fire" style="width:16px;text-align:center;"></i> Permis de feu</div>
     <div class="nav-link" id="nav-agents" onclick="showPage('agents')"><i class="fas fa-users" style="width:16px;text-align:center;"></i> Agents</div>
     <div class="nav-link" id="nav-admin" onclick="showPage('admin')"><i class="fas fa-cog" style="width:16px;text-align:center;"></i> Administration</div>
   </nav>
@@ -2185,6 +2186,20 @@ function openRegistreSecurite() {
   var niveau = estFormateur ? "" : (PATROL_SESSION.qualification || "");
   var role = estFormateur ? "formateur" : "";
   var url = "registre-securite.html?center=" + encodeURIComponent(PATROL_SESSION.centerId)
+          + (op ? "&op=" + encodeURIComponent(op) : "")
+          + (niveau ? "&niveau=" + encodeURIComponent(niveau) : "")
+          + (role ? "&role=" + encodeURIComponent(role) : "");
+  window.open(url, "_blank");
+}
+
+// Ouvre le module Permis de feu (mode Patrol : ?center= sans login), mêmes droits que le registre.
+function openPermisFeu() {
+  if (!PATROL_SESSION || !PATROL_SESSION.centerId) return;
+  var op = ((PATROL_SESSION.prenom || "") + " " + (PATROL_SESSION.nom || "")).trim();
+  var estFormateur = (PATROL_SESSION.type === "formateur");
+  var niveau = estFormateur ? "" : (PATROL_SESSION.qualification || "");
+  var role = estFormateur ? "formateur" : "";
+  var url = "permis-feu.html?center=" + encodeURIComponent(PATROL_SESSION.centerId)
           + (op ? "&op=" + encodeURIComponent(op) : "")
           + (niveau ? "&niveau=" + encodeURIComponent(niveau) : "")
           + (role ? "&role=" + encodeURIComponent(role) : "");
