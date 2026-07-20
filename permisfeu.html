@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Permis de feu — MIBsoft</title>
+<link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design-tokens.css">
+<link rel="stylesheet" href="mib-design.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="supabase.js"></script>
+<style>
+  body{background:var(--bg-page,#F8FAFC);margin:0;font-family:var(--font-body,'Inter',sans-serif);color:var(--text-1,#0F172A)}
+  .pf-header{background:#fff;border-bottom:1px solid var(--neutral-200,#e2e8f0);box-shadow:var(--shadow-sm,0 1px 2px rgba(15,23,42,.06))}
+  .pf-bar{max-width:1080px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:14px}
+  .pf-logo{font-family:var(--font-display,'Plus Jakarta Sans');font-weight:800;font-size:1.1rem;background:linear-gradient(135deg,#f97316,#dc2626 55%,#b91c1c);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .pf-logo small{display:block;font-size:.62rem;font-weight:600;color:var(--text-3,#64748b);-webkit-text-fill-color:var(--text-3,#64748b)}
+  .pf-who{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:.85rem;color:var(--text-2,#334155)}
+  main{max-width:1080px;margin:0 auto;padding:24px 20px 90px}
+  .pf-title{font-family:var(--font-display,'Plus Jakarta Sans');font-weight:800;font-size:1.5rem;letter-spacing:-.02em;margin:0 0 2px}
+  .pf-sub{color:var(--text-3,#64748b);font-size:.9rem;margin-bottom:20px}
+  .pf-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:22px}
+  .pf-kpi{background:#fff;border:1px solid var(--neutral-200,#e2e8f0);border-radius:14px;padding:16px 18px}
+  .pf-kpi .n{font-family:var(--font-display);font-weight:800;font-size:1.7rem;line-height:1}
+  .pf-kpi .l{color:var(--text-3,#64748b);font-size:.78rem;margin-top:6px}
+  .pf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+  .pf-card{cursor:pointer;transition:transform .15s,box-shadow .15s;background:#fff;border:1px solid var(--neutral-200,#e2e8f0);border-radius:14px;padding:16px 18px;border-left:4px solid #f97316}
+  .pf-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md,0 8px 24px rgba(15,23,42,.10))}
+  .pf-card h3{font-family:var(--font-display);font-size:1.02rem;margin:0}
+  .pf-card .m{color:var(--text-3,#64748b);font-size:.82rem;margin-top:3px}
+  .pf-card .f{display:flex;gap:8px;margin-top:12px;padding-top:11px;border-top:1px solid var(--neutral-200,#e2e8f0);flex-wrap:wrap;align-items:center;font-size:.78rem;color:var(--text-3)}
+  .pf-empty{text-align:center;color:var(--text-3,#64748b);padding:50px 20px}
+  .pf-state{display:none} .pf-state.on{display:block}
+  .pf-back{background:none;border:0;color:var(--text-3);font-weight:600;cursor:pointer;font-size:.9rem;margin-bottom:14px;display:inline-flex;gap:7px;align-items:center}
+  .pf-back:hover{color:var(--text-1)}
+  /* Document */
+  .pf-doc{background:#fff;border:1px solid var(--neutral-200,#e2e8f0);border-radius:16px;overflow:hidden}
+  .pf-doc-head{background:linear-gradient(135deg,#fff7ed,#fef2f2);border-bottom:1px solid #fde3cf;padding:20px 24px;display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap}
+  .pf-doc-head .ic{font-size:1.8rem}
+  .pf-doc-head h2{font-family:var(--font-display);font-size:1.25rem;margin:0;color:#9a3412}
+  .pf-doc-head .ref{color:#c2410c;font-size:.85rem;font-weight:600}
+  .pf-sec{padding:18px 24px;border-bottom:1px solid #f1f5f9}
+  .pf-sec:last-child{border-bottom:0}
+  .pf-sec h3{font-family:var(--font-display);font-size:.98rem;margin:0 0 12px;color:#9a3412;display:flex;align-items:center;gap:8px}
+  .pf-kv{display:flex;gap:12px;padding:7px 0;border-bottom:1px solid #f6f4ef;font-size:.88rem}
+  .pf-kv .k{min-width:170px;color:var(--text-3,#64748b)}
+  .pf-kv .v{flex:1;font-weight:600}
+  .pf-chips{display:flex;flex-wrap:wrap;gap:7px}
+  .pf-chip{background:#fff7ed;border:1px solid #fed7aa;color:#c2410c;border-radius:999px;padding:4px 12px;font-size:.8rem;font-weight:600}
+  .pf-check{display:flex;align-items:flex-start;gap:9px;padding:6px 0;font-size:.86rem}
+  .pf-check .b{color:#16a34a;flex:0 0 auto}
+  .pf-mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+  .pf-mcol h4{font-size:.82rem;text-transform:uppercase;letter-spacing:.04em;color:#c2410c;margin:0 0 6px}
+  .pf-signrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #f1f5f9;flex-wrap:wrap}
+  .pf-signrow .role{min-width:190px;font-weight:700;font-size:.88rem}
+  .pf-signrow .sig{flex:1;min-width:160px}
+  .pf-signrow img{max-height:56px;border:1px solid #eee;border-radius:6px;background:#fff}
+  .pf-actionbar{position:sticky;bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-top:1px solid var(--neutral-200,#e2e8f0);padding:12px 24px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .pf-mono{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#8a7a5a}
+  /* modale */
+  .pf-ov{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:1000;align-items:flex-start;justify-content:center;padding:24px 14px;overflow:auto}
+  .pf-ov.on{display:flex}
+  .pf-modal{background:#fff;border-radius:16px;max-width:640px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.3);margin:auto}
+  .pf-modal-h{padding:16px 20px;border-bottom:1px solid var(--neutral-200,#e2e8f0);font-family:var(--font-display);font-weight:700}
+  .pf-modal-b{padding:18px 20px;max-height:66vh;overflow:auto}
+  .pf-modal-f{padding:14px 20px;border-top:1px solid var(--neutral-200,#e2e8f0);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+  .pf-row{display:flex;gap:12px;flex-wrap:wrap}
+  .pf-row>div{flex:1;min-width:150px}
+  .pf-chkline{display:flex;align-items:flex-start;gap:9px;padding:5px 0;font-size:.85rem;cursor:pointer}
+  .spin{text-align:center;color:var(--text-3);padding:60px}
+  .mib-mic{border:1px solid var(--neutral-200,#e2e8f0);background:#fff;border-radius:8px;padding:0 10px;cursor:pointer}
+  .mib-mic.rec{background:#fee2e2;border-color:#fca5a5}
+  .pf-field-mic{display:flex;gap:6px;align-items:stretch}
+  .pf-field-mic .mib-inp,.pf-field-mic .mib-textarea{flex:1}
+  @media print{
+    .no-print{display:none!important}
+    body{background:#fff}
+    main{padding:0}
+    .pf-doc{border:0;border-radius:0}
+    .pf-sec{break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== App ===== -->
+<div id="st-app" class="pf-state">
+  <header class="pf-header no-print">
+    <div class="pf-bar">
+      <div class="pf-logo">🔥 Permis de feu<small id="pf-center">—</small></div>
+      <div class="pf-who"><span id="pf-op-badge"></span><button class="mib-btn mib-btn-ghost" id="pf-logout">Fermer</button></div>
+    </div>
+  </header>
+  <main>
+    <!-- Liste -->
+    <div id="pf-list-view">
+      <h1 class="pf-title">Permis de feu</h1>
+      <div class="pf-sub">Travaux par point chaud (soudage, meulage, chalumeau…) — autorisation, prévention et surveillance.</div>
+      <div class="pf-kpis">
+        <div class="pf-kpi"><div class="n" id="k-total">0</div><div class="l">Permis enregistrés</div></div>
+        <div class="pf-kpi"><div class="n" id="k-cours">0</div><div class="l">En cours de validité</div></div>
+        <div class="pf-kpi"><div class="n" id="k-surv">0</div><div class="l">Surveillance à assurer</div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div style="font-weight:700;font-family:var(--font-display)">Registre des permis</div>
+        <button class="mib-btn mib-btn-primary" id="pf-new-btn" onclick="pfNew()" style="display:none">+ Nouveau permis de feu</button>
+      </div>
+      <div class="pf-grid" id="pf-list"></div>
+      <div class="pf-empty" id="pf-empty" style="display:none">Aucun permis de feu enregistré pour le moment.</div>
+    </div>
+    <!-- Détail -->
+    <div id="pf-detail-view" style="display:none">
+      <button class="pf-back no-print" onclick="pfBackList()">← Retour aux permis</button>
+      <div id="pf-detail"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ===== Page mobile de signature (QR) ===== -->
+<div id="st-sign" class="pf-state">
+  <div style="max-width:540px;margin:0 auto;padding:20px 16px"><div id="sign-card"></div></div>
+</div>
+
+<!-- ===== États divers ===== -->
+<div id="st-nocenter" class="pf-state"><div class="spin">Centre introuvable. Vérifiez le lien d'accès.</div></div>
+<div id="st-load" class="pf-state on"><div class="spin">Chargement…</div></div>
+
+<!-- Modale générique -->
+<div class="pf-ov" id="pf-ov">
+  <div class="pf-modal">
+    <div class="pf-modal-h" id="pf-mtitle">—</div>
+    <div class="pf-modal-b" id="pf-mbody"></div>
+    <div class="pf-modal-f" id="pf-mfoot"></div>
+  </div>
+</div>
+
+<script>
+/* ============================ Helpers ============================ */
+function $(id){ return document.getElementById(id); }
+function show(state){ ['st-app','st-sign','st-nocenter','st-load'].forEach(s=>{ var el=$(s); if(el) el.classList.toggle('on', s===state); }); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function attr(s){ return esc(s).replace(/"/g,'&quot;'); }
+function fmtDate(ts){ try{ return ts? new Date(ts).toLocaleDateString('fr-FR') : '—'; }catch(e){ return '—'; } }
+function fmtDateTime(ts){ try{ return ts? new Date(ts).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'; }catch(e){ return '—'; } }
+async function sha256(str){ const b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+async function sha256File(file){ const b=await crypto.subtle.digest('SHA-256', await file.arrayBuffer()); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+function publicUrl(path){ try{ return supabase.storage.from('documents').getPublicUrl(path).data.publicUrl; }catch(e){ return '#'; } }
+function openModal(title,body,foot){ $('pf-mtitle').textContent=title; $('pf-mbody').innerHTML=body; $('pf-mfoot').innerHTML=foot||''; $('pf-ov').classList.add('on'); }
+function closeModal(){ $('pf-ov').classList.remove('on'); }
+$('pf-ov').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
+
+/* Dictée vocale (optionnelle) */
+let _mibRec=null;
+function micBtn(id){ return '<button type="button" class="mib-mic" title="Dicter" onclick="startDictation(\''+id+'\',this)">🎤</button>'; }
+function startDictation(id,btn){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){ alert('Dictée non supportée par ce navigateur.'); return; }
+  const el=$(id); if(!el) return;
+  if(_mibRec){ try{_mibRec.stop();}catch(e){} _mibRec=null; if(btn) btn.classList.remove('rec'); return; }
+  _mibRec=new SR(); _mibRec.lang='fr-FR'; _mibRec.interimResults=false; _mibRec.continuous=false; if(btn) btn.classList.add('rec');
+  _mibRec.onresult=function(ev){ let t=''; for(let i=0;i<ev.results.length;i++) t+=ev.results[i][0].transcript; el.value=(el.value?el.value.trim()+' ':'')+t; };
+  _mibRec.onerror=function(){ if(btn) btn.classList.remove('rec'); _mibRec=null; };
+  _mibRec.onend=function(){ if(btn) btn.classList.remove('rec'); _mibRec=null; };
+  try{ _mibRec.start(); }catch(e){}
+}
+
+/* ============================ Référentiel ============================ */
+const PF_NATURE=["Soudage à l'arc électrique","Soudage / coupage au chalumeau","Oxycoupage, découpage thermique","Meulage, tronçonnage (disqueuse)","Brasage","Application d'étanchéité à chaud","Décapage thermique (chalumeau, décapeur)"];
+const PF_MESURES={
+  avant:[
+    "Consignes de sécurité données au personnel exécutant",
+    "Éloignement des matières combustibles (rayon ≥ 10 m)",
+    "Protection des éléments combustibles fixes par écrans / bâches ignifugées",
+    "Obturation des ouvertures, fentes et joints par matériaux incombustibles",
+    "Vérification de l'absence de gaz / atmosphère explosive",
+    "Arrosage / humidification des surfaces et de leurs abords",
+    "Détection incendie neutralisée dans la zone (avec accord du poste de sécurité)",
+    "Information du poste de sécurité / service de sécurité incendie",
+    "Moyens d'extinction disposés à proximité immédiate"
+  ],
+  pendant:[
+    "Surveillance permanente pendant toute la durée des travaux",
+    "Extincteur approprié à portée de main de l'opérateur",
+    "Contrôle de l'échauffement des parois et points traversés",
+    "Arrêt immédiat des travaux en cas de doute ou de départ de feu"
+  ],
+  apres:[
+    "Inspection de la zone de travail et des locaux adjacents",
+    "Arrosage / refroidissement des surfaces chauffées",
+    "Ronde de surveillance pendant au moins 2 h après la fin des travaux",
+    "Remise en service de la détection incendie neutralisée",
+    "Compte rendu de fin de travaux au poste de sécurité"
+  ]
+};
+const PF_MOYENS=["Extincteur à eau pulvérisée","Extincteur CO₂","Extincteur à poudre","RIA (robinet d'incendie armé)","Point d'eau / tuyau d'arrosage","Couverture anti-feu","Seau de sable"];
+const PF_ROLES=[
+  {k:'donneur_ordre',label:"Donneur d'ordre",hint:"Exploitant / chef d'établissement qui autorise les travaux"},
+  {k:'executant',label:"Entreprise exécutante",hint:"Opérateur réalisant les travaux"},
+  {k:'surveillance',label:"Chargé de surveillance",hint:"Assure la surveillance pendant et après les travaux"}
+];
+function roleLabel(k){ const r=PF_ROLES.find(x=>x.k===k); return r?r.label:k; }
+const STAT={ brouillon:{l:'Brouillon',c:'#64748b',bg:'#f1f5f9'}, valide:{l:'Validé',c:'#166534',bg:'#dcfce7'}, cloture:{l:'Clôturé',c:'#7c2d12',bg:'#fde68a'}, annule:{l:'Annulé',c:'#991b1b',bg:'#fee2e2'} };
+function statBadge(s){ const d=STAT[s]||STAT.brouillon; return '<span style="background:'+d.bg+';color:'+d.c+';border-radius:999px;padding:3px 11px;font-size:.75rem;font-weight:700">'+d.l+'</span>'; }
+
+/* ============================ État ============================ */
+let PF_CENTER=null, PF_OP=null, PF_NIVEAU=null, PF_ROLE=null;
+let PF_ETABS=[], PF_LIST=[], PF_CUR=null, PF_SIGS=[], PF_RONDES=[];
+function isAdminLevel(){ return PF_ROLE==='formateur'||PF_ROLE==='admin'||PF_NIVEAU==='SSIAP 3'||!PF_NIVEAU; }
+
+/* ============================ Boot ============================ */
+async function pfInit(){
+  try{
+    const params=new URLSearchParams(location.search);
+    const signTok=params.get('sign');
+    if(signTok){ show('st-sign'); renderSignPage(signTok); return; }
+    const centerId=params.get('center');
+    if(!centerId){ show('st-nocenter'); return; }
+    const { data:center }=await supabase.from('centers').select('id,nom').eq('id',centerId).maybeSingle();
+    if(!center){ show('st-nocenter'); return; }
+    PF_CENTER=center;
+    PF_OP=(params.get('op')||'').trim()||null;
+    PF_NIVEAU=(params.get('niveau')||'').trim()||null;
+    PF_ROLE=(params.get('role')||'').trim()||null;
+    $('pf-center').textContent=center.nom||'—';
+    if(PF_OP){ $('pf-op-badge').textContent=PF_OP+(isAdminLevel()?'':' · lecture seule'); }
+    $('pf-logout').onclick=function(){ try{window.close();}catch(e){} };
+    show('st-app'); await pfLoad();
+  }catch(e){ console.error(e); show('st-nocenter'); }
+}
+
+async function pfLoad(){
+  const nb=$('pf-new-btn'); if(nb) nb.style.display=isAdminLevel()?'':'none';
+  const { data:etabs }=await supabase.from('etablissements').select('id,nom').eq('center_id',PF_CENTER.id).order('nom');
+  PF_ETABS=etabs||[];
+  const { data:list }=await supabase.from('permis_feu').select('*').eq('center_id',PF_CENTER.id).order('created_at',{ascending:false});
+  PF_LIST=list||[];
+  const now=Date.now();
+  let cours=0, surv=0;
+  PF_LIST.forEach(p=>{
+    const fin=p.date_fin?new Date(p.date_fin).getTime():null;
+    if(p.statut==='valide'){ cours++; if(fin && fin<now) surv++; }
+  });
+  $('k-total').textContent=PF_LIST.length;
+  $('k-cours').textContent=cours;
+  $('k-surv').textContent=surv;
+  const box=$('pf-list');
+  $('pf-empty').style.display=PF_LIST.length?'none':'block';
+  box.innerHTML=PF_LIST.map(p=>{
+    const etab=PF_ETABS.find(e=>e.id===p.etablissement_id);
+    const nat=(p.nature_travaux||[]).slice(0,2).join(', ')+((p.nature_travaux||[]).length>2?'…':'');
+    return '<div class="pf-card" onclick="pfOpen(\''+p.id+'\')">'
+      +'<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><h3>'+esc(p.numero||'Permis de feu')+'</h3>'+statBadge(p.statut)+'</div>'
+      +'<div class="m">'+esc(p.lieu_travaux||(etab?etab.nom:'—'))+'</div>'
+      +(nat?'<div class="m" style="margin-top:4px">🔧 '+esc(nat)+'</div>':'')
+      +'<div class="f"><span>📅 '+(p.date_debut?fmtDate(p.date_debut):'—')+'</span>'+(p.entreprise_nom?'<span>· '+esc(p.entreprise_nom)+'</span>':'')+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function pfBackList(){ $('pf-detail-view').style.display='none'; $('pf-list-view').style.display='block'; PF_CUR=null; pfLoad(); }
+
+/* ============================ Création / édition ============================ */
+function chkGroup(name,items,selected){
+  selected=selected||[];
+  return items.map((t,i)=>'<label class="pf-chkline"><input type="checkbox" name="'+name+'" value="'+attr(t)+'"'+(selected.indexOf(t)>=0?' checked':'')+'> <span>'+esc(t)+'</span></label>').join('');
+}
+function collectChk(name){ return [].slice.call(document.querySelectorAll('input[name="'+name+'"]:checked')).map(c=>c.value); }
+
+function pfNew(){ pfForm(null); }
+function pfForm(p){
+  if(!isAdminLevel()){ alert('Création / modification réservée à l’administrateur / SSIAP 3.'); return; }
+  p=p||{};
+  const nat=p.nature_travaux||[]; const mes=p.mesures||{};
+  const etabOpts='<option value="">— Aucun / hors établissement —</option>'+PF_ETABS.map(e=>'<option value="'+e.id+'"'+(p.etablissement_id===e.id?' selected':'')+'>'+esc(e.nom)+'</option>').join('');
+  const numSuggest=p.numero||('PF-'+new Date().getFullYear()+'-'+String(PF_LIST.length+1).padStart(3,'0'));
+  const dtv=v=>{ if(!v) return ''; try{ const d=new Date(v); const p2=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T'+p2(d.getHours())+':'+p2(d.getMinutes()); }catch(e){ return ''; } };
+  const body=
+     '<input type="hidden" id="pf-f-id" value="'+(p.id||'')+'">'
+    +'<div class="pf-row"><div><label class="mib-label">N° de permis</label><input class="mib-inp" id="pf-f-numero" value="'+attr(numSuggest)+'"></div>'
+    +'<div><label class="mib-label">Établissement</label><select class="mib-select" id="pf-f-etab">'+etabOpts+'</select></div></div>'
+    +'<label class="mib-label" style="margin-top:10px">Lieu précis des travaux</label><input class="mib-inp" id="pf-f-lieu" placeholder="Ex. Local technique niveau -1, façade ouest…" value="'+attr(p.lieu_travaux||'')+'">'
+    +'<div class="pf-row" style="margin-top:10px"><div><label class="mib-label">Début des travaux</label><input class="mib-inp" type="datetime-local" id="pf-f-debut" value="'+dtv(p.date_debut)+'"></div>'
+    +'<div><label class="mib-label">Fin de validité</label><input class="mib-inp" type="datetime-local" id="pf-f-fin" value="'+dtv(p.date_fin)+'"></div></div>'
+    +'<hr style="border:0;border-top:1px solid #eee;margin:16px 0">'
+    +'<div class="pf-row"><div><label class="mib-label">Donneur d\'ordre — nom</label><input class="mib-inp" id="pf-f-do-nom" placeholder="Nom et prénom" value="'+attr(p.donneur_ordre_nom||'')+'"></div>'
+    +'<div><label class="mib-label">Fonction</label><input class="mib-inp" id="pf-f-do-fct" placeholder="Ex. exploitant, chef d\'établissement" value="'+attr(p.donneur_ordre_fonction||'')+'"></div></div>'
+    +'<div class="pf-row" style="margin-top:10px"><div><label class="mib-label">Entreprise exécutante</label><input class="mib-inp" id="pf-f-ent" placeholder="Interne ou entreprise extérieure" value="'+attr(p.entreprise_nom||'')+'"></div>'
+    +'<div><label class="mib-label">Opérateur (exécutant)</label><input class="mib-inp" id="pf-f-exec" placeholder="Nom de l\'opérateur" value="'+attr(p.executant_nom||'')+'"></div></div>'
+    +'<hr style="border:0;border-top:1px solid #eee;margin:16px 0">'
+    +'<label class="mib-label">Nature des travaux par point chaud</label><div style="margin-top:4px">'+chkGroup('pf-nat',PF_NATURE,nat)+'</div>'
+    +'<label class="mib-label" style="margin-top:6px">Autre (préciser)</label><input class="mib-inp" id="pf-f-nat-autre" placeholder="Autre type de travaux…" value="'+attr((nat.filter(x=>PF_NATURE.indexOf(x)<0)[0])||'')+'">'
+    +'<label class="mib-label" style="margin-top:12px">Description des opérations</label><div class="pf-field-mic"><textarea class="mib-textarea" id="pf-f-desc" rows="2" placeholder="Détail des travaux…">'+esc(p.description||'')+'</textarea>'+micBtn('pf-f-desc')+'</div>'
+    +'<hr style="border:0;border-top:1px solid #eee;margin:16px 0">'
+    +'<label class="mib-label">Mesures de prévention</label>'
+    +'<div class="pf-mgrid" style="margin-top:6px">'
+      +'<div class="pf-mcol"><h4>Avant</h4>'+chkGroup('pf-av',PF_MESURES.avant,mes.avant)+'</div>'
+      +'<div class="pf-mcol"><h4>Pendant</h4>'+chkGroup('pf-pe',PF_MESURES.pendant,mes.pendant)+'</div>'
+      +'<div class="pf-mcol"><h4>Après</h4>'+chkGroup('pf-ap',PF_MESURES.apres,mes.apres)+'</div>'
+    +'</div>'
+    +'<label class="mib-label" style="margin-top:12px">Moyens d\'extinction prévus sur place</label><div style="margin-top:4px">'+chkGroup('pf-mo',PF_MOYENS,mes.moyens)+'</div>'
+    +'<hr style="border:0;border-top:1px solid #eee;margin:16px 0">'
+    +'<div class="pf-row"><div><label class="mib-label">Chargé de surveillance</label><input class="mib-inp" id="pf-f-surv" placeholder="Nom du surveillant" value="'+attr(p.surveillance_nom||'')+'"></div>'
+    +'<div><label class="mib-label">Durée de surveillance après travaux (min)</label><input class="mib-inp" type="number" id="pf-f-ronde" value="'+(p.ronde_duree_min!=null?p.ronde_duree_min:120)+'"></div></div>';
+  openModal(p.id?'Modifier le permis de feu':'Nouveau permis de feu', body,
+    '<button class="mib-btn mib-btn-ghost" onclick="closeModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="pf-save" onclick="pfSubmit()">Enregistrer</button>');
+}
+
+async function pfSubmit(){
+  if(!isAdminLevel()){ alert('Réservé à l’administrateur / SSIAP 3.'); return; }
+  const id=$('pf-f-id').value||null;
+  const nat=collectChk('pf-nat'); const autre=($('pf-f-nat-autre').value||'').trim(); if(autre) nat.push(autre);
+  const toIso=v=>{ if(!v) return null; try{ return new Date(v).toISOString(); }catch(e){ return null; } };
+  const payload={
+    numero:($('pf-f-numero').value||'').trim()||null,
+    etablissement_id:$('pf-f-etab').value||null,
+    lieu_travaux:($('pf-f-lieu').value||'').trim()||null,
+    date_debut:toIso($('pf-f-debut').value),
+    date_fin:toIso($('pf-f-fin').value),
+    donneur_ordre_nom:($('pf-f-do-nom').value||'').trim()||null,
+    donneur_ordre_fonction:($('pf-f-do-fct').value||'').trim()||null,
+    entreprise_nom:($('pf-f-ent').value||'').trim()||null,
+    executant_nom:($('pf-f-exec').value||'').trim()||null,
+    nature_travaux:nat,
+    description:($('pf-f-desc').value||'').trim()||null,
+    mesures:{ avant:collectChk('pf-av'), pendant:collectChk('pf-pe'), apres:collectChk('pf-ap'), moyens:collectChk('pf-mo') },
+    surveillance_nom:($('pf-f-surv').value||'').trim()||null,
+    ronde_duree_min:parseInt($('pf-f-ronde').value)||120
+  };
+  const btn=$('pf-save'); if(btn){ btn.disabled=true; btn.textContent='Enregistrement…'; }
+  try{
+    let newId=id;
+    if(id){
+      const { error }=await supabase.from('permis_feu').update(payload).eq('id',id); if(error) throw error;
+    }else{
+      payload.center_id=PF_CENTER.id; payload.statut='brouillon';
+      payload.op=PF_OP; payload.niveau=PF_NIVEAU; payload.role=PF_ROLE;
+      const { data:ins, error }=await supabase.from('permis_feu').insert(payload).select('id').single(); if(error) throw error;
+      newId=ins.id;
+    }
+    closeModal(); await pfOpen(newId);
+  }catch(e){ alert('Erreur : '+(e.message||e)); if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } }
+}
+
+/* ============================ Détail (document) ============================ */
+async function pfOpen(id){
+  $('pf-list-view').style.display='none'; $('pf-detail-view').style.display='block'; $('pf-detail').innerHTML='<div class="spin">Chargement…</div>';
+  const { data:p }=await supabase.from('permis_feu').select('*').eq('id',id).maybeSingle();
+  if(!p){ $('pf-detail').innerHTML='<div class="pf-empty">Permis introuvable.</div>'; return; }
+  PF_CUR=p;
+  const { data:sigs }=await supabase.from('permis_feu_signatures').select('*').eq('permis_id',id).order('horodatage');
+  PF_SIGS=sigs||[];
+  const { data:rondes }=await supabase.from('permis_feu_rondes').select('*').eq('permis_id',id).order('horodatage');
+  PF_RONDES=rondes||[];
+  renderDetail();
+}
+
+function checklist(items,sel){
+  sel=sel||[]; if(!items.length) return '<div class="muted" style="font-size:.85rem">—</div>';
+  return items.map(t=>'<div class="pf-check"><span class="b">'+(sel.indexOf(t)>=0?'✅':'⬜')+'</span><span>'+esc(t)+'</span></div>').join('');
+}
+
+function renderDetail(){
+  const p=PF_CUR; const mes=p.mesures||{};
+  const etab=PF_ETABS.find(e=>e.id===p.etablissement_id);
+  const editable=isAdminLevel() && p.statut!=='cloture' && p.statut!=='annule';
+  const kv=(k,v)=>'<div class="pf-kv"><div class="k">'+k+'</div><div class="v">'+(v||'—')+'</div></div>';
+
+  // signataires
+  const sigByRole={}; PF_SIGS.forEach(s=>{ sigByRole[s.role]=s; });
+  const signHtml=PF_ROLES.map(r=>{
+    const s=sigByRole[r.k];
+    const done=s
+      ? '<div class="sig"><img src="'+publicUrl(s.signature_path)+'" alt="signature"><div class="pf-mono">'+esc((s.nom||''))+(s.fonction?' · '+esc(s.fonction):'')+' — le '+fmtDateTime(s.horodatage)+'</div><div class="pf-mono">SHA-256 '+esc((s.signature_hash||'').slice(0,20))+'…</div></div>'
+      : '<div class="sig muted" style="font-size:.85rem">Non signé — <span style="color:#94a3b8">'+esc(r.hint)+'</span></div>';
+    const btn=(!s && p.statut!=='cloture' && p.statut!=='annule')
+      ? '<button class="mib-btn mib-btn-ghost no-print" style="padding:5px 12px;font-size:.8rem" onclick="pfSignRole(\''+r.k+'\')">✍️ Faire signer</button>' : '';
+    return '<div class="pf-signrow"><div class="role">'+esc(r.label)+'</div>'+done+btn+'</div>';
+  }).join('');
+
+  // rondes
+  const rondeHtml=PF_RONDES.length
+    ? PF_RONDES.map(r=>'<div class="pf-kv"><div class="k">'+fmtDateTime(r.horodatage)+'</div><div class="v" style="font-weight:500">'+(r.ras?'🟢 RAS':'🔴 Observation')+(r.effectuee_par?' · '+esc(r.effectuee_par):'')+(r.observations?'<br><span style="color:#64748b;font-weight:400">'+esc(r.observations)+'</span>':'')+'</div></div>').join('')
+    : '<div class="muted" style="font-size:.85rem">Aucune ronde de surveillance enregistrée.</div>';
+
+  const empreinte=p.hash_courant?'<div class="pf-mono" style="margin-top:6px">Empreinte de scellement : '+esc(p.hash_courant.slice(0,28))+'…</div>':'';
+
+  $('pf-detail').innerHTML=
+    '<div class="pf-doc">'
+    +'<div class="pf-doc-head"><div class="ic">🔥</div><div style="flex:1"><h2>Permis de feu</h2><div class="ref">'+esc(p.numero||'—')+'</div></div><div>'+statBadge(p.statut)+'</div></div>'
+
+    +'<div class="pf-sec"><h3>📍 Identification</h3>'
+      +kv('Établissement', etab?esc(etab.nom):'<span class="muted">Hors établissement</span>')
+      +kv('Lieu des travaux', esc(p.lieu_travaux||''))
+      +kv('Début des travaux', fmtDateTime(p.date_debut))
+      +kv('Fin de validité', fmtDateTime(p.date_fin))
+    +'</div>'
+
+    +'<div class="pf-sec"><h3>👷 Intervenants</h3>'
+      +kv('Donneur d\'ordre', esc(p.donneur_ordre_nom||'')+(p.donneur_ordre_fonction?' <span class="muted">('+esc(p.donneur_ordre_fonction)+')</span>':''))
+      +kv('Entreprise exécutante', esc(p.entreprise_nom||''))
+      +kv('Opérateur', esc(p.executant_nom||''))
+      +kv('Chargé de surveillance', esc(p.surveillance_nom||''))
+    +'</div>'
+
+    +'<div class="pf-sec"><h3>🔧 Nature des travaux</h3>'
+      +((p.nature_travaux&&p.nature_travaux.length)?'<div class="pf-chips">'+p.nature_travaux.map(n=>'<span class="pf-chip">'+esc(n)+'</span>').join('')+'</div>':'<div class="muted" style="font-size:.85rem">—</div>')
+      +(p.description?'<div style="margin-top:10px;font-size:.88rem">'+esc(p.description)+'</div>':'')
+    +'</div>'
+
+    +'<div class="pf-sec"><h3>🛡️ Mesures de prévention</h3>'
+      +'<div class="pf-mgrid">'
+        +'<div class="pf-mcol"><h4>Avant les travaux</h4>'+checklist(PF_MESURES.avant,mes.avant)+'</div>'
+        +'<div class="pf-mcol"><h4>Pendant les travaux</h4>'+checklist(PF_MESURES.pendant,mes.pendant)+'</div>'
+        +'<div class="pf-mcol"><h4>Après les travaux</h4>'+checklist(PF_MESURES.apres,mes.apres)+'</div>'
+      +'</div>'
+      +'<h4 style="font-size:.82rem;text-transform:uppercase;letter-spacing:.04em;color:#c2410c;margin:14px 0 6px">Moyens d\'extinction sur place</h4>'
+      +((mes.moyens&&mes.moyens.length)?'<div class="pf-chips">'+mes.moyens.map(m=>'<span class="pf-chip">'+esc(m)+'</span>').join('')+'</div>':'<div class="muted" style="font-size:.85rem">—</div>')
+    +'</div>'
+
+    +'<div class="pf-sec"><h3>✍️ Signatures</h3>'+signHtml+'</div>'
+
+    +'<div class="pf-sec"><h3>🔦 Surveillance après travaux <span class="muted" style="font-weight:400;font-size:.82rem">(≥ '+(p.ronde_duree_min||120)+' min)</span></h3>'
+      +rondeHtml
+      +((p.statut==='valide')?'<button class="mib-btn mib-btn-ghost no-print" style="margin-top:10px;padding:6px 14px;font-size:.82rem" onclick="pfRonde()">+ Enregistrer une ronde</button>':'')
+    +'</div>'
+
+    +'<div class="pf-sec" style="background:#fafafa"><h3>🔒 Traçabilité</h3>'
+      +'<div style="font-size:.84rem;color:#64748b">Créé le '+fmtDateTime(p.created_at)+(p.op?' par '+esc(p.op):'')+'.'
+      +(p.valide_le?' Validé le '+fmtDateTime(p.valide_le)+'.':'')
+      +(p.cloture_le?' Clôturé le '+fmtDateTime(p.cloture_le)+'.':'')
+      +'</div>'+empreinte
+    +'</div>'
+
+    +'</div>'
+
+    // barre d'actions
+    +'<div class="pf-actionbar no-print">'
+      +(editable?'<button class="mib-btn mib-btn-ghost" onclick="pfForm(PF_CUR)">✏️ Modifier</button>':'')
+      +(editable&&p.statut==='brouillon'?'<button class="mib-btn mib-btn-primary" onclick="pfValidate()">✅ Valider le permis</button>':'')
+      +(editable&&p.statut==='valide'?'<button class="mib-btn mib-btn-primary" onclick="pfCloture()">📁 Clôturer</button>':'')
+      +'<button class="mib-btn mib-btn-ghost" onclick="window.print()">🖨️ Imprimer</button>'
+      +(editable&&p.statut!=='annule'?'<button class="mib-btn mib-btn-ghost" style="margin-left:auto;color:#b91c1c" onclick="pfAnnuler()">Annuler ce permis</button>':'')
+    +'</div>';
+}
+
+/* ============================ Cycle de vie ============================ */
+async function pfSeal(action){
+  const p=PF_CUR;
+  const prev=p.hash_courant||'GENESIS';
+  const stamp=new Date().toISOString();
+  const payload=JSON.stringify({ id:p.id, numero:p.numero, lieu:p.lieu_travaux, nature:p.nature_travaux, do:p.donneur_ordre_nom, action:action });
+  const h=await sha256(prev+'|'+payload+'|'+stamp);
+  return { prev, h, stamp };
+}
+async function pfValidate(){
+  if(!isAdminLevel()) return;
+  if(!PF_SIGS.some(s=>s.role==='donneur_ordre')){ if(!confirm('Aucune signature du donneur d\'ordre n\'est encore enregistrée. Valider quand même ?')) return; }
+  const seal=await pfSeal('validation');
+  const { error }=await supabase.from('permis_feu').update({ statut:'valide', valide_le:seal.stamp, hash_prec:seal.prev, hash_courant:seal.h }).eq('id',PF_CUR.id);
+  if(error){ alert('Erreur : '+error.message); return; }
+  await pfOpen(PF_CUR.id);
+}
+async function pfCloture(){
+  if(!isAdminLevel()) return;
+  if(!confirm('Clôturer ce permis de feu ? La surveillance après travaux doit être terminée.')) return;
+  const seal=await pfSeal('cloture');
+  const { error }=await supabase.from('permis_feu').update({ statut:'cloture', cloture_le:seal.stamp, hash_prec:seal.prev, hash_courant:seal.h }).eq('id',PF_CUR.id);
+  if(error){ alert('Erreur : '+error.message); return; }
+  await pfOpen(PF_CUR.id);
+}
+async function pfAnnuler(){
+  if(!isAdminLevel()) return;
+  if(!confirm('Annuler ce permis de feu ?')) return;
+  const { error }=await supabase.from('permis_feu').update({ statut:'annule' }).eq('id',PF_CUR.id);
+  if(error){ alert('Erreur : '+error.message); return; }
+  await pfOpen(PF_CUR.id);
+}
+
+/* ============================ Rondes ============================ */
+function pfRonde(){
+  openModal('Ronde de surveillance',
+     '<label class="mib-label">Effectuée par</label><input class="mib-inp" id="rd-par" value="'+attr(PF_CUR.surveillance_nom||PF_OP||'')+'">'
+    +'<label class="mib-label" style="margin-top:10px">Constat</label>'
+    +'<select class="mib-select" id="rd-ras"><option value="1">🟢 RAS — rien à signaler</option><option value="0">🔴 Observation / anomalie</option></select>'
+    +'<label class="mib-label" style="margin-top:10px">Observations (optionnel)</label><div class="pf-field-mic"><textarea class="mib-textarea" id="rd-obs" rows="2"></textarea>'+micBtn('rd-obs')+'</div>',
+    '<button class="mib-btn mib-btn-ghost" onclick="closeModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="rd-save" onclick="pfRondeSave()">Enregistrer</button>');
+}
+async function pfRondeSave(){
+  const btn=$('rd-save'); if(btn){ btn.disabled=true; btn.textContent='…'; }
+  const { error }=await supabase.from('permis_feu_rondes').insert({
+    permis_id:PF_CUR.id, effectuee_par:($('rd-par').value||'').trim()||null,
+    ras:$('rd-ras').value==='1', observations:($('rd-obs').value||'').trim()||null
+  });
+  if(error){ alert('Erreur : '+error.message); if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } return; }
+  closeModal(); await pfOpen(PF_CUR.id);
+}
+
+/* ============================ Signature déportée (QR) ============================ */
+function ensureQR(cb){ if(window.QRCode){ cb(); return; } const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; s.onload=function(){cb();}; s.onerror=function(){cb(new Error('qr'));}; document.head.appendChild(s); }
+let _signPoll=null;
+async function pfSignRole(role){
+  if(p_isClosed()){ return; }
+  const token=(crypto.randomUUID?crypto.randomUUID():(''+Math.random()).slice(2)).replace(/-/g,'');
+  const def = role==='donneur_ordre'?(PF_CUR.donneur_ordre_nom||''):(role==='executant'?(PF_CUR.executant_nom||''):(PF_CUR.surveillance_nom||''));
+  const ins=await supabase.from('signature_requests').insert({ token, permis_id:PF_CUR.id, permis_role:role, etablissement_id:PF_CUR.etablissement_id, libelle:'Permis de feu '+(PF_CUR.numero||'')+' — '+roleLabel(role), signataire:def, status:'pending' }).select('id').single();
+  if(ins.error){ alert('Erreur : '+ins.error.message); return; }
+  const url=location.origin+location.pathname+'?sign='+token;
+  openModal('Faire signer — '+roleLabel(role),
+     '<div class="mib-help" style="margin-bottom:10px">Le signataire <b>scanne ce QR code</b>, vérifie le permis et <b>signe au doigt</b> sur son téléphone. La signature revient ici automatiquement.</div>'
+    +'<div id="qr-box" style="display:flex;justify-content:center;padding:8px;background:#fff;border-radius:10px;border:1px solid #e6d9c2"></div>'
+    +'<div id="qr-wait" style="text-align:center;margin-top:12px;color:#8a7a5a;font-size:.85rem">⏳ En attente de la signature…</div>'
+    +'<div class="mib-help" style="margin-top:10px">Ou <b>signer sur cet appareil</b> / envoyer le lien :</div>'
+    +'<div style="display:flex;gap:6px;margin-top:6px"><input class="mib-inp" id="qr-link" readonly value="'+attr(url)+'" style="font-size:.78rem"><button class="mib-btn mib-btn-ghost" style="white-space:nowrap" onclick="window.open(document.getElementById(\'qr-link\').value,\'_blank\')">Ouvrir</button><button class="mib-btn mib-btn-ghost" style="white-space:nowrap" onclick="var i=document.getElementById(\'qr-link\');i.select();try{navigator.clipboard.writeText(i.value);}catch(e){document.execCommand(\'copy\');}this.textContent=\'Copié ✓\'">Copier</button></div>',
+    '<button class="mib-btn mib-btn-ghost" onclick="closePhoneSign()">Fermer</button>');
+  ensureQR(function(err){ const box=$('qr-box'); if(!box) return; if(err||!window.QRCode){ box.innerHTML='<img alt="QR" style="width:220px;height:220px" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(url)+'">'; } else { box.innerHTML=''; new window.QRCode(box,{text:url,width:220,height:220}); } });
+  if(_signPoll) clearInterval(_signPoll);
+  _signPoll=setInterval(async function(){
+    const { data }=await supabase.from('signature_requests').select('status').eq('token',token).maybeSingle();
+    if(data && data.status==='signed'){ clearInterval(_signPoll); _signPoll=null; const w=$('qr-wait'); if(w) w.innerHTML='<b style="color:#166534">✅ Signature reçue !</b>'; setTimeout(function(){ closeModal(); pfOpen(PF_CUR.id); },1200); }
+  },2500);
+}
+function p_isClosed(){ return PF_CUR && (PF_CUR.statut==='cloture'||PF_CUR.statut==='annule'); }
+function closePhoneSign(){ if(_signPoll){ clearInterval(_signPoll); _signPoll=null; } closeModal(); if(PF_CUR) pfOpen(PF_CUR.id); }
+
+/* ---- Pad de signature ---- */
+let _sigPads={};
+function initSignaturePad(id){
+  const c=document.getElementById(id); if(!c) return;
+  const ctx=c.getContext('2d'); ctx.lineWidth=2.2; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#0f172a';
+  _sigPads[id]={dirty:false};
+  let drawing=false,last=null;
+  const pos=e=>{ const r=c.getBoundingClientRect(); const t=(e.touches&&e.touches[0])||e; return {x:(t.clientX-r.left)*(c.width/r.width),y:(t.clientY-r.top)*(c.height/r.height)}; };
+  const down=e=>{ e.preventDefault(); drawing=true; last=pos(e); };
+  const move=e=>{ if(!drawing) return; e.preventDefault(); const p=pos(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last=p; _sigPads[id].dirty=true; };
+  const up=()=>{ drawing=false; };
+  c.addEventListener('pointerdown',down); c.addEventListener('pointermove',move); window.addEventListener('pointerup',up);
+}
+function clearSignaturePad(id){ const c=document.getElementById(id); if(c){ c.getContext('2d').clearRect(0,0,c.width,c.height); if(_sigPads[id]) _sigPads[id].dirty=false; } }
+
+/* ---- Page mobile de signature ---- */
+async function renderSignPage(token){
+  const card=$('sign-card'); if(!card) return;
+  card.innerHTML='<div class="mib-card" style="padding:22px"><div class="muted">Chargement…</div></div>';
+  const { data:req }=await supabase.from('signature_requests').select('*').eq('token',token).maybeSingle();
+  if(!req){ card.innerHTML='<div class="mib-card" style="padding:22px"><h2 style="color:#9a3412">Lien invalide</h2><div class="mib-help">Cette demande de signature est introuvable.</div></div>'; return; }
+  if(req.status==='signed'){ card.innerHTML='<div class="mib-card" style="padding:22px;text-align:center"><div style="font-size:2rem">✅</div><h2 style="color:#166534">Déjà signé</h2><div class="mib-help">Cette signature a déjà été enregistrée. Vous pouvez fermer cette page.</div></div>'; return; }
+  let permis=null; if(req.permis_id){ const r=await supabase.from('permis_feu').select('numero,lieu_travaux,nature_travaux,date_debut,donneur_ordre_nom,entreprise_nom').eq('id',req.permis_id).maybeSingle(); permis=r.data||null; }
+  const recap=permis?('<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin:10px 0;font-size:.84rem">'
+    +'<div><b>'+esc(permis.numero||'Permis de feu')+'</b></div>'
+    +(permis.lieu_travaux?'<div>📍 '+esc(permis.lieu_travaux)+'</div>':'')
+    +((permis.nature_travaux&&permis.nature_travaux.length)?'<div>🔧 '+esc(permis.nature_travaux.join(', '))+'</div>':'')
+    +(permis.date_debut?'<div>📅 '+fmtDateTime(permis.date_debut)+'</div>':'')
+    +'</div>'):'';
+  card.innerHTML='<div class="mib-card" style="padding:20px">'
+    +'<div style="font-family:var(--font-display,\'Plus Jakarta Sans\');color:#9a3412;font-weight:800;font-size:1.1rem">🔥 Permis de feu</div>'
+    +'<div class="mib-help" style="margin:6px 0 4px">Signature — <b>'+esc(roleLabel(req.permis_role))+'</b></div>'
+    +recap
+    +'<label class="mib-label">Nom et prénom</label><div class="pf-field-mic"><input class="mib-inp" id="ph-nom" placeholder="Votre nom" value="'+attr(req.signataire||'')+'">'+micBtn('ph-nom')+'</div>'
+    +'<label class="mib-label" style="margin-top:10px">Fonction / société (optionnel)</label><input class="mib-inp" id="ph-fct" placeholder="Ex. exploitant, entreprise…">'
+    +'<label class="mib-label" style="margin-top:12px">Signature</label>'
+    +'<div style="border:1px solid #cbd5e1;border-radius:10px;background:#fff"><canvas id="ph-sig" width="500" height="200" style="width:100%;height:200px;touch-action:none;display:block;border-radius:10px"></canvas></div>'
+    +'<div style="display:flex;justify-content:space-between;gap:8px;margin-top:12px">'
+    +'<button class="mib-btn mib-btn-ghost" onclick="clearSignaturePad(\'ph-sig\')">Effacer</button>'
+    +'<button class="mib-btn mib-btn-primary" id="ph-save" onclick="submitPhoneSign(\''+token+'\')">Valider et signer</button>'
+    +'</div></div>';
+  initSignaturePad('ph-sig');
+}
+async function submitPhoneSign(token){
+  const c=$('ph-sig'); const btn=$('ph-save');
+  const nom=($('ph-nom')&&$('ph-nom').value||'').trim();
+  if(!nom){ alert('Merci d\'indiquer votre nom.'); return; }
+  if(!c || !_sigPads['ph-sig'] || !_sigPads['ph-sig'].dirty){ alert('Merci de signer dans le cadre.'); return; }
+  if(btn){ btn.disabled=true; btn.textContent='Envoi…'; }
+  try{
+    const { data:req }=await supabase.from('signature_requests').select('*').eq('token',token).maybeSingle();
+    if(!req){ alert('Demande introuvable.'); return; }
+    const blob=await new Promise(res=>c.toBlob(res,'image/png'));
+    const sigHash=await sha256File(blob);
+    const sigPath='permis/'+(req.permis_id||'x')+'/sign_'+token+'.png';
+    const up=await supabase.storage.from('documents').upload(sigPath,blob,{contentType:'image/png'});
+    if(up.error){ alert('Erreur d\'envoi : '+up.error.message); if(btn){ btn.disabled=false; btn.textContent='Valider et signer'; } return; }
+    const fct=($('ph-fct')&&$('ph-fct').value||'').trim()||null;
+    const stamp=new Date().toISOString();
+    // chaînage des signatures du permis
+    const { data:last }=await supabase.from('permis_feu_signatures').select('hash_courant').eq('permis_id',req.permis_id).order('horodatage',{ascending:false}).limit(1);
+    const prev=(last&&last[0]&&last[0].hash_courant)||'GENESIS';
+    const chained=await sha256(prev+'|'+req.permis_role+'|'+nom+'|'+sigHash+'|'+stamp);
+    const insSig=await supabase.from('permis_feu_signatures').insert({ permis_id:req.permis_id, role:req.permis_role, nom:nom, fonction:fct, signature_path:sigPath, signature_hash:sigHash, hash_prec:prev, hash_courant:chained, horodatage:stamp });
+    if(insSig.error){ alert('Erreur : '+insSig.error.message); if(btn){ btn.disabled=false; btn.textContent='Valider et signer'; } return; }
+    await supabase.from('signature_requests').update({ status:'signed', signataire:nom, signature_path:sigPath, signature_hash:sigHash, signed_at:stamp }).eq('token',token);
+    $('sign-card').innerHTML='<div class="mib-card" style="padding:24px;text-align:center"><div style="font-size:2.4rem">✅</div><h2 style="color:#166534">Signature enregistrée</h2><div class="mib-help">Merci. Votre signature est revenue sur le permis de feu. Vous pouvez fermer cette page.</div></div>';
+  }catch(e){ alert('Erreur : '+(e.message||e)); if(btn){ btn.disabled=false; btn.textContent='Valider et signer'; } }
+}
+
+/* ============================ Go ============================ */
+pfInit();
+</script>
+</body>
+</html>
