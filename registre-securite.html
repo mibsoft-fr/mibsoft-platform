@@ -584,14 +584,31 @@ async function auditJournalModal(){
   openMiniModal('Journal d\'audit — chaîne des décisions','<div class="mib-help">Chargement…</div>','<button class="mib-btn mib-btn-ghost" onclick="closeMiniModal()">Fermer</button>');
   const { data:rows } = await supabase.from('registre_audit').select('*').eq('etablissement_id',REG_ETAB.id).order('id',{ascending:true});
   const list=rows||[];
-  const label={visa:'Visa d\'une entrée',cloture:'Clôture du registre',visa_section:'Visa de section (personnel / consignes)'};
+  const rubShort=n=>{ const r=RUBRIQUES.find(x=>x.n===n); return r?(r.n+' · '+r.short):('R'+n); };
+  // Détails : entrées visées + équipements + visas de section (par empreinte)
+  const entIds=list.filter(r=>r.action==='visa'&&r.entree_id).map(r=>r.entree_id);
+  let entMap={}, eqMap={}, secByHash={};
+  if(entIds.length){
+    const { data:ents } = await supabase.from('registre_entrees').select('id,rubrique,type,equipement_id').in('id',entIds);
+    (ents||[]).forEach(e=>entMap[e.id]=e);
+    const eqIds=(ents||[]).filter(e=>e.equipement_id).map(e=>e.equipement_id);
+    if(eqIds.length){ const { data:eqs } = await supabase.from('equipements').select('id,libelle').in('id',eqIds); (eqs||[]).forEach(q=>eqMap[q.id]=q); }
+  }
+  const secHashes=list.filter(r=>r.action==='visa_section').map(r=>r.hash_courant).filter(Boolean);
+  if(secHashes.length){ const { data:vs } = await supabase.from('registre_visas').select('cible,hash_courant').in('hash_courant',secHashes); (vs||[]).forEach(v=>secByHash[v.hash_courant]=v.cible); }
+  const auditLabel=r=>{
+    if(r.action==='cloture') return 'Clôture du registre';
+    if(r.action==='visa_section'){ const c=secByHash[r.hash_courant]||''; return 'Visa — '+(c==='section:personnel'?'Personnel (service de sécurité)':(c==='section:consigne'?'Consignes de sécurité':'section')); }
+    if(r.action==='visa'){ const e=entMap[r.entree_id]; if(e){ const objet=e.equipement_id?(eqMap[e.equipement_id]?eqMap[e.equipement_id].libelle:'—'):(e.type||'—'); return 'Visa — '+rubShort(e.rubrique)+' : '+objet; } return 'Visa d\'une entrée'; }
+    return r.action||'—';
+  };
   let intact=true, prev=null;
   const items=list.map((r,i)=>{
     const ok = i===0 ? true : (prev && r.hash_prec===prev.hash_courant);
     if(!ok) intact=false; prev=r;
     return `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #f0e9db;font-size:.82rem">`
       +`<div style="min-width:22px">${ok?'🔗':'⛓️‍💥'}</div>`
-      +`<div style="flex:1"><b>${esc(label[r.action]||r.action||'—')}</b><br><span class="muted" style="font-size:.74rem">${r.ts?new Date(r.ts).toLocaleString('fr-FR'):'—'}</span></div>`
+      +`<div style="flex:1"><b>${esc(auditLabel(r))}</b><br><span class="muted" style="font-size:.74rem">${r.ts?new Date(r.ts).toLocaleString('fr-FR'):'—'}</span></div>`
       +`<div style="font-family:monospace;font-size:.7rem;color:#8a7a5a;text-align:right">${esc((r.hash_courant||'').slice(0,16))}…</div>`
       +`</div>`;
   }).join('');
@@ -730,7 +747,7 @@ async function loadRubEntries(n){
     const piece = doc?`<a href="${publicUrl(doc.storage_path)}" target="_blank" style="color:#2563eb;font-weight:600">PDF</a>`:(en.signature_path?'✍️':'—');
     const visa = signed[en.id]
       ? `<span class="mib-badge mib-badge-success" title="Visé le ${fmtDate(signed[en.id].horodatage)}">Visé ✓</span>`
-      : (ed?`<button class="rs-iconbtn" onclick="visaModal('${en.id}','${(en.type||'').replace(/'/g,"\\'")}','${en.date_realisation||''}')">Viser</button>`:'<span class="muted">—</span>');
+      : (!ed?'<span class="muted">—</span>':((cfg.sig&&!en.signature_path)?'<span class="muted" title="La signature de l\'intervenant est requise avant le visa">⏳ Signature requise</span>':`<button class="rs-iconbtn" onclick="visaModal('${en.id}','${(en.type||'').replace(/'/g,"\\'")}','${en.date_realisation||''}')">Viser</button>`));
     const cells=cfg.cols.map(c=>{
       if(c.badges){ const b=c.badges.map(x=>{ const v=fldVal(en,x[0]); return v?`<span class="mib-badge ${v==='Oui'?'mib-badge-success':'mib-badge-info'}" style="font-size:.58rem">${x[1]}: ${esc(v)}</span>`:''; }).filter(Boolean).join(' '); return `<td style="padding:9px 8px">${b||'—'}</td>`; }
       let v=''+fldVal(en,c.k); let out=c.trunc?(esc(v.slice(0,c.trunc))+(v.length>c.trunc?'…':'')):esc(v); if(!out) out='—';
@@ -995,7 +1012,7 @@ async function loadVerifs(){
         let visa='—';
         if(en){ visa = signed[en.id]
           ? `<span class="mib-badge mib-badge-success" title="Visé le ${fmtDate(signed[en.id].horodatage)}">Visé ✓</span>`
-          : (ed?`<button class="rs-iconbtn" onclick="visaModal('${en.id}','${libJs}','${en.date_realisation}')">Viser</button>`:'<span class="muted">—</span>'); }
+          : (!ed?'<span class="muted">—</span>':(!en.signature_path?'<span class="muted" title="La signature de l\'intervenant est requise avant le visa">⏳ Signature requise</span>':`<button class="rs-iconbtn" onclick="visaModal('${en.id}','${libJs}','${en.date_realisation}')">Viser</button>`)); }
         return `<tr style="border-bottom:1px solid #f0e9db">
           <td style="padding:9px 8px"><div style="display:flex;align-items:center;gap:10px">${voyant(en?en.conformite:null)}<div><strong>${lib}</strong>${eq.localisation?'<br><span class="muted" style="font-size:.75rem">'+esc(eq.localisation)+'</span>':''}${eq.organisme_requis?' <span class="mib-badge mib-badge-info" style="font-size:.58rem">Organisme agréé</span>':''}</div></div></td>
           <td style="padding:9px 8px">${eq.periodicite_mois?eq.periodicite_mois+'m':'—'}</td>
