@@ -885,7 +885,7 @@ async function syncData() {
 function initUI() {
   document.getElementById("sb-centre").textContent = CENTER ? CENTER.nom : "";
   document.getElementById("sb-user").textContent = PATROL_SESSION.prenom + " " + PATROL_SESSION.nom;
-  document.getElementById("sb-role").textContent = PATROL_SESSION.qualification || "Admin";
+  document.getElementById("sb-role").textContent = (PATROL_SESSION.type === "formateur") ? "Formateur" : (PATROL_SESSION.qualification || "Admin");
   if (PATROL_SESSION.sessionId) {
     document.getElementById("btn-import-stag").style.display = "flex";
   }
@@ -2168,8 +2168,11 @@ function closeModal(id) { document.getElementById(id)?.classList.add("hidden"); 
 function showModalMsg(elId, msg, type) { var el=document.getElementById(elId); el.innerHTML="<div style=\"padding:8px;border-radius:8px;font-size:.8rem;background:"+(type==="err"?"#fef2f2":"#f0fdf4")+";color:"+(type==="err"?"#dc2626":"#16a34a")+";\">"+msg+"</div>"; el.style.display="block"; }
 
 function logout() {
+  var cid = (PATROL_SESSION && PATROL_SESSION.centerId) || "";
+  var wasFormateur = PATROL_SESSION && PATROL_SESSION.type === "formateur";
   sessionStorage.removeItem("patrol_session");
-  window.location.href = "patrol-login.html?center=" + PATROL_SESSION.centerId;
+  var page = wasFormateur ? "patrol-login-formateur.html" : "patrol-login.html";
+  window.location.href = page + "?center=" + cid;
 }
 
 // Ouvre le module Registre de sécurité (mode Patrol : ?center= sans login).
@@ -2178,9 +2181,11 @@ function openRegistreSecurite() {
   if (!PATROL_SESSION || !PATROL_SESSION.centerId) return;
   var op = ((PATROL_SESSION.prenom || "") + " " + (PATROL_SESSION.nom || "")).trim();
   var niveau = PATROL_SESSION.qualification || "";
+  var role = (PATROL_SESSION.type === "formateur") ? "admin" : "";
   var url = "registre-securite.html?center=" + encodeURIComponent(PATROL_SESSION.centerId)
           + (op ? "&op=" + encodeURIComponent(op) : "")
-          + (niveau ? "&niveau=" + encodeURIComponent(niveau) : "");
+          + (niveau ? "&niveau=" + encodeURIComponent(niveau) : "")
+          + (role ? "&role=" + encodeURIComponent(role) : "");
   window.open(url, "_blank");
 }
 
