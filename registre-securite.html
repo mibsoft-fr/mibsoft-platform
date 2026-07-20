@@ -736,11 +736,20 @@ const RUB_CFG={
 };
 function fldId(k){ return 're-'+k.replace(/[^a-zA-Z0-9]/g,'_'); }
 function fldVal(en,k){ if(k.slice(0,2)==='m.'){ return (en.meta&&en.meta[k.slice(2)])||''; } return en[k]||''; }
+function openPermisFeuFromReg(){
+  if(!RS_CENTER) return;
+  let url='permis-feu.html?center='+encodeURIComponent(RS_CENTER.id);
+  if(RS_OP) url+='&op='+encodeURIComponent(RS_OP);
+  if(RS_NIVEAU) url+='&niveau='+encodeURIComponent(RS_NIVEAU);
+  if(RS_ROLE) url+='&role='+encodeURIComponent(RS_ROLE);
+  window.open(url,'_blank');
+}
 function rubShellHtml(n){
   const cfg=RUB_CFG[n]; const r=RUBRIQUES.find(x=>x.n===n);
   const clot=REG_REGISTRE.statut==='cloture';
   return `<h2>${n}. ${esc(r.label)}</h2><div class="rub-sub">Journal chronologique — ${esc(cfg.sub)}.</div>`
    +`<div class="reg-meta-bar"><span>Registre <b>${clot?'clôturé':'ouvert'}</b> le ${fmtDate(REG_REGISTRE.ouvert_le)}</span></div>`
+   +(n===5?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid #fed7aa;background:#fff7ed;border-radius:12px;padding:10px 14px;margin-bottom:12px"><span style="font-size:.86rem;color:#9a3412">🔥 Travaux par point chaud (soudage, meulage…) ? Un <b>permis de feu</b> est requis.</span><button class="mib-btn mib-btn-ghost" style="margin-left:auto;white-space:nowrap" onclick="openPermisFeuFromReg()">Ouvrir les permis de feu →</button></div>`:'')
    +(canEdit()?`<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="mib-btn mib-btn-primary" onclick="addRubEntryModal(${n})">+ Ajouter</button></div>`:'')
    +`<div id="rub-list"></div>`;
 }
