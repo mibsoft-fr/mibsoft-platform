@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8"> 
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Permis de feu — MIBsoft</title>
 <link rel="icon" href="/logo/favicon.svg" type="image/svg+xml">
@@ -287,8 +287,9 @@ function pfForm(p){
     +'<hr style="border:0;border-top:1px solid #eee;margin:16px 0">'
     +'<div class="pf-row"><div><label class="mib-label">Donneur d\'ordre — nom</label><input class="mib-inp" id="pf-f-do-nom" placeholder="Nom et prénom" value="'+attr(p.donneur_ordre_nom||'')+'"></div>'
     +'<div><label class="mib-label">Fonction</label><input class="mib-inp" id="pf-f-do-fct" placeholder="Ex. exploitant, chef d\'établissement" value="'+attr(p.donneur_ordre_fonction||'')+'"></div></div>'
-    +'<div class="pf-row" style="margin-top:10px"><div><label class="mib-label">Entreprise exécutante</label><input class="mib-inp" id="pf-f-ent" placeholder="Interne ou entreprise extérieure" value="'+attr(p.entreprise_nom||'')+'"></div>'
-    +'<div><label class="mib-label">Opérateur (exécutant)</label><input class="mib-inp" id="pf-f-exec" placeholder="Nom de l\'opérateur" value="'+attr(p.executant_nom||'')+'"></div></div>'
+    +'<label class="mib-label">Intervenant(s) — entreprise, opérateur, e-mail</label>'
+    +'<div id="pf-intv-list" style="margin-top:4px"></div>'
+    +'<button type="button" class="mib-btn mib-btn-ghost" style="margin-top:2px;padding:5px 12px;font-size:.82rem" onclick="pfIntvAddRow()">+ Ajouter un intervenant</button>'
     +'<hr style="border:0;border-top:1px solid #eee;margin:16px 0">'
     +'<label class="mib-label">Nature des travaux par point chaud</label><div style="margin-top:4px">'+chkGroup('pf-nat',PF_NATURE,nat)+'</div>'
     +'<label class="mib-label" style="margin-top:6px">Autre (préciser)</label><input class="mib-inp" id="pf-f-nat-autre" placeholder="Autre type de travaux…" value="'+attr((nat.filter(x=>PF_NATURE.indexOf(x)<0)[0])||'')+'">'
@@ -306,6 +307,32 @@ function pfForm(p){
     +'<div><label class="mib-label">Durée de surveillance après travaux (min)</label><input class="mib-inp" type="number" id="pf-f-ronde" value="'+(p.ronde_duree_min!=null?p.ronde_duree_min:120)+'"></div></div>';
   openModal(p.id?'Modifier le permis de feu':'Nouveau permis de feu', body,
     '<button class="mib-btn mib-btn-ghost" onclick="closeModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="pf-save" onclick="pfSubmit()">Enregistrer</button>');
+  pfIntvInit(p);
+}
+let _intvSeq=0;
+function pfIntvRowHtml(id,d){ d=d||{};
+  return '<div class="pf-row" id="'+id+'" style="align-items:flex-end;margin-bottom:8px;gap:8px">'
+    +'<div style="flex:1.3"><input class="mib-inp" placeholder="Entreprise" data-f="entreprise" value="'+attr(d.entreprise||'')+'"></div>'
+    +'<div><input class="mib-inp" placeholder="Opérateur" data-f="operateur" value="'+attr(d.operateur||'')+'"></div>'
+    +'<div style="flex:1.3"><input class="mib-inp" type="email" placeholder="E-mail (partage)" data-f="email" value="'+attr(d.email||'')+'"></div>'
+    +'<button type="button" class="mib-btn mib-btn-ghost" style="padding:8px 11px" title="Retirer" onclick="pfIntvDel(\''+id+'\')">✕</button>'
+    +'</div>';
+}
+function pfIntvAddRow(d){ const box=$('pf-intv-list'); if(!box) return; box.insertAdjacentHTML('beforeend', pfIntvRowHtml('intv-'+(_intvSeq++), d)); }
+function pfIntvDel(id){ const el=$(id); if(el) el.remove(); const box=$('pf-intv-list'); if(box && !box.children.length) pfIntvAddRow(); }
+function pfIntvInit(p){
+  _intvSeq=0; const box=$('pf-intv-list'); if(!box) return; box.innerHTML='';
+  let list=(p&&p.intervenants&&p.intervenants.length)?p.intervenants:null;
+  if(!list && p && (p.entreprise_nom||p.executant_nom||p.entreprise_email)) list=[{entreprise:p.entreprise_nom||'',operateur:p.executant_nom||'',email:p.entreprise_email||''}];
+  if(!list || !list.length) list=[{}];
+  list.forEach(d=>pfIntvAddRow(d));
+}
+function pfIntvCollect(){
+  const box=$('pf-intv-list'); if(!box) return [];
+  return [].slice.call(box.children).map(function(row){
+    const o={}; [].slice.call(row.querySelectorAll('input')).forEach(function(i){ o[i.getAttribute('data-f')]=(i.value||'').trim(); });
+    return o;
+  }).filter(function(o){ return o.entreprise||o.operateur||o.email; });
 }
 
 async function pfSubmit(){
@@ -321,14 +348,18 @@ async function pfSubmit(){
     date_fin:toIso($('pf-f-fin').value),
     donneur_ordre_nom:($('pf-f-do-nom').value||'').trim()||null,
     donneur_ordre_fonction:($('pf-f-do-fct').value||'').trim()||null,
-    entreprise_nom:($('pf-f-ent').value||'').trim()||null,
-    executant_nom:($('pf-f-exec').value||'').trim()||null,
+    intervenants:pfIntvCollect(),
     nature_travaux:nat,
     description:($('pf-f-desc').value||'').trim()||null,
     mesures:{ avant:collectChk('pf-av'), pendant:collectChk('pf-pe'), apres:collectChk('pf-ap'), moyens:collectChk('pf-mo') },
     surveillance_nom:($('pf-f-surv').value||'').trim()||null,
     ronde_duree_min:parseInt($('pf-f-ronde').value)||120
   };
+  // Compat / valeurs par défaut de signature : on reflète le 1er intervenant.
+  const iv0=payload.intervenants[0]||{};
+  payload.entreprise_nom=iv0.entreprise||null;
+  payload.executant_nom=iv0.operateur||null;
+  payload.entreprise_email=iv0.email||null;
   const btn=$('pf-save'); if(btn){ btn.disabled=true; btn.textContent='Enregistrement…'; }
   try{
     let newId=id;
@@ -368,14 +399,21 @@ function renderDetail(){
   const editable=isAdminLevel() && p.statut!=='cloture' && p.statut!=='annule';
   const kv=(k,v)=>'<div class="pf-kv"><div class="k">'+k+'</div><div class="v">'+(v||'—')+'</div></div>';
 
-  // signataires
-  const sigByRole={}; PF_SIGS.forEach(s=>{ sigByRole[s.role]=s; });
+  // signataires — donneur d'ordre & surveillance : un seul ; exécutant : un par intervenant (plusieurs possibles)
+  const open=(p.statut!=='cloture' && p.statut!=='annule');
+  const sigView=s=>'<div class="pf-mono" style="margin:2px 0"><img src="'+publicUrl(s.signature_path)+'" alt="signature" style="max-height:44px;vertical-align:middle;border:1px solid #eee;border-radius:6px;background:#fff"> '+esc((s.nom||''))+(s.fonction?' · '+esc(s.fonction):'')+' — le '+fmtDateTime(s.horodatage)+'</div>';
   const signHtml=PF_ROLES.map(r=>{
-    const s=sigByRole[r.k];
+    if(r.k==='executant'){
+      const list=PF_SIGS.filter(s=>s.role==='executant');
+      const done=list.length ? '<div class="sig">'+list.map(sigView).join('')+'</div>' : '<div class="sig muted" style="font-size:.85rem">Aucune signature — <span style="color:#94a3b8">'+esc(r.hint)+'</span></div>';
+      const btn=open ? '<button class="mib-btn mib-btn-ghost no-print" style="padding:5px 12px;font-size:.8rem" onclick="pfSignRole(\'executant\')">✍️ '+(list.length?'Ajouter une signature':'Faire signer')+'</button>' : '';
+      return '<div class="pf-signrow"><div class="role">Entreprise(s) exécutante(s)</div>'+done+btn+'</div>';
+    }
+    const s=PF_SIGS.filter(x=>x.role===r.k).slice(-1)[0];
     const done=s
       ? '<div class="sig"><img src="'+publicUrl(s.signature_path)+'" alt="signature"><div class="pf-mono">'+esc((s.nom||''))+(s.fonction?' · '+esc(s.fonction):'')+' — le '+fmtDateTime(s.horodatage)+'</div><div class="pf-mono">SHA-256 '+esc((s.signature_hash||'').slice(0,20))+'…</div></div>'
       : '<div class="sig muted" style="font-size:.85rem">Non signé — <span style="color:#94a3b8">'+esc(r.hint)+'</span></div>';
-    const btn=(!s && p.statut!=='cloture' && p.statut!=='annule')
+    const btn=(!s && open)
       ? '<button class="mib-btn mib-btn-ghost no-print" style="padding:5px 12px;font-size:.8rem" onclick="pfSignRole(\''+r.k+'\')">✍️ Faire signer</button>' : '';
     return '<div class="pf-signrow"><div class="role">'+esc(r.label)+'</div>'+done+btn+'</div>';
   }).join('');
@@ -400,8 +438,9 @@ function renderDetail(){
 
     +'<div class="pf-sec"><h3>👷 Intervenants</h3>'
       +kv('Donneur d\'ordre', esc(p.donneur_ordre_nom||'')+(p.donneur_ordre_fonction?' <span class="muted">('+esc(p.donneur_ordre_fonction)+')</span>':''))
-      +kv('Entreprise exécutante', esc(p.entreprise_nom||''))
-      +kv('Opérateur', esc(p.executant_nom||''))
+      +((p.intervenants&&p.intervenants.length)
+          ? p.intervenants.map((iv,i)=>kv('Intervenant '+(i+1), esc(iv.entreprise||'—')+(iv.operateur?' <span class="muted" style="font-weight:400">— '+esc(iv.operateur)+'</span>':'')+(iv.email?' <span class="muted" style="font-weight:400">· '+esc(iv.email)+'</span>':''))).join('')
+          : kv('Entreprise exécutante', esc(p.entreprise_nom||'')))
       +kv('Chargé de surveillance', esc(p.surveillance_nom||''))
     +'</div>'
 
@@ -441,6 +480,7 @@ function renderDetail(){
       +(editable?'<button class="mib-btn mib-btn-ghost" onclick="pfForm(PF_CUR)">✏️ Modifier</button>':'')
       +(editable&&p.statut==='brouillon'?'<button class="mib-btn mib-btn-primary" onclick="pfValidate()">✅ Valider le permis</button>':'')
       +(editable&&p.statut==='valide'?'<button class="mib-btn mib-btn-primary" onclick="pfCloture()">📁 Clôturer</button>':'')
+      +(p.statut!=='annule'?'<button class="mib-btn mib-btn-ghost" onclick="pfShare()">📧 Envoyer par e-mail</button>':'')
       +'<button class="mib-btn mib-btn-ghost" onclick="window.print()">🖨️ Imprimer</button>'
       +(editable&&p.statut!=='annule'?'<button class="mib-btn mib-btn-ghost" style="margin-left:auto;color:#b91c1c" onclick="pfAnnuler()">Annuler ce permis</button>':'')
     +'</div>';
@@ -477,6 +517,47 @@ async function pfAnnuler(){
   const { error }=await supabase.from('permis_feu').update({ statut:'annule' }).eq('id',PF_CUR.id);
   if(error){ alert('Erreur : '+error.message); return; }
   await pfOpen(PF_CUR.id);
+}
+
+/* ============================ Partage / e-mail ============================ */
+function pfShare(){
+  const p=PF_CUR;
+  const closed=(p.statut==='cloture');
+  const mails=((p.intervenants||[]).map(i=>i.email).filter(Boolean));
+  openModal('Envoyer le permis par e-mail',
+     '<div class="mib-help" style="margin-bottom:10px">Envoyez ce permis de feu aux <b>entreprises intervenantes</b> (et prestataires). Votre logiciel de messagerie s\'ouvre avec un message pré-rempli.</div>'
+    +'<label class="mib-label">Destinataires (séparés par une virgule)</label><input class="mib-inp" type="text" id="sh-to" placeholder="contact@entreprise.fr, sous-traitant@…" value="'+attr(mails.join(', '))+'">'
+    +(closed?'':'<label class="pf-chkline" style="margin-top:12px"><input type="checkbox" id="sh-link" checked> Inclure un <b>lien de signature</b> pour l\'exécutant</label>')
+    +'<div class="mib-help" style="margin-top:10px;font-size:.78rem">💡 Envoi automatisé avec PDF joint et suivi : prévu avec le service e-mail (à activer côté entreprise).</div>',
+    '<button class="mib-btn mib-btn-ghost" onclick="closeModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="sh-go" onclick="pfShareGo()">📧 Ouvrir l\'e-mail</button>');
+}
+async function pfShareGo(){
+  const to=($('sh-to').value||'').trim().replace(/\s+/g,'');
+  if(!to){ alert('Indiquez au moins une adresse e-mail.'); return; }
+  const withLink=$('sh-link') ? $('sh-link').checked : false;
+  const btn=$('sh-go'); if(btn){ btn.disabled=true; btn.textContent='…'; }
+  const p=PF_CUR;
+  try{
+    let signUrl='';
+    if(withLink){
+      const token=(crypto.randomUUID?crypto.randomUUID():(''+Math.random()).slice(2)).replace(/-/g,'');
+      const ins=await supabase.from('signature_requests').insert({ token, permis_id:p.id, permis_role:'executant', etablissement_id:p.etablissement_id, libelle:'Permis de feu '+(p.numero||'')+' — '+roleLabel('executant'), signataire:p.executant_nom||'', status:'pending' }).select('id').single();
+      if(!ins.error) signUrl=location.origin+location.pathname+'?sign='+token;
+    }
+    const subject='Permis de feu '+(p.numero||'')+' — '+(PF_CENTER.nom||'');
+    let body='Bonjour,\r\n\r\nVeuillez trouver les informations du permis de feu concernant des travaux par point chaud :\r\n';
+    body+='\r\n• N° : '+(p.numero||'—');
+    if(p.lieu_travaux) body+='\r\n• Lieu : '+p.lieu_travaux;
+    if(p.nature_travaux&&p.nature_travaux.length) body+='\r\n• Travaux : '+p.nature_travaux.join(', ');
+    if(p.date_debut) body+='\r\n• Début : '+fmtDateTime(p.date_debut);
+    if(p.date_fin) body+='\r\n• Fin de validité : '+fmtDateTime(p.date_fin);
+    if(p.donneur_ordre_nom) body+='\r\n• Donneur d\'ordre : '+p.donneur_ordre_nom;
+    if(signUrl) body+='\r\n\r\nMerci de vérifier ces informations et de faire signer l\'exécutant via ce lien :\r\n'+signUrl;
+    body+='\r\n\r\nCordialement,\r\n'+((PF_OP||'')+(PF_OP&&PF_CENTER.nom?' — ':'')+(PF_CENTER.nom||''));
+    const href='mailto:'+to+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+    closeModal();
+    window.location.href=href;
+  }catch(e){ alert('Erreur : '+(e.message||e)); if(btn){ btn.disabled=false; btn.textContent='📧 Ouvrir l\'e-mail'; } }
 }
 
 /* ============================ Rondes ============================ */
