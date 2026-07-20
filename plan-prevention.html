@@ -83,9 +83,10 @@
   <header class="pp-header no-print">
     <div class="pp-bar">
       <div class="pp-logo">🛡️ Plan de prévention<small id="pp-center">—</small></div>
-      <div class="pp-who"><span id="pp-op-badge"></span><button class="mib-btn mib-btn-ghost" id="pp-logout">Fermer</button></div>
+      <div class="pp-who"><span id="pp-op-badge"></span><button class="mib-btn mib-btn-ghost" id="pp-mobile" onclick="ppMobileQR()" style="display:none">📱 Mobile / tablette</button><button class="mib-btn mib-btn-ghost" id="pp-logout">Fermer</button></div>
     </div>
   </header>
+  <div id="pp-terrain-bar" style="display:none;background:#eff6ff;border-bottom:1px solid #dbe4fe;color:#3730a3;font-size:.83rem;text-align:center;padding:7px 14px">📱 Mode visite terrain — remplissez, joignez des photos, faites signer et validez. Après validation, la modification se fait depuis Patrol.</div>
   <main>
     <div id="pp-list-view">
       <h1 class="pp-title">Plan de prévention</h1>
@@ -189,7 +190,7 @@ const STAT={ brouillon:{l:'Brouillon',c:'#64748b',bg:'#f1f5f9'}, valide:{l:'Vali
 function statBadge(s){ const d=STAT[s]||STAT.brouillon; return '<span style="background:'+d.bg+';color:'+d.c+';border-radius:999px;padding:3px 11px;font-size:.75rem;font-weight:700">'+d.l+'</span>'; }
 
 /* ============================ État ============================ */
-let PP_CENTER=null, PP_OP=null, PP_NIVEAU=null, PP_ROLE=null;
+let PP_CENTER=null, PP_OP=null, PP_NIVEAU=null, PP_ROLE=null, PP_MODE=null;
 let PP_ETABS=[], PP_LIST=[], PP_CUR=null, PP_SIGS=[], PP_REU=[], PP_PJ=[];
 function isAdminLevel(){ return PP_ROLE==='formateur'||PP_ROLE==='admin'||PP_NIVEAU==='SSIAP 3'||!PP_NIVEAU; }
 
@@ -207,9 +208,12 @@ async function ppInit(){
     PP_OP=(params.get('op')||'').trim()||null;
     PP_NIVEAU=(params.get('niveau')||'').trim()||null;
     PP_ROLE=(params.get('role')||'').trim()||null;
+    PP_MODE=(params.get('mode')||'').trim()||null;
     $('pp-center').textContent=center.nom||'—';
     if(PP_OP){ $('pp-op-badge').textContent=PP_OP+(isAdminLevel()?'':' · lecture seule'); }
     $('pp-logout').onclick=function(){ try{window.close();}catch(e){} };
+    const mb=$('pp-mobile'); if(mb) mb.style.display=(PP_MODE!=='terrain' && isAdminLevel())?'':'none';
+    const tb=$('pp-terrain-bar'); if(tb) tb.style.display=(PP_MODE==='terrain')?'':'none';
     show('st-app'); await ppLoad();
   }catch(e){ console.error(e); show('st-nocenter'); }
 }
@@ -279,8 +283,10 @@ function ppForm(p){
     +'<div id="pp-ent-list" style="margin-top:4px"></div>'
     +'<button type="button" class="mib-btn mib-btn-ghost" style="margin-top:2px;padding:5px 12px;font-size:.82rem" onclick="ppEntAddRow()">+ Ajouter une entreprise extérieure</button>'
     +'<hr style="border:0;border-top:1px solid #eee;margin:16px 0">'
-    +'<div class="pp-row"><div><label class="mib-label">Inspection commune préalable — date</label><input class="mib-inp" type="date" id="pp-f-insp" value="'+dvd(p.inspection_date)+'"></div>'
-    +'<div><label class="mib-label">Participants</label><input class="mib-inp" id="pp-f-insp-part" placeholder="Noms / fonctions" value="'+attr(p.inspection_participants||'')+'"></div></div>'
+    +'<label class="mib-label">Inspection commune préalable — date</label><input class="mib-inp" type="date" id="pp-f-insp" value="'+dvd(p.inspection_date)+'">'
+    +'<label class="mib-label" style="margin-top:10px">Participants à l\'inspection</label>'
+    +'<div id="pp-part-list" style="margin-top:4px"></div>'
+    +'<button type="button" class="mib-btn mib-btn-ghost" style="margin-top:2px;padding:5px 12px;font-size:.82rem" onclick="ppPartAddRow()">+ Ajouter un participant</button>'
     +'<hr style="border:0;border-top:1px solid #eee;margin:16px 0">'
     +'<label class="mib-label">Travaux dangereux concernés <span class="muted" style="font-weight:400">(rend le plan écrit obligatoire)</span></label><div style="margin-top:4px">'+chkGroup('pp-dang',PP_DANGEREUX,dang)+'</div>'
     +'<hr style="border:0;border-top:1px solid #eee;margin:16px 0">'
@@ -292,8 +298,27 @@ function ppForm(p){
     +'<label class="mib-label" style="margin-top:12px">Consignes particulières</label><div class="pp-field-mic"><textarea class="mib-textarea" id="pp-f-cons" rows="2" placeholder="Consignes de sécurité, moyens de secours…">'+esc(p.consignes||'')+'</textarea>'+micBtn('pp-f-cons')+'</div>';
   openModal(p.id?'Modifier le plan de prévention':'Nouveau plan de prévention', body,
     '<button class="mib-btn mib-btn-ghost" onclick="closeModal()">Annuler</button><button class="mib-btn mib-btn-primary" id="pp-save" onclick="ppSubmit()">Enregistrer</button>');
-  ppEntInit(p); ppRiskInit(p);
+  ppEntInit(p); ppRiskInit(p); ppPartInit(p);
 }
+
+/* --- Participants inspection commune (lignes dynamiques) --- */
+let _partSeq=0;
+function ppPartRowHtml(id,d){ d=d||{};
+  return '<div class="pp-row" id="'+id+'" style="align-items:flex-end;margin-bottom:8px;gap:8px">'
+    +'<div style="flex:1.2"><input class="mib-inp" placeholder="Nom et prénom" data-f="nom" value="'+attr(d.nom||'')+'"></div>'
+    +'<div style="flex:1.2"><input class="mib-inp" placeholder="Qualité / entreprise" data-f="qualite" value="'+attr(d.qualite||'')+'"></div>'
+    +'<button type="button" class="mib-btn mib-btn-ghost" style="padding:8px 11px" title="Retirer" onclick="ppPartDel(\''+id+'\')">✕</button></div>';
+}
+function ppPartAddRow(d){ const box=$('pp-part-list'); if(!box) return; box.insertAdjacentHTML('beforeend', ppPartRowHtml('part-'+(_partSeq++), d)); }
+function ppPartDel(id){ const el=$(id); if(el) el.remove(); }
+function ppPartInit(p){ _partSeq=0; const box=$('pp-part-list'); if(!box) return; box.innerHTML='';
+  let list=(p&&p.inspection_participants_list&&p.inspection_participants_list.length)?p.inspection_participants_list:null;
+  if(!list && p && p.inspection_participants) list=[{nom:p.inspection_participants,qualite:''}];
+  if(!list || !list.length) list=[{}];
+  list.forEach(d=>ppPartAddRow(d)); }
+function ppPartCollect(){ const box=$('pp-part-list'); if(!box) return [];
+  return [].slice.call(box.children).map(function(row){ const o={}; [].slice.call(row.querySelectorAll('input')).forEach(function(i){ o[i.getAttribute('data-f')]=(i.value||'').trim(); }); return o; })
+    .filter(function(o){ return o.nom||o.qualite; }); }
 
 /* --- Entreprises extérieures (lignes dynamiques) --- */
 let _entSeq=0;
@@ -347,7 +372,8 @@ async function ppSubmit(){
     eu_nom:($('pp-f-eu').value||'').trim()||null,
     eu_representant:($('pp-f-eu-rep').value||'').trim()||null,
     inspection_date:toIso($('pp-f-insp').value),
-    inspection_participants:($('pp-f-insp-part').value||'').trim()||null,
+    inspection_participants_list:ppPartCollect(),
+    inspection_participants:ppPartCollect().map(x=>x.nom+(x.qualite?' ('+x.qualite+')':'')).join(', ')||null,
     entreprises:ppEntCollect(),
     travaux_dangereux:collectChk('pp-dang'),
     risques:ppRiskCollect(),
@@ -428,7 +454,8 @@ function checklist(items,sel){ sel=sel||[]; if(!items.length) return '<div class
 function renderDetail(){
   const p=PP_CUR;
   const etab=PP_ETABS.find(e=>e.id===p.etablissement_id);
-  const editable=isAdminLevel() && p.statut!=='cloture' && p.statut!=='annule';
+  const terrain=(PP_MODE==='terrain');
+  const editable=isAdminLevel() && p.statut!=='cloture' && p.statut!=='annule' && !(terrain && p.statut!=='brouillon');
   const open=(p.statut!=='cloture' && p.statut!=='annule');
   const kv=(k,v)=>'<div class="pp-kv"><div class="k">'+k+'</div><div class="v">'+(v||'—')+'</div></div>';
   const sigView=s=>'<div class="pp-mono" style="margin:2px 0"><img src="'+publicUrl(s.signature_path)+'" alt="signature" style="max-height:44px;vertical-align:middle;border:1px solid #eee;border-radius:6px;background:#fff"> '+esc((s.nom||''))+(s.fonction?' · '+esc(s.fonction):'')+' — le '+fmtDateTime(s.horodatage)+'</div>';
@@ -481,7 +508,9 @@ function renderDetail(){
 
     +'<div class="pp-sec"><h3>🔍 Inspection commune préalable</h3>'
       +kv('Date', fmtDate(p.inspection_date))
-      +kv('Participants', esc(p.inspection_participants||''))
+      +((p.inspection_participants_list&&p.inspection_participants_list.length)
+          ? p.inspection_participants_list.map((pt,i)=>kv('Participant '+(i+1), esc(pt.nom||'—')+(pt.qualite?' <span class="muted" style="font-weight:400">— '+esc(pt.qualite)+'</span>':''))).join('')
+          : kv('Participants', esc(p.inspection_participants||'')))
     +'</div>'
 
     +'<div class="pp-sec"><h3>☢️ Travaux dangereux concernés</h3>'
@@ -497,7 +526,7 @@ function renderDetail(){
     +'<div class="pp-sec"><h3>✍️ Signatures</h3>'+signHtml+'</div>'
 
     +'<div class="pp-sec"><h3>🔄 Réunions de suivi / réexamen</h3>'+reuHtml
-      +((p.statut==='valide')?'<button class="mib-btn mib-btn-ghost no-print" style="margin-top:10px;padding:6px 14px;font-size:.82rem" onclick="ppReunion()">+ Enregistrer une réunion</button>':'')
+      +(open?'<button class="mib-btn mib-btn-ghost no-print" style="margin-top:10px;padding:6px 14px;font-size:.82rem" onclick="ppReunion()">+ Enregistrer une réunion</button>':'')
     +'</div>'
 
     +'<div class="pp-sec"><h3>📎 Pièces jointes <span class="muted" style="font-weight:400;font-size:.82rem">(photos, vidéos, documents)</span></h3>'+pjSectionHtml(PP_PJ, open)+'</div>'
@@ -513,11 +542,11 @@ function renderDetail(){
 
     +'<div class="pp-actionbar no-print">'
       +(editable?'<button class="mib-btn mib-btn-ghost" onclick="ppForm(PP_CUR)">✏️ Modifier</button>':'')
-      +(editable&&p.statut==='brouillon'?'<button class="mib-btn mib-btn-primary" onclick="ppValidate()">✅ Valider le plan</button>':'')
-      +(editable&&p.statut==='valide'?'<button class="mib-btn mib-btn-primary" onclick="ppCloture()">📁 Clôturer</button>':'')
+      +(isAdminLevel()&&p.statut==='brouillon'?'<button class="mib-btn mib-btn-primary" onclick="ppValidate()">✅ Valider le plan</button>':'')
+      +(!terrain&&editable&&p.statut==='valide'?'<button class="mib-btn mib-btn-primary" onclick="ppCloture()">📁 Clôturer</button>':'')
       +(p.statut!=='annule'?'<button class="mib-btn mib-btn-ghost" onclick="ppShare()">📧 Envoyer par e-mail</button>':'')
       +'<button class="mib-btn mib-btn-ghost" onclick="window.print()">🖨️ Imprimer</button>'
-      +(editable&&p.statut!=='annule'?'<button class="mib-btn mib-btn-ghost" style="margin-left:auto;color:#b91c1c" onclick="ppAnnuler()">Annuler ce plan</button>':'')
+      +(!terrain&&editable&&p.statut!=='annule'?'<button class="mib-btn mib-btn-ghost" style="margin-left:auto;color:#b91c1c" onclick="ppAnnuler()">Annuler ce plan</button>':'')
     +'</div>';
 }
 
@@ -605,6 +634,18 @@ async function ppShareGo(){
 
 /* ============================ Signature déportée (QR) ============================ */
 function ensureQR(cb){ if(window.QRCode){ cb(); return; } const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; s.onload=function(){cb();}; s.onerror=function(){cb(new Error('qr'));}; document.head.appendChild(s); }
+function ppTerrainUrl(){ try{ const u=new URL(location.href); u.searchParams.delete('sign'); u.searchParams.set('mode','terrain'); return u.toString(); }catch(e){ return location.href; } }
+function ppMobileQR(){
+  const url=ppTerrainUrl();
+  openModal('Ouvrir sur mobile / tablette',
+     '<div class="mib-help" style="margin-bottom:10px">Scannez ce QR code avec le <b>téléphone ou la tablette</b> que vous emportez en visite. Vous pourrez créer, remplir, joindre des photos, faire signer et valider directement sur le terrain.</div>'
+    +'<div id="qr-box" style="display:flex;justify-content:center;padding:8px;background:#fff;border-radius:10px;border:1px solid #dbe4fe"></div>'
+    +'<div class="mib-help" style="margin-top:10px">Ou copier le lien :</div>'
+    +'<div style="display:flex;gap:6px;margin-top:6px"><input class="mib-inp" id="qr-link" readonly value="'+attr(url)+'" style="font-size:.78rem"><button class="mib-btn mib-btn-ghost" style="white-space:nowrap" onclick="var i=document.getElementById(\'qr-link\');i.select();try{navigator.clipboard.writeText(i.value);}catch(e){document.execCommand(\'copy\');}this.textContent=\'Copié ✓\'">Copier</button></div>'
+    +'<div class="mib-help" style="margin-top:10px;font-size:.78rem">ℹ️ Une fois un plan <b>validé</b> sur le terrain, sa modification (et la clôture) se fait en repassant par Patrol.</div>',
+    '<button class="mib-btn mib-btn-ghost" onclick="closeModal()">Fermer</button>');
+  ensureQR(function(err){ const box=$('qr-box'); if(!box) return; if(err||!window.QRCode){ box.innerHTML='<img alt="QR" style="width:240px;height:240px" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data='+encodeURIComponent(url)+'">'; } else { box.innerHTML=''; new window.QRCode(box,{text:url,width:240,height:240}); } });
+}
 let _signPoll=null;
 async function ppSignRole(role){
   if(PP_CUR && (PP_CUR.statut==='cloture'||PP_CUR.statut==='annule')) return;
