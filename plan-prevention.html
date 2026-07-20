@@ -751,10 +751,16 @@ async function submitPhoneSign(token){
     const chained=await sha256(prev+'|'+req.plan_role+'|'+nom+'|'+sigHash+'|'+stamp);
     const insSig=await supabase.from('plan_prevention_signatures').insert({ plan_id:req.plan_id, role:req.plan_role, nom:nom, fonction:fct, signature_path:sigPath, signature_hash:sigHash, hash_prec:prev, hash_courant:chained, horodatage:stamp });
     if(insSig.error){ alert('Erreur : '+insSig.error.message); if(btn){ btn.disabled=false; btn.textContent='Valider et signer'; } return; }
-    await supabase.from('signature_requests').update({ status:'signed', signataire:nom, signature_path:sigPath, signature_hash:sigHash, signed_at:stamp }).eq('token',token);
+    // La signature est enregistrée durablement → on débloque l'écran tout de suite.
+    const statusUpd={ status:'signed', signataire:nom, signature_path:sigPath, signature_hash:sigHash, signed_at:stamp };
     const card=$('sign-card');
-    if(card){ card.innerHTML='<div class="mib-card" style="padding:24px;text-align:center"><div style="font-size:2.4rem">✅</div><h2 style="color:#166534">Signature enregistrée</h2><div class="mib-help">Merci. Votre signature est revenue sur le plan de prévention. Vous pouvez fermer cette page.</div></div>'; }
-    else { closeModal(); if(PP_CUR) await ppOpen(PP_CUR.id); }   // signature directe (terrain)
+    if(card){
+      card.innerHTML='<div class="mib-card" style="padding:24px;text-align:center"><div style="font-size:2.4rem">✅</div><h2 style="color:#166534">Signature enregistrée</h2><div class="mib-help">Merci. Votre signature est revenue sur le plan de prévention. Vous pouvez fermer cette page.</div></div>';
+      supabase.from('signature_requests').update(statusUpd).eq('token',token).then(function(){},function(){});
+    } else {
+      try{ await supabase.from('signature_requests').update(statusUpd).eq('token',token); }catch(e){}
+      closeModal(); if(PP_CUR) await ppOpen(PP_CUR.id);   // signature directe (terrain)
+    }
   }catch(e){ alert('Erreur : '+(e.message||e)); if(btn){ btn.disabled=false; btn.textContent='Valider et signer'; } }
 }
 function openSignPad(token, role, def){
