@@ -207,7 +207,7 @@ function statBadge(s){ const d=STAT[s]||STAT.brouillon; return '<span style="bac
 
 /* ============================ État ============================ */
 let PF_CENTER=null, PF_OP=null, PF_NIVEAU=null, PF_ROLE=null;
-let PF_ETABS=[], PF_LIST=[], PF_CUR=null, PF_SIGS=[], PF_RONDES=[];
+let PF_ETABS=[], PF_LIST=[], PF_CUR=null, PF_SIGS=[], PF_RONDES=[], PF_PJ=[];
 function isAdminLevel(){ return PF_ROLE==='formateur'||PF_ROLE==='admin'||PF_NIVEAU==='SSIAP 3'||!PF_NIVEAU; }
 
 /* ============================ Boot ============================ */
@@ -385,7 +385,50 @@ async function pfOpen(id){
   PF_SIGS=sigs||[];
   const { data:rondes }=await supabase.from('permis_feu_rondes').select('*').eq('permis_id',id).order('horodatage');
   PF_RONDES=rondes||[];
+  const { data:pj }=await supabase.from('pieces_jointes').select('*').eq('cible_type','permis_feu').eq('cible_id',id).order('created_at'); PF_PJ=pj||[];
   renderDetail();
+}
+
+/* ---- Pièces jointes (photos, vidéos, documents) ---- */
+function pjSectionHtml(list, open){
+  const items=(list||[]).map(function(d){
+    const url=publicUrl(d.storage_path); const mime=d.mime||'';
+    let thumb;
+    if(mime.indexOf('image/')===0) thumb='<img src="'+url+'" alt="" style="width:100%;height:110px;object-fit:cover;display:block">';
+    else if(mime.indexOf('video/')===0) thumb='<video src="'+url+'" style="width:100%;height:110px;object-fit:cover;display:block;background:#000" muted></video>';
+    else thumb='<div style="height:110px;display:flex;align-items:center;justify-content:center;font-size:2rem;background:#fff7ed">📄</div>';
+    const del=open?'<button class="mib-btn mib-btn-ghost no-print" style="position:absolute;top:4px;right:4px;padding:2px 7px;font-size:.75rem;background:rgba(255,255,255,.9)" onclick="pfDelPJ(event,\''+d.id+'\')">✕</button>':'';
+    return '<div style="position:relative;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">'+del
+      +'<a href="'+url+'" target="_blank" style="text-decoration:none;color:inherit">'+thumb
+      +'<div style="padding:6px 8px;font-size:.72rem;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(d.nom_fichier||'fichier')+'</div></a></div>';
+  }).join('');
+  const grid=items?'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:10px">'+items+'</div>':'<div class="muted" style="font-size:.85rem;margin-bottom:8px">Aucune pièce jointe.</div>';
+  const add=open?'<input type="file" id="pf-pj-input" class="no-print" multiple accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx" style="display:none" onchange="pfUploadPJ(this)"><button class="mib-btn mib-btn-ghost no-print" style="padding:6px 14px;font-size:.82rem" onclick="document.getElementById(\'pf-pj-input\').click()">📎 Ajouter des fichiers</button><span id="pf-pj-prog" class="muted" style="font-size:.8rem;margin-left:8px"></span>':'';
+  return grid+add;
+}
+async function pfUploadPJ(input){
+  const files=[].slice.call(input.files||[]); if(!files.length) return;
+  const prog=$('pf-pj-prog'); const pid=PF_CUR.id;
+  for(let i=0;i<files.length;i++){
+    const f=files[i];
+    if(prog) prog.textContent='Envoi '+(i+1)+'/'+files.length+'…';
+    try{
+      const safe=(f.name||'fichier').replace(/[^a-zA-Z0-9._-]/g,'_');
+      const path='permis/'+pid+'/pj/'+Date.now()+'_'+i+'_'+safe;
+      const up=await supabase.storage.from('documents').upload(path,f,{contentType:f.type||'application/octet-stream'});
+      if(up.error){ alert('Erreur d\'envoi ('+f.name+') : '+up.error.message); continue; }
+      await supabase.from('pieces_jointes').insert({ cible_type:'permis_feu', cible_id:pid, nom_fichier:f.name, storage_path:path, mime:f.type||null, taille:f.size||null, uploaded_by:PF_OP||null });
+    }catch(e){ alert('Erreur : '+(e.message||e)); }
+  }
+  if(prog) prog.textContent=''; input.value=''; await pfOpen(pid);
+}
+async function pfDelPJ(ev,id){
+  ev.preventDefault(); ev.stopPropagation();
+  if(!confirm('Supprimer cette pièce jointe ?')) return;
+  const d=PF_PJ.find(x=>x.id===id);
+  if(d && d.storage_path){ try{ await supabase.storage.from('documents').remove([d.storage_path]); }catch(e){} }
+  await supabase.from('pieces_jointes').delete().eq('id',id);
+  await pfOpen(PF_CUR.id);
 }
 
 function checklist(items,sel){
@@ -465,6 +508,8 @@ function renderDetail(){
       +rondeHtml
       +((p.statut==='valide')?'<button class="mib-btn mib-btn-ghost no-print" style="margin-top:10px;padding:6px 14px;font-size:.82rem" onclick="pfRonde()">+ Enregistrer une ronde</button>':'')
     +'</div>'
+
+    +'<div class="pf-sec"><h3>📎 Pièces jointes <span class="muted" style="font-weight:400;font-size:.82rem">(photos, vidéos, documents)</span></h3>'+pjSectionHtml(PF_PJ, open)+'</div>'
 
     +'<div class="pf-sec" style="background:#fafafa"><h3>🔒 Traçabilité</h3>'
       +'<div style="font-size:.84rem;color:#64748b">Créé le '+fmtDateTime(p.created_at)+(p.op?' par '+esc(p.op):'')+'.'
