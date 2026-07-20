@@ -92,9 +92,10 @@
   <header class="pf-header no-print">
     <div class="pf-bar">
       <div class="pf-logo">🔥 Permis de feu<small id="pf-center">—</small></div>
-      <div class="pf-who"><span id="pf-op-badge"></span><button class="mib-btn mib-btn-ghost" id="pf-logout">Fermer</button></div>
+      <div class="pf-who"><span id="pf-op-badge"></span><button class="mib-btn mib-btn-ghost" id="pf-mobile" onclick="pfMobileQR()" style="display:none">📱 Mobile / tablette</button><button class="mib-btn mib-btn-ghost" id="pf-logout">Fermer</button></div>
     </div>
   </header>
+  <div id="pf-terrain-bar" style="display:none;background:#eff6ff;border-bottom:1px solid #dbe4fe;color:#3730a3;font-size:.83rem;text-align:center;padding:7px 14px">📱 Mode visite terrain — remplissez, joignez des photos, faites signer et validez. Après validation, la modification se fait depuis Patrol.</div>
   <main>
     <!-- Liste -->
     <div id="pf-list-view">
@@ -206,7 +207,7 @@ const STAT={ brouillon:{l:'Brouillon',c:'#64748b',bg:'#f1f5f9'}, valide:{l:'Vali
 function statBadge(s){ const d=STAT[s]||STAT.brouillon; return '<span style="background:'+d.bg+';color:'+d.c+';border-radius:999px;padding:3px 11px;font-size:.75rem;font-weight:700">'+d.l+'</span>'; }
 
 /* ============================ État ============================ */
-let PF_CENTER=null, PF_OP=null, PF_NIVEAU=null, PF_ROLE=null;
+let PF_CENTER=null, PF_OP=null, PF_NIVEAU=null, PF_ROLE=null, PF_MODE=null;
 let PF_ETABS=[], PF_LIST=[], PF_CUR=null, PF_SIGS=[], PF_RONDES=[], PF_PJ=[];
 function isAdminLevel(){ return PF_ROLE==='formateur'||PF_ROLE==='admin'||PF_NIVEAU==='SSIAP 3'||!PF_NIVEAU; }
 
@@ -224,9 +225,12 @@ async function pfInit(){
     PF_OP=(params.get('op')||'').trim()||null;
     PF_NIVEAU=(params.get('niveau')||'').trim()||null;
     PF_ROLE=(params.get('role')||'').trim()||null;
+    PF_MODE=(params.get('mode')||'').trim()||null;
     $('pf-center').textContent=center.nom||'—';
     if(PF_OP){ $('pf-op-badge').textContent=PF_OP+(isAdminLevel()?'':' · lecture seule'); }
     $('pf-logout').onclick=function(){ try{window.close();}catch(e){} };
+    const mb=$('pf-mobile'); if(mb) mb.style.display=(PF_MODE!=='terrain' && isAdminLevel())?'':'none';
+    const tb=$('pf-terrain-bar'); if(tb) tb.style.display=(PF_MODE==='terrain')?'':'none';
     show('st-app'); await pfLoad();
   }catch(e){ console.error(e); show('st-nocenter'); }
 }
@@ -439,7 +443,9 @@ function checklist(items,sel){
 function renderDetail(){
   const p=PF_CUR; const mes=p.mesures||{};
   const etab=PF_ETABS.find(e=>e.id===p.etablissement_id);
-  const editable=isAdminLevel() && p.statut!=='cloture' && p.statut!=='annule';
+  const terrain=(PF_MODE==='terrain');
+  // En terrain, une fois validé le document se modifie depuis Patrol uniquement.
+  const editable=isAdminLevel() && p.statut!=='cloture' && p.statut!=='annule' && !(terrain && p.statut!=='brouillon');
   const kv=(k,v)=>'<div class="pf-kv"><div class="k">'+k+'</div><div class="v">'+(v||'—')+'</div></div>';
 
   // signataires — donneur d'ordre & surveillance : un seul ; exécutant : un par intervenant (plusieurs possibles)
@@ -523,11 +529,11 @@ function renderDetail(){
     // barre d'actions
     +'<div class="pf-actionbar no-print">'
       +(editable?'<button class="mib-btn mib-btn-ghost" onclick="pfForm(PF_CUR)">✏️ Modifier</button>':'')
-      +(editable&&p.statut==='brouillon'?'<button class="mib-btn mib-btn-primary" onclick="pfValidate()">✅ Valider le permis</button>':'')
-      +(editable&&p.statut==='valide'?'<button class="mib-btn mib-btn-primary" onclick="pfCloture()">📁 Clôturer</button>':'')
+      +(isAdminLevel()&&p.statut==='brouillon'?'<button class="mib-btn mib-btn-primary" onclick="pfValidate()">✅ Valider le permis</button>':'')
+      +(!terrain&&editable&&p.statut==='valide'?'<button class="mib-btn mib-btn-primary" onclick="pfCloture()">📁 Clôturer</button>':'')
       +(p.statut!=='annule'?'<button class="mib-btn mib-btn-ghost" onclick="pfShare()">📧 Envoyer par e-mail</button>':'')
       +'<button class="mib-btn mib-btn-ghost" onclick="window.print()">🖨️ Imprimer</button>'
-      +(editable&&p.statut!=='annule'?'<button class="mib-btn mib-btn-ghost" style="margin-left:auto;color:#b91c1c" onclick="pfAnnuler()">Annuler ce permis</button>':'')
+      +(!terrain&&editable&&p.statut!=='annule'?'<button class="mib-btn mib-btn-ghost" style="margin-left:auto;color:#b91c1c" onclick="pfAnnuler()">Annuler ce permis</button>':'')
     +'</div>';
 }
 
@@ -626,6 +632,18 @@ async function pfRondeSave(){
 
 /* ============================ Signature déportée (QR) ============================ */
 function ensureQR(cb){ if(window.QRCode){ cb(); return; } const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; s.onload=function(){cb();}; s.onerror=function(){cb(new Error('qr'));}; document.head.appendChild(s); }
+function pfTerrainUrl(){ try{ const u=new URL(location.href); u.searchParams.delete('sign'); u.searchParams.set('mode','terrain'); return u.toString(); }catch(e){ return location.href; } }
+function pfMobileQR(){
+  const url=pfTerrainUrl();
+  openModal('Ouvrir sur mobile / tablette',
+     '<div class="mib-help" style="margin-bottom:10px">Scannez ce QR code avec le <b>téléphone ou la tablette</b> que vous emportez en visite. Vous pourrez créer, remplir, joindre des photos, faire signer et valider directement sur le terrain.</div>'
+    +'<div id="qr-box" style="display:flex;justify-content:center;padding:8px;background:#fff;border-radius:10px;border:1px solid #e6d9c2"></div>'
+    +'<div class="mib-help" style="margin-top:10px">Ou copier le lien :</div>'
+    +'<div style="display:flex;gap:6px;margin-top:6px"><input class="mib-inp" id="qr-link" readonly value="'+attr(url)+'" style="font-size:.78rem"><button class="mib-btn mib-btn-ghost" style="white-space:nowrap" onclick="var i=document.getElementById(\'qr-link\');i.select();try{navigator.clipboard.writeText(i.value);}catch(e){document.execCommand(\'copy\');}this.textContent=\'Copié ✓\'">Copier</button></div>'
+    +'<div class="mib-help" style="margin-top:10px;font-size:.78rem">ℹ️ Une fois un permis <b>validé</b> sur le terrain, sa modification (et la clôture) se fait en repassant par Patrol.</div>',
+    '<button class="mib-btn mib-btn-ghost" onclick="closeModal()">Fermer</button>');
+  ensureQR(function(err){ const box=$('qr-box'); if(!box) return; if(err||!window.QRCode){ box.innerHTML='<img alt="QR" style="width:240px;height:240px" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data='+encodeURIComponent(url)+'">'; } else { box.innerHTML=''; new window.QRCode(box,{text:url,width:240,height:240}); } });
+}
 let _signPoll=null;
 async function pfSignRole(role){
   if(p_isClosed()){ return; }
