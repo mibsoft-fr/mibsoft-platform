@@ -1374,6 +1374,7 @@ async function showEchecs(stagId, sessId, nom) {
         correct_answers: [],
         explanation: q.explication || '',
         niveau: e.niveau || '',
+        qid: r.question_id || null,
         count: 0, srcMaison: 0, srcSalle: 0
       };
       map[id].count++;
@@ -1547,6 +1548,38 @@ function renderStatsQ() {
 /* ══════════════════════════════════════
    QUESTIONS GLOBALES
 ══════════════════════════════════════ */
+/* État de revue des questions (par formateur) : revue / archivée */
+let FQR_MAP = {};
+let showArchivedQ = false;
+async function loadReviewMap() {
+  FQR_MAP = {};
+  if (!FSESSION || !FSESSION.formateurId) return FQR_MAP;
+  try {
+    const { data } = await sb.from('formateur_question_review')
+      .select('question_id, reviewed, archived').eq('formateur_id', FSESSION.formateurId);
+    (data||[]).forEach(r => { FQR_MAP[r.question_id] = { reviewed: !!r.reviewed, archived: !!r.archived }; });
+  } catch(e) { console.warn('[review] load', e); }
+  return FQR_MAP;
+}
+async function toggleQReview(qid, field, checked) {
+  if (!qid || !FSESSION || !FSESSION.formateurId) return;
+  const cur = FQR_MAP[qid] || { reviewed:false, archived:false };
+  const row = {
+    formateur_id: FSESSION.formateurId, question_id: qid,
+    reviewed: field==='reviewed' ? checked : cur.reviewed,
+    archived: field==='archived' ? checked : cur.archived,
+    updated_at: new Date().toISOString()
+  };
+  FQR_MAP[qid] = { reviewed: row.reviewed, archived: row.archived };
+  try { await sb.from('formateur_question_review').upsert(row, { onConflict:'formateur_id,question_id' }); }
+  catch(e) { console.warn('[review] save', e); }
+  loadGlobalQ(document.getElementById('q-niv') ? document.getElementById('q-niv').value : 1);
+}
+function toggleArchivedView() {
+  showArchivedQ = !showArchivedQ;
+  loadGlobalQ(document.getElementById('q-niv') ? document.getElementById('q-niv').value : 1);
+}
+
 async function loadGlobalQ(niv) {
   const el = document.getElementById('global-q-list');
   el.innerHTML = '<div class="loader"><span class="spin"></span>Chargement...</div>';
@@ -1598,6 +1631,7 @@ async function loadGlobalQ(niv) {
         correct_answers: [],
         explanation: q.explication || '',
         niveau: e.niveau || '',
+        qid: r.question_id || null,
         count: 0, srcMaison: 0, srcSalle: 0
       };
       map[id].count++;
@@ -1605,33 +1639,37 @@ async function loadGlobalQ(niv) {
     }
   }));
 
-  let list = Object.values(map).sort((a,b)=>b.count-a.count);
-  if (niv) {
-    // niveau peut être "1", "SSIAP1", "SSIAP 1" selon la table
-    const nivStr = niv.toString();
-    list = list.filter(q => {
-      const qn = (q.niveau||'').toString();
-      return qn === nivStr || qn === 'SSIAP'+nivStr || qn === 'SSIAP '+nivStr || qn.endsWith(nivStr);
-    });
-  }
-  list = list.slice(0,15);
+  // Filtre niveau
+  const nivStr = niv ? niv.toString() : '';
+  const matchesNiv = q => { if(!nivStr) return true; const qn=(q.niveau||'').toString(); return qn===nivStr||qn==='SSIAP'+nivStr||qn==='SSIAP '+nivStr||qn.endsWith(nivStr); };
 
-  // Si vide avec filtre niveau, essayer sans filtre
-  if (!list.length && niv) {
-    const allList = Object.values(map).sort((a,b)=>b.count-a.count).slice(0,15);
+  // État de revue (par formateur)
+  await loadReviewMap();
+  let all = Object.values(map).filter(matchesNiv);
+  all.forEach(q => { q._rev = q.qid ? { qid:q.qid, reviewed:!!(FQR_MAP[q.qid]&&FQR_MAP[q.qid].reviewed), archived:!!(FQR_MAP[q.qid]&&FQR_MAP[q.qid].archived) } : null; });
+
+  const archivedCount = all.filter(q => q._rev && q._rev.archived).length;
+  let visible = all.filter(q => showArchivedQ || !(q._rev && q._rev.archived));
+  // Tri : questions non revues d'abord (par taux d'échec), revues grisées en bas.
+  visible.sort((a,b) => { const ar=a._rev&&a._rev.reviewed?1:0, br=b._rev&&b._rev.reviewed?1:0; if(ar!==br) return ar-br; return b.count-a.count; });
+  visible = visible.slice(0,25);
+
+  const archLink = archivedCount
+    ? `<div style="text-align:right;margin-bottom:8px;"><a href="#" onclick="event.preventDefault();toggleArchivedView();" style="font-size:.78rem;color:var(--text3);">${showArchivedQ?'▲ Masquer':'🗄️ Afficher'} les archivées (${archivedCount})</a></div>`
+    : '';
+
+  // Repli sur tous niveaux si vide avec filtre
+  if (!visible.length && niv) {
+    const allList = Object.values(map).map(q=>({...q,_rev: q.qid?{qid:q.qid,reviewed:!!(FQR_MAP[q.qid]&&FQR_MAP[q.qid].reviewed),archived:!!(FQR_MAP[q.qid]&&FQR_MAP[q.qid].archived)}:null}))
+      .filter(q=>!(q._rev&&q._rev.archived)).sort((a,b)=>{const ar=a._rev&&a._rev.reviewed?1:0,br=b._rev&&b._rev.reviewed?1:0;if(ar!==br)return ar-br;return b.count-a.count;}).slice(0,25);
     if (allList.length) {
-      el.innerHTML = emptyState('ℹ️','Aucune donnée pour SSIAP'+niv+' — affichage de tous niveaux.') + 
-        allList.map((q,i) => renderQCard({...q, pct_override: Math.round(q.count/totalEntr*100)}, i+1, q.count, totalEntr)).join('');
+      el.innerHTML = archLink + emptyState('ℹ️','Aucune donnée pour SSIAP'+niv+' — affichage de tous niveaux.') +
+        allList.map((q,i) => renderQCard({...q, pct_override: Math.round(q.count/totalEntr*100), stags:null}, i+1, q.count, totalEntr)).join('');
       return;
     }
   }
-  if (!list.length) { el.innerHTML = emptyState('✅','Aucune donnée d\'entraînement pour ce niveau.'); return; }
-  el.innerHTML = list.map((q,i) => {
-    const pct = Math.round(q.count/totalEntr*100);
-    const corrAnss = q.correct_answers_labels || q.correct_answers || [];
-    const expl = q.explanation || q.explication || '';
-    return renderQCard({...q, pct_override: pct, stags: null}, i+1, q.count, totalEntr);
-  }).join('');
+  if (!visible.length) { el.innerHTML = archLink + emptyState('✅','Aucune question à revoir pour ce niveau.'); return; }
+  el.innerHTML = archLink + visible.map((q,i) => renderQCard({...q, pct_override: Math.round(q.count/totalEntr*100), stags: null}, i+1, q.count, totalEntr)).join('');
 }
 
 /* ══════════════════════════════════════
@@ -1666,13 +1704,20 @@ function renderQCard(q, num, count, total) {
   const userAnss = q.user_answers_labels || q.user_answers || [];
   const expl = q.explanation || q.explication || '';
   const hasDetails = userAnss.length || corrAnss.length || expl;
-  return `<div class="q-card" onclick="this.classList.toggle('open')">
+  const rev = q._rev;
+  const cardStyle = (rev && rev.reviewed) ? ' style="opacity:.55;"' : '';
+  const revBox = rev ? `<div class="q-rev" onclick="event.stopPropagation()" style="display:flex;gap:16px;margin-top:8px;font-size:.8rem;color:var(--text3);">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" ${rev.reviewed?'checked':''} onchange="toggleQReview('${escA(rev.qid)}','reviewed',this.checked)"> ✔️ Revue</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" ${rev.archived?'checked':''} onchange="toggleQReview('${escA(rev.qid)}','archived',this.checked)"> 🗄️ Archiver</label>
+      </div>` : '';
+  return `<div class="q-card" onclick="this.classList.toggle('open')"${cardStyle}>
     <div class="q-top">
       <div style="flex:1;">
         <div class="q-num">Question ${num}${q.niveau?' · SSIAP '+q.niveau:''}</div>
         <div class="q-text">${esc(q.question||'—')}</div>
         ${count>1?`<div class="q-sub">Échouée ${count} fois</div>`:''}
         ${(q.srcMaison||q.srcSalle)?`<div class="q-sub" style="display:flex;gap:12px;margin-top:2px">${q.srcMaison?`<span title="Entraînement à la maison">🏠 ${q.srcMaison} maison</span>`:''}${q.srcSalle?`<span title="Challenge Cup en salle">🏆 ${q.srcSalle} salle</span>`:''}</div>`:''}
+        ${revBox}
         ${hasDetails ? `<div class="q-toggle"></div>` : ''}
       </div>
       <div class="q-pct">${pct}%</div>
