@@ -487,6 +487,7 @@
                 </div>
                 <div class="flex justify-end gap-2">
                     <button onclick="resetSessionConfig()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold text-sm">🔄 Réinitialiser tout</button>
+                    <button id="cfg-save-btn" onclick="saveSessionConfig()" class="px-4 py-2 ssiap-gradient text-white rounded-lg font-bold text-sm">💾 Enregistrer</button>
                 </div>
             </div>
         </div>
@@ -1113,7 +1114,9 @@ function renderSessionConfigUI(){
 
     document.getElementById('cfg-difficulty').value=sessionConfig.diffFilter??'';
     document.getElementById('cfg-pool').value=sessionConfig.poolFilter??'';
-    document.getElementById('cfg-qpb').value=sessionConfig.qpb??QUESTIONS_PER_BOX;
+    const _qpb=sessionConfig.qpb??QUESTIONS_PER_BOX;
+    document.getElementById('cfg-qpb').value=_qpb;
+    QUESTIONS_PER_BOX=_qpb;   // garde le nombre réellement joué synchro avec l'affichage (même sans événement 'change')
     // Applique immédiatement difficulté / banque / nombre de questions par module
     // (sinon le changement n'était jamais pris en compte → restait à 8).
     ['cfg-difficulty','cfg-pool','cfg-qpb'].forEach(id=>{
@@ -1199,6 +1202,15 @@ window.resetSessionConfig=function(){
     QUESTIONS_PER_BOX=8;
     saveSessionConfigToLocal();
     renderSessionConfigUI();
+};
+
+// Enregistre explicitement la configuration (lit les champs, applique, sauvegarde) + retour visuel.
+window.saveSessionConfig=function(){
+    onCfgChange();                       // lit tous les champs (dont Questions/module) → sessionConfig + QUESTIONS_PER_BOX
+    saveSessionConfigToLocal();
+    const btn=document.getElementById('cfg-save-btn');
+    if(btn){ const t=btn.textContent; btn.textContent='✓ Enregistré ('+QUESTIONS_PER_BOX+' q/module)'; btn.disabled=true;
+        setTimeout(()=>{ btn.textContent=t; btn.disabled=false; },1600); }
 };
 
 // Bulk select/deselect all checkboxes in a group ('module' or 'type').
@@ -1470,6 +1482,9 @@ window.removeTeam=function(tId){showConfirmDialog('Supprimer cette équipe ?',()
 
 /* ════ LANCEMENT ════ */
 document.getElementById('start-game-btn').addEventListener('click',async()=>{
+    // Sécurité : relit le champ « Questions / module » au cas où le changement n'aurait pas été appliqué.
+    const _qpbEl=document.getElementById('cfg-qpb');
+    if(_qpbEl){ const v=parseInt(_qpbEl.value); if(v>=1){ QUESTIONS_PER_BOX=v; sessionConfig.qpb=v; saveSessionConfigToLocal(); } }
     // Persist the session config snapshot to Supabase (jsonb).
     if(window.supa){
         try{
