@@ -1864,12 +1864,31 @@ function renderCorrection(game){
         return`<div class="space-y-3">${(game.steps||[]).map((step,i)=>{const cI=(game.correctPath||[])[i];const cO=step.options[cI];return`<div class="bg-green-100 border-2 border-green-400 p-4 rounded-xl flex items-start gap-3"><span class="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">${i+1}</span><div><div class="text-xs text-green-600 font-bold mb-1">${step.question}</div><div class="font-bold text-green-800">✅ ${cO?cO.text:'?'}</div></div></div>`;}).join('')}</div>`;
     return'';
 }
+let _ccScoredKey=null;
 function calculateAndUpdateScores(game){
-    database.ref('sessions/'+sessionId+'/teams').once('value',snap=>{
+    // Bug A — anti double-comptage : le barème d'une question n'est appliqué qu'une seule fois.
+    const key=sessionId+':'+currentBox+':'+currentGameIndex;
+    if(_ccScoredKey===key) return;
+    _ccScoredKey=key;
+    database.ref('sessions/'+sessionId+'/teams').once('value',async snap=>{
         const teams=snap.val();if(!teams)return;
+        // UUID Supabase de la session, pour persister les réponses (pont formateur).
+        let ccUuid=null;
+        try{ if(window.supa&&window.supa.sessions){ const s=await window.supa.sessions.getByCode(sessionId); ccUuid=(s&&s.id)||null; } }catch(e){}
+        const modId=(game&&game.module_id)||(BOXES_DATA[currentBox]&&BOXES_DATA[currentBox].id)||'?';
+        const qIdx=(typeof currentGameIndex==='number'?currentGameIndex:0);
         Object.entries(teams).forEach(([id,team])=>{
             const pts=(team.isCorrect&&team.answerTime!==undefined)?calculatePointsWithSpeedBonus(true,team.answerTime):{basePoints:0,speedBonus:0,totalPoints:0};
             database.ref('sessions/'+sessionId+'/teams/'+id).update({score:(team.score||0)+pts.totalPoints,lastPoints:pts.totalPoints,lastSpeedBonus:pts.speedBonus,totalCorrect:(team.totalCorrect||0)+(team.isCorrect?1:0),totalAnswered:(team.totalAnswered||0)+(team.hasAnswered?1:0)});
+            // Bug B — persiste chaque réponse dans cc_team_answers : le pont y lit les questions échouées à remonter au formateur.
+            if(ccUuid && window.supa && window.supa.answers && game && game.id){
+                try{ window.supa.answers.submit({
+                    session_id: ccUuid, team_id: id, question_id: String(game.id), module_id: String(modId),
+                    q_idx: qIdx, answer: (team.answer!==undefined?team.answer:null), is_correct: !!team.isCorrect,
+                    answer_time_ms: Math.round(Number(team.answerTime)||0), base_points: pts.basePoints||0,
+                    speed_bonus: pts.speedBonus||0, total_points: pts.totalPoints||0,
+                }); }catch(e){}
+            }
         });
     });
 }
