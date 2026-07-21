@@ -914,6 +914,9 @@ function qInfoFor(rep, qMap) {
   return { id: rep && rep.question_id, question: '—', explication: '', bonne: '', niveau: '' };
 }
 
+// Source d'une réponse échouée : 'salle' (Challenge Cup, pont) ou 'maison' (auto-entraînement).
+function respSource(r){ return (r && r.reponse && typeof r.reponse==='object' && r.reponse.source==='challenge-cup') ? 'salle' : 'maison'; }
+
 // Alias local pour simplicité
 const sb = window.supabase;
 
@@ -1371,9 +1374,10 @@ async function showEchecs(stagId, sessId, nom) {
         correct_answers: [],
         explanation: q.explication || '',
         niveau: e.niveau || '',
-        count: 0
+        count: 0, srcMaison: 0, srcSalle: 0
       };
       map[id].count++;
+      if (respSource(r)==='salle') map[id].srcSalle++; else map[id].srcMaison++;
     }
   }));
 
@@ -1518,9 +1522,10 @@ function buildStatsQ(entr) {
           correct_answers: q.bonne ? [q.bonne] : [],
           explanation: q.explication || '',
           niveau: e.niveau || q.niveau || '',
-          count: 0, stags: new Set()
+          count: 0, stags: new Set(), srcMaison: 0, srcSalle: 0
         };
         map[id].count++;
+        if (respSource(r)==='salle') map[id].srcSalle++; else map[id].srcMaison++;
         if (e.stagiaire_id) map[id].stags.add(e.stagiaire_id);
       }
     });
@@ -1593,9 +1598,10 @@ async function loadGlobalQ(niv) {
         correct_answers: [],
         explanation: q.explication || '',
         niveau: e.niveau || '',
-        count: 0
+        count: 0, srcMaison: 0, srcSalle: 0
       };
       map[id].count++;
+      if (respSource(r)==='salle') map[id].srcSalle++; else map[id].srcMaison++;
     }
   }));
 
@@ -1666,6 +1672,7 @@ function renderQCard(q, num, count, total) {
         <div class="q-num">Question ${num}${q.niveau?' · SSIAP '+q.niveau:''}</div>
         <div class="q-text">${esc(q.question||'—')}</div>
         ${count>1?`<div class="q-sub">Échouée ${count} fois</div>`:''}
+        ${(q.srcMaison||q.srcSalle)?`<div class="q-sub" style="display:flex;gap:12px;margin-top:2px">${q.srcMaison?`<span title="Entraînement à la maison">🏠 ${q.srcMaison} maison</span>`:''}${q.srcSalle?`<span title="Challenge Cup en salle">🏆 ${q.srcSalle} salle</span>`:''}</div>`:''}
         ${hasDetails ? `<div class="q-toggle"></div>` : ''}
       </div>
       <div class="q-pct">${pct}%</div>
