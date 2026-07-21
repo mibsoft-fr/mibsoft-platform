@@ -2133,11 +2133,33 @@ window.filterTraineeReview=function(f){
 
 document.getElementById('back-dashboard-podium-btn').addEventListener('click',()=>showScreenSafe('supervisor-dashboard'));
 document.getElementById('restart-game-btn').addEventListener('click',()=>{showConfirmDialog('Réinitialiser ?',()=>{database.ref('sessions/'+sessionId).remove();location.reload();});});
-document.getElementById('reset-game-btn').addEventListener('click',()=>{showConfirmDialog('Réinitialiser ?',()=>{database.ref('sessions/'+sessionId).remove();location.reload();});});
-document.getElementById('logout-btn').addEventListener('click',()=>{showConfirmDialog('Se déconnecter ?<br><small>La session active sera supprimée.</small>',()=>{
-    if(database&&sessionId){try{database.ref('sessions/'+sessionId).remove();}catch{}}
+// (Ré)crée les équipes nominatives (mode Training Stagiaire / invitation).
+async function createNominativeTeams(sid, stagiaires){
+    for(var i=0;i<(stagiaires||[]).length;i++){
+        var stag=stagiaires[i];
+        var tId='mib_'+stag.id;
+        var tName=((stag.prenom||'')+' '+(stag.nom||'')).trim()||('Stagiaire '+(i+1));
+        try{ await database.ref('sessions/'+sid+'/teams/'+tId).set({name:tName,avatar:'',online:false,score:0,answer:null,hasAnswered:false,isCorrect:false,lastPoints:0,joinedAt:Date.now()}); }catch(e){}
+    }
+}
+// Réinitialiser : nouvelle session PROPRE dans le MÊME mode d'origine (on ne recharge pas la page,
+// pour ne pas perdre le contexte MIB — Training Stagiaire resterait sinon une session groupe).
+document.getElementById('reset-game-btn').addEventListener('click',()=>{showConfirmDialog('Réinitialiser la session ?<br><small>Les équipes et scores en cours seront effacés.</small>',async ()=>{
+    try{ if(database&&sessionId) await database.ref('sessions/'+sessionId).remove(); }catch(e){}
+    currentBox=-1;currentGameIndex=0;openedBoxes=[];_ccScoredKey=null;
+    sessionId='ssiap_'+generateUUID();
+    initializeSupervisor();
+    if(window.MIB_INVITATION_MODE && Array.isArray(window.MIB_INVITATION_STAGIAIRES) && window.MIB_INVITATION_STAGIAIRES.length){
+        setTimeout(()=>{ createNominativeTeams(sessionId, window.MIB_INVITATION_STAGIAIRES); }, 400);
+    }
+});});
+// Déconnexion : quitte la Challenge Cup et revient à l'origine (espace formateur).
+document.getElementById('logout-btn').addEventListener('click',()=>{showConfirmDialog('Quitter la Challenge Cup ?<br><small>La session active sera fermée.</small>',async ()=>{
+    try{ if(database&&sessionId) await database.ref('sessions/'+sessionId).remove(); }catch(e){}
     sessionId=null;userRole=null;teamId=null;teamName=null;
-    location.reload();
+    const fromMib=!!window.MIB_FORMATEUR_ID;
+    try{ window.close(); }catch(e){}
+    setTimeout(()=>{ location.href = fromMib ? '../formateur.html' : location.pathname; }, 300);
 });});
 
 /* ════ CONNEXION STAGIAIRE ════ */
